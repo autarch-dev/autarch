@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Redirect, Route, Switch } from "wouter";
 import { Dashboard } from "@/features/dashboard";
 import { OnboardingPage, useOnboarding } from "@/features/onboarding";
+import { useWebSocketStore } from "@/features/websocket";
 import "./index.css";
 
 /**
@@ -33,6 +34,13 @@ function RootRedirect() {
 }
 
 export function App() {
+	const connect = useWebSocketStore((s) => s.connect);
+
+	// Connect WebSocket on app mount
+	useEffect(() => {
+		connect();
+	}, [connect]);
+
 	return (
 		<Switch>
 			<Route path="/" component={RootRedirect} />
