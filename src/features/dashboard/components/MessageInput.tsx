@@ -43,16 +43,14 @@ export function MessageInput({
 	return (
 		<TooltipProvider>
 			<div className="border rounded-lg bg-background">
-				<div className="p-3">
-					<Textarea
-						value={message}
-						onChange={(e) => setMessage(e.target.value)}
-						onKeyDown={handleKeyDown}
-						placeholder={placeholder}
-						disabled={disabled}
-						className="min-h-[60px] max-h-[200px] resize-none border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-					/>
-				</div>
+				<Textarea
+					value={message}
+					onChange={(e) => setMessage(e.target.value)}
+					onKeyDown={handleKeyDown}
+					placeholder={placeholder}
+					disabled={disabled}
+					className="min-h-[60px] max-h-[200px] resize-none border-0 px-3 py-3 focus-visible:ring-0 focus-visible:ring-offset-0"
+				/>
 				<div className="flex items-center justify-between px-3 py-2 border-t bg-muted/30">
 					<div className="flex items-center gap-1">
 						<Tooltip>
