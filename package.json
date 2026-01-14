@@ -11,6 +11,10 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@ai-sdk/anthropic": "^3.0.12",
+		"@ai-sdk/google": "^3.0.7",
+		"@ai-sdk/openai": "^3.0.9",
+		"@ai-sdk/xai": "^3.0.22",
 		"@radix-ui/react-label": "^2.1.7",
 		"@radix-ui/react-select": "^2.2.6",
 		"@radix-ui/react-slot": "^1.2.3",
