@@ -64,7 +64,9 @@ async function initPipeline(): Promise<void> {
 	const numThreads = Math.max(1, Math.floor(cpus().length / 2));
 	env.backends.onnx.wasm.numThreads = numThreads;
 
-	console.log(`[Worker] Loading embedding model: ${MODEL_ID} (${numThreads} threads)`);
+	console.log(
+		`[Worker] Loading embedding model: ${MODEL_ID} (${numThreads} threads)`,
+	);
 	embeddingPipeline = await pipeline("feature-extraction", MODEL_ID, {
 		quantized: false,
 	});
@@ -76,7 +78,10 @@ async function embed(text: string): Promise<Float32Array> {
 		throw new Error("Pipeline not initialized");
 	}
 
-	const output = await embeddingPipeline(text, { pooling: "mean", normalize: true });
+	const output = await embeddingPipeline(text, {
+		pooling: "mean",
+		normalize: true,
+	});
 
 	if (!(output.data instanceof Float32Array)) {
 		throw new Error("Unexpected embedding data type");

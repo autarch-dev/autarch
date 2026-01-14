@@ -6,12 +6,16 @@
 	}
 
 	body {
-		@apply grid place-items-center min-w-[320px] min-h-screen relative m-0 bg-background text-foreground;
+		@apply min-w-[320px] min-h-screen relative m-0 bg-background text-foreground;
+	}
+
+	#root {
+		@apply min-h-screen;
 	}
 }
 
-/* cool Bun background animation 😎 */
-body::before {
+/* cool Bun background animation 😎 - only on onboarding pages */
+body:has(.onboarding-page)::before {
 	content: "";
 	position: fixed;
 	inset: 0;

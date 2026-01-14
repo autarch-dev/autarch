@@ -1,5 +1,9 @@
 import { Wizard } from "./components/Wizard";
 
 export function OnboardingPage() {
-	return <Wizard />;
+	return (
+		<div className="onboarding-page">
+			<Wizard />
+		</div>
+	);
 }

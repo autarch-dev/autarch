@@ -240,7 +240,7 @@ export async function indexProject(
 								content_hash: chunk.contentHash,
 								start_line: chunk.startLine,
 								end_line: chunk.endLine,
-							})
+							}),
 						)
 						.execute();
 				}
@@ -493,7 +493,7 @@ export async function updateFile(
 					content_hash: chunk.contentHash,
 					start_line: chunk.startLine,
 					end_line: chunk.endLine,
-				})
+				}),
 			)
 			.execute();
 	}
