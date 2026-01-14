@@ -113,6 +113,10 @@ export async function indexProject(
 		const files = await findIndexableFiles(projectRoot);
 		const totalBytes = calculateTotalSize(files);
 
+		console.log(
+			`Found ${files.length} files to index (${(totalBytes / 1024).toFixed(1)} KB)`,
+		);
+
 		if (signal?.aborted) {
 			return;
 		}
@@ -130,6 +134,7 @@ export async function indexProject(
 
 		let filesProcessed = 0;
 		let bytesProcessed = 0;
+		let filesEmbedded = 0;
 
 		// Process each file
 		for (const file of files) {
@@ -148,60 +153,97 @@ export async function indexProject(
 
 			// Chunk the content
 			const chunks = chunkText(content);
+			const newHashes = chunks.map((c) => c.contentHash);
 
-			// Delete existing mappings for this file
-			await db
-				.deleteFrom("file_chunk_mappings")
+			// Get existing chunk hashes for this file
+			const existingMappings = await db
+				.selectFrom("file_chunk_mappings")
+				.select(["content_hash", "chunk_index"])
 				.where("scope_id", "=", scopeId)
 				.where("file_path", "=", file.relativePath)
+				.orderBy("chunk_index")
 				.execute();
 
-			// Process each chunk
-			for (let i = 0; i < chunks.length; i++) {
-				const chunk = chunks[i];
-				if (!chunk) continue;
+			const existingHashes = existingMappings.map((m) => m.content_hash);
 
-				// Check if chunk already exists (deduplication)
-				const existing = await db
-					.selectFrom("embedding_chunks")
-					.select("content_hash")
-					.where("content_hash", "=", chunk.contentHash)
-					.executeTakeFirst();
+			// If hashes match exactly, file is unchanged - skip embedding
+			const unchanged =
+				newHashes.length === existingHashes.length &&
+				newHashes.every((hash, i) => hash === existingHashes[i]);
 
-				if (!existing) {
-					// Generate embedding
-					const embedding = await embed(chunk.text);
+			if (!unchanged) {
+				filesEmbedded++;
 
-					// Store chunk metadata
-					await db
-						.insertInto("embedding_chunks")
-						.values({
-							content_hash: chunk.contentHash,
-							chunk_text: chunk.text,
-							token_count: chunk.tokenCount,
-							computed_at: Date.now(),
-						})
-						.execute();
-
-					// Store vector in virtual table for similarity search
-					await sql`
-						INSERT INTO vec_chunks (content_hash, embedding)
-						VALUES (${chunk.contentHash}, ${embedding})
-					`.execute(db);
-				}
-
-				// Create file-chunk mapping
+				// Delete existing mappings
 				await db
-					.insertInto("file_chunk_mappings")
-					.values({
-						scope_id: scopeId,
-						file_path: file.relativePath,
-						content_hash: chunk.contentHash,
-						chunk_index: i,
-						start_line: chunk.startLine,
-						end_line: chunk.endLine,
-					})
+					.deleteFrom("file_chunk_mappings")
+					.where("scope_id", "=", scopeId)
+					.where("file_path", "=", file.relativePath)
 					.execute();
+
+				// Process each chunk
+				for (let i = 0; i < chunks.length; i++) {
+					const chunk = chunks[i];
+					if (!chunk) continue;
+
+					// Check if chunk already exists (deduplication across files)
+					const existing = await db
+						.selectFrom("embedding_chunks")
+						.select("content_hash")
+						.where("content_hash", "=", chunk.contentHash)
+						.executeTakeFirst();
+
+					if (!existing) {
+						// Generate embedding
+						const embedding = await embed(chunk.text);
+
+						// Store chunk metadata (ignore if already exists due to race)
+						await db
+							.insertInto("embedding_chunks")
+							.values({
+								content_hash: chunk.contentHash,
+								chunk_text: chunk.text,
+								token_count: chunk.tokenCount,
+								computed_at: Date.now(),
+							})
+							.onConflict((oc) => oc.column("content_hash").doNothing())
+							.execute();
+
+						// Store vector in virtual table
+						// vec0 virtual tables don't support INSERT OR IGNORE, so catch duplicates
+						try {
+							await sql`
+								INSERT INTO vec_chunks (content_hash, embedding)
+								VALUES (${chunk.contentHash}, ${embedding})
+							`.execute(db);
+						} catch (e) {
+							// Ignore duplicate key errors from race conditions
+							if (!(e instanceof Error && e.message.includes("UNIQUE"))) {
+								throw e;
+							}
+						}
+					}
+
+					// Create file-chunk mapping (replace if exists)
+					await db
+						.insertInto("file_chunk_mappings")
+						.values({
+							scope_id: scopeId,
+							file_path: file.relativePath,
+							content_hash: chunk.contentHash,
+							chunk_index: i,
+							start_line: chunk.startLine,
+							end_line: chunk.endLine,
+						})
+						.onConflict((oc) =>
+							oc.columns(["scope_id", "file_path", "chunk_index"]).doUpdateSet({
+								content_hash: chunk.contentHash,
+								start_line: chunk.startLine,
+								end_line: chunk.endLine,
+							})
+						)
+						.execute();
+				}
 			}
 
 			filesProcessed++;
@@ -235,6 +277,11 @@ export async function indexProject(
 				bytesProcessed,
 				totalBytes,
 			}),
+		);
+
+		const skipped = files.length - filesEmbedded;
+		console.log(
+			`Indexing complete: ${filesEmbedded} embedded, ${skipped} unchanged`,
 		);
 	} finally {
 		state.isIndexing = false;
@@ -325,6 +372,154 @@ export async function search(
 	// Sort by score descending and take limit
 	results.sort((a, b) => b.score - a.score);
 	return results.slice(0, limit);
+}
+
+// =============================================================================
+// Incremental Updates
+// =============================================================================
+
+/**
+ * Update embeddings for a single file.
+ * Skips re-embedding if chunk hashes haven't changed.
+ *
+ * @param projectRoot - The root directory of the project
+ * @param relativePath - Path relative to project root
+ * @returns true if file was re-indexed, false if unchanged
+ */
+export async function updateFile(
+	projectRoot: string,
+	relativePath: string,
+): Promise<boolean> {
+	const db = await getEmbeddingsDb(projectRoot);
+	const scopeId = await getOrCreateMainScope(projectRoot);
+	const absolutePath = `${projectRoot}/${relativePath}`;
+
+	// Read file content
+	const content = await readFileIfText(absolutePath);
+
+	// If file is binary or unreadable, remove from index
+	if (content === null) {
+		await removeFile(projectRoot, relativePath);
+		return true;
+	}
+
+	// Chunk the content
+	const chunks = chunkText(content);
+	const newHashes = chunks.map((c) => c.contentHash);
+
+	// Get existing chunk hashes for this file
+	const existingMappings = await db
+		.selectFrom("file_chunk_mappings")
+		.select(["content_hash", "chunk_index"])
+		.where("scope_id", "=", scopeId)
+		.where("file_path", "=", relativePath)
+		.orderBy("chunk_index")
+		.execute();
+
+	const existingHashes = existingMappings.map((m) => m.content_hash);
+
+	// If hashes match exactly, file is unchanged - skip
+	if (
+		newHashes.length === existingHashes.length &&
+		newHashes.every((hash, i) => hash === existingHashes[i])
+	) {
+		return false;
+	}
+
+	// Hashes differ - re-index the file
+	// Delete existing mappings
+	await db
+		.deleteFrom("file_chunk_mappings")
+		.where("scope_id", "=", scopeId)
+		.where("file_path", "=", relativePath)
+		.execute();
+
+	// Process each chunk
+	for (let i = 0; i < chunks.length; i++) {
+		const chunk = chunks[i];
+		if (!chunk) continue;
+
+		// Check if chunk already exists (deduplication across files)
+		const existing = await db
+			.selectFrom("embedding_chunks")
+			.select("content_hash")
+			.where("content_hash", "=", chunk.contentHash)
+			.executeTakeFirst();
+
+		if (!existing) {
+			// Generate embedding
+			const embedding = await embed(chunk.text);
+
+			// Store chunk metadata (ignore if already exists due to race)
+			await db
+				.insertInto("embedding_chunks")
+				.values({
+					content_hash: chunk.contentHash,
+					chunk_text: chunk.text,
+					token_count: chunk.tokenCount,
+					computed_at: Date.now(),
+				})
+				.onConflict((oc) => oc.column("content_hash").doNothing())
+				.execute();
+
+			// Store vector in virtual table
+			// vec0 virtual tables don't support INSERT OR IGNORE, so catch duplicates
+			try {
+				await sql`
+					INSERT INTO vec_chunks (content_hash, embedding)
+					VALUES (${chunk.contentHash}, ${embedding})
+				`.execute(db);
+			} catch (e) {
+				// Ignore duplicate key errors from race conditions
+				if (!(e instanceof Error && e.message.includes("UNIQUE"))) {
+					throw e;
+				}
+			}
+		}
+
+		// Create file-chunk mapping (replace if exists)
+		await db
+			.insertInto("file_chunk_mappings")
+			.values({
+				scope_id: scopeId,
+				file_path: relativePath,
+				content_hash: chunk.contentHash,
+				chunk_index: i,
+				start_line: chunk.startLine,
+				end_line: chunk.endLine,
+			})
+			.onConflict((oc) =>
+				oc.columns(["scope_id", "file_path", "chunk_index"]).doUpdateSet({
+					content_hash: chunk.contentHash,
+					start_line: chunk.startLine,
+					end_line: chunk.endLine,
+				})
+			)
+			.execute();
+	}
+
+	return true;
+}
+
+/**
+ * Remove a file from the index.
+ * Used when files are deleted.
+ *
+ * @param projectRoot - The root directory of the project
+ * @param relativePath - Path relative to project root
+ */
+export async function removeFile(
+	projectRoot: string,
+	relativePath: string,
+): Promise<void> {
+	const db = await getEmbeddingsDb(projectRoot);
+	const scopeId = await getOrCreateMainScope(projectRoot);
+
+	await db
+		.deleteFrom("file_chunk_mappings")
+		.where("scope_id", "=", scopeId)
+		.where("file_path", "=", relativePath)
+		.execute();
 }
 
 // =============================================================================

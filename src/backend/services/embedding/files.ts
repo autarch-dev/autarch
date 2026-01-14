@@ -1,74 +1,12 @@
 import { spawn } from "node:child_process";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { extname, join, relative } from "node:path";
-
-// =============================================================================
-// Configuration
-// =============================================================================
-
-/** Maximum file size to index (96 KB) */
-const MAX_FILE_SIZE = 96 * 1024;
-
-/** Supported file extensions by category */
-const SUPPORTED_EXTENSIONS = {
-	code: new Set([
-		".ts",
-		".tsx",
-		".js",
-		".jsx",
-		".py",
-		".rs",
-		".go",
-		".java",
-		".kt",
-		".c",
-		".cpp",
-		".h",
-		".hpp",
-		".rb",
-		".php",
-		".swift",
-		".sql",
-		".cs",
-		".fs",
-		".vb",
-	]),
-	docs: new Set([".md", ".txt"]),
-	config: new Set([
-		".json",
-		".yaml",
-		".yml",
-		".xml",
-		".html",
-		".css",
-		".sh",
-		".bash",
-		".zsh",
-		".dockerfile",
-		".toml",
-		".ini",
-		".cfg",
-	]),
-} as const;
-
-/** All supported extensions combined */
-const ALL_EXTENSIONS = new Set([
-	...SUPPORTED_EXTENSIONS.code,
-	...SUPPORTED_EXTENSIONS.docs,
-	...SUPPORTED_EXTENSIONS.config,
-]);
-
-/** Lock files to skip */
-const LOCK_FILES = new Set([
-	"package-lock.json",
-	"yarn.lock",
-	"pnpm-lock.yaml",
-	"bun.lock",
-	"Cargo.lock",
-	"Gemfile.lock",
-	"composer.lock",
-	"poetry.lock",
-]);
+import {
+	isExcludedDir,
+	isLockFile,
+	isSupportedExtension,
+	MAX_FILE_SIZE,
+} from "./config";
 
 // =============================================================================
 // Types
@@ -167,17 +105,9 @@ export async function findIndexableFiles(
 			const absolutePath = join(dir, entry.name);
 			const relativePath = relative(rootPath, absolutePath);
 
-			// Skip hidden directories
+			// Skip excluded directories
 			if (entry.isDirectory()) {
-				if (entry.name.startsWith(".")) {
-					continue;
-				}
-				// Skip node_modules and similar
-				if (
-					entry.name === "node_modules" ||
-					entry.name === "vendor" ||
-					entry.name === "dist"
-				) {
+				if (isExcludedDir(entry.name)) {
 					continue;
 				}
 				await walk(absolutePath);
@@ -195,13 +125,13 @@ export async function findIndexableFiles(
 			}
 
 			// Check extension
-			const ext = extname(entry.name).toLowerCase();
-			if (!ALL_EXTENSIONS.has(ext)) {
+			const ext = extname(entry.name);
+			if (!isSupportedExtension(ext)) {
 				continue;
 			}
 
 			// Skip lock files
-			if (LOCK_FILES.has(entry.name)) {
+			if (isLockFile(entry.name)) {
 				continue;
 			}
 

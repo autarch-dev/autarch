@@ -40,6 +40,11 @@ export async function getEmbeddingsDb(
 			create: true,
 		});
 
+		// Enable WAL mode for better concurrency
+		sqlite.exec("PRAGMA journal_mode=WAL;");
+		// Wait up to 5 seconds if database is locked
+		sqlite.exec("PRAGMA busy_timeout=5000;");
+
 		// Load sqlite-vec extension for vector operations
 		sqliteVec.load(sqlite);
 

@@ -1,7 +1,9 @@
 import { serve } from "bun";
 import open from "open";
 import index from "../index.html";
+import { findRepoRoot } from "./git";
 import { settingsRoutes } from "./routes/settings";
+import { startWatching } from "./services/embedding";
 import { handleClose, handleMessage, handleOpen } from "./ws";
 
 // Server reference for WebSocket upgrades
@@ -52,3 +54,14 @@ console.log(`🚀 Autarch running at ${server.url}`);
 if (process.env.NODE_ENV !== "production") {
 	open(server.url.toString());
 }
+
+// Find project root and start embedding index + file watcher
+let projectRoot: string;
+try {
+	projectRoot = findRepoRoot(process.cwd());
+} catch {
+	console.error("Error: Please run autarch from a git repository.");
+	process.exit(1);
+}
+
+startWatching(projectRoot);
