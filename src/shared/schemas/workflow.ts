@@ -1,0 +1,180 @@
+import { z } from "zod";
+
+// =============================================================================
+// Workflow Status and Priority
+// =============================================================================
+
+export const WorkflowStatusSchema = z.enum([
+	"backlog",
+	"scoping",
+	"researching",
+	"planning",
+	"in_progress",
+	"review",
+	"done",
+]);
+export type WorkflowStatus = z.infer<typeof WorkflowStatusSchema>;
+
+export const WorkflowPrioritySchema = z.enum([
+	"low",
+	"medium",
+	"high",
+	"urgent",
+]);
+export type WorkflowPriority = z.infer<typeof WorkflowPrioritySchema>;
+
+// =============================================================================
+// Scope Card
+// =============================================================================
+
+export const RecommendedPathSchema = z.enum(["quick", "full"]);
+export type RecommendedPath = z.infer<typeof RecommendedPathSchema>;
+
+export const ScopeCardSchema = z.object({
+	id: z.string(),
+	workflowId: z.string(),
+	title: z.string(),
+	description: z.string(),
+	inScope: z.array(z.string()),
+	outOfScope: z.array(z.string()),
+	constraints: z.array(z.string()).optional(),
+	recommendedPath: RecommendedPathSchema,
+	rationale: z.string().optional(),
+	createdAt: z.number(),
+});
+export type ScopeCard = z.infer<typeof ScopeCardSchema>;
+
+// =============================================================================
+// Research Card
+// =============================================================================
+
+export const KeyFileSchema = z.object({
+	path: z.string(),
+	purpose: z.string(),
+	lineRanges: z.string().optional(),
+});
+export type KeyFile = z.infer<typeof KeyFileSchema>;
+
+export const PatternSchema = z.object({
+	category: z.string(),
+	description: z.string(),
+	example: z.string(),
+	locations: z.array(z.string()),
+});
+export type Pattern = z.infer<typeof PatternSchema>;
+
+export const DependencySchema = z.object({
+	name: z.string(),
+	purpose: z.string(),
+	usageExample: z.string(),
+});
+export type Dependency = z.infer<typeof DependencySchema>;
+
+export const IntegrationPointSchema = z.object({
+	location: z.string(),
+	description: z.string(),
+	existingCode: z.string(),
+});
+export type IntegrationPoint = z.infer<typeof IntegrationPointSchema>;
+
+export const ChallengeSchema = z.object({
+	issue: z.string(),
+	mitigation: z.string(),
+});
+export type Challenge = z.infer<typeof ChallengeSchema>;
+
+export const ResearchCardSchema = z.object({
+	id: z.string(),
+	workflowId: z.string(),
+	summary: z.string(),
+	keyFiles: z.array(KeyFileSchema),
+	patterns: z.array(PatternSchema).optional(),
+	dependencies: z.array(DependencySchema).optional(),
+	integrationPoints: z.array(IntegrationPointSchema).optional(),
+	challenges: z.array(ChallengeSchema).optional(),
+	recommendations: z.array(z.string()),
+	createdAt: z.number(),
+});
+export type ResearchCard = z.infer<typeof ResearchCardSchema>;
+
+// =============================================================================
+// Plan
+// =============================================================================
+
+export const PulseSizeSchema = z.enum(["small", "medium", "large"]);
+export type PulseSize = z.infer<typeof PulseSizeSchema>;
+
+export const PulseDefinitionSchema = z.object({
+	id: z.string(),
+	title: z.string(),
+	description: z.string(),
+	expectedChanges: z.array(z.string()),
+	estimatedSize: PulseSizeSchema,
+	dependsOn: z.array(z.string()).optional(),
+});
+export type PulseDefinition = z.infer<typeof PulseDefinitionSchema>;
+
+export const PlanSchema = z.object({
+	id: z.string(),
+	workflowId: z.string(),
+	approachSummary: z.string(),
+	pulses: z.array(PulseDefinitionSchema),
+	createdAt: z.number(),
+});
+export type Plan = z.infer<typeof PlanSchema>;
+
+// =============================================================================
+// Workflow
+// =============================================================================
+
+export const WorkflowSchema = z.object({
+	id: z.string(),
+	title: z.string(),
+	description: z.string().optional(),
+	status: WorkflowStatusSchema,
+	priority: WorkflowPrioritySchema,
+	currentSessionId: z.string().optional(),
+	awaitingApproval: z.boolean(),
+	pendingArtifactType: z
+		.enum(["scope_card", "research", "plan", "review"])
+		.optional(),
+	createdAt: z.number(),
+	updatedAt: z.number(),
+});
+export type Workflow = z.infer<typeof WorkflowSchema>;
+
+// =============================================================================
+// Stage Transition Helpers
+// =============================================================================
+
+/** Maps workflow status to the next status in the pipeline */
+export const STAGE_TRANSITIONS: Record<WorkflowStatus, WorkflowStatus | null> =
+	{
+		backlog: "scoping",
+		scoping: "researching",
+		researching: "planning",
+		planning: "in_progress",
+		in_progress: "review",
+		review: "done",
+		done: null,
+	};
+
+/** Tools that require user approval before transitioning */
+export const APPROVAL_REQUIRED_TOOLS: Record<string, WorkflowStatus> = {
+	submit_scope: "researching",
+	submit_research: "planning",
+	submit_plan: "in_progress",
+	complete_review: "done",
+};
+
+/** Tools that trigger automatic transitions (no approval needed) */
+export const AUTO_TRANSITION_TOOLS: Record<string, WorkflowStatus> = {
+	complete_pulse: "review",
+};
+
+/** Get the next stage after the current one */
+export function getNextStage(
+	currentStage: WorkflowStatus,
+): WorkflowStatus | null {
+	return STAGE_TRANSITIONS[currentStage];
+}

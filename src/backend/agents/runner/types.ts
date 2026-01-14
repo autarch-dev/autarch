@@ -1,0 +1,125 @@
+/**
+ * Types for the Agent Runner system
+ */
+
+import type { Kysely } from "kysely";
+import type { ProjectDatabase } from "@/backend/db/project";
+import type { ModelScenario } from "@/shared/schemas/settings";
+import type { WorkflowStatus } from "@/shared/schemas/workflow";
+
+// =============================================================================
+// Session Types
+// =============================================================================
+
+export type SessionContextType = "channel" | "workflow";
+
+export type SessionStatus = "active" | "completed" | "error";
+
+/**
+ * Context for creating a new session
+ */
+export interface SessionContext {
+	contextType: SessionContextType;
+	contextId: string;
+	agentRole: ModelScenario;
+}
+
+/**
+ * An active session being tracked by the SessionManager
+ */
+export interface ActiveSession {
+	id: string;
+	contextType: SessionContextType;
+	contextId: string;
+	agentRole: ModelScenario;
+	status: SessionStatus;
+	abortController: AbortController;
+	createdAt: number;
+}
+
+// =============================================================================
+// Turn Types
+// =============================================================================
+
+export type TurnRole = "user" | "assistant";
+
+export type TurnStatus = "streaming" | "completed" | "error";
+
+/**
+ * Represents a single turn in a conversation
+ */
+export interface Turn {
+	id: string;
+	sessionId: string;
+	turnIndex: number;
+	role: TurnRole;
+	status: TurnStatus;
+	tokenCount?: number;
+	createdAt: number;
+	completedAt?: number;
+}
+
+// =============================================================================
+// Tool Execution Types
+// =============================================================================
+
+export type ToolStatus = "pending" | "running" | "completed" | "error";
+
+/**
+ * Represents a tool call within a turn
+ */
+export interface ToolCall {
+	id: string;
+	turnId: string;
+	toolIndex: number;
+	toolName: string;
+	reason?: string;
+	input: unknown;
+	output?: unknown;
+	status: ToolStatus;
+	startedAt: number;
+	completedAt?: number;
+}
+
+// =============================================================================
+// Workflow Orchestration Types
+// =============================================================================
+
+/**
+ * Result of handling a stage-completion tool
+ */
+export interface StageTransitionResult {
+	transitioned: boolean;
+	newStage?: WorkflowStatus;
+	awaitingApproval: boolean;
+	artifactId?: string;
+}
+
+/**
+ * Artifact types that can be submitted for approval
+ */
+export type ArtifactType = "scope_card" | "research" | "plan" | "review";
+
+// =============================================================================
+// Runner Configuration
+// =============================================================================
+
+/**
+ * Configuration passed to the AgentRunner
+ */
+export interface RunnerConfig {
+	projectRoot: string;
+	db: Kysely<ProjectDatabase>;
+	worktreePath?: string; // For pulsing agent isolation
+}
+
+/**
+ * Options for running the agent
+ */
+export interface RunOptions {
+	signal?: AbortSignal;
+	onMessageDelta?: (delta: string) => void;
+	onThoughtDelta?: (delta: string) => void;
+	onToolStarted?: (toolCall: ToolCall) => void;
+	onToolCompleted?: (toolCall: ToolCall) => void;
+}

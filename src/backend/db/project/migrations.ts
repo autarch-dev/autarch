@@ -8,11 +8,21 @@ export async function migrateProjectDb(
 	db: Kysely<ProjectDatabase>,
 ): Promise<void> {
 	await createProjectMetaTable(db);
+	await createWorkflowsTable(db);
+	await createScopeCardsTable(db);
+	await createResearchCardsTable(db);
+	await createPlansTable(db);
+	await createSessionsTable(db);
+	await createTurnsTable(db);
+	await createTurnMessagesTable(db);
+	await createTurnToolsTable(db);
+	await createTurnThoughtsTable(db);
 }
 
-/**
- * Create the project_meta table
- */
+// =============================================================================
+// Project Meta
+// =============================================================================
+
 async function createProjectMetaTable(
 	db: Kysely<ProjectDatabase>,
 ): Promise<void> {
@@ -22,5 +32,269 @@ async function createProjectMetaTable(
 		.addColumn("key", "text", (col) => col.primaryKey())
 		.addColumn("value", "text", (col) => col.notNull())
 		.addColumn("updated_at", "integer", (col) => col.notNull())
+		.execute();
+}
+
+// =============================================================================
+// Workflows
+// =============================================================================
+
+async function createWorkflowsTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("workflows")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("title", "text", (col) => col.notNull())
+		.addColumn("description", "text")
+		.addColumn("status", "text", (col) => col.notNull().defaultTo("backlog"))
+		.addColumn("priority", "text", (col) => col.notNull().defaultTo("medium"))
+		.addColumn("current_session_id", "text")
+		.addColumn("awaiting_approval", "integer", (col) =>
+			col.notNull().defaultTo(0),
+		)
+		.addColumn("pending_artifact_type", "text")
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.addColumn("updated_at", "integer", (col) => col.notNull())
+		.execute();
+
+	// Index for listing workflows by status
+	await db.schema
+		.createIndex("idx_workflows_status")
+		.ifNotExists()
+		.on("workflows")
+		.column("status")
+		.execute();
+}
+
+// =============================================================================
+// Scope Cards
+// =============================================================================
+
+async function createScopeCardsTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("scope_cards")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("workflow_id", "text", (col) =>
+			col.notNull().references("workflows.id"),
+		)
+		.addColumn("title", "text", (col) => col.notNull())
+		.addColumn("description", "text", (col) => col.notNull())
+		.addColumn("in_scope_json", "text", (col) => col.notNull())
+		.addColumn("out_of_scope_json", "text", (col) => col.notNull())
+		.addColumn("constraints_json", "text")
+		.addColumn("recommended_path", "text", (col) => col.notNull())
+		.addColumn("rationale", "text")
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.execute();
+
+	await db.schema
+		.createIndex("idx_scope_cards_workflow")
+		.ifNotExists()
+		.on("scope_cards")
+		.column("workflow_id")
+		.execute();
+}
+
+// =============================================================================
+// Research Cards
+// =============================================================================
+
+async function createResearchCardsTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("research_cards")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("workflow_id", "text", (col) =>
+			col.notNull().references("workflows.id"),
+		)
+		.addColumn("summary", "text", (col) => col.notNull())
+		.addColumn("key_files_json", "text", (col) => col.notNull())
+		.addColumn("patterns_json", "text")
+		.addColumn("dependencies_json", "text")
+		.addColumn("integration_points_json", "text")
+		.addColumn("challenges_json", "text")
+		.addColumn("recommendations_json", "text", (col) => col.notNull())
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.execute();
+
+	await db.schema
+		.createIndex("idx_research_cards_workflow")
+		.ifNotExists()
+		.on("research_cards")
+		.column("workflow_id")
+		.execute();
+}
+
+// =============================================================================
+// Plans
+// =============================================================================
+
+async function createPlansTable(db: Kysely<ProjectDatabase>): Promise<void> {
+	await db.schema
+		.createTable("plans")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("workflow_id", "text", (col) =>
+			col.notNull().references("workflows.id"),
+		)
+		.addColumn("approach_summary", "text", (col) => col.notNull())
+		.addColumn("pulses_json", "text", (col) => col.notNull())
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.execute();
+
+	await db.schema
+		.createIndex("idx_plans_workflow")
+		.ifNotExists()
+		.on("plans")
+		.column("workflow_id")
+		.execute();
+}
+
+// =============================================================================
+// Sessions
+// =============================================================================
+
+async function createSessionsTable(db: Kysely<ProjectDatabase>): Promise<void> {
+	await db.schema
+		.createTable("sessions")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("context_type", "text", (col) => col.notNull())
+		.addColumn("context_id", "text", (col) => col.notNull())
+		.addColumn("agent_role", "text", (col) => col.notNull())
+		.addColumn("status", "text", (col) => col.notNull().defaultTo("active"))
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.addColumn("updated_at", "integer", (col) => col.notNull())
+		.execute();
+
+	// Index for finding sessions by context
+	await db.schema
+		.createIndex("idx_sessions_context")
+		.ifNotExists()
+		.on("sessions")
+		.columns(["context_type", "context_id"])
+		.execute();
+
+	// Index for finding active sessions
+	await db.schema
+		.createIndex("idx_sessions_status")
+		.ifNotExists()
+		.on("sessions")
+		.column("status")
+		.execute();
+}
+
+// =============================================================================
+// Turns
+// =============================================================================
+
+async function createTurnsTable(db: Kysely<ProjectDatabase>): Promise<void> {
+	await db.schema
+		.createTable("turns")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("session_id", "text", (col) =>
+			col.notNull().references("sessions.id"),
+		)
+		.addColumn("turn_index", "integer", (col) => col.notNull())
+		.addColumn("role", "text", (col) => col.notNull())
+		.addColumn("status", "text", (col) => col.notNull().defaultTo("streaming"))
+		.addColumn("token_count", "integer")
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.addColumn("completed_at", "integer")
+		.execute();
+
+	await db.schema
+		.createIndex("idx_turns_session")
+		.ifNotExists()
+		.on("turns")
+		.column("session_id")
+		.execute();
+}
+
+// =============================================================================
+// Turn Messages
+// =============================================================================
+
+async function createTurnMessagesTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("turn_messages")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("turn_id", "text", (col) => col.notNull().references("turns.id"))
+		.addColumn("message_index", "integer", (col) => col.notNull())
+		.addColumn("content", "text", (col) => col.notNull())
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.execute();
+
+	await db.schema
+		.createIndex("idx_turn_messages_turn")
+		.ifNotExists()
+		.on("turn_messages")
+		.column("turn_id")
+		.execute();
+}
+
+// =============================================================================
+// Turn Tools
+// =============================================================================
+
+async function createTurnToolsTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("turn_tools")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("turn_id", "text", (col) => col.notNull().references("turns.id"))
+		.addColumn("tool_index", "integer", (col) => col.notNull())
+		.addColumn("tool_name", "text", (col) => col.notNull())
+		.addColumn("reason", "text")
+		.addColumn("input_json", "text", (col) => col.notNull())
+		.addColumn("output_json", "text")
+		.addColumn("status", "text", (col) => col.notNull().defaultTo("pending"))
+		.addColumn("started_at", "integer", (col) => col.notNull())
+		.addColumn("completed_at", "integer")
+		.execute();
+
+	await db.schema
+		.createIndex("idx_turn_tools_turn")
+		.ifNotExists()
+		.on("turn_tools")
+		.column("turn_id")
+		.execute();
+}
+
+// =============================================================================
+// Turn Thoughts
+// =============================================================================
+
+async function createTurnThoughtsTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("turn_thoughts")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("turn_id", "text", (col) => col.notNull().references("turns.id"))
+		.addColumn("thought_index", "integer", (col) => col.notNull())
+		.addColumn("content", "text", (col) => col.notNull())
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.execute();
+
+	await db.schema
+		.createIndex("idx_turn_thoughts_turn")
+		.ifNotExists()
+		.on("turn_thoughts")
+		.column("turn_id")
 		.execute();
 }

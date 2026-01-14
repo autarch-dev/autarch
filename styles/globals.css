@@ -124,12 +124,18 @@
 /* Shiki dual theme support - apply dark theme colors when .dark class is present */
 .dark .shiki,
 .dark .shiki code {
+	/* biome-ignore lint/complexity/noImportantStyles: Stupid weirdness w/ dark mode */
 	background-color: var(--shiki-dark-bg) !important;
 }
 .dark .shiki span {
+	/* biome-ignore lint/complexity/noImportantStyles: Stupid weirdness w/ dark mode */
 	color: var(--shiki-dark) !important;
+	/* biome-ignore lint/complexity/noImportantStyles: Stupid weirdness w/ dark mode */
 	background-color: transparent !important;
+	/* biome-ignore lint/complexity/noImportantStyles: Stupid weirdness w/ dark mode */
 	font-style: var(--shiki-dark-font-style) !important;
+	/* biome-ignore lint/complexity/noImportantStyles: Stupid weirdness w/ dark mode */
 	font-weight: var(--shiki-dark-font-weight) !important;
+	/* biome-ignore lint/complexity/noImportantStyles: Stupid weirdness w/ dark mode */
 	text-decoration: var(--shiki-dark-text-decoration) !important;
 }

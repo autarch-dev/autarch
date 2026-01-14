@@ -83,4 +83,27 @@ export async function closeAllProjectDbs(): Promise<void> {
 	}
 }
 
-export type { ProjectDatabase, ProjectMetaTable } from "./types";
+// Re-export all types
+export type {
+	PendingArtifactType,
+	PlansTable,
+	ProjectDatabase,
+	ProjectMetaTable,
+	RecommendedPath,
+	ResearchCardsTable,
+	ScopeCardsTable,
+	ScopeComplexity,
+	SessionContextType,
+	SessionStatus,
+	SessionsTable,
+	ToolStatus,
+	TurnMessagesTable,
+	TurnRole,
+	TurnStatus,
+	TurnsTable,
+	TurnThoughtsTable,
+	TurnToolsTable,
+	WorkflowPriority,
+	WorkflowStatus,
+	WorkflowsTable,
+} from "./types";
