@@ -14,7 +14,7 @@ import {
 	createSessionErrorEvent,
 	createSessionStartedEvent,
 } from "@/shared/schemas/events";
-import type { ActiveSession, SessionContext, SessionStatus } from "./types";
+import type { ActiveSession, SessionContext } from "./types";
 
 // =============================================================================
 // SessionManager

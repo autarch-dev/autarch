@@ -25,7 +25,7 @@ export function ChannelView({
 }: ChannelViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
-	// Auto-scroll to bottom when new messages arrive
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll to bottom when new messages arrive
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages, streamingMessage?.content]);

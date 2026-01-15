@@ -183,9 +183,7 @@ export class AgentRunner {
 
 		// Determine which tools are "recent" (last N)
 		const recentToolIds = new Set(
-			allTools
-				.slice(-AgentRunner.RECENT_TOOLS_LIMIT)
-				.map((t) => t.id),
+			allTools.slice(-AgentRunner.RECENT_TOOLS_LIMIT).map((t) => t.id),
 		);
 
 		// Build summaries for older tools (grouped by turn for context)
@@ -318,7 +316,8 @@ export class AgentRunner {
 			let valueStr: string;
 			if (typeof value === "string") {
 				// Truncate long strings
-				valueStr = value.length > 50 ? `"${value.slice(0, 50)}..."` : `"${value}"`;
+				valueStr =
+					value.length > 50 ? `"${value.slice(0, 50)}..."` : `"${value}"`;
 			} else if (typeof value === "object") {
 				valueStr = Array.isArray(value) ? `[${value.length} items]` : "{...}";
 			} else {

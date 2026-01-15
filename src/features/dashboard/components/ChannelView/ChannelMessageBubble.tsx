@@ -89,22 +89,44 @@ interface ToolCallDisplayProps {
 	};
 }
 
+/** Extract the reason field from tool input if present */
+function getToolReason(input: unknown): string | undefined {
+	if (
+		typeof input === "object" &&
+		input !== null &&
+		"reason" in input &&
+		typeof (input as Record<string, unknown>).reason === "string"
+	) {
+		return (input as Record<string, unknown>).reason as string;
+	}
+	return undefined;
+}
+
 function ToolCallDisplay({ tool }: ToolCallDisplayProps) {
+	const reason = getToolReason(tool.input);
+
 	return (
 		<div className="rounded-md border bg-muted/50 overflow-hidden">
 			<div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/70">
-				<Wrench className="size-3.5 text-muted-foreground" />
-				<span className="text-xs font-mono text-muted-foreground">
-					{tool.name}
-				</span>
+				<Wrench className="size-3.5 text-muted-foreground shrink-0" />
+				<div className="flex-1 min-w-0">
+					<span className="text-xs font-mono text-muted-foreground">
+						{tool.name}
+					</span>
+					{reason && (
+						<p className="text-xs text-muted-foreground/70 truncate">
+							{reason}
+						</p>
+					)}
+				</div>
 				{tool.status === "running" && (
-					<Loader2 className="size-3 animate-spin text-muted-foreground ml-auto" />
+					<Loader2 className="size-3 animate-spin text-muted-foreground shrink-0" />
 				)}
 				{tool.status === "completed" && (
-					<CheckCircle2 className="size-3 text-green-500 ml-auto" />
+					<CheckCircle2 className="size-3 text-green-500 shrink-0" />
 				)}
 				{tool.status === "error" && (
-					<XCircle className="size-3 text-destructive ml-auto" />
+					<XCircle className="size-3 text-destructive shrink-0" />
 				)}
 			</div>
 			{tool.output ? (

@@ -1,7 +1,10 @@
 import { serve } from "bun";
 import open from "open";
 import index from "../index.html";
+import { initSessionManager } from "./agents/runner";
+import { getProjectDb } from "./db/project";
 import { findRepoRoot } from "./git";
+import { agentRoutes, handleAgentRoute } from "./routes/agent";
 import { settingsRoutes } from "./routes/settings";
 import { startWatching } from "./services/embedding";
 import { handleClose, handleMessage, handleOpen } from "./ws";
@@ -15,6 +18,7 @@ const server = serve({
 	routes: {
 		// API routes (code-split by domain)
 		...settingsRoutes,
+		...agentRoutes,
 
 		// WebSocket upgrade endpoint
 		"/ws": {
@@ -29,6 +33,22 @@ const server = serve({
 
 		// Serve index.html for all unmatched routes (SPA fallback)
 		"/*": index,
+	},
+
+	// Handle dynamic API routes with path parameters
+	async fetch(req: Request) {
+		const url = new URL(req.url);
+
+		// Try dynamic agent routes (handles /api/channels/:id, /api/sessions/:id/message, etc.)
+		if (url.pathname.startsWith("/api/")) {
+			const response = await handleAgentRoute(req, url.pathname);
+			if (response) {
+				return response;
+			}
+		}
+
+		// Fall through to static routes
+		return undefined;
 	},
 
 	websocket: {
@@ -48,14 +68,7 @@ const server = serve({
 
 serverRef = server;
 
-console.log(`🚀 Autarch running at ${server.url}`);
-
-// Auto-open browser in development
-if (process.env.NODE_ENV !== "production") {
-	open(server.url.toString());
-}
-
-// Find project root and start embedding index + file watcher
+// Find project root first - required for agent system
 let projectRoot: string;
 try {
 	projectRoot = findRepoRoot(process.cwd());
@@ -64,4 +77,19 @@ try {
 	process.exit(1);
 }
 
+// Initialize agent system (SessionManager needs the database)
+(async () => {
+	const db = await getProjectDb(projectRoot);
+	initSessionManager(db);
+	console.log("✓ Agent system initialized");
+})();
+
+// Start embedding index + file watcher
 startWatching(projectRoot);
+
+console.log(`🚀 Autarch running at ${server.url}`);
+
+// Auto-open browser in development
+if (process.env.NODE_ENV !== "production") {
+	open(server.url.toString());
+}
