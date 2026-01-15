@@ -247,6 +247,7 @@ export type TurnCompletedEvent = z.infer<typeof TurnCompletedEventSchema>;
 export const TurnMessageDeltaPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
+	segmentIndex: z.number().default(0), // Index of the current text segment (increments after tool calls)
 	delta: z.string(),
 });
 export type TurnMessageDeltaPayload = z.infer<
@@ -258,6 +259,25 @@ export const TurnMessageDeltaEventSchema = z.object({
 	payload: TurnMessageDeltaPayloadSchema,
 });
 export type TurnMessageDeltaEvent = z.infer<typeof TurnMessageDeltaEventSchema>;
+
+// turn:segment_complete - Emitted when a text segment is finalized (before a tool call)
+export const TurnSegmentCompletePayloadSchema = z.object({
+	sessionId: z.string(),
+	turnId: z.string(),
+	segmentIndex: z.number(),
+	content: z.string(),
+});
+export type TurnSegmentCompletePayload = z.infer<
+	typeof TurnSegmentCompletePayloadSchema
+>;
+
+export const TurnSegmentCompleteEventSchema = z.object({
+	type: z.literal("turn:segment_complete"),
+	payload: TurnSegmentCompletePayloadSchema,
+});
+export type TurnSegmentCompleteEvent = z.infer<
+	typeof TurnSegmentCompleteEventSchema
+>;
 
 // turn:thought_delta
 export const TurnThoughtDeltaPayloadSchema = z.object({
@@ -342,6 +362,7 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	TurnCompletedEventSchema,
 	// Streaming events
 	TurnMessageDeltaEventSchema,
+	TurnSegmentCompleteEventSchema,
 	TurnThoughtDeltaEventSchema,
 	// Tool events
 	TurnToolStartedEventSchema,
@@ -441,6 +462,12 @@ export function createTurnMessageDeltaEvent(
 	payload: TurnMessageDeltaPayload,
 ): TurnMessageDeltaEvent {
 	return { type: "turn:message_delta", payload };
+}
+
+export function createTurnSegmentCompleteEvent(
+	payload: TurnSegmentCompletePayload,
+): TurnSegmentCompleteEvent {
+	return { type: "turn:segment_complete", payload };
 }
 
 export function createTurnThoughtDeltaEvent(

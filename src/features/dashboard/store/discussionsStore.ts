@@ -17,6 +17,7 @@ import type {
 	SessionStartedPayload,
 	TurnCompletedPayload,
 	TurnMessageDeltaPayload,
+	TurnSegmentCompletePayload,
 	TurnStartedPayload,
 	TurnThoughtDeltaPayload,
 	TurnToolCompletedPayload,
@@ -28,11 +29,21 @@ import type {
 // Types
 // =============================================================================
 
+/** A text segment within a streaming message */
+export interface StreamingSegment {
+	index: number;
+	content: string;
+	isComplete: boolean;
+}
+
 /** Streaming state for an active message */
 export interface StreamingMessage {
 	turnId: string;
 	role: "user" | "assistant";
-	content: string;
+	/** Text segments - split by tool calls */
+	segments: StreamingSegment[];
+	/** Index of the currently streaming segment */
+	activeSegmentIndex: number;
 	thought: string;
 	tools: {
 		id: string;
@@ -253,7 +264,7 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 			id: `temp_${Date.now()}`,
 			turnId: `temp_${Date.now()}`,
 			role: "user",
-			content,
+			segments: [{ index: 0, content }],
 			timestamp: Date.now(),
 		};
 
@@ -344,6 +355,9 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 			// Streaming events
 			case "turn:message_delta":
 				handleMessageDelta(event.payload, set, get);
+				break;
+			case "turn:segment_complete":
+				handleSegmentComplete(event.payload, set, get);
 				break;
 			case "turn:thought_delta":
 				handleThoughtDelta(event.payload, set, get);
@@ -513,7 +527,8 @@ function handleTurnStarted(
 				streamingMessage: {
 					turnId: payload.turnId,
 					role: payload.role,
-					content: "",
+					segments: [{ index: 0, content: "", isComplete: false }],
+					activeSegmentIndex: 0,
 					thought: "",
 					tools: [],
 					isComplete: false,
@@ -536,12 +551,18 @@ function handleTurnCompleted(
 		const conversations = new Map(state.conversations);
 		const existing = conversations.get(channelId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
+			// Build segments array from streaming segments
+			const segments = existing.streamingMessage.segments.map((s) => ({
+				index: s.index,
+				content: s.content,
+			}));
+
 			// Convert streaming message to completed message
 			const completedMessage: ChannelMessage = {
 				id: payload.turnId,
 				turnId: payload.turnId,
 				role: existing.streamingMessage.role,
-				content: existing.streamingMessage.content,
+				segments,
 				timestamp: Date.now(),
 				toolCalls:
 					existing.streamingMessage.tools.length > 0
@@ -568,15 +589,95 @@ function handleMessageDelta(
 	const channelId = findChannelBySession(payload.sessionId, get);
 	if (!channelId) return;
 
+	const segmentIndex = payload.segmentIndex ?? 0;
+
 	set((state) => {
 		const conversations = new Map(state.conversations);
 		const existing = conversations.get(channelId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
+			// Get or create the segment at the given index
+			const segments = [...existing.streamingMessage.segments];
+
+			// Ensure we have a segment at this index
+			while (segments.length <= segmentIndex) {
+				segments.push({
+					index: segments.length,
+					content: "",
+					isComplete: false,
+				});
+			}
+
+			// Append delta to the segment
+			const segment = segments[segmentIndex];
+			if (segment) {
+				segments[segmentIndex] = {
+					...segment,
+					content: segment.content + payload.delta,
+				};
+			}
+
 			conversations.set(channelId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
-					content: existing.streamingMessage.content + payload.delta,
+					segments,
+					activeSegmentIndex: segmentIndex,
+				},
+			});
+		}
+		return { conversations };
+	});
+}
+
+function handleSegmentComplete(
+	payload: TurnSegmentCompletePayload,
+	set: SetState,
+	get: GetState,
+): void {
+	const channelId = findChannelBySession(payload.sessionId, get);
+	if (!channelId) return;
+
+	set((state) => {
+		const conversations = new Map(state.conversations);
+		const existing = conversations.get(channelId);
+		if (existing?.streamingMessage?.turnId === payload.turnId) {
+			const segments = [...existing.streamingMessage.segments];
+
+			// Ensure we have a segment at this index
+			while (segments.length <= payload.segmentIndex) {
+				segments.push({
+					index: segments.length,
+					content: "",
+					isComplete: false,
+				});
+			}
+
+			// Mark the segment as complete with the final content
+			const segment = segments[payload.segmentIndex];
+			if (segment) {
+				segments[payload.segmentIndex] = {
+					...segment,
+					content: payload.content,
+					isComplete: true,
+				};
+			}
+
+			// Prepare for next segment
+			const nextSegmentIndex = payload.segmentIndex + 1;
+			if (segments.length <= nextSegmentIndex) {
+				segments.push({
+					index: nextSegmentIndex,
+					content: "",
+					isComplete: false,
+				});
+			}
+
+			conversations.set(channelId, {
+				...existing,
+				streamingMessage: {
+					...existing.streamingMessage,
+					segments,
+					activeSegmentIndex: nextSegmentIndex,
 				},
 			});
 		}

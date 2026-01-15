@@ -1,3 +1,6 @@
-export { ChannelMessageBubble } from "./ChannelMessageBubble";
 export { ChannelView } from "./ChannelView";
-export { StreamingMessageBubble } from "./StreamingMessageBubble";
+export {
+	ChannelMessageBubble,
+	MessageBubble,
+	StreamingMessageBubble,
+} from "./MessageBubble";

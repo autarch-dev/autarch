@@ -51,13 +51,27 @@ export type ChannelListResponse = z.infer<typeof ChannelListResponseSchema>;
 // =============================================================================
 
 /**
+ * Schema for a text segment within a message.
+ * Segments are created when text is interrupted by tool calls.
+ */
+export const MessageSegmentSchema = z.object({
+	index: z.number(),
+	content: z.string(),
+});
+export type MessageSegment = z.infer<typeof MessageSegmentSchema>;
+
+/**
  * Schema for a message in channel history
  */
 export const ChannelMessageSchema = z.object({
 	id: z.string(),
 	turnId: z.string(),
 	role: z.enum(["user", "assistant"]),
-	content: z.string(),
+	/**
+	 * Text segments - allows text to be interleaved with tool calls.
+	 * Segment N appears before tool call N.
+	 */
+	segments: z.array(MessageSegmentSchema),
 	timestamp: z.number(),
 	/** Tool calls made during this message (assistant only) */
 	toolCalls: z

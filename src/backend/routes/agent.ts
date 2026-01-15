@@ -519,15 +519,20 @@ export const agentRoutes = {
 							.orderBy("thought_index", "asc")
 							.execute();
 
-						// Combine message content
-						const content = turnMessages.map((m) => m.content).join("\n");
+						// Build segments array from turn messages (ordered by message_index)
+						const segments = turnMessages.map((m) => ({
+							index: m.message_index,
+							content: m.content,
+						}));
 
-						if (content || toolCalls.length > 0) {
+						// Only include turns that have content or tools
+						const hasContent = segments.some((s) => s.content.length > 0);
+						if (hasContent || toolCalls.length > 0) {
 							const message: ChannelMessage = {
 								id: turn.id,
 								turnId: turn.id,
 								role: turn.role as "user" | "assistant",
-								content,
+								segments,
 								timestamp: turn.created_at,
 								toolCalls:
 									toolCalls.length > 0

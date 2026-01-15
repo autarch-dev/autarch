@@ -30,6 +30,7 @@ import { broadcast } from "@/backend/ws";
 import {
 	createTurnCompletedEvent,
 	createTurnMessageDeltaEvent,
+	createTurnSegmentCompleteEvent,
 	createTurnStartedEvent,
 	createTurnThoughtDeltaEvent,
 	createTurnToolCompletedEvent,
@@ -230,23 +231,54 @@ export class AgentRunner {
 					(t) => t.turnId === turn.id && recentToolIds.has(t.id),
 				);
 
-				// Assistant turns may have text and tool calls
-				const assistantParts: AssistantModelMessage["content"] = [];
+				// Get the actual tool data with indices for interleaving
+				const toolsWithIndex = await this.config.db
+					.selectFrom("turn_tools")
+					.selectAll()
+					.where("turn_id", "=", turn.id)
+					.orderBy("tool_index", "asc")
+					.execute();
 
-				// Add text content
-				for (const msg of messages) {
-					assistantParts.push({ type: "text", text: msg.content });
+				// Build a map of tool_index -> tool data (only for recent tools)
+				const recentToolsByIndex = new Map<number, typeof turnTools[0]>();
+				for (const tool of turnTools) {
+					const fullTool = toolsWithIndex.find((t) => t.id === tool.id);
+					if (fullTool) {
+						recentToolsByIndex.set(fullTool.tool_index, tool);
+					}
 				}
 
-				// Add only recent tool calls
-				for (const tool of turnTools) {
-					const toolCallPart: ToolCallPart = {
-						type: "tool-call",
-						toolCallId: tool.id,
-						toolName: tool.toolName,
-						input: JSON.parse(tool.inputJson),
-					};
-					assistantParts.push(toolCallPart);
+				// Assistant turns may have text segments interleaved with tool calls
+				// The pattern is: segment[0] -> tool[0] -> segment[1] -> tool[1] -> ...
+				const assistantParts: AssistantModelMessage["content"] = [];
+
+				// Build interleaved content
+				// Each message segment at index N comes BEFORE tool at index N
+				const maxIndex = Math.max(
+					messages.length - 1,
+					toolsWithIndex.length > 0
+						? toolsWithIndex[toolsWithIndex.length - 1]?.tool_index ?? -1
+						: -1,
+				);
+
+				for (let i = 0; i <= maxIndex; i++) {
+					// Add text segment at this index if it exists
+					const segment = messages.find((m) => m.message_index === i);
+					if (segment) {
+						assistantParts.push({ type: "text", text: segment.content });
+					}
+
+					// Add tool call at this index if it exists and is recent
+					const tool = recentToolsByIndex.get(i);
+					if (tool) {
+						const toolCallPart: ToolCallPart = {
+							type: "tool-call",
+							toolCallId: tool.id,
+							toolName: tool.toolName,
+							input: JSON.parse(tool.inputJson),
+						};
+						assistantParts.push(toolCallPart);
+					}
 				}
 
 				if (assistantParts.length > 0) {
@@ -256,7 +288,7 @@ export class AgentRunner {
 					};
 					this.conversationHistory.push(assistantMsg);
 
-					// Add tool results only for recent tools
+					// Add tool results only for recent tools (in order)
 					for (const tool of turnTools) {
 						if (tool.outputJson) {
 							const toolResultPart: ToolResultPart = {
@@ -408,7 +440,10 @@ export class AgentRunner {
 		const tools = convertToAISDKTools(agentConfig.tools, toolContext);
 
 		// Track state during streaming
-		let messageBuffer = "";
+		// Segments: text is split into segments separated by tool calls
+		let currentSegmentBuffer = "";
+		let currentSegmentIndex = 0;
+		const completedSegments: Array<{ index: number; content: string }> = [];
 		let thoughtBuffer = "";
 		let toolIndex = 0;
 		const activeToolCalls = new Map<string, ToolCall>();
@@ -437,13 +472,14 @@ export class AgentRunner {
 
 			switch (part.type) {
 				case "text-delta": {
-					messageBuffer += part.text;
+					currentSegmentBuffer += part.text;
 
-					// Broadcast delta to UI
+					// Broadcast delta to UI with segment index
 					broadcast(
 						createTurnMessageDeltaEvent({
 							sessionId: this.session.id,
 							turnId: turn.id,
+							segmentIndex: currentSegmentIndex,
 							delta: part.text,
 						}),
 					);
@@ -469,6 +505,26 @@ export class AgentRunner {
 				}
 
 			case "tool-call": {
+				// FLUSH current text segment before recording tool call
+				// This creates the interleaved text -> tool -> text pattern
+				if (currentSegmentBuffer.length > 0) {
+					await this.saveMessage(turn.id, currentSegmentIndex, currentSegmentBuffer);
+					broadcast(
+						createTurnSegmentCompleteEvent({
+							sessionId: this.session.id,
+							turnId: turn.id,
+							segmentIndex: currentSegmentIndex,
+							content: currentSegmentBuffer,
+						}),
+					);
+					completedSegments.push({
+						index: currentSegmentIndex,
+						content: currentSegmentBuffer,
+					});
+					currentSegmentIndex++;
+					currentSegmentBuffer = "";
+				}
+
 				// Tool call started - get ID from the event
 				// The tool-call type has toolCallId from BaseToolCall
 				const toolCallId = part.toolCallId;
@@ -542,9 +598,13 @@ export class AgentRunner {
 		const usage = await result.usage;
 		const tokenCount = usage?.totalTokens;
 
-		// Save complete message if we have text content
-		if (messageBuffer.length > 0) {
-			await this.saveMessage(turn.id, 0, messageBuffer);
+		// Save any remaining text as the final segment
+		if (currentSegmentBuffer.length > 0) {
+			await this.saveMessage(turn.id, currentSegmentIndex, currentSegmentBuffer);
+			completedSegments.push({
+				index: currentSegmentIndex,
+				content: currentSegmentBuffer,
+			});
 		}
 
 		// Save thoughts if we have any
@@ -553,13 +613,19 @@ export class AgentRunner {
 		}
 
 		// Add assistant response to conversation history for context
+		// Build interleaved content: text segments and tool calls ordered by their indices
 		const assistantParts: AssistantModelMessage["content"] = [];
 
-		if (messageBuffer) {
-			assistantParts.push({ type: "text", text: messageBuffer });
+		// Convert tool calls to array with their indices for interleaving
+		const toolCallsArray = Array.from(activeToolCalls.values());
+
+		// Simple approach: add all text segments first, then all tool calls
+		// The LLM understands this pattern well
+		for (const segment of completedSegments) {
+			assistantParts.push({ type: "text", text: segment.content });
 		}
 
-		for (const toolCall of activeToolCalls.values()) {
+		for (const toolCall of toolCallsArray) {
 			const toolCallPart: ToolCallPart = {
 				type: "tool-call",
 				toolCallId: toolCall.id,

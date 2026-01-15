@@ -5,8 +5,7 @@ import type { StreamingMessage } from "../../store/discussionsStore";
 import type { Channel } from "../../types";
 import { MessageInput } from "../MessageInput";
 import { ChannelHeader } from "./ChannelHeader";
-import { ChannelMessageBubble } from "./ChannelMessageBubble";
-import { StreamingMessageBubble } from "./StreamingMessageBubble";
+import { ChannelMessageBubble, StreamingMessageBubble } from "./MessageBubble";
 
 interface ChannelViewProps {
 	channel: Channel;
@@ -28,7 +27,7 @@ export function ChannelView({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll to bottom when new messages arrive
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages, streamingMessage?.content]);
+	}, [messages, streamingMessage?.segments]);
 
 	return (
 		<TooltipProvider>
