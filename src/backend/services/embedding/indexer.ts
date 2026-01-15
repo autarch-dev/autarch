@@ -1,4 +1,3 @@
-import { sql } from "kysely";
 import { getEmbeddingsDb } from "@/backend/db/embeddings";
 import { log } from "@/backend/logger";
 import { broadcast } from "@/backend/ws";
@@ -25,6 +24,35 @@ const state: IndexingState = {
 	isIndexing: false,
 	scopeId: null,
 };
+
+// =============================================================================
+// Vector Similarity
+// =============================================================================
+
+/**
+ * Compute cosine similarity between two vectors.
+ * Returns a value between -1 and 1, where 1 means identical direction.
+ */
+function cosineSimilarity(a: Float32Array, b: Float32Array): number {
+	let dot = 0;
+	let normA = 0;
+	let normB = 0;
+	// Both arrays have the same length (768 dimensions)
+	for (const [i, ai] of a.entries()) {
+		const bi = b[i] ?? 0;
+		dot += ai * bi;
+		normA += ai * ai;
+		normB += bi * bi;
+	}
+	return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+/**
+ * Convert a BLOB (Buffer/Uint8Array) back to Float32Array.
+ */
+function blobToFloat32Array(blob: Buffer | Uint8Array): Float32Array {
+	return new Float32Array(blob.buffer, blob.byteOffset, blob.byteLength / 4);
+}
 
 // =============================================================================
 // Scope Management
@@ -210,19 +238,15 @@ export async function indexProject(
 							.onConflict((oc) => oc.column("content_hash").doNothing())
 							.execute();
 
-						// Store vector in virtual table
-						// vec0 virtual tables don't support INSERT OR IGNORE, so catch duplicates
-						try {
-							await sql`
-								INSERT INTO vec_chunks (content_hash, embedding)
-								VALUES (${chunk.contentHash}, ${embedding})
-							`.execute(db);
-						} catch (e) {
-							// Ignore duplicate key errors from race conditions
-							if (!(e instanceof Error && e.message.includes("UNIQUE"))) {
-								throw e;
-							}
-						}
+						// Store embedding vector as BLOB
+						await db
+							.insertInto("vec_chunks")
+							.values({
+								content_hash: chunk.contentHash,
+								embedding: Buffer.from(embedding.buffer),
+							})
+							.onConflict((oc) => oc.column("content_hash").doNothing())
+							.execute();
 					}
 
 					// Create file-chunk mapping (replace if exists)
@@ -295,7 +319,7 @@ export async function indexProject(
 // =============================================================================
 
 /**
- * Perform semantic search over indexed code using sqlite-vec.
+ * Perform semantic search over indexed code using cosine similarity.
  *
  * @param projectRoot - The root directory of the project
  * @param query - The search query text
@@ -313,22 +337,28 @@ export async function search(
 	// Generate query embedding
 	const queryEmbedding = await embed(query);
 
-	// Use sqlite-vec's native vector search with match operator
-	// First get the top matching content hashes by vector similarity
-	const vecResults = await sql<{ content_hash: string; distance: number }>`
-		SELECT content_hash, distance
-		FROM vec_chunks
-		WHERE embedding MATCH ${queryEmbedding}
-		ORDER BY distance
-		LIMIT ${limit * 2}
-	`.execute(db);
+	// Fetch all embeddings from the database
+	const allEmbeddings = await db
+		.selectFrom("vec_chunks")
+		.select(["content_hash", "embedding"])
+		.execute();
 
-	if (vecResults.rows.length === 0) {
+	if (allEmbeddings.length === 0) {
 		return [];
 	}
 
-	// Get the content hashes that are in our scope
-	const contentHashes = vecResults.rows.map((r) => r.content_hash);
+	// Compute similarity scores for all embeddings
+	const similarities: Array<{ contentHash: string; score: number }> = [];
+	for (const row of allEmbeddings) {
+		const embedding = blobToFloat32Array(row.embedding as Buffer);
+		const score = cosineSimilarity(queryEmbedding, embedding);
+		similarities.push({ contentHash: row.content_hash, score });
+	}
+
+	// Sort by similarity and take top candidates
+	similarities.sort((a, b) => b.score - a.score);
+	const topCandidates = similarities.slice(0, limit * 2);
+	const topHashes = topCandidates.map((c) => c.contentHash);
 
 	// Join with file mappings to get file context, filtered by scope
 	const mappings = await db
@@ -346,29 +376,20 @@ export async function search(
 			"embedding_chunks.chunk_text",
 		])
 		.where("file_chunk_mappings.scope_id", "=", scopeId)
-		.where("file_chunk_mappings.content_hash", "in", contentHashes)
+		.where("file_chunk_mappings.content_hash", "in", topHashes)
 		.execute();
 
-	// Create a map for quick lookup of distances
-	const distanceMap = new Map(
-		vecResults.rows.map((r) => [r.content_hash, r.distance]),
-	);
+	// Create a map for quick lookup of scores
+	const scoreMap = new Map(topCandidates.map((c) => [c.contentHash, c.score]));
 
-	// Build results with similarity scores (convert distance to similarity)
-	const results: SemanticSearchResult[] = mappings.map((mapping) => {
-		const distance = distanceMap.get(mapping.content_hash) ?? 1;
-		// Convert L2 distance to similarity score (closer = higher score)
-		// Using 1 / (1 + distance) to normalize to 0-1 range
-		const score = 1 / (1 + distance);
-
-		return {
-			filePath: mapping.file_path,
-			startLine: mapping.start_line,
-			endLine: mapping.end_line,
-			snippet: mapping.chunk_text,
-			score,
-		};
-	});
+	// Build results with similarity scores
+	const results: SemanticSearchResult[] = mappings.map((mapping) => ({
+		filePath: mapping.file_path,
+		startLine: mapping.start_line,
+		endLine: mapping.end_line,
+		snippet: mapping.chunk_text,
+		score: scoreMap.get(mapping.content_hash) ?? 0,
+	}));
 
 	// Sort by score descending and take limit
 	results.sort((a, b) => b.score - a.score);
@@ -463,19 +484,15 @@ export async function updateFile(
 				.onConflict((oc) => oc.column("content_hash").doNothing())
 				.execute();
 
-			// Store vector in virtual table
-			// vec0 virtual tables don't support INSERT OR IGNORE, so catch duplicates
-			try {
-				await sql`
-					INSERT INTO vec_chunks (content_hash, embedding)
-					VALUES (${chunk.contentHash}, ${embedding})
-				`.execute(db);
-			} catch (e) {
-				// Ignore duplicate key errors from race conditions
-				if (!(e instanceof Error && e.message.includes("UNIQUE"))) {
-					throw e;
-				}
-			}
+			// Store embedding vector as BLOB
+			await db
+				.insertInto("vec_chunks")
+				.values({
+					content_hash: chunk.contentHash,
+					embedding: Buffer.from(embedding.buffer),
+				})
+				.onConflict((oc) => oc.column("content_hash").doNothing())
+				.execute();
 		}
 
 		// Create file-chunk mapping (replace if exists)

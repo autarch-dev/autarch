@@ -20,11 +20,11 @@ export interface EmbeddingChunksTable {
 }
 
 /**
- * Virtual table for vector similarity search via sqlite-vec.
+ * Stores embedding vectors for similarity search.
  */
 export interface VecChunksTable {
 	content_hash: string;
-	embedding: Uint8Array; // float[768]
+	embedding: Uint8Array; // float[768] stored as BLOB
 }
 
 /**

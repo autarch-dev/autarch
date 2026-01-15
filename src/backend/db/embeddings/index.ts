@@ -3,7 +3,6 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Kysely } from "kysely";
 import { BunSqliteDialect } from "kysely-bun-sqlite";
-import * as sqliteVec from "sqlite-vec";
 import { getProjectAutarchDir } from "../project";
 import { migrateEmbeddingsDb } from "./migrations";
 import type { EmbeddingsDatabase } from "./types";
@@ -21,7 +20,6 @@ export function getEmbeddingsDbPath(projectRoot: string): string {
 
 /**
  * Initialize and return the embeddings database connection.
- * Loads the sqlite-vec extension for vector operations.
  *
  * @param projectRoot - The root directory of the project (defaults to cwd)
  */
@@ -41,12 +39,9 @@ export async function getEmbeddingsDb(
 		});
 
 		// Enable WAL mode for better concurrency
-		sqlite.exec("PRAGMA journal_mode=WAL;");
+		sqlite.run("PRAGMA journal_mode=WAL;");
 		// Wait up to 5 seconds if database is locked
-		sqlite.exec("PRAGMA busy_timeout=5000;");
-
-		// Load sqlite-vec extension for vector operations
-		sqliteVec.load(sqlite);
+		sqlite.run("PRAGMA busy_timeout=5000;");
 
 		db = new Kysely<EmbeddingsDatabase>({
 			dialect: new BunSqliteDialect({ database: sqlite }),

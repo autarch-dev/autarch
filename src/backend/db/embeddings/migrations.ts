@@ -1,4 +1,4 @@
-import { type Kysely, sql } from "kysely";
+import type { Kysely } from "kysely";
 import type { EmbeddingsDatabase } from "./types";
 
 /**
@@ -30,18 +30,18 @@ async function createEmbeddingChunksTable(
 }
 
 /**
- * Create the vec_chunks virtual table for vector search.
- * Uses sqlite-vec's vec0 module for efficient similarity search.
+ * Create the vec_chunks table for storing embedding vectors.
+ * Embeddings are stored as BLOBs and similarity is computed in JavaScript.
  */
 async function createVecChunksTable(
 	db: Kysely<EmbeddingsDatabase>,
 ): Promise<void> {
-	await sql`
-		CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
-			content_hash TEXT PRIMARY KEY,
-			embedding float[768]
-		)
-	`.execute(db);
+	await db.schema
+		.createTable("vec_chunks")
+		.ifNotExists()
+		.addColumn("content_hash", "text", (col) => col.primaryKey())
+		.addColumn("embedding", "blob", (col) => col.notNull())
+		.execute();
 }
 
 /**
