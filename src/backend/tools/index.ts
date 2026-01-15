@@ -14,8 +14,6 @@
 // Base tools (all agents)
 export {
 	baseTools,
-	globSearchInputSchema,
-	globSearchTool,
 	grepInputSchema,
 	grepTool,
 	listDirectoryInputSchema,

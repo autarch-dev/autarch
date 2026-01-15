@@ -100,7 +100,6 @@ export type BaseToolName =
 	| "semantic_search"
 	| "read_file"
 	| "list_directory"
-	| "glob_search"
 	| "grep"
 	| "take_note"
 	| "web_code_search";

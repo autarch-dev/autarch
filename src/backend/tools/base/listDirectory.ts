@@ -50,13 +50,12 @@ export const listDirectoryInputSchema = z.object({
 
 export type ListDirectoryInput = z.infer<typeof listDirectoryInputSchema>;
 
-export interface DirectoryEntry {
+interface DirectoryEntry {
 	path: string;
 	is_directory: boolean;
-	depth: number;
 }
 
-export type ListDirectoryOutput = DirectoryEntry[];
+export type ListDirectoryOutput = string;
 
 // =============================================================================
 // Tool Definition
@@ -69,7 +68,7 @@ export const listDirectoryTool: ToolDefinition<
 	name: "list_directory",
 	description: `List files and directories at a given path.
 Respects .gitignore and .autarchignore rules.
-Returns entries with their type (file or directory) and relative path.
+Returns a newline-separated list of relative paths. Directories have a trailing slash (e.g. "src/components/").
 
 - depth controls how deep to traverse (1 = immediate children, 2 = children + grandchildren, null = unlimited - defaults to 1)
 - type filters results: 'files' (only files), 'directories' (only dirs), 'all' (both) - defaults to 'all'
@@ -168,7 +167,6 @@ Returns entries with their type (file or directory) and relative path.
 				results.push({
 					path: entryRelPath,
 					is_directory: isDir,
-					depth: currentDepth,
 				});
 
 				// Recurse into directories
@@ -190,9 +188,14 @@ Returns entries with their type (file or directory) and relative path.
 		// Sort results by path
 		results.sort((a, b) => a.path.localeCompare(b.path));
 
+		// Format as plain text with trailing slashes for directories
+		const output = results
+			.map((entry) => (entry.is_directory ? `${entry.path}/` : entry.path))
+			.join("\n");
+
 		return {
 			success: true,
-			data: results,
+			data: output,
 		};
 	},
 };

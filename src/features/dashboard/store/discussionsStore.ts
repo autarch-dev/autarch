@@ -279,6 +279,26 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 
 		if (!response.ok) {
 			const error = await response.json();
+
+			// If session not found (e.g., server restarted), clear it and retry
+			if (response.status === 404) {
+				set((state) => {
+					const conversations = new Map(state.conversations);
+					const existing = conversations.get(channelId);
+					if (existing) {
+						conversations.set(channelId, {
+							...existing,
+							sessionId: undefined,
+							sessionStatus: undefined,
+						});
+					}
+					return { conversations };
+				});
+
+				// Retry - this will start a fresh session
+				return get().sendMessage(channelId, content);
+			}
+
 			throw new Error(error.error ?? "Failed to send message");
 		}
 	},

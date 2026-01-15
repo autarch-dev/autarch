@@ -163,10 +163,47 @@ export class SessionManager {
 	// ===========================================================================
 
 	/**
-	 * Get a session by ID
+	 * Get a session by ID, restoring from DB if not in memory.
+	 * This allows sessions to survive server restarts.
 	 */
-	getSession(sessionId: string): ActiveSession | undefined {
-		return this.sessions.get(sessionId);
+	async getOrRestoreSession(sessionId: string): Promise<ActiveSession | undefined> {
+		// Check in-memory first
+		const existing = this.sessions.get(sessionId);
+		if (existing) {
+			return existing;
+		}
+
+		// Try to restore from database
+		const dbSession = await this.db
+			.selectFrom("sessions")
+			.selectAll()
+			.where("id", "=", sessionId)
+			.where("status", "=", "active")
+			.executeTakeFirst();
+
+		if (!dbSession) {
+			return undefined;
+		}
+
+		// Rehydrate into memory with a fresh AbortController
+		const session: ActiveSession = {
+			id: dbSession.id,
+			contextType: dbSession.context_type as ActiveSession["contextType"],
+			contextId: dbSession.context_id,
+			agentRole: dbSession.agent_role as ActiveSession["agentRole"],
+			status: "active",
+			abortController: new AbortController(),
+			createdAt: dbSession.created_at,
+		};
+
+		this.sessions.set(sessionId, session);
+		this.contextIndex.set(
+			this.contextKey(session.contextType, session.contextId),
+			sessionId,
+		);
+
+		log.session.info(`Restored session ${sessionId} from database`);
+		return session;
 	}
 
 	/**

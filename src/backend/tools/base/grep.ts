@@ -2,8 +2,8 @@
  * grep - Search file contents for a pattern using ripgrep
  */
 
-import { rgPath } from "@joshua.litt/get-ripgrep";
 import { z } from "zod";
+import { getRipgrepPath } from "@/backend/services/ripgrep";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -46,15 +46,7 @@ export const grepInputSchema = z.object({
 
 export type GrepInput = z.infer<typeof grepInputSchema>;
 
-export interface GrepMatch {
-	file_path: string;
-	line_number: number;
-}
-
-export interface GrepOutput {
-	results: GrepMatch[];
-	warning?: string;
-}
+export type GrepOutput = string;
 
 // =============================================================================
 // Constants
@@ -63,41 +55,8 @@ export interface GrepOutput {
 /** Maximum matches to return per call */
 const MAX_RESULTS = 50;
 
-// =============================================================================
-// Ripgrep JSON Types
-// =============================================================================
-
-interface RipgrepMatch {
-	type: "match";
-	data: {
-		path: { text: string };
-		lines: { text: string };
-		line_number: number;
-		absolute_offset: number;
-		submatches: Array<{
-			match: { text: string };
-			start: number;
-			end: number;
-		}>;
-	};
-}
-
-interface RipgrepBegin {
-	type: "begin";
-	data: { path: { text: string } };
-}
-
-interface RipgrepEnd {
-	type: "end";
-	data: { path: { text: string }; stats: unknown };
-}
-
-interface RipgrepSummary {
-	type: "summary";
-	data: { stats: unknown };
-}
-
-type RipgrepMessage = RipgrepMatch | RipgrepBegin | RipgrepEnd | RipgrepSummary;
+/** Maximum length for a single output line (truncate longer lines) */
+const MAX_LINE_LENGTH = 200;
 
 // =============================================================================
 // Tool Definition
@@ -106,20 +65,21 @@ type RipgrepMessage = RipgrepMatch | RipgrepBegin | RipgrepEnd | RipgrepSummary;
 export const grepTool: ToolDefinition<GrepInput, GrepOutput> = {
 	name: "grep",
 	description: `Search file contents for a pattern using regex matching.
-Returns file paths and line numbers for matches.
+Returns matches in standard grep format: file:line:content (one per line).
 
 - Case-insensitive by default (set caseSensitive=true for exact case matching)
 - Respects .gitignore and .autarchignore rules
-- Skips binary files and files larger than 10MB
+- Skips binary files
 - Returns up to 50 matches; use skip parameter to paginate through more results
-- Results are sorted alphabetically by file path
 
 Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 	inputSchema: grepInputSchema,
 	execute: async (input, context): Promise<ToolResult<GrepOutput>> => {
 		// Build ripgrep arguments
 		const args: string[] = [
-			"--json", // JSON output for structured parsing
+			"--line-number", // Include line numbers
+			"--no-heading", // Don't group by file
+			"--color=never", // No ANSI colors
 		];
 
 		// Case sensitivity
@@ -138,6 +98,7 @@ Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 		// Run ripgrep
 		let proc: Bun.Subprocess;
 		try {
+			const rgPath = await getRipgrepPath();
 			proc = Bun.spawn([rgPath, ...args], {
 				cwd: context.projectRoot,
 				stdout: "pipe",
@@ -179,57 +140,30 @@ Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 			};
 		}
 
-		// Parse JSON lines output
-		const results: GrepMatch[] = [];
-		const lines = stdout.split("\n").filter((line) => line.trim());
-		let skipped = 0;
+		// Process output: paginate, truncate long lines
 		const skip = input.skip ?? 0;
+		const allLines = stdout.split("\n").filter((line) => line.length > 0);
+		const totalMatches = allLines.length;
 
-		for (const line of lines) {
-			let msg: RipgrepMessage;
-			try {
-				msg = JSON.parse(line) as RipgrepMessage;
-			} catch {
-				continue; // Skip malformed lines
-			}
+		const lines = allLines
+			.slice(skip, skip + MAX_RESULTS)
+			.map((line) =>
+				line.length > MAX_LINE_LENGTH
+					? `${line.slice(0, MAX_LINE_LENGTH)}...`
+					: line,
+			);
 
-			if (msg.type !== "match") {
-				continue;
-			}
-
-			// Handle pagination
-			if (skipped < skip) {
-				skipped++;
-				continue;
-			}
-
-			results.push({
-				file_path: msg.data.path.text,
-				line_number: msg.data.line_number,
-			});
-
-			if (results.length >= MAX_RESULTS) {
-				break;
-			}
-		}
-
-		// Sort by file path
-		results.sort((a, b) => {
-			const pathCmp = a.file_path.localeCompare(b.file_path);
-			if (pathCmp !== 0) return pathCmp;
-			return a.line_number - b.line_number;
-		});
-
-		const output: GrepOutput = { results };
-
-		// Add warning if we hit the limit
-		if (results.length >= MAX_RESULTS) {
-			output.warning = `Results limited to ${MAX_RESULTS} matches. Use skip parameter to paginate.`;
+		// Add pagination notice if there are more results
+		if (totalMatches > skip + MAX_RESULTS) {
+			const remaining = totalMatches - skip - MAX_RESULTS;
+			lines.push(
+				`--- ${remaining} more matches (use skip=${skip + MAX_RESULTS} to continue) ---`,
+			);
 		}
 
 		return {
 			success: true,
-			data: output,
+			data: lines.join("\n"),
 		};
 	},
 };

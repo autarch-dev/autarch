@@ -54,7 +54,7 @@ export function ChannelMessageBubble({ message }: ChannelMessageBubbleProps) {
 
 				{/* Tool calls */}
 				{message.toolCalls && message.toolCalls.length > 0 && (
-					<div className="mt-3 space-y-2">
+					<div className="mt-2 space-y-1">
 						{message.toolCalls.map((tool) => (
 							<ToolCallDisplay key={tool.id} tool={tool} />
 						))}
@@ -106,19 +106,15 @@ function ToolCallDisplay({ tool }: ToolCallDisplayProps) {
 	const reason = getToolReason(tool.input);
 
 	return (
-		<div className="rounded-md border bg-muted/50 overflow-hidden">
-			<div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/70">
-				<Wrench className="size-3.5 text-muted-foreground shrink-0" />
-				<div className="flex-1 min-w-0">
-					<span className="text-xs font-mono text-muted-foreground">
-						{tool.name}
+		<details className="group text-xs">
+			<summary className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-muted/50 transition-colors list-none">
+				<Wrench className="size-3 text-muted-foreground shrink-0" />
+				<span className="font-mono text-muted-foreground">{tool.name}</span>
+				{reason && (
+					<span className="text-muted-foreground/60 truncate flex-1">
+						— {reason}
 					</span>
-					{reason && (
-						<p className="text-xs text-muted-foreground/70 truncate">
-							{reason}
-						</p>
-					)}
-				</div>
+				)}
 				{tool.status === "running" && (
 					<Loader2 className="size-3 animate-spin text-muted-foreground shrink-0" />
 				)}
@@ -128,9 +124,9 @@ function ToolCallDisplay({ tool }: ToolCallDisplayProps) {
 				{tool.status === "error" && (
 					<XCircle className="size-3 text-destructive shrink-0" />
 				)}
-			</div>
+			</summary>
 			{tool.output ? (
-				<pre className="px-3 py-2 text-xs font-mono overflow-x-auto max-h-32">
+				<pre className="px-2 py-1.5 font-mono overflow-x-auto max-h-48 border-t bg-muted/20">
 					<code className="text-foreground">
 						{typeof tool.output === "string"
 							? tool.output
@@ -138,6 +134,6 @@ function ToolCallDisplay({ tool }: ToolCallDisplayProps) {
 					</code>
 				</pre>
 			) : null}
-		</div>
+		</details>
 	);
 }

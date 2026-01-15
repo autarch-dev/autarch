@@ -45,7 +45,7 @@ export function StreamingMessageBubble({
 
 				{/* Active tool calls */}
 				{message.tools.length > 0 && (
-					<div className="mt-3 space-y-2">
+					<div className="mt-2 space-y-1">
 						{message.tools.map((tool) => (
 							<StreamingToolCall key={tool.id} tool={tool} />
 						))}
@@ -96,21 +96,22 @@ function getToolReason(input: unknown): string | undefined {
 
 function StreamingToolCall({ tool }: StreamingToolCallProps) {
 	const reason = getToolReason(tool.input);
+	// Keep running tools expanded so user can see progress
+	const isRunning = tool.status === "running";
 
 	return (
-		<div className="rounded-md border bg-muted/50 overflow-hidden">
-			<div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/70">
-				<Wrench className="size-3.5 text-muted-foreground shrink-0" />
-				<div className="flex-1 min-w-0">
-					<span className="text-xs font-mono text-muted-foreground">
-						{tool.name}
+		<details
+			className="group text-xs"
+			open={isRunning}
+		>
+			<summary className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-muted/50 transition-colors list-none">
+				<Wrench className="size-3 text-muted-foreground shrink-0" />
+				<span className="font-mono text-muted-foreground">{tool.name}</span>
+				{reason && (
+					<span className="text-muted-foreground/60 truncate flex-1">
+						— {reason}
 					</span>
-					{reason && (
-						<p className="text-xs text-muted-foreground/70 truncate">
-							{reason}
-						</p>
-					)}
-				</div>
+				)}
 				{tool.status === "running" && (
 					<Loader2 className="size-3 animate-spin text-muted-foreground shrink-0" />
 				)}
@@ -120,9 +121,9 @@ function StreamingToolCall({ tool }: StreamingToolCallProps) {
 				{tool.status === "error" && (
 					<XCircle className="size-3 text-destructive shrink-0" />
 				)}
-			</div>
+			</summary>
 			{tool.output ? (
-				<pre className="px-3 py-2 text-xs font-mono overflow-x-auto max-h-32">
+				<pre className="px-2 py-1.5 font-mono overflow-x-auto max-h-48 border-t bg-muted/20">
 					<code className="text-foreground">
 						{typeof tool.output === "string"
 							? tool.output
@@ -130,6 +131,6 @@ function StreamingToolCall({ tool }: StreamingToolCallProps) {
 					</code>
 				</pre>
 			) : null}
-		</div>
+		</details>
 	);
 }

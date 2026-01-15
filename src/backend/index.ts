@@ -5,7 +5,7 @@ import { initSessionManager } from "./agents/runner";
 import { getProjectDb } from "./db/project";
 import { findRepoRoot } from "./git";
 import { log } from "./logger";
-import { agentRoutes, handleAgentRoute } from "./routes/agent";
+import { agentRoutes } from "./routes/agent";
 import { settingsRoutes } from "./routes/settings";
 import { startWatching } from "./services/embedding";
 import { handleClose, handleMessage, handleOpen } from "./ws";
@@ -17,7 +17,7 @@ const server = serve({
 	port: 0, // Random available port
 
 	routes: {
-		// API routes (code-split by domain)
+		// API routes - Bun handles dynamic :param routes natively
 		...settingsRoutes,
 		...agentRoutes,
 
@@ -34,22 +34,6 @@ const server = serve({
 
 		// Serve index.html for all unmatched routes (SPA fallback)
 		"/*": index,
-	},
-
-	// Handle dynamic API routes with path parameters
-	async fetch(req: Request) {
-		const url = new URL(req.url);
-
-		// Try dynamic agent routes (handles /api/channels/:id, /api/sessions/:id/message, etc.)
-		if (url.pathname.startsWith("/api/")) {
-			const response = await handleAgentRoute(req, url.pathname);
-			if (response) {
-				return response;
-			}
-		}
-
-		// Fall through to static routes
-		return undefined;
 	},
 
 	websocket: {
