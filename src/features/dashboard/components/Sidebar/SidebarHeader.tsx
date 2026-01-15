@@ -1,24 +1,42 @@
-import { ChevronDown, Search, Sparkles } from "lucide-react";
+import { ChevronDown, Folder, Search } from "lucide-react";
+import { useEffect } from "react";
 import {
 	SidebarHeader as BaseSidebarHeader,
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { useProjectStore } from "../../store";
 
 export function SidebarHeader() {
+	const { project, fetchProject } = useProjectStore();
+
+	useEffect(() => {
+		fetchProject();
+	}, [fetchProject]);
+
 	return (
 		<BaseSidebarHeader>
 			<SidebarMenu>
 				<SidebarMenuItem>
 					<SidebarMenuButton size="lg" tooltip="Project">
-						<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-							<Sparkles className="size-4" />
-						</div>
+						{project?.hasIcon ? (
+							<img
+								src="/api/project/icon"
+								alt=""
+								className="size-8 rounded-lg object-contain"
+							/>
+						) : (
+							<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+								<Folder className="size-4" />
+							</div>
+						)}
 						<div className="grid flex-1 text-left text-sm leading-tight">
-							<span className="truncate font-semibold">autarch-cli</span>
+							<span className="truncate font-semibold">
+								{project?.name ?? "Loading..."}
+							</span>
 							<span className="truncate text-xs text-muted-foreground">
-								~/Repos/autarch-cli
+								{project?.displayPath ?? ""}
 							</span>
 						</div>
 						<ChevronDown className="ml-auto size-4" />

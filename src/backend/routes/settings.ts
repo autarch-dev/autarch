@@ -10,12 +10,36 @@ import {
 	setModelPreferences,
 	setOnboardingComplete,
 } from "../services/globalSettings";
+import { getProjectIconFile, getProjectInfo } from "../services/project";
 
 /**
  * Settings API routes.
  * All routes are prefixed with /api/settings/
  */
 export const settingsRoutes = {
+	// =========================================================================
+	// Project Info
+	// =========================================================================
+
+	"/api/project": {
+		async GET() {
+			const info = await getProjectInfo();
+			return Response.json(info);
+		},
+	},
+
+	"/api/project/icon": {
+		async GET() {
+			const iconFile = await getProjectIconFile();
+
+			if (!iconFile) {
+				return new Response(null, { status: 404 });
+			}
+
+			return new Response(iconFile);
+		},
+	},
+
 	// =========================================================================
 	// Onboarding
 	// =========================================================================

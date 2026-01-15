@@ -3,3 +3,4 @@ export {
 	type StreamingMessage,
 	useDiscussionsStore,
 } from "./discussionsStore";
+export { useProjectStore } from "./projectStore";
