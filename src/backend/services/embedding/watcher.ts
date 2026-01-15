@@ -3,6 +3,7 @@ import { extname } from "node:path";
 import { log } from "@/backend/logger";
 import { isSupportedExtension, pathContainsExcludedDir } from "./config";
 import { indexProject, removeFile, updateFile } from "./indexer";
+import { initEmbed, isEmbeddingAvailable } from "./provider";
 
 /** Debounce delay for file changes (ms) */
 const DEBOUNCE_MS = 300;
@@ -30,6 +31,27 @@ const pendingUpdates = new Map<string, NodeJS.Timeout>();
 export async function startWatching(root: string): Promise<void> {
 	if (watcher) {
 		log.embedding.debug("Watcher already running");
+		return;
+	}
+
+	// Check if embeddings are available on this platform
+	if (!isEmbeddingAvailable()) {
+		log.embedding.warn(
+			`Embeddings disabled: unsupported platform (${process.arch}-${process.platform})`,
+		);
+		return;
+	}
+
+	// Initialize the embed CLI (downloads if needed, starts process)
+	let available: boolean;
+	try {
+		available = await initEmbed();
+	} catch (err) {
+		log.embedding.error("Failed to initialize embed CLI:", err);
+		return;
+	}
+	if (!available) {
+		log.embedding.warn("Embeddings disabled: embed CLI not available");
 		return;
 	}
 

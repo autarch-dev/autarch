@@ -49,7 +49,9 @@ export class SessionManager {
 			const existing = this.sessions.get(existingSessionId);
 			if (existing && existing.status === "active") {
 				// Stop the existing session first
-				log.session.debug(`Stopping existing session ${existingSessionId} for ${context.contextType}:${context.contextId}`);
+				log.session.debug(
+					`Stopping existing session ${existingSessionId} for ${context.contextType}:${context.contextId}`,
+				);
 				await this.stopSession(existingSessionId);
 			}
 		}
@@ -95,7 +97,9 @@ export class SessionManager {
 			}),
 		);
 
-		log.session.info(`Started session ${sessionId} [${context.agentRole}] for ${context.contextType}:${context.contextId}`);
+		log.session.info(
+			`Started session ${sessionId} [${context.agentRole}] for ${context.contextType}:${context.contextId}`,
+		);
 		return session;
 	}
 
@@ -166,7 +170,9 @@ export class SessionManager {
 	 * Get a session by ID, restoring from DB if not in memory.
 	 * This allows sessions to survive server restarts.
 	 */
-	async getOrRestoreSession(sessionId: string): Promise<ActiveSession | undefined> {
+	async getOrRestoreSession(
+		sessionId: string,
+	): Promise<ActiveSession | undefined> {
 		// Check in-memory first
 		const existing = this.sessions.get(sessionId);
 		if (existing) {

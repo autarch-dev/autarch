@@ -157,7 +157,10 @@ export const agentRoutes = {
 				const workflow = await orchestrator.getWorkflow(params.id);
 
 				if (!workflow) {
-					return Response.json({ error: "Workflow not found" }, { status: 404 });
+					return Response.json(
+						{ error: "Workflow not found" },
+						{ status: 404 },
+					);
 				}
 
 				return Response.json(workflow);
@@ -233,7 +236,10 @@ export const agentRoutes = {
 				const parsed = CreateChannelRequestSchema.safeParse(body);
 
 				if (!parsed.success) {
-					log.api.warn("Invalid channel create request", parsed.error.flatten());
+					log.api.warn(
+						"Invalid channel create request",
+						parsed.error.flatten(),
+					);
 					return Response.json(
 						{ error: "Invalid request", details: parsed.error.flatten() },
 						{ status: 400 },
@@ -416,7 +422,10 @@ export const agentRoutes = {
 				const sessionManager = getSessionManager();
 
 				// Check if already has active session
-				const existing = sessionManager.getSessionByContext("channel", channelId);
+				const existing = sessionManager.getSessionByContext(
+					"channel",
+					channelId,
+				);
 				if (existing?.status === "active") {
 					log.api.debug(
 						`Reusing existing session ${existing.id} for channel ${channelId}`,

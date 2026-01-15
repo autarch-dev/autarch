@@ -209,9 +209,7 @@ export function MessageBubble(props: MessageBubbleProps) {
 			<div className="flex-1 min-w-0">
 				{/* Header */}
 				<div className="flex items-baseline gap-2 mb-1">
-					<span
-						className={cn("font-semibold text-sm", isAI && "text-primary")}
-					>
+					<span className={cn("font-semibold text-sm", isAI && "text-primary")}>
 						{isAI ? "Autarch" : "You"}
 					</span>
 					{isAI && (
@@ -296,12 +294,12 @@ export function MessageBubble(props: MessageBubbleProps) {
 
 export function StreamingMessageBubble({
 	message,
-}: { message: StreamingMessage }) {
+}: {
+	message: StreamingMessage;
+}) {
 	return <MessageBubble variant="streaming" message={message} />;
 }
 
-export function ChannelMessageBubble({
-	message,
-}: { message: ChannelMessage }) {
+export function ChannelMessageBubble({ message }: { message: ChannelMessage }) {
 	return <MessageBubble variant="completed" message={message} />;
 }

@@ -101,11 +101,16 @@ async function extractTarGz(
 
 	if (exitCode !== 0) {
 		const stderr = await new Response(proc.stderr).text();
-		throw new ExtractionFailedError(stderr || `tar exited with code ${exitCode}`);
+		throw new ExtractionFailedError(
+			stderr || `tar exited with code ${exitCode}`,
+		);
 	}
 }
 
-async function extractZip(archivePath: string, destPath: string): Promise<void> {
+async function extractZip(
+	archivePath: string,
+	destPath: string,
+): Promise<void> {
 	const archiveBuffer = await Bun.file(archivePath).arrayBuffer();
 	const zipReader = new ZipReader(new BlobReader(new Blob([archiveBuffer])));
 

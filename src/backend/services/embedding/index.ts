@@ -37,8 +37,11 @@ export {
 } from "./indexer";
 export {
 	EMBEDDING_DIMENSIONS,
+	initEmbed,
+	isEmbeddingAvailable,
 	MAX_TOKENS,
 	preloadModel,
+	terminateEmbed,
 	terminateWorker,
 } from "./provider";
 export { isWatching, startWatching, stopWatching } from "./watcher";

@@ -84,12 +84,18 @@ export class AgentRunner {
 	async run(userMessage: string, options: RunOptions = {}): Promise<void> {
 		const agentConfig = getAgentConfig(this.session.agentRole);
 
-		log.agent.info(`Running agent [${this.session.agentRole}] for session ${this.session.id}`);
-		log.agent.debug(`User message: ${userMessage.slice(0, 100)}${userMessage.length > 100 ? "..." : ""}`);
+		log.agent.info(
+			`Running agent [${this.session.agentRole}] for session ${this.session.id}`,
+		);
+		log.agent.debug(
+			`User message: ${userMessage.slice(0, 100)}${userMessage.length > 100 ? "..." : ""}`,
+		);
 
 		// Load existing conversation history for this session
 		await this.loadConversationHistory();
-		log.agent.debug(`Loaded ${this.conversationHistory.length} messages from history`);
+		log.agent.debug(
+			`Loaded ${this.conversationHistory.length} messages from history`,
+		);
 
 		// Create user turn and add to history
 		const userTurn = await this.createTurn("user");
@@ -240,7 +246,7 @@ export class AgentRunner {
 					.execute();
 
 				// Build a map of tool_index -> tool data (only for recent tools)
-				const recentToolsByIndex = new Map<number, typeof turnTools[0]>();
+				const recentToolsByIndex = new Map<number, (typeof turnTools)[0]>();
 				for (const tool of turnTools) {
 					const fullTool = toolsWithIndex.find((t) => t.id === tool.id);
 					if (fullTool) {
@@ -257,7 +263,7 @@ export class AgentRunner {
 				const maxIndex = Math.max(
 					messages.length - 1,
 					toolsWithIndex.length > 0
-						? toolsWithIndex[toolsWithIndex.length - 1]?.tool_index ?? -1
+						? (toolsWithIndex[toolsWithIndex.length - 1]?.tool_index ?? -1)
 						: -1,
 				);
 
@@ -504,73 +510,77 @@ export class AgentRunner {
 					break;
 				}
 
-			case "tool-call": {
-				// FLUSH current text segment before recording tool call
-				// This creates the interleaved text -> tool -> text pattern
-				if (currentSegmentBuffer.length > 0) {
-					await this.saveMessage(turn.id, currentSegmentIndex, currentSegmentBuffer);
-					broadcast(
-						createTurnSegmentCompleteEvent({
-							sessionId: this.session.id,
-							turnId: turn.id,
-							segmentIndex: currentSegmentIndex,
+				case "tool-call": {
+					// FLUSH current text segment before recording tool call
+					// This creates the interleaved text -> tool -> text pattern
+					if (currentSegmentBuffer.length > 0) {
+						await this.saveMessage(
+							turn.id,
+							currentSegmentIndex,
+							currentSegmentBuffer,
+						);
+						broadcast(
+							createTurnSegmentCompleteEvent({
+								sessionId: this.session.id,
+								turnId: turn.id,
+								segmentIndex: currentSegmentIndex,
+								content: currentSegmentBuffer,
+							}),
+						);
+						completedSegments.push({
+							index: currentSegmentIndex,
 							content: currentSegmentBuffer,
-						}),
+						});
+						currentSegmentIndex++;
+						currentSegmentBuffer = "";
+					}
+
+					// Tool call started - get ID from the event
+					// The tool-call type has toolCallId from BaseToolCall
+					const toolCallId = part.toolCallId;
+					log.tools.info(`Tool call: ${part.toolName}`);
+					const toolCall = await this.recordToolStart(
+						turn.id,
+						toolIndex++,
+						toolCallId,
+						part.toolName,
+						part.input,
 					);
-					completedSegments.push({
-						index: currentSegmentIndex,
-						content: currentSegmentBuffer,
-					});
-					currentSegmentIndex++;
-					currentSegmentBuffer = "";
+
+					activeToolCalls.set(toolCallId, toolCall);
+					options.onToolStarted?.(toolCall);
+					break;
 				}
 
-				// Tool call started - get ID from the event
-				// The tool-call type has toolCallId from BaseToolCall
-				const toolCallId = part.toolCallId;
-				log.tools.info(`Tool call: ${part.toolName}`);
-				const toolCall = await this.recordToolStart(
-					turn.id,
-					toolIndex++,
-					toolCallId,
-					part.toolName,
-					part.input,
-				);
-
-				activeToolCalls.set(toolCallId, toolCall);
-				options.onToolStarted?.(toolCall);
-				break;
-			}
-
-			case "tool-result": {
-				// Tool execution completed
-				const toolCall = activeToolCalls.get(part.toolCallId);
-				if (toolCall) {
-					log.tools.success(`Tool completed: ${toolCall.toolName}`);
-					await this.recordToolComplete(
-						toolCall,
-						part.output,
-						true, // AI SDK only emits tool-result on success
-					);
-					options.onToolCompleted?.(toolCall);
+				case "tool-result": {
+					// Tool execution completed
+					const toolCall = activeToolCalls.get(part.toolCallId);
+					if (toolCall) {
+						log.tools.success(`Tool completed: ${toolCall.toolName}`);
+						await this.recordToolComplete(
+							toolCall,
+							part.output,
+							true, // AI SDK only emits tool-result on success
+						);
+						options.onToolCompleted?.(toolCall);
+					}
+					break;
 				}
-				break;
-			}
 
-			case "tool-error": {
-				// Tool execution failed
-				const toolCall = activeToolCalls.get(part.toolCallId);
-				if (toolCall) {
-					log.tools.error(`Tool failed: ${toolCall.toolName}`, part.error);
-					await this.recordToolComplete(
-						toolCall,
-						{ error: part.error },
-						false,
-					);
-					options.onToolCompleted?.(toolCall);
+				case "tool-error": {
+					// Tool execution failed
+					const toolCall = activeToolCalls.get(part.toolCallId);
+					if (toolCall) {
+						log.tools.error(`Tool failed: ${toolCall.toolName}`, part.error);
+						await this.recordToolComplete(
+							toolCall,
+							{ error: part.error },
+							false,
+						);
+						options.onToolCompleted?.(toolCall);
+					}
+					break;
 				}
-				break;
-			}
 
 				case "finish-step": {
 					// A step completed (may include tool calls)
@@ -600,7 +610,11 @@ export class AgentRunner {
 
 		// Save any remaining text as the final segment
 		if (currentSegmentBuffer.length > 0) {
-			await this.saveMessage(turn.id, currentSegmentIndex, currentSegmentBuffer);
+			await this.saveMessage(
+				turn.id,
+				currentSegmentIndex,
+				currentSegmentBuffer,
+			);
 			completedSegments.push({
 				index: currentSegmentIndex,
 				content: currentSegmentBuffer,
