@@ -8,6 +8,7 @@
 
 export interface ProjectDatabase {
 	project_meta: ProjectMetaTable;
+	channels: ChannelsTable;
 	workflows: WorkflowsTable;
 	scope_cards: ScopeCardsTable;
 	research_cards: ResearchCardsTable;
@@ -26,6 +27,18 @@ export interface ProjectDatabase {
 export interface ProjectMetaTable {
 	key: string;
 	value: string;
+	updated_at: number;
+}
+
+// =============================================================================
+// Channels (Discussions)
+// =============================================================================
+
+export interface ChannelsTable {
+	id: string;
+	name: string;
+	description: string | null;
+	created_at: number;
 	updated_at: number;
 }
 

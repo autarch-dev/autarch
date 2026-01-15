@@ -3,13 +3,27 @@
  *
  * Handles:
  * - Running the LLM with the agent's configuration
- * - Streaming responses to the UI
- * - Executing tool calls
+ * - Streaming responses to the UI via WebSocket
+ * - Executing tool calls (handled by AI SDK)
  * - Persisting turns, messages, tools, and thoughts
  */
 
-import type { Kysely } from "kysely";
-import type { ProjectDatabase } from "@/backend/db/project";
+import type {
+	AssistantModelMessage,
+	ModelMessage,
+	ToolCallPart,
+	ToolModelMessage,
+	ToolResultPart,
+	UserModelMessage,
+} from "@ai-sdk/provider-utils";
+import { stepCountIs, streamText } from "ai";
+import {
+	convertToAISDKTools,
+	createChannelToolContext,
+	createWorkflowToolContext,
+	getModelForScenario,
+} from "@/backend/llm";
+import type { ToolContext } from "@/backend/tools/types";
 import { broadcast } from "@/backend/ws";
 import {
 	createTurnCompletedEvent,
@@ -29,6 +43,13 @@ import type {
 } from "./types";
 
 // =============================================================================
+// Constants
+// =============================================================================
+
+/** Maximum number of tool execution steps before stopping */
+const MAX_TOOL_STEPS = 15;
+
+// =============================================================================
 // AgentRunner
 // =============================================================================
 
@@ -36,6 +57,7 @@ export class AgentRunner {
 	private session: ActiveSession;
 	private config: RunnerConfig;
 	private turnIndex = 0;
+	private conversationHistory: ModelMessage[] = [];
 
 	constructor(session: ActiveSession, config: RunnerConfig) {
 		this.session = session;
@@ -50,28 +72,35 @@ export class AgentRunner {
 	 * Run the agent with a user message
 	 *
 	 * This is the main entry point for agent execution:
-	 * 1. Creates a user turn in DB
-	 * 2. Streams LLM response
-	 * 3. Handles tool calls (agentic loop)
-	 * 4. Persists all data
-	 * 5. Broadcasts events
+	 * 1. Loads conversation history from DB
+	 * 2. Creates a user turn in DB
+	 * 3. Streams LLM response using AI SDK
+	 * 4. AI SDK handles tool execution automatically via stopWhen
+	 * 5. Persists all data and broadcasts events
 	 */
 	async run(userMessage: string, options: RunOptions = {}): Promise<void> {
 		const agentConfig = getAgentConfig(this.session.agentRole);
 
-		// Create user turn
+		// Load existing conversation history for this session
+		await this.loadConversationHistory();
+
+		// Create user turn and add to history
 		const userTurn = await this.createTurn("user");
 		await this.saveMessage(userTurn.id, 0, userMessage);
 		await this.completeTurn(userTurn.id);
+
+		// Add user message to history (use simple string content)
+		const userMsg: UserModelMessage = {
+			role: "user",
+			content: userMessage,
+		};
+		this.conversationHistory.push(userMsg);
 
 		// Create assistant turn
 		const assistantTurn = await this.createTurn("assistant");
 
 		try {
-			// TODO: Implement actual LLM streaming
-			// This is a stub that will be replaced with actual LLM integration
 			await this.streamLLMResponse(assistantTurn, agentConfig, options);
-
 			await this.completeTurn(assistantTurn.id);
 		} catch (error) {
 			await this.errorTurn(
@@ -83,62 +112,326 @@ export class AgentRunner {
 	}
 
 	// ===========================================================================
-	// LLM Streaming (Stub)
+	// Conversation History
 	// ===========================================================================
 
 	/**
-	 * Stream LLM response and handle tool calls
+	 * Load conversation history from the database for context
+	 */
+	private async loadConversationHistory(): Promise<void> {
+		// Get all completed turns for this session
+		const turns = await this.config.db
+			.selectFrom("turns")
+			.selectAll()
+			.where("session_id", "=", this.session.id)
+			.where("status", "=", "completed")
+			.orderBy("turn_index", "asc")
+			.execute();
+
+		// Update turn index to continue from where we left off
+		if (turns.length > 0) {
+			const lastTurn = turns[turns.length - 1];
+			if (lastTurn) {
+				this.turnIndex = lastTurn.turn_index + 1;
+			}
+		}
+
+		// Build conversation history
+		for (const turn of turns) {
+			// Get messages for this turn
+			const messages = await this.config.db
+				.selectFrom("turn_messages")
+				.selectAll()
+				.where("turn_id", "=", turn.id)
+				.orderBy("message_index", "asc")
+				.execute();
+
+			// Get tool calls for this turn (if assistant)
+			const tools = await this.config.db
+				.selectFrom("turn_tools")
+				.selectAll()
+				.where("turn_id", "=", turn.id)
+				.orderBy("tool_index", "asc")
+				.execute();
+
+			if (turn.role === "user") {
+				// User turns are simple text
+				const content = messages.map((m) => m.content).join("\n");
+				const userMsg: UserModelMessage = {
+					role: "user",
+					content,
+				};
+				this.conversationHistory.push(userMsg);
+			} else {
+				// Assistant turns may have text and tool calls
+				const assistantParts: AssistantModelMessage["content"] = [];
+
+				// Add text content
+				for (const msg of messages) {
+					assistantParts.push({ type: "text", text: msg.content });
+				}
+
+				// Add tool calls
+				for (const tool of tools) {
+					const toolCallPart: ToolCallPart = {
+						type: "tool-call",
+						toolCallId: tool.id,
+						toolName: tool.tool_name,
+						input: JSON.parse(tool.input_json),
+					};
+					assistantParts.push(toolCallPart);
+				}
+
+				if (assistantParts.length > 0) {
+					const assistantMsg: AssistantModelMessage = {
+						role: "assistant",
+						content: assistantParts,
+					};
+					this.conversationHistory.push(assistantMsg);
+
+					// Add tool results as separate messages
+					for (const tool of tools) {
+						if (tool.output_json) {
+							const toolResultPart: ToolResultPart = {
+								type: "tool-result",
+								toolCallId: tool.id,
+								toolName: tool.tool_name,
+								output: {
+									type: "json",
+									value: JSON.parse(tool.output_json),
+								},
+							};
+							const toolMsg: ToolModelMessage = {
+								role: "tool",
+								content: [toolResultPart],
+							};
+							this.conversationHistory.push(toolMsg);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// ===========================================================================
+	// LLM Streaming
+	// ===========================================================================
+
+	/**
+	 * Stream LLM response using Vercel AI SDK
 	 *
-	 * TODO: Implement actual LLM integration with:
-	 * - Anthropic SDK for Claude models
-	 * - OpenAI SDK for GPT models
-	 * - Google AI SDK for Gemini models
-	 * - xAI SDK for Grok models
+	 * The AI SDK handles the agentic tool loop automatically via stopWhen.
+	 * We process the fullStream to:
+	 * - Broadcast text deltas to the UI
+	 * - Track and persist tool calls
+	 * - Save the complete message
 	 */
 	private async streamLLMResponse(
 		turn: Turn,
-		_agentConfig: ReturnType<typeof getAgentConfig>,
+		agentConfig: ReturnType<typeof getAgentConfig>,
 		options: RunOptions,
 	): Promise<void> {
-		// Stub implementation - simulates streaming
-		const stubMessage =
-			"[Agent response stub] This is where the LLM response will be streamed.";
+		// Get the model for this agent's scenario
+		const model = await getModelForScenario(agentConfig.role);
 
-		const messageIndex = 0;
-		const messageBuffer: string[] = [];
+		// Create tool context based on session type
+		const toolContext = this.createToolContext();
 
-		// Simulate streaming chunks
-		for (const char of stubMessage) {
-			if (options.signal?.aborted) {
+		// Convert our tools to AI SDK format
+		const tools = convertToAISDKTools(agentConfig.tools, toolContext);
+
+		// Track state during streaming
+		let messageBuffer = "";
+		let thoughtBuffer = "";
+		let toolIndex = 0;
+		const activeToolCalls = new Map<string, ToolCall>();
+
+		// Create the abort signal from session + options
+		const signal =
+			options.signal ?? this.session.abortController?.signal ?? undefined;
+
+		// Start streaming with AI SDK
+		const result = streamText({
+			model,
+			system: agentConfig.systemPrompt,
+			messages: this.conversationHistory,
+			tools,
+			stopWhen: stepCountIs(MAX_TOOL_STEPS),
+			abortSignal: signal,
+			// Note: maxTokens and temperature are passed via providerOptions or model config
+		});
+
+		// Process the stream
+		for await (const part of result.fullStream) {
+			// Check for abort
+			if (signal?.aborted) {
 				throw new Error("Aborted");
 			}
 
-			messageBuffer.push(char);
+			switch (part.type) {
+				case "text-delta": {
+					messageBuffer += part.text;
 
-			// Emit delta
-			broadcast(
-				createTurnMessageDeltaEvent({
-					sessionId: this.session.id,
-					turnId: turn.id,
-					delta: char,
-				}),
-			);
+					// Broadcast delta to UI
+					broadcast(
+						createTurnMessageDeltaEvent({
+							sessionId: this.session.id,
+							turnId: turn.id,
+							delta: part.text,
+						}),
+					);
 
-			options.onMessageDelta?.(char);
+					options.onMessageDelta?.(part.text);
+					break;
+				}
 
-			// Small delay to simulate streaming
-			await sleep(10);
+				case "reasoning-delta": {
+					// Extended thinking / reasoning (Claude models)
+					thoughtBuffer += part.text;
+
+					broadcast(
+						createTurnThoughtDeltaEvent({
+							sessionId: this.session.id,
+							turnId: turn.id,
+							delta: part.text,
+						}),
+					);
+
+					options.onThoughtDelta?.(part.text);
+					break;
+				}
+
+				case "tool-call": {
+					// Tool call started - get ID from the event
+					// The tool-call type has toolCallId from BaseToolCall
+					const toolCallId = part.toolCallId;
+					const toolCall = await this.recordToolStart(
+						turn.id,
+						toolIndex++,
+						toolCallId,
+						part.toolName,
+						part.input,
+					);
+
+					activeToolCalls.set(toolCallId, toolCall);
+					options.onToolStarted?.(toolCall);
+					break;
+				}
+
+				case "tool-result": {
+					// Tool execution completed
+					const toolCall = activeToolCalls.get(part.toolCallId);
+					if (toolCall) {
+						await this.recordToolComplete(
+							toolCall,
+							part.output,
+							true, // AI SDK only emits tool-result on success
+						);
+						options.onToolCompleted?.(toolCall);
+					}
+					break;
+				}
+
+				case "tool-error": {
+					// Tool execution failed
+					const toolCall = activeToolCalls.get(part.toolCallId);
+					if (toolCall) {
+						await this.recordToolComplete(
+							toolCall,
+							{ error: part.error },
+							false,
+						);
+						options.onToolCompleted?.(toolCall);
+					}
+					break;
+				}
+
+				case "finish-step": {
+					// A step completed (may include tool calls)
+					// We can track token usage here if needed
+					break;
+				}
+
+				case "finish": {
+					// Stream completed
+					break;
+				}
+
+				case "error": {
+					// Handle streaming error
+					throw new Error(
+						part.error instanceof Error
+							? part.error.message
+							: "Stream error occurred",
+					);
+				}
+			}
 		}
 
-		// Save complete message
-		await this.saveMessage(turn.id, messageIndex, messageBuffer.join(""));
+		// Get final usage stats
+		const usage = await result.usage;
+		const tokenCount = usage?.totalTokens;
 
-		// TODO: Handle tool calls in agentic loop
-		// When the LLM requests a tool call:
-		// 1. Parse the tool call from the response
-		// 2. Execute the tool
-		// 3. Send tool result back to LLM
-		// 4. Continue streaming until complete
+		// Save complete message if we have text content
+		if (messageBuffer.length > 0) {
+			await this.saveMessage(turn.id, 0, messageBuffer);
+		}
+
+		// Save thoughts if we have any
+		if (thoughtBuffer.length > 0) {
+			await this.saveThought(turn.id, 0, thoughtBuffer);
+		}
+
+		// Add assistant response to conversation history for context
+		const assistantParts: AssistantModelMessage["content"] = [];
+
+		if (messageBuffer) {
+			assistantParts.push({ type: "text", text: messageBuffer });
+		}
+
+		for (const toolCall of activeToolCalls.values()) {
+			const toolCallPart: ToolCallPart = {
+				type: "tool-call",
+				toolCallId: toolCall.id,
+				toolName: toolCall.toolName,
+				input: toolCall.input,
+			};
+			assistantParts.push(toolCallPart);
+		}
+
+		if (assistantParts.length > 0) {
+			const assistantMsg: AssistantModelMessage = {
+				role: "assistant",
+				content: assistantParts,
+			};
+			this.conversationHistory.push(assistantMsg);
+		}
+
+		// Complete the turn with token count
+		await this.completeTurn(turn.id, tokenCount);
+	}
+
+	// ===========================================================================
+	// Tool Context
+	// ===========================================================================
+
+	/**
+	 * Create the appropriate tool context based on session type
+	 */
+	private createToolContext(): ToolContext {
+		if (this.session.contextType === "channel") {
+			return createChannelToolContext(
+				this.config.projectRoot,
+				this.session.contextId,
+				this.session.id,
+			);
+		}
+		return createWorkflowToolContext(
+			this.config.projectRoot,
+			this.session.contextId,
+			this.session.id,
+			this.config.worktreePath,
+		);
 	}
 
 	// ===========================================================================
@@ -247,34 +540,36 @@ export class AgentRunner {
 	}
 
 	// ===========================================================================
-	// Tool Execution (Stub)
+	// Tool Tracking
 	// ===========================================================================
 
 	/**
-	 * Execute a tool call
-	 *
-	 * TODO: Implement actual tool execution:
-	 * 1. Validate tool name is available to this agent
-	 * 2. Parse and validate input against tool schema
-	 * 3. Execute the tool
-	 * 4. Handle errors gracefully
-	 * 5. Notify orchestrator if it's a stage-completion tool
+	 * Record a tool call starting
 	 */
-	private async executeTool(
+	private async recordToolStart(
 		turnId: string,
 		toolIndex: number,
+		toolCallId: string,
 		toolName: string,
 		input: unknown,
-		options: RunOptions,
 	): Promise<ToolCall> {
 		const now = Date.now();
-		const toolId = generateToolId();
+
+		// Extract reason from input if present (our tools include a reason param)
+		const reason =
+			typeof input === "object" &&
+			input !== null &&
+			"reason" in input &&
+			typeof (input as Record<string, unknown>).reason === "string"
+				? ((input as Record<string, unknown>).reason as string)
+				: null;
 
 		const toolCall: ToolCall = {
-			id: toolId,
+			id: toolCallId,
 			turnId,
 			toolIndex,
 			toolName,
+			reason: reason ?? undefined,
 			input,
 			status: "running",
 			startedAt: now,
@@ -284,11 +579,11 @@ export class AgentRunner {
 		await this.config.db
 			.insertInto("turn_tools")
 			.values({
-				id: toolId,
+				id: toolCallId,
 				turn_id: turnId,
 				tool_index: toolIndex,
 				tool_name: toolName,
-				reason: null, // TODO: Extract from input
+				reason,
 				input_json: JSON.stringify(input),
 				output_json: null,
 				status: "running",
@@ -302,79 +597,50 @@ export class AgentRunner {
 			createTurnToolStartedEvent({
 				sessionId: this.session.id,
 				turnId,
-				toolId,
+				toolId: toolCallId,
 				name: toolName,
 				input,
 			}),
 		);
 
-		options.onToolStarted?.(toolCall);
+		return toolCall;
+	}
 
-		try {
-			// TODO: Actually execute the tool
-			const output = { stub: true, message: "Tool execution not implemented" };
+	/**
+	 * Record a tool call completing
+	 */
+	private async recordToolComplete(
+		toolCall: ToolCall,
+		output: unknown,
+		success: boolean,
+	): Promise<void> {
+		const now = Date.now();
 
-			toolCall.output = output;
-			toolCall.status = "completed";
-			toolCall.completedAt = Date.now();
+		toolCall.output = output;
+		toolCall.status = success ? "completed" : "error";
+		toolCall.completedAt = now;
 
-			// Update DB
-			await this.config.db
-				.updateTable("turn_tools")
-				.set({
-					output_json: JSON.stringify(output),
-					status: "completed",
-					completed_at: toolCall.completedAt,
-				})
-				.where("id", "=", toolId)
-				.execute();
+		// Update DB
+		await this.config.db
+			.updateTable("turn_tools")
+			.set({
+				output_json: JSON.stringify(output),
+				status: toolCall.status,
+				completed_at: now,
+			})
+			.where("id", "=", toolCall.id)
+			.execute();
 
-			// Broadcast completion event
-			broadcast(
-				createTurnToolCompletedEvent({
-					sessionId: this.session.id,
-					turnId,
-					toolId,
-					output,
-					success: true,
-				}),
-			);
-
-			options.onToolCompleted?.(toolCall);
-
-			return toolCall;
-		} catch (error) {
-			toolCall.status = "error";
-			toolCall.completedAt = Date.now();
-
-			const errorOutput = {
-				error: error instanceof Error ? error.message : "Unknown error",
-			};
-
-			await this.config.db
-				.updateTable("turn_tools")
-				.set({
-					output_json: JSON.stringify(errorOutput),
-					status: "error",
-					completed_at: toolCall.completedAt,
-				})
-				.where("id", "=", toolId)
-				.execute();
-
-			broadcast(
-				createTurnToolCompletedEvent({
-					sessionId: this.session.id,
-					turnId,
-					toolId,
-					output: errorOutput,
-					success: false,
-				}),
-			);
-
-			options.onToolCompleted?.(toolCall);
-
-			throw error;
-		}
+		// Broadcast completion event
+		broadcast(
+			createTurnToolCompletedEvent({
+				sessionId: this.session.id,
+				turnId: toolCall.turnId,
+				toolId: toolCall.id,
+				output,
+				success,
+			}),
+		);
 	}
 
 	// ===========================================================================
@@ -417,14 +683,6 @@ function generateMessageId(): string {
 	return `msg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function generateToolId(): string {
-	return `tool_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
 function generateThoughtId(): string {
 	return `thought_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
 }

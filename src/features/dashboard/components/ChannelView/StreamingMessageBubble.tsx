@@ -1,75 +1,67 @@
 import { CheckCircle2, Loader2, Wrench, XCircle } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import type { ChannelMessage } from "@/shared/schemas/channel";
-import { formatTime } from "../../utils";
+import type { StreamingMessage } from "../../store/discussionsStore";
 import { Markdown } from "../Markdown";
 
-interface ChannelMessageBubbleProps {
-	message: ChannelMessage;
+interface StreamingMessageBubbleProps {
+	message: StreamingMessage;
 }
 
-export function ChannelMessageBubble({ message }: ChannelMessageBubbleProps) {
-	const isAI = message.role === "assistant";
-
+export function StreamingMessageBubble({
+	message,
+}: StreamingMessageBubbleProps) {
 	return (
-		<div
-			className={cn("flex gap-3 py-3 px-4 hover:bg-muted/30 transition-colors")}
-		>
+		<div className="flex gap-3 py-3 px-4 bg-muted/20">
 			<Avatar className="size-9 shrink-0 mt-0.5">
-				<AvatarFallback
-					className={cn(
-						"text-xs font-medium",
-						isAI
-							? "bg-primary/20 text-primary"
-							: "bg-muted text-muted-foreground",
-					)}
-				>
-					{isAI ? "A" : "U"}
+				<AvatarFallback className="text-xs font-medium bg-primary/20 text-primary">
+					A
 				</AvatarFallback>
 			</Avatar>
 			<div className="flex-1 min-w-0">
 				<div className="flex items-baseline gap-2 mb-1">
-					<span className={cn("font-semibold text-sm", isAI && "text-primary")}>
-						{isAI ? "Autarch" : "You"}
-					</span>
-					{isAI && (
-						<Badge
-							variant="secondary"
-							className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary"
-						>
-							AI
-						</Badge>
-					)}
-					<span className="text-xs text-muted-foreground">
-						{formatTime(new Date(message.timestamp))}
+					<span className="font-semibold text-sm text-primary">Autarch</span>
+					<Badge
+						variant="secondary"
+						className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary"
+					>
+						AI
+					</Badge>
+					<span className="text-xs text-muted-foreground flex items-center gap-1">
+						<Loader2 className="size-3 animate-spin" />
+						Thinking...
 					</span>
 				</div>
 
-				{/* Message content */}
+				{/* Streaming content */}
 				{message.content && (
 					<Markdown className="text-sm">{message.content}</Markdown>
 				)}
 
-				{/* Tool calls */}
-				{message.toolCalls && message.toolCalls.length > 0 && (
+				{/* Show cursor when no content yet */}
+				{!message.content && message.tools.length === 0 && (
+					<span className="inline-block w-2 h-4 bg-primary/50 animate-pulse" />
+				)}
+
+				{/* Active tool calls */}
+				{message.tools.length > 0 && (
 					<div className="mt-3 space-y-2">
-						{message.toolCalls.map((tool) => (
-							<ToolCallDisplay key={tool.id} tool={tool} />
+						{message.tools.map((tool) => (
+							<StreamingToolCall key={tool.id} tool={tool} />
 						))}
 					</div>
 				)}
 
-				{/* Extended thinking */}
+				{/* Extended thinking (collapsible) */}
 				{message.thought && (
-					<details className="mt-3">
+					<details className="mt-3" open>
 						<summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-							View reasoning
+							Reasoning...
 						</summary>
 						<div className="mt-2 pl-3 border-l-2 border-muted">
 							<p className="text-xs text-muted-foreground italic whitespace-pre-wrap">
 								{message.thought}
+								<span className="inline-block w-1 h-3 bg-muted-foreground/50 animate-pulse ml-0.5" />
 							</p>
 						</div>
 					</details>
@@ -79,7 +71,7 @@ export function ChannelMessageBubble({ message }: ChannelMessageBubbleProps) {
 	);
 }
 
-interface ToolCallDisplayProps {
+interface StreamingToolCallProps {
 	tool: {
 		id: string;
 		name: string;
@@ -89,7 +81,7 @@ interface ToolCallDisplayProps {
 	};
 }
 
-function ToolCallDisplay({ tool }: ToolCallDisplayProps) {
+function StreamingToolCall({ tool }: StreamingToolCallProps) {
 	return (
 		<div className="rounded-md border bg-muted/50 overflow-hidden">
 			<div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/70">

@@ -126,6 +126,36 @@ export const WorkflowErrorEventSchema = z.object({
 export type WorkflowErrorEvent = z.infer<typeof WorkflowErrorEventSchema>;
 
 // =============================================================================
+// Channel Events
+// =============================================================================
+
+// channel:created
+export const ChannelCreatedPayloadSchema = z.object({
+	channelId: z.string(),
+	name: z.string(),
+	description: z.string().optional(),
+});
+export type ChannelCreatedPayload = z.infer<typeof ChannelCreatedPayloadSchema>;
+
+export const ChannelCreatedEventSchema = z.object({
+	type: z.literal("channel:created"),
+	payload: ChannelCreatedPayloadSchema,
+});
+export type ChannelCreatedEvent = z.infer<typeof ChannelCreatedEventSchema>;
+
+// channel:deleted
+export const ChannelDeletedPayloadSchema = z.object({
+	channelId: z.string(),
+});
+export type ChannelDeletedPayload = z.infer<typeof ChannelDeletedPayloadSchema>;
+
+export const ChannelDeletedEventSchema = z.object({
+	type: z.literal("channel:deleted"),
+	payload: ChannelDeletedPayloadSchema,
+});
+export type ChannelDeletedEvent = z.infer<typeof ChannelDeletedEventSchema>;
+
+// =============================================================================
 // Session Events
 // =============================================================================
 
@@ -300,6 +330,9 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	WorkflowStageChangedEventSchema,
 	WorkflowCompletedEventSchema,
 	WorkflowErrorEventSchema,
+	// Channel events
+	ChannelCreatedEventSchema,
+	ChannelDeletedEventSchema,
 	// Session events
 	SessionStartedEventSchema,
 	SessionCompletedEventSchema,
@@ -356,6 +389,19 @@ export function createWorkflowErrorEvent(
 	payload: WorkflowErrorPayload,
 ): WorkflowErrorEvent {
 	return { type: "workflow:error", payload };
+}
+
+// Channel events
+export function createChannelCreatedEvent(
+	payload: ChannelCreatedPayload,
+): ChannelCreatedEvent {
+	return { type: "channel:created", payload };
+}
+
+export function createChannelDeletedEvent(
+	payload: ChannelDeletedPayload,
+): ChannelDeletedEvent {
+	return { type: "channel:deleted", payload };
 }
 
 // Session events

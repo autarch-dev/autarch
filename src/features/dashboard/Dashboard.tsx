@@ -1,49 +1,111 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ChannelView } from "./components/ChannelView";
 import { AppSidebar } from "./components/Sidebar";
 import { WorkflowView } from "./components/WorkflowView";
-import {
-	mockChannels,
-	mockMessages,
-	mockWorkflowMessages,
-	mockWorkflows,
-} from "./mockData";
-import type { ViewType } from "./types";
+import { mockWorkflowMessages, mockWorkflows } from "./mockData";
+import { useDiscussionsStore } from "./store";
+import type { Channel, ViewType } from "./types";
 
 export function Dashboard() {
 	const [selectedView, setSelectedView] = useState<ViewType>("channel");
-	const [selectedId, setSelectedId] = useState<string | null>("general");
+	const [selectedId, setSelectedId] = useState<string | null>(null);
 
-	const handleSelectChannel = (channelId: string) => {
-		setSelectedView("channel");
-		setSelectedId(channelId);
-	};
+	// Discussions store
+	const {
+		channels,
+		channelsLoading,
+		conversations,
+		fetchChannels,
+		createChannel,
+		selectChannel,
+		fetchHistory,
+		sendMessage,
+	} = useDiscussionsStore();
 
-	const handleSelectWorkflow = (workflowId: string) => {
+	// Fetch channels on mount
+	useEffect(() => {
+		fetchChannels();
+	}, [fetchChannels]);
+
+	// Fetch channel history when selecting a channel
+	useEffect(() => {
+		if (selectedView === "channel" && selectedId) {
+			// Fetch history if we haven't already
+			const conversation = conversations.get(selectedId);
+			if (!conversation) {
+				fetchHistory(selectedId);
+			}
+		}
+	}, [selectedView, selectedId, conversations, fetchHistory]);
+
+	const handleSelectChannel = useCallback(
+		(channelId: string) => {
+			setSelectedView("channel");
+			setSelectedId(channelId);
+			selectChannel(channelId);
+		},
+		[selectChannel],
+	);
+
+	const handleSelectWorkflow = useCallback((workflowId: string) => {
 		setSelectedView("workflow");
 		setSelectedId(workflowId);
-	};
+	}, []);
 
-	const handleSendMessage = (content: string) => {
-		// Mock: In reality, this would send to the backend
-		console.log("Sending message:", content);
-	};
+	const handleCreateChannel = useCallback(
+		async (name: string, description?: string) => {
+			const channel = await createChannel(name, description);
+			// Auto-select the new channel
+			handleSelectChannel(channel.id);
+		},
+		[createChannel, handleSelectChannel],
+	);
 
-	const selectedChannel = useMemo(() => {
+	const handleSendChannelMessage = useCallback(
+		async (content: string) => {
+			if (selectedView === "channel" && selectedId) {
+				await sendMessage(selectedId, content);
+			}
+		},
+		[selectedView, selectedId, sendMessage],
+	);
+
+	const handleSendWorkflowMessage = useCallback((content: string) => {
+		// TODO: Wire up workflow messages to backend
+		console.log("Sending workflow message:", content);
+	}, []);
+
+	// Convert store channels to the local Channel type
+	const channelsForSidebar = useMemo((): Channel[] => {
+		return channels.map((c) => ({
+			id: c.id,
+			name: c.name,
+			description: c.description,
+		}));
+	}, [channels]);
+
+	const selectedChannel = useMemo((): Channel | null => {
 		if (selectedView !== "channel" || !selectedId) return null;
-		return mockChannels.find((c) => c.id === selectedId) ?? null;
-	}, [selectedView, selectedId]);
+		const channel = channels.find((c) => c.id === selectedId);
+		if (!channel) return null;
+		return {
+			id: channel.id,
+			name: channel.name,
+			description: channel.description,
+		};
+	}, [selectedView, selectedId, channels]);
 
 	const selectedWorkflow = useMemo(() => {
 		if (selectedView !== "workflow" || !selectedId) return null;
 		return mockWorkflows.find((w) => w.id === selectedId) ?? null;
 	}, [selectedView, selectedId]);
 
-	const channelMessages = useMemo(() => {
-		if (!selectedChannel) return [];
-		return mockMessages.filter((m) => m.channelId === selectedChannel.id);
-	}, [selectedChannel]);
+	// Get conversation state for selected channel
+	const selectedConversation = useMemo(() => {
+		if (!selectedId) return undefined;
+		return conversations.get(selectedId);
+	}, [selectedId, conversations]);
 
 	const workflowMessages = useMemo(() => {
 		if (!selectedWorkflow) return [];
@@ -55,25 +117,28 @@ export function Dashboard() {
 	return (
 		<SidebarProvider>
 			<AppSidebar
-				channels={mockChannels}
+				channels={channelsForSidebar}
 				workflows={mockWorkflows}
 				selectedView={selectedView}
 				selectedId={selectedId}
 				onSelectChannel={handleSelectChannel}
 				onSelectWorkflow={handleSelectWorkflow}
+				onCreateChannel={handleCreateChannel}
 			/>
 			<SidebarInset className="flex flex-col h-svh overflow-hidden">
 				{selectedView === "channel" && selectedChannel ? (
 					<ChannelView
 						channel={selectedChannel}
-						messages={channelMessages}
-						onSendMessage={handleSendMessage}
+						messages={selectedConversation?.messages ?? []}
+						streamingMessage={selectedConversation?.streamingMessage}
+						isLoading={selectedConversation?.isLoading ?? channelsLoading}
+						onSendMessage={handleSendChannelMessage}
 					/>
 				) : selectedView === "workflow" && selectedWorkflow ? (
 					<WorkflowView
 						workflow={selectedWorkflow}
 						messages={workflowMessages}
-						onSendMessage={handleSendMessage}
+						onSendMessage={handleSendWorkflowMessage}
 					/>
 				) : (
 					<div className="flex items-center justify-center h-full">

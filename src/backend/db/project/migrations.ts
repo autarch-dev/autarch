@@ -8,6 +8,7 @@ export async function migrateProjectDb(
 	db: Kysely<ProjectDatabase>,
 ): Promise<void> {
 	await createProjectMetaTable(db);
+	await createChannelsTable(db);
 	await createWorkflowsTable(db);
 	await createScopeCardsTable(db);
 	await createResearchCardsTable(db);
@@ -32,6 +33,32 @@ async function createProjectMetaTable(
 		.addColumn("key", "text", (col) => col.primaryKey())
 		.addColumn("value", "text", (col) => col.notNull())
 		.addColumn("updated_at", "integer", (col) => col.notNull())
+		.execute();
+}
+
+// =============================================================================
+// Channels (Discussions)
+// =============================================================================
+
+async function createChannelsTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("channels")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("name", "text", (col) => col.notNull())
+		.addColumn("description", "text")
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.addColumn("updated_at", "integer", (col) => col.notNull())
+		.execute();
+
+	// Index for listing channels by name
+	await db.schema
+		.createIndex("idx_channels_name")
+		.ifNotExists()
+		.on("channels")
+		.column("name")
 		.execute();
 }
 

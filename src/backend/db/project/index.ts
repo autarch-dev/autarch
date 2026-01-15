@@ -85,6 +85,7 @@ export async function closeAllProjectDbs(): Promise<void> {
 
 // Re-export all types
 export type {
+	ChannelsTable,
 	PendingArtifactType,
 	PlansTable,
 	ProjectDatabase,

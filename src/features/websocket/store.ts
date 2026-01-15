@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useDiscussionsStore } from "@/features/dashboard/store";
 import {
 	type IndexingProgressPayload,
 	type SessionStartedPayload,
@@ -207,6 +208,10 @@ function handleEvent(
 	) => void,
 	get: () => WebSocketState,
 ): void {
+	// Forward relevant events to the discussions store
+	// This handles channel events and session/turn events for channels
+	useDiscussionsStore.getState().handleWebSocketEvent(event);
+
 	switch (event.type) {
 		// Indexing events
 		case "indexing:progress":
@@ -233,6 +238,12 @@ function handleEvent(
 				set,
 				get,
 			);
+			break;
+
+		// Channel events (handled by discussionsStore, but can be extended here)
+		case "channel:created":
+		case "channel:deleted":
+			// Handled by discussionsStore
 			break;
 
 		// Session events

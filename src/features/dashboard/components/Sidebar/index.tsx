@@ -16,6 +16,7 @@ interface AppSidebarProps {
 	selectedId: string | null;
 	onSelectChannel: (channelId: string) => void;
 	onSelectWorkflow: (workflowId: string) => void;
+	onCreateChannel: (name: string, description?: string) => Promise<void>;
 }
 
 export function AppSidebar({
@@ -25,6 +26,7 @@ export function AppSidebar({
 	selectedId,
 	onSelectChannel,
 	onSelectWorkflow,
+	onCreateChannel,
 }: AppSidebarProps) {
 	return (
 		<Sidebar collapsible="icon">
@@ -36,6 +38,7 @@ export function AppSidebar({
 					selectedView={selectedView}
 					selectedId={selectedId}
 					onSelectChannel={onSelectChannel}
+					onCreateChannel={onCreateChannel}
 				/>
 
 				<SidebarSeparator />
