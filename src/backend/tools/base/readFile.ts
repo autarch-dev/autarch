@@ -8,6 +8,7 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
+import { isSensitiveFile, resolveSafePath } from "./utils";
 
 // =============================================================================
 // Schema
@@ -47,15 +48,74 @@ Can optionally specify a line range to read only a portion of the file.
 Some files may be blocked due to sensitive content policies.`,
 	inputSchema: readFileInputSchema,
 	execute: async (input, context): Promise<ToolResult<ReadFileOutput>> => {
-		// TODO: Implement file reading
-		// - Resolve path relative to context.projectRoot
-		// - Check sensitivity gate
-		// - Apply line range if specified
-		// - Return content
+		// Resolve and validate path
+		const absolutePath = resolveSafePath(context.projectRoot, input.path);
+		if (!absolutePath) {
+			return {
+				success: false,
+				error: `Invalid path: ${input.path} - path must be within project root`,
+				blocked: true,
+				reason: "Path escapes project root",
+			};
+		}
+
+		// Check sensitivity gate
+		if (isSensitiveFile(input.path)) {
+			return {
+				success: false,
+				error: `Cannot read sensitive file: ${input.path}`,
+				blocked: true,
+				reason: "File matches sensitive content patterns",
+			};
+		}
+
+		// Check if file exists
+		const file = Bun.file(absolutePath);
+		const exists = await file.exists();
+		if (!exists) {
+			return {
+				success: false,
+				error: `File not found: ${input.path}`,
+			};
+		}
+
+		// Read file content
+		let content: string;
+		try {
+			content = await file.text();
+		} catch (err) {
+			return {
+				success: false,
+				error: `Failed to read file: ${input.path} - ${err instanceof Error ? err.message : "unknown error"}`,
+			};
+		}
+
+		// Apply line range if specified
+		if (input.startLine != null || input.endLine != null) {
+			const lines = content.split("\n");
+			const start = (input.startLine ?? 1) - 1; // Convert to 0-indexed
+			const end = input.endLine ?? lines.length;
+
+			if (start < 0 || start >= lines.length) {
+				return {
+					success: false,
+					error: `Invalid start line: ${input.startLine} (file has ${lines.length} lines)`,
+				};
+			}
+
+			if (end < start) {
+				return {
+					success: false,
+					error: `Invalid line range: end (${input.endLine}) < start (${input.startLine})`,
+				};
+			}
+
+			content = lines.slice(start, end).join("\n");
+		}
 
 		return {
-			success: false,
-			error: `File not found: ${input.path}`,
+			success: true,
+			data: content,
 		};
 	},
 };

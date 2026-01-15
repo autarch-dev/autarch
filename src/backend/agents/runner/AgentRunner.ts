@@ -11,6 +11,7 @@
 import type {
 	AssistantModelMessage,
 	ModelMessage,
+	SystemModelMessage,
 	ToolCallPart,
 	ToolModelMessage,
 	ToolResultPart,
@@ -89,6 +90,12 @@ export class AgentRunner {
 		await this.saveMessage(userTurn.id, 0, userMessage);
 		await this.completeTurn(userTurn.id);
 
+		// Inject notes as a system message just before the user message
+		const notesMessage = await this.buildNotesSystemMessage();
+		if (notesMessage) {
+			this.conversationHistory.push(notesMessage);
+		}
+
 		// Add user message to history (use simple string content)
 		const userMsg: UserModelMessage = {
 			role: "user",
@@ -115,8 +122,14 @@ export class AgentRunner {
 	// Conversation History
 	// ===========================================================================
 
+	/** Number of recent tools to include with full details */
+	private static readonly RECENT_TOOLS_LIMIT = 5;
+
 	/**
-	 * Load conversation history from the database for context
+	 * Load conversation history from the database for context.
+	 *
+	 * To manage context size, only the last N tools are included with full
+	 * call/result details. Older tools are summarized in a system message.
 	 */
 	private async loadConversationHistory(): Promise<void> {
 		// Get all completed turns for this session
@@ -136,7 +149,59 @@ export class AgentRunner {
 			}
 		}
 
-		// Build conversation history
+		// First pass: collect all tools to determine which are "recent"
+		const allTools: Array<{
+			id: string;
+			turnId: string;
+			toolName: string;
+			reason: string | null;
+			inputJson: string;
+			outputJson: string | null;
+		}> = [];
+
+		for (const turn of turns) {
+			if (turn.role === "assistant") {
+				const tools = await this.config.db
+					.selectFrom("turn_tools")
+					.selectAll()
+					.where("turn_id", "=", turn.id)
+					.orderBy("tool_index", "asc")
+					.execute();
+
+				for (const tool of tools) {
+					allTools.push({
+						id: tool.id,
+						turnId: turn.id,
+						toolName: tool.tool_name,
+						reason: tool.reason,
+						inputJson: tool.input_json,
+						outputJson: tool.output_json,
+					});
+				}
+			}
+		}
+
+		// Determine which tools are "recent" (last N)
+		const recentToolIds = new Set(
+			allTools
+				.slice(-AgentRunner.RECENT_TOOLS_LIMIT)
+				.map((t) => t.id),
+		);
+
+		// Build summaries for older tools (grouped by turn for context)
+		const olderTools = allTools.filter((t) => !recentToolIds.has(t.id));
+		const olderToolSummaries = this.buildToolSummaries(olderTools);
+
+		// Inject older tool summaries at the start of history (if any)
+		if (olderToolSummaries) {
+			const summaryMsg: SystemModelMessage = {
+				role: "system",
+				content: olderToolSummaries,
+			};
+			this.conversationHistory.push(summaryMsg);
+		}
+
+		// Second pass: build conversation history
 		for (const turn of turns) {
 			// Get messages for this turn
 			const messages = await this.config.db
@@ -144,14 +209,6 @@ export class AgentRunner {
 				.selectAll()
 				.where("turn_id", "=", turn.id)
 				.orderBy("message_index", "asc")
-				.execute();
-
-			// Get tool calls for this turn (if assistant)
-			const tools = await this.config.db
-				.selectFrom("turn_tools")
-				.selectAll()
-				.where("turn_id", "=", turn.id)
-				.orderBy("tool_index", "asc")
 				.execute();
 
 			if (turn.role === "user") {
@@ -163,6 +220,11 @@ export class AgentRunner {
 				};
 				this.conversationHistory.push(userMsg);
 			} else {
+				// Get tools for this turn, filtering to only recent ones
+				const turnTools = allTools.filter(
+					(t) => t.turnId === turn.id && recentToolIds.has(t.id),
+				);
+
 				// Assistant turns may have text and tool calls
 				const assistantParts: AssistantModelMessage["content"] = [];
 
@@ -171,13 +233,13 @@ export class AgentRunner {
 					assistantParts.push({ type: "text", text: msg.content });
 				}
 
-				// Add tool calls
-				for (const tool of tools) {
+				// Add only recent tool calls
+				for (const tool of turnTools) {
 					const toolCallPart: ToolCallPart = {
 						type: "tool-call",
 						toolCallId: tool.id,
-						toolName: tool.tool_name,
-						input: JSON.parse(tool.input_json),
+						toolName: tool.toolName,
+						input: JSON.parse(tool.inputJson),
 					};
 					assistantParts.push(toolCallPart);
 				}
@@ -189,16 +251,16 @@ export class AgentRunner {
 					};
 					this.conversationHistory.push(assistantMsg);
 
-					// Add tool results as separate messages
-					for (const tool of tools) {
-						if (tool.output_json) {
+					// Add tool results only for recent tools
+					for (const tool of turnTools) {
+						if (tool.outputJson) {
 							const toolResultPart: ToolResultPart = {
 								type: "tool-result",
 								toolCallId: tool.id,
-								toolName: tool.tool_name,
+								toolName: tool.toolName,
 								output: {
 									type: "json",
-									value: JSON.parse(tool.output_json),
+									value: JSON.parse(tool.outputJson),
 								},
 							};
 							const toolMsg: ToolModelMessage = {
@@ -211,6 +273,105 @@ export class AgentRunner {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Build a summary of older tool calls for context preservation.
+	 */
+	private buildToolSummaries(
+		tools: Array<{
+			toolName: string;
+			reason: string | null;
+			inputJson: string;
+		}>,
+	): string | null {
+		if (tools.length === 0) {
+			return null;
+		}
+
+		const summaries = tools.map((tool) => {
+			const input = JSON.parse(tool.inputJson);
+			// Summarize input args - just show keys or truncated values
+			const inputSummary = this.summarizeToolInput(input);
+			const reasonPart = tool.reason ? ` for reason: "${tool.reason}"` : "";
+			return `- You ran \`${tool.toolName}\` with input ${inputSummary}${reasonPart}`;
+		});
+
+		return `## Previous Tool Usage\n\nEarlier in this conversation, you executed the following tools (results omitted for brevity):\n\n${summaries.join("\n")}`;
+	}
+
+	/**
+	 * Summarize tool input for the tool history summary.
+	 * Shows key-value pairs, truncating long values.
+	 */
+	private summarizeToolInput(input: unknown): string {
+		if (typeof input !== "object" || input === null) {
+			return JSON.stringify(input);
+		}
+
+		const entries = Object.entries(input as Record<string, unknown>);
+		if (entries.length === 0) {
+			return "{}";
+		}
+
+		const summarized = entries.map(([key, value]) => {
+			let valueStr: string;
+			if (typeof value === "string") {
+				// Truncate long strings
+				valueStr = value.length > 50 ? `"${value.slice(0, 50)}..."` : `"${value}"`;
+			} else if (typeof value === "object") {
+				valueStr = Array.isArray(value) ? `[${value.length} items]` : "{...}";
+			} else {
+				valueStr = JSON.stringify(value);
+			}
+			return `${key}: ${valueStr}`;
+		});
+
+		return `{ ${summarized.join(", ")} }`;
+	}
+
+	/**
+	 * Build a system message containing notes for the current context.
+	 *
+	 * Notes have different scoping based on context:
+	 * - Channels: Notes persist across the entire channel lifetime (query by context_id)
+	 * - Workflows: Notes are ephemeral per stage (query by session_id)
+	 */
+	private async buildNotesSystemMessage(): Promise<SystemModelMessage | null> {
+		let notes: Array<{ content: string; created_at: number }>;
+
+		if (this.session.contextType === "channel") {
+			// For channels: notes persist across channel lifetime
+			notes = await this.config.db
+				.selectFrom("session_notes")
+				.select(["content", "created_at"])
+				.where("context_type", "=", "channel")
+				.where("context_id", "=", this.session.contextId)
+				.orderBy("created_at", "asc")
+				.execute();
+		} else {
+			// For workflows: notes are ephemeral per stage (session)
+			notes = await this.config.db
+				.selectFrom("session_notes")
+				.select(["content", "created_at"])
+				.where("session_id", "=", this.session.id)
+				.orderBy("created_at", "asc")
+				.execute();
+		}
+
+		if (notes.length === 0) {
+			return null;
+		}
+
+		// Format notes as a system message
+		const formattedNotes = notes
+			.map((note, index) => `[Note ${index + 1}] ${note.content}`)
+			.join("\n\n");
+
+		return {
+			role: "system",
+			content: `## Your Notes\n\nYou have saved the following notes for yourself:\n\n${formattedNotes}`,
+		};
 	}
 
 	// ===========================================================================

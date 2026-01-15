@@ -5,7 +5,7 @@ import {
 	isExcludedDir,
 	isLockFile,
 	isSupportedExtension,
-	MAX_FILE_SIZE,
+	MAX_FILE_SIZE_FOR_EMBEDDING,
 } from "./config";
 
 // =============================================================================
@@ -137,7 +137,7 @@ export async function findIndexableFiles(
 
 			// Check file size
 			const stats = await stat(absolutePath);
-			if (stats.size > MAX_FILE_SIZE) {
+			if (stats.size > MAX_FILE_SIZE_FOR_EMBEDDING) {
 				continue;
 			}
 

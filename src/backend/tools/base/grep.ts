@@ -1,7 +1,8 @@
 /**
- * grep - Search file contents for a pattern
+ * grep - Search file contents for a pattern using ripgrep
  */
 
+import { rgPath } from "@joshua.litt/get-ripgrep";
 import { z } from "zod";
 import {
 	REASON_DESCRIPTION,
@@ -56,6 +57,49 @@ export interface GrepOutput {
 }
 
 // =============================================================================
+// Constants
+// =============================================================================
+
+/** Maximum matches to return per call */
+const MAX_RESULTS = 50;
+
+// =============================================================================
+// Ripgrep JSON Types
+// =============================================================================
+
+interface RipgrepMatch {
+	type: "match";
+	data: {
+		path: { text: string };
+		lines: { text: string };
+		line_number: number;
+		absolute_offset: number;
+		submatches: Array<{
+			match: { text: string };
+			start: number;
+			end: number;
+		}>;
+	};
+}
+
+interface RipgrepBegin {
+	type: "begin";
+	data: { path: { text: string } };
+}
+
+interface RipgrepEnd {
+	type: "end";
+	data: { path: { text: string }; stats: unknown };
+}
+
+interface RipgrepSummary {
+	type: "summary";
+	data: { stats: unknown };
+}
+
+type RipgrepMessage = RipgrepMatch | RipgrepBegin | RipgrepEnd | RipgrepSummary;
+
+// =============================================================================
 // Tool Definition
 // =============================================================================
 
@@ -73,15 +117,119 @@ Returns file paths and line numbers for matches.
 Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 	inputSchema: grepInputSchema,
 	execute: async (input, context): Promise<ToolResult<GrepOutput>> => {
-		// TODO: Implement grep using ripgrep or similar
-		// - Validate regex pattern
-		// - Apply glob filter
-		// - Skip binary files
-		// - Paginate results
+		// Build ripgrep arguments
+		const args: string[] = [
+			"--json", // JSON output for structured parsing
+		];
+
+		// Case sensitivity
+		if (!input.caseSensitive) {
+			args.push("--ignore-case");
+		}
+
+		// Glob filter
+		if (input.glob) {
+			args.push("--glob", input.glob);
+		}
+
+		// Add the pattern and path
+		args.push("--", input.pattern, ".");
+
+		// Run ripgrep
+		let proc: Bun.Subprocess;
+		try {
+			proc = Bun.spawn([rgPath, ...args], {
+				cwd: context.projectRoot,
+				stdout: "pipe",
+				stderr: "pipe",
+			});
+		} catch (err) {
+			return {
+				success: false,
+				error: `Failed to spawn ripgrep: ${err instanceof Error ? err.message : "unknown error"}`,
+			};
+		}
+
+		// Read output
+		const stdoutStream = proc.stdout;
+		const stderrStream = proc.stderr;
+
+		if (
+			typeof stdoutStream === "number" ||
+			typeof stderrStream === "number" ||
+			!stdoutStream ||
+			!stderrStream
+		) {
+			return {
+				success: false,
+				error: "Failed to capture ripgrep output",
+			};
+		}
+
+		const stdout = await new Response(stdoutStream).text();
+		const stderr = await new Response(stderrStream).text();
+		const exitCode = await proc.exited;
+
+		// Exit code 1 means no matches (not an error)
+		// Exit code 2+ means actual error
+		if (exitCode > 1) {
+			return {
+				success: false,
+				error: `ripgrep failed: ${stderr || "unknown error"}`,
+			};
+		}
+
+		// Parse JSON lines output
+		const results: GrepMatch[] = [];
+		const lines = stdout.split("\n").filter((line) => line.trim());
+		let skipped = 0;
+		const skip = input.skip ?? 0;
+
+		for (const line of lines) {
+			let msg: RipgrepMessage;
+			try {
+				msg = JSON.parse(line) as RipgrepMessage;
+			} catch {
+				continue; // Skip malformed lines
+			}
+
+			if (msg.type !== "match") {
+				continue;
+			}
+
+			// Handle pagination
+			if (skipped < skip) {
+				skipped++;
+				continue;
+			}
+
+			results.push({
+				file_path: msg.data.path.text,
+				line_number: msg.data.line_number,
+			});
+
+			if (results.length >= MAX_RESULTS) {
+				break;
+			}
+		}
+
+		// Sort by file path
+		results.sort((a, b) => {
+			const pathCmp = a.file_path.localeCompare(b.file_path);
+			if (pathCmp !== 0) return pathCmp;
+			return a.line_number - b.line_number;
+		});
+
+		const output: GrepOutput = { results };
+
+		// Add warning if we hit the limit
+		if (results.length >= MAX_RESULTS) {
+			output.warning = `Results limited to ${MAX_RESULTS} matches. Use skip parameter to paginate.`;
+		}
 
 		return {
 			success: true,
-			data: { results: [] },
+			data: output,
 		};
 	},
 };

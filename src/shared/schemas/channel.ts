@@ -88,7 +88,9 @@ export const ChannelHistoryResponseSchema = z.object({
 	/** Messages in the channel */
 	messages: z.array(ChannelMessageSchema),
 });
-export type ChannelHistoryResponse = z.infer<typeof ChannelHistoryResponseSchema>;
+export type ChannelHistoryResponse = z.infer<
+	typeof ChannelHistoryResponseSchema
+>;
 
 // =============================================================================
 // Send Message Request

@@ -8,7 +8,7 @@
 // =============================================================================
 
 /** Maximum file size to index (96 KB) */
-export const MAX_FILE_SIZE = 96 * 1024;
+export const MAX_FILE_SIZE_FOR_EMBEDDING = 96 * 1024;
 
 /** Skip lines longer than this (likely generated/minified) */
 export const MAX_LINE_LENGTH = 1000;

@@ -14,6 +14,7 @@ export async function migrateProjectDb(
 	await createResearchCardsTable(db);
 	await createPlansTable(db);
 	await createSessionsTable(db);
+	await createSessionNotesTable(db);
 	await createTurnsTable(db);
 	await createTurnMessagesTable(db);
 	await createTurnToolsTable(db);
@@ -40,9 +41,7 @@ async function createProjectMetaTable(
 // Channels (Discussions)
 // =============================================================================
 
-async function createChannelsTable(
-	db: Kysely<ProjectDatabase>,
-): Promise<void> {
+async function createChannelsTable(db: Kysely<ProjectDatabase>): Promise<void> {
 	await db.schema
 		.createTable("channels")
 		.ifNotExists()
@@ -215,6 +214,43 @@ async function createSessionsTable(db: Kysely<ProjectDatabase>): Promise<void> {
 		.ifNotExists()
 		.on("sessions")
 		.column("status")
+		.execute();
+}
+
+// =============================================================================
+// Session Notes
+// =============================================================================
+
+async function createSessionNotesTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("session_notes")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("session_id", "text", (col) =>
+			col.notNull().references("sessions.id"),
+		)
+		.addColumn("context_type", "text", (col) => col.notNull())
+		.addColumn("context_id", "text", (col) => col.notNull())
+		.addColumn("content", "text", (col) => col.notNull())
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.execute();
+
+	// Index for querying notes by session (used for workflows - notes per stage)
+	await db.schema
+		.createIndex("idx_session_notes_session")
+		.ifNotExists()
+		.on("session_notes")
+		.column("session_id")
+		.execute();
+
+	// Index for querying notes by context (used for channels - notes persist across channel)
+	await db.schema
+		.createIndex("idx_session_notes_context")
+		.ifNotExists()
+		.on("session_notes")
+		.columns(["context_type", "context_id"])
 		.execute();
 }
 

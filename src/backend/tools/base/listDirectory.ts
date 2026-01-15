@@ -2,12 +2,16 @@
  * list_directory - List files and directories at a path
  */
 
+import type { Dirent } from "node:fs";
+import { readdir } from "node:fs/promises";
+import { join, relative } from "node:path";
 import { z } from "zod";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
+import { isExcludedDir, isGitIgnored, resolveSafePath } from "./utils";
 
 // =============================================================================
 // Schema
@@ -72,14 +76,123 @@ Returns entries with their type (file or directory) and relative path.
 - optionally, a glob pattern can be used to filter results, e.g. "**/*.cs" for all C# files`,
 	inputSchema: listDirectoryInputSchema,
 	execute: async (input, context): Promise<ToolResult<ListDirectoryOutput>> => {
-		// TODO: Implement directory listing
-		// - Resolve path relative to context.projectRoot
-		// - Respect .gitignore and .autarchignore
-		// - Apply depth and type filters
+		// Resolve and validate path
+		const targetPath = input.path || ".";
+		const absolutePath = resolveSafePath(context.projectRoot, targetPath);
+		if (!absolutePath) {
+			return {
+				success: false,
+				error: `Invalid path: ${targetPath} - path must be within project root`,
+				blocked: true,
+				reason: "Path escapes project root",
+			};
+		}
+
+		// Prepare glob matcher if provided
+		let globMatcher: Bun.Glob | null = null;
+		if (input.glob) {
+			try {
+				globMatcher = new Bun.Glob(input.glob);
+			} catch {
+				return {
+					success: false,
+					error: `Invalid glob pattern: ${input.glob}`,
+				};
+			}
+		}
+
+		const results: DirectoryEntry[] = [];
+		const maxDepth = input.depth ?? Number.MAX_SAFE_INTEGER;
+		const typeFilter = input.type ?? "all";
+
+		// Recursive directory walker
+		async function walk(
+			currentPath: string,
+			currentDepth: number,
+		): Promise<void> {
+			if (currentDepth > maxDepth) {
+				return;
+			}
+
+			let entries: Dirent[];
+			try {
+				entries = await readdir(currentPath, { withFileTypes: true });
+			} catch {
+				// Directory doesn't exist or can't be read
+				return;
+			}
+
+			for (const entry of entries) {
+				const entryAbsPath = join(currentPath, entry.name);
+				const entryRelPath = relative(context.projectRoot, entryAbsPath);
+
+				// Skip hidden files/directories
+				if (entry.name.startsWith(".")) {
+					continue;
+				}
+
+				// Skip excluded directories
+				if (entry.isDirectory() && isExcludedDir(entry.name)) {
+					continue;
+				}
+
+				// Check gitignore
+				const ignored = await isGitIgnored(context.projectRoot, entryRelPath);
+				if (ignored) {
+					continue;
+				}
+
+				const isDir = entry.isDirectory();
+
+				// Apply type filter
+				if (typeFilter === "files" && isDir) {
+					// Still recurse into directories even if filtering to files only
+					if (currentDepth < maxDepth) {
+						await walk(entryAbsPath, currentDepth + 1);
+					}
+					continue;
+				}
+				if (typeFilter === "directories" && !isDir) {
+					continue;
+				}
+
+				// Apply glob filter if provided
+				if (globMatcher && !globMatcher.match(entryRelPath)) {
+					// Still recurse into directories even if they don't match
+					if (isDir && currentDepth < maxDepth) {
+						await walk(entryAbsPath, currentDepth + 1);
+					}
+					continue;
+				}
+
+				results.push({
+					path: entryRelPath,
+					is_directory: isDir,
+					depth: currentDepth,
+				});
+
+				// Recurse into directories
+				if (isDir && currentDepth < maxDepth) {
+					await walk(entryAbsPath, currentDepth + 1);
+				}
+			}
+		}
+
+		try {
+			await walk(absolutePath, 1);
+		} catch (err) {
+			return {
+				success: false,
+				error: `Failed to list directory: ${targetPath} - ${err instanceof Error ? err.message : "unknown error"}`,
+			};
+		}
+
+		// Sort results by path
+		results.sort((a, b) => a.path.localeCompare(b.path));
 
 		return {
-			success: false,
-			error: `Directory not found: ${input.path}`,
+			success: true,
+			data: results,
 		};
 	},
 };

@@ -95,6 +95,7 @@ export type {
 	ScopeCardsTable,
 	ScopeComplexity,
 	SessionContextType,
+	SessionNotesTable,
 	SessionStatus,
 	SessionsTable,
 	ToolStatus,

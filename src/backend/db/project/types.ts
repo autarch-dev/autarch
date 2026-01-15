@@ -14,6 +14,7 @@ export interface ProjectDatabase {
 	research_cards: ResearchCardsTable;
 	plans: PlansTable;
 	sessions: SessionsTable;
+	session_notes: SessionNotesTable;
 	turns: TurnsTable;
 	turn_messages: TurnMessagesTable;
 	turn_tools: TurnToolsTable;
@@ -148,6 +149,19 @@ export interface SessionsTable {
 	status: SessionStatus;
 	created_at: number;
 	updated_at: number;
+}
+
+// =============================================================================
+// Session Notes
+// =============================================================================
+
+export interface SessionNotesTable {
+	id: string;
+	session_id: string;
+	context_type: SessionContextType;
+	context_id: string;
+	content: string;
+	created_at: number;
 }
 
 // =============================================================================

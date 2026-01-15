@@ -116,8 +116,7 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 			set({ channels, channelsLoading: false });
 		} catch (error) {
 			set({
-				channelsError:
-					error instanceof Error ? error.message : "Unknown error",
+				channelsError: error instanceof Error ? error.message : "Unknown error",
 				channelsLoading: false,
 			});
 		}
@@ -159,9 +158,7 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 		set((state) => ({
 			channels: state.channels.filter((c) => c.id !== channelId),
 			selectedChannelId:
-				state.selectedChannelId === channelId
-					? null
-					: state.selectedChannelId,
+				state.selectedChannelId === channelId ? null : state.selectedChannelId,
 		}));
 	},
 
@@ -640,7 +637,9 @@ function handleToolCompleted(
 					? {
 							...t,
 							output: payload.output,
-							status: (payload.success ? "completed" as const: "error" as const),
+							status: payload.success
+								? ("completed" as const)
+								: ("error" as const),
 						}
 					: t,
 			);

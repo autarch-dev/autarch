@@ -4,6 +4,11 @@
 
 import { z } from "zod";
 import {
+	getIndexingStatus,
+	search,
+} from "@/backend/services/embedding/indexer";
+import type { SemanticSearchResult as EmbeddingSearchResult } from "@/shared/schemas/embedding";
+import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
 	type ToolResult,
@@ -46,6 +51,60 @@ export interface SemanticSearchResult {
 export type SemanticSearchOutput = SemanticSearchResult[];
 
 // =============================================================================
+// Pattern Weight Parsing
+// =============================================================================
+
+interface PatternWeight {
+	glob: Bun.Glob;
+	weight: number;
+}
+
+/**
+ * Parse pattern weight strings into glob matchers.
+ * Format: "glob:weight" e.g., "*.cs:1.5"
+ */
+function parsePatternWeights(patterns: string[]): PatternWeight[] {
+	const result: PatternWeight[] = [];
+
+	for (const pattern of patterns) {
+		const lastColon = pattern.lastIndexOf(":");
+		if (lastColon === -1) {
+			continue; // Invalid format, skip
+		}
+
+		const globPattern = pattern.slice(0, lastColon);
+		const weightStr = pattern.slice(lastColon + 1);
+		const weight = parseFloat(weightStr);
+
+		if (Number.isNaN(weight)) {
+			continue; // Invalid weight, skip
+		}
+
+		try {
+			const glob = new Bun.Glob(globPattern);
+			result.push({ glob, weight });
+		} catch {
+			// Invalid glob pattern, skip
+		}
+	}
+
+	return result;
+}
+
+/**
+ * Calculate the weight multiplier for a file path.
+ * Returns the first matching pattern's weight, or 1.0 if no match.
+ */
+function getWeightForPath(path: string, weights: PatternWeight[]): number {
+	for (const { glob, weight } of weights) {
+		if (glob.match(path)) {
+			return weight;
+		}
+	}
+	return 1.0; // No match, use default weight
+}
+
+// =============================================================================
 // Tool Definition
 // =============================================================================
 
@@ -69,14 +128,85 @@ Common patterns: boost test files for test questions, deprioritize docs for code
 		input,
 		context,
 	): Promise<ToolResult<SemanticSearchOutput>> => {
-		// TODO: Implement semantic search using embedding index
-		// - Query the embeddings database
-		// - Apply pattern weights to adjust scores
-		// - Return top matches with snippets
+		// Check if indexing is in progress
+		const status = getIndexingStatus();
+		if (status.isIndexing) {
+			return {
+				success: false,
+				error:
+					"Project indexing is in progress. Please wait for it to complete.",
+			};
+		}
+
+		// Parse pattern weights if provided
+		const patternWeights = input.patternWeights
+			? parsePatternWeights(input.patternWeights)
+			: [];
+
+		// Fetch more results than requested to account for filtering
+		const fetchLimit =
+			patternWeights.length > 0
+				? (input.maxResults ?? 10) * 3
+				: (input.maxResults ?? 10);
+
+		// Perform semantic search
+		let rawResults: EmbeddingSearchResult[];
+		try {
+			rawResults = await search(context.projectRoot, input.query, fetchLimit);
+		} catch (err) {
+			// Check if this is a "no indexed files" error
+			if (err instanceof Error && err.message.includes("not been indexed")) {
+				return {
+					success: false,
+					error: "Project has not been indexed yet. Please run indexing first.",
+				};
+			}
+			return {
+				success: false,
+				error: `Semantic search failed: ${err instanceof Error ? err.message : "unknown error"}`,
+			};
+		}
+
+		if (rawResults.length === 0) {
+			return {
+				success: true,
+				data: [],
+			};
+		}
+
+		// Apply pattern weights
+		const weightedResults: SemanticSearchOutput = rawResults.map((result) => {
+			const weight = getWeightForPath(result.filePath, patternWeights);
+			const adjustedScore = result.score * weight;
+
+			return {
+				file_path: result.filePath,
+				start_line: result.startLine,
+				end_line: result.endLine,
+				snippet: result.snippet,
+				score: result.score,
+				adjusted_score: patternWeights.length > 0 ? adjustedScore : undefined,
+			};
+		});
+
+		// Filter out excluded results (weight = 0)
+		const filteredResults = weightedResults.filter(
+			(r) => r.adjusted_score === undefined || r.adjusted_score > 0,
+		);
+
+		// Sort by adjusted score (or original score if no weights)
+		filteredResults.sort((a, b) => {
+			const scoreA = a.adjusted_score ?? a.score;
+			const scoreB = b.adjusted_score ?? b.score;
+			return scoreB - scoreA;
+		});
+
+		// Limit to requested number of results
+		const limitedResults = filteredResults.slice(0, input.maxResults ?? 10);
 
 		return {
-			success: false,
-			error: "Project has not been indexed yet.",
+			success: true,
+			data: limitedResults,
 		};
 	},
 };

@@ -5,7 +5,7 @@
  * The AI SDK's tool() helper handles schema validation and execution.
  */
 
-import type { CoreTool } from "ai";
+import type { Tool } from "ai";
 import { tool } from "ai";
 import type { RegisteredTool, ToolContext, ToolResult } from "../tools/types";
 
@@ -17,7 +17,7 @@ import type { RegisteredTool, ToolContext, ToolResult } from "../tools/types";
  * A record of AI SDK tools keyed by tool name.
  * This is the format expected by streamText().
  */
-export type AISDKToolSet = Record<string, CoreTool>;
+export type AISDKToolSet = Record<string, Tool>;
 
 // =============================================================================
 // Tool Conversion
@@ -25,6 +25,9 @@ export type AISDKToolSet = Record<string, CoreTool>;
 
 /**
  * Convert an array of RegisteredTools to AI SDK tool format.
+ *
+ * Filters out tools that require unavailable API keys:
+ * - web_code_search requires EXA_API_KEY environment variable
  *
  * @param tools - Array of registered tools from the agent registry
  * @param context - Tool execution context (project root, workflow/channel IDs, etc.)
@@ -34,13 +37,21 @@ export function convertToAISDKTools(
 	tools: readonly RegisteredTool[],
 	context: ToolContext,
 ): AISDKToolSet {
+	// Filter out tools that require unavailable API keys
+	const availableTools = tools.filter((t) => {
+		if (t.name === "web_code_search" && !process.env.EXA_API_KEY) {
+			return false;
+		}
+		return true;
+	});
+
 	return Object.fromEntries(
-		tools.map((t) => [
+		availableTools.map((t) => [
 			t.name,
 			tool({
 				description: t.description,
-				parameters: t.inputSchema,
-				execute: async (input) => {
+				inputSchema: t.inputSchema,
+				execute: async (input: unknown, _options) => {
 					// Execute our tool and convert result to AI SDK format
 					const result = await t.execute(input, context);
 					return formatToolResult(result);

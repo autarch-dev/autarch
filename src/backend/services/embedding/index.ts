@@ -17,7 +17,7 @@ export {
 	isLockFile,
 	isSupportedExtension,
 	LOCK_FILES,
-	MAX_FILE_SIZE,
+	MAX_FILE_SIZE_FOR_EMBEDDING as MAX_FILE_SIZE,
 	MAX_LINE_LENGTH,
 	pathContainsExcludedDir,
 	SUPPORTED_EXTENSIONS,

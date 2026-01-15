@@ -31,19 +31,6 @@ export {
 	initSessionManager,
 	SessionManager,
 } from "./SessionManager";
-// StreamHandler
-export {
-	createStreamHandler,
-	type StreamEvent,
-	type StreamEventType,
-	StreamHandler,
-	type StreamHandlerCallbacks,
-	type TextDeltaEvent,
-	type ThinkingDeltaEvent,
-	type ToolUseDeltaEvent,
-	type ToolUseEndEvent,
-	type ToolUseStartEvent,
-} from "./StreamHandler";
 // Types
 export type {
 	ActiveSession,
