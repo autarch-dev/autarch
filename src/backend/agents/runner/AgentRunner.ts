@@ -24,6 +24,7 @@ import {
 	createWorkflowToolContext,
 	getModelForScenario,
 } from "@/backend/llm";
+import { log } from "@/backend/logger";
 import type { ToolContext } from "@/backend/tools/types";
 import { broadcast } from "@/backend/ws";
 import {
@@ -82,8 +83,12 @@ export class AgentRunner {
 	async run(userMessage: string, options: RunOptions = {}): Promise<void> {
 		const agentConfig = getAgentConfig(this.session.agentRole);
 
+		log.agent.info(`Running agent [${this.session.agentRole}] for session ${this.session.id}`);
+		log.agent.debug(`User message: ${userMessage.slice(0, 100)}${userMessage.length > 100 ? "..." : ""}`);
+
 		// Load existing conversation history for this session
 		await this.loadConversationHistory();
+		log.agent.debug(`Loaded ${this.conversationHistory.length} messages from history`);
 
 		// Create user turn and add to history
 		const userTurn = await this.createTurn("user");
@@ -109,7 +114,9 @@ export class AgentRunner {
 		try {
 			await this.streamLLMResponse(assistantTurn, agentConfig, options);
 			await this.completeTurn(assistantTurn.id);
+			log.agent.success(`Agent turn ${assistantTurn.id} completed`);
 		} catch (error) {
+			log.agent.error(`Agent turn ${assistantTurn.id} failed:`, error);
 			await this.errorTurn(
 				assistantTurn.id,
 				error instanceof Error ? error.message : "Unknown error",
@@ -461,50 +468,53 @@ export class AgentRunner {
 					break;
 				}
 
-				case "tool-call": {
-					// Tool call started - get ID from the event
-					// The tool-call type has toolCallId from BaseToolCall
-					const toolCallId = part.toolCallId;
-					const toolCall = await this.recordToolStart(
-						turn.id,
-						toolIndex++,
-						toolCallId,
-						part.toolName,
-						part.input,
+			case "tool-call": {
+				// Tool call started - get ID from the event
+				// The tool-call type has toolCallId from BaseToolCall
+				const toolCallId = part.toolCallId;
+				log.tools.info(`Tool call: ${part.toolName}`);
+				const toolCall = await this.recordToolStart(
+					turn.id,
+					toolIndex++,
+					toolCallId,
+					part.toolName,
+					part.input,
+				);
+
+				activeToolCalls.set(toolCallId, toolCall);
+				options.onToolStarted?.(toolCall);
+				break;
+			}
+
+			case "tool-result": {
+				// Tool execution completed
+				const toolCall = activeToolCalls.get(part.toolCallId);
+				if (toolCall) {
+					log.tools.success(`Tool completed: ${toolCall.toolName}`);
+					await this.recordToolComplete(
+						toolCall,
+						part.output,
+						true, // AI SDK only emits tool-result on success
 					);
-
-					activeToolCalls.set(toolCallId, toolCall);
-					options.onToolStarted?.(toolCall);
-					break;
+					options.onToolCompleted?.(toolCall);
 				}
+				break;
+			}
 
-				case "tool-result": {
-					// Tool execution completed
-					const toolCall = activeToolCalls.get(part.toolCallId);
-					if (toolCall) {
-						await this.recordToolComplete(
-							toolCall,
-							part.output,
-							true, // AI SDK only emits tool-result on success
-						);
-						options.onToolCompleted?.(toolCall);
-					}
-					break;
+			case "tool-error": {
+				// Tool execution failed
+				const toolCall = activeToolCalls.get(part.toolCallId);
+				if (toolCall) {
+					log.tools.error(`Tool failed: ${toolCall.toolName}`, part.error);
+					await this.recordToolComplete(
+						toolCall,
+						{ error: part.error },
+						false,
+					);
+					options.onToolCompleted?.(toolCall);
 				}
-
-				case "tool-error": {
-					// Tool execution failed
-					const toolCall = activeToolCalls.get(part.toolCallId);
-					if (toolCall) {
-						await this.recordToolComplete(
-							toolCall,
-							{ error: part.error },
-							false,
-						);
-						options.onToolCompleted?.(toolCall);
-					}
-					break;
-				}
+				break;
+			}
 
 				case "finish-step": {
 					// A step completed (may include tool calls)

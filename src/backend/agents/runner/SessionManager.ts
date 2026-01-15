@@ -8,6 +8,7 @@
 
 import type { Kysely } from "kysely";
 import type { ProjectDatabase } from "@/backend/db/project";
+import { log } from "@/backend/logger";
 import { broadcast } from "@/backend/ws";
 import {
 	createSessionCompletedEvent,
@@ -48,6 +49,7 @@ export class SessionManager {
 			const existing = this.sessions.get(existingSessionId);
 			if (existing && existing.status === "active") {
 				// Stop the existing session first
+				log.session.debug(`Stopping existing session ${existingSessionId} for ${context.contextType}:${context.contextId}`);
 				await this.stopSession(existingSessionId);
 			}
 		}
@@ -93,6 +95,7 @@ export class SessionManager {
 			}),
 		);
 
+		log.session.info(`Started session ${sessionId} [${context.agentRole}] for ${context.contextType}:${context.contextId}`);
 		return session;
 	}
 
@@ -106,6 +109,7 @@ export class SessionManager {
 	): Promise<void> {
 		const session = this.sessions.get(sessionId);
 		if (!session) {
+			log.session.debug(`Session ${sessionId} not found (already stopped?)`);
 			return;
 		}
 
@@ -134,6 +138,7 @@ export class SessionManager {
 		// Broadcast event
 		if (status === "completed") {
 			broadcast(createSessionCompletedEvent({ sessionId }));
+			log.session.success(`Session ${sessionId} completed`);
 		} else {
 			broadcast(
 				createSessionErrorEvent({
@@ -141,6 +146,7 @@ export class SessionManager {
 					error: error ?? "Session terminated with error",
 				}),
 			);
+			log.session.error(`Session ${sessionId} failed: ${error}`);
 		}
 	}
 
@@ -148,6 +154,7 @@ export class SessionManager {
 	 * Mark a session as errored
 	 */
 	async errorSession(sessionId: string, error: string): Promise<void> {
+		log.session.warn(`Marking session ${sessionId} as errored: ${error}`);
 		await this.stopSession(sessionId, "error", error);
 	}
 

@@ -1,5 +1,6 @@
 import { sql } from "kysely";
 import { getEmbeddingsDb } from "@/backend/db/embeddings";
+import { log } from "@/backend/logger";
 import { broadcast } from "@/backend/ws";
 import type { SemanticSearchResult } from "@/shared/schemas/embedding";
 import { createIndexingProgressEvent } from "@/shared/schemas/events";
@@ -113,7 +114,7 @@ export async function indexProject(
 		const files = await findIndexableFiles(projectRoot);
 		const totalBytes = calculateTotalSize(files);
 
-		console.log(
+		log.embedding.info(
 			`Found ${files.length} files to index (${(totalBytes / 1024).toFixed(1)} KB)`,
 		);
 
@@ -280,7 +281,7 @@ export async function indexProject(
 		);
 
 		const skipped = files.length - filesEmbedded;
-		console.log(
+		log.embedding.success(
 			`Indexing complete: ${filesEmbedded} embedded, ${skipped} unchanged`,
 		);
 	} finally {

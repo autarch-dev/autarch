@@ -22,6 +22,7 @@ import {
 } from "../agents/runner";
 import { getProjectDb } from "../db/project";
 import { findRepoRoot } from "../git";
+import { log } from "../logger";
 import { broadcast } from "../ws";
 
 // =============================================================================
@@ -70,7 +71,7 @@ async function createWorkflow(req: Request): Promise<Response> {
 
 		return Response.json(workflow, { status: 201 });
 	} catch (error) {
-		console.error("Failed to create workflow:", error);
+		log.api.error("Failed to create workflow:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -106,7 +107,7 @@ async function listWorkflows(_req: Request): Promise<Response> {
 			})),
 		);
 	} catch (error) {
-		console.error("Failed to list workflows:", error);
+		log.api.error("Failed to list workflows:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -131,7 +132,7 @@ async function getWorkflow(
 
 		return Response.json(workflow);
 	} catch (error) {
-		console.error("Failed to get workflow:", error);
+		log.api.error("Failed to get workflow:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -152,7 +153,7 @@ async function approveArtifact(
 
 		return Response.json({ success: true });
 	} catch (error) {
-		console.error("Failed to approve artifact:", error);
+		log.api.error("Failed to approve artifact:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -183,7 +184,7 @@ async function requestChanges(
 
 		return Response.json({ success: true });
 	} catch (error) {
-		console.error("Failed to request changes:", error);
+		log.api.error("Failed to request changes:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -200,6 +201,7 @@ async function sendMessage(req: Request, sessionId: string): Promise<Response> {
 		const parsed = SendMessageRequestSchema.safeParse(body);
 
 		if (!parsed.success) {
+			log.api.warn("Invalid message request", parsed.error.flatten());
 			return Response.json(
 				{ error: "Invalid request", details: parsed.error.flatten() },
 				{ status: 400 },
@@ -210,10 +212,12 @@ async function sendMessage(req: Request, sessionId: string): Promise<Response> {
 		const session = sessionManager.getSession(sessionId);
 
 		if (!session) {
+			log.api.warn(`Session not found: ${sessionId}`);
 			return Response.json({ error: "Session not found" }, { status: 404 });
 		}
 
 		if (session.status !== "active") {
+			log.api.warn(`Session not active: ${sessionId} (${session.status})`);
 			return Response.json({ error: "Session is not active" }, { status: 400 });
 		}
 
@@ -222,9 +226,11 @@ async function sendMessage(req: Request, sessionId: string): Promise<Response> {
 
 		const runner = new AgentRunner(session, { projectRoot, db });
 
+		log.api.info(`Message received for session ${sessionId}`);
+
 		// Run in background (non-blocking)
 		runner.run(parsed.data.content).catch((error) => {
-			console.error("Agent run failed:", error);
+			log.agent.error(`Agent run failed for session ${sessionId}:`, error);
 			sessionManager.errorSession(
 				sessionId,
 				error instanceof Error ? error.message : "Unknown error",
@@ -233,7 +239,7 @@ async function sendMessage(req: Request, sessionId: string): Promise<Response> {
 
 		return Response.json({ success: true, sessionId });
 	} catch (error) {
-		console.error("Failed to send message:", error);
+		log.api.error("Failed to send message:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -254,6 +260,7 @@ async function startChannelSession(
 		// Check if already has active session
 		const existing = sessionManager.getSessionByContext("channel", channelId);
 		if (existing?.status === "active") {
+			log.api.debug(`Reusing existing session ${existing.id} for channel ${channelId}`);
 			return Response.json({
 				sessionId: existing.id,
 				alreadyActive: true,
@@ -266,9 +273,10 @@ async function startChannelSession(
 			agentRole: "discussion",
 		});
 
+		log.api.info(`Started session ${session.id} for channel ${channelId}`);
 		return Response.json({ sessionId: session.id }, { status: 201 });
 	} catch (error) {
-		console.error("Failed to start channel session:", error);
+		log.api.error(`Failed to start channel session for ${channelId}:`, error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -289,6 +297,7 @@ async function createChannel(req: Request): Promise<Response> {
 		const parsed = CreateChannelRequestSchema.safeParse(body);
 
 		if (!parsed.success) {
+			log.api.warn("Invalid channel create request", parsed.error.flatten());
 			return Response.json(
 				{ error: "Invalid request", details: parsed.error.flatten() },
 				{ status: 400 },
@@ -306,6 +315,7 @@ async function createChannel(req: Request): Promise<Response> {
 			.executeTakeFirst();
 
 		if (existing) {
+			log.api.warn(`Channel name already exists: ${parsed.data.name}`);
 			return Response.json(
 				{ error: "A channel with this name already exists" },
 				{ status: 409 },
@@ -343,9 +353,10 @@ async function createChannel(req: Request): Promise<Response> {
 			}),
 		);
 
+		log.api.success(`Created channel #${channel.name} (${channelId})`);
 		return Response.json(channel, { status: 201 });
 	} catch (error) {
-		console.error("Failed to create channel:", error);
+		log.api.error("Failed to create channel:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -379,7 +390,7 @@ async function listChannels(_req: Request): Promise<Response> {
 			),
 		);
 	} catch (error) {
-		console.error("Failed to list channels:", error);
+		log.api.error("Failed to list channels:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -413,7 +424,7 @@ async function getChannel(_req: Request, channelId: string): Promise<Response> {
 			updatedAt: channel.updated_at,
 		} satisfies Channel);
 	} catch (error) {
-		console.error("Failed to get channel:", error);
+		log.api.error("Failed to get channel:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -451,7 +462,7 @@ async function deleteChannel(
 
 		return Response.json({ success: true });
 	} catch (error) {
-		console.error("Failed to delete channel:", error);
+		log.api.error("Failed to delete channel:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -584,7 +595,7 @@ async function getChannelHistory(
 
 		return Response.json(response);
 	} catch (error) {
-		console.error("Failed to get channel history:", error);
+		log.api.error("Failed to get channel history:", error);
 		return Response.json(
 			{ error: error instanceof Error ? error.message : "Unknown error" },
 			{ status: 500 },
@@ -606,18 +617,26 @@ function generateChannelId(): string {
 
 export const agentRoutes = {
 	// Workflow routes
-	"POST /api/workflows": createWorkflow,
-	"GET /api/workflows": listWorkflows,
+	"/api/workflows": {
+		POST: createWorkflow,
+		GET: listWorkflows,
+	},
 
 	// Channel routes (static paths)
-	"POST /api/channels": createChannel,
-	"GET /api/channels": listChannels,
+	"/api/channels": {
+		POST: createChannel,
+		GET: listChannels,
+	},
 
-	// These need dynamic routing - handled via pattern matching
-	// Workflow: "GET /api/workflows/:id", "POST /api/workflows/:id/approve", etc.
-	// Session: "POST /api/sessions/:id/message"
-	// Channel: "GET /api/channels/:id", "DELETE /api/channels/:id", etc.
-} as const;
+	// Dynamic routes (with path parameters) are handled via handleAgentRoute()
+	// - GET/DELETE /api/channels/:id
+	// - POST /api/channels/:id/session
+	// - GET /api/channels/:id/history
+	// - POST /api/sessions/:id/message
+	// - GET /api/workflows/:id
+	// - POST /api/workflows/:id/approve
+	// - POST /api/workflows/:id/request-changes
+};
 
 /**
  * Handle dynamic routes with path parameters

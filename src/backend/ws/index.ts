@@ -1,5 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import type { WebSocketEvent } from "@/shared/schemas/events";
+import { log } from "../logger";
 
 // =============================================================================
 // WebSocket Connection Management
@@ -12,6 +13,7 @@ const clients = new Set<ServerWebSocket<unknown>>();
  */
 export function handleOpen(ws: ServerWebSocket<unknown>): void {
 	clients.add(ws);
+	log.ws.info(`Client connected (${clients.size} total)`);
 }
 
 /**
@@ -29,16 +31,23 @@ export function handleMessage(
  */
 export function handleClose(ws: ServerWebSocket<unknown>): void {
 	clients.delete(ws);
+	log.ws.info(`Client disconnected (${clients.size} remaining)`);
 }
 
 /**
  * Broadcast a typed event to all connected clients
  */
 export function broadcast(event: WebSocketEvent): void {
+	if (clients.size === 0) {
+		log.ws.debug(`No clients to broadcast ${event.type}`);
+		return;
+	}
+
 	const message = JSON.stringify(event);
 	for (const client of clients) {
 		client.send(message);
 	}
+	log.ws.debug(`Broadcast ${event.type} to ${clients.size} client(s)`);
 }
 
 /**

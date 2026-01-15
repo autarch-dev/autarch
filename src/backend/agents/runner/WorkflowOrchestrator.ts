@@ -10,6 +10,7 @@
 
 import type { Kysely } from "kysely";
 import type { ProjectDatabase, WorkflowStatus } from "@/backend/db/project";
+import { log } from "@/backend/logger";
 import { broadcast } from "@/backend/ws";
 import {
 	createWorkflowApprovalNeededEvent,
@@ -252,9 +253,7 @@ export class WorkflowOrchestrator {
 		// TODO: Send feedback to the current agent session as a user message
 		// This will trigger the agent to revise and resubmit
 		// For now, this is stubbed out
-		console.log(
-			`[WorkflowOrchestrator] Request changes for ${workflowId}: ${feedback}`,
-		);
+		log.agent.info(`Request changes for workflow ${workflowId}: ${feedback}`);
 	}
 
 	// ===========================================================================

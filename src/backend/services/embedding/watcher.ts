@@ -1,5 +1,6 @@
 import { type FSWatcher, watch } from "node:fs";
 import { extname } from "node:path";
+import { log } from "@/backend/logger";
 import { isSupportedExtension, pathContainsExcludedDir } from "./config";
 import { indexProject, removeFile, updateFile } from "./indexer";
 
@@ -28,18 +29,18 @@ const pendingUpdates = new Map<string, NodeJS.Timeout>();
  */
 export async function startWatching(root: string): Promise<void> {
 	if (watcher) {
-		console.log("Watcher already running");
+		log.embedding.debug("Watcher already running");
 		return;
 	}
 
 	projectRoot = root;
-	console.log(`Starting file watcher for: ${root}`);
+	log.embedding.info(`Starting file watcher for: ${root}`);
 
 	// Initial index
 	try {
 		await indexProject(root);
 	} catch (error) {
-		console.error("Initial indexing failed:", error);
+		log.embedding.error("Initial indexing failed:", error);
 	}
 
 	// Start watching with recursive option (Bun supports this natively)
@@ -72,10 +73,10 @@ export async function startWatching(root: string): Promise<void> {
 	});
 
 	watcher.on("error", (error) => {
-		console.error("File watcher error:", error);
+		log.embedding.error("File watcher error:", error);
 	});
 
-	console.log("File watcher started");
+	log.embedding.success("File watcher started");
 }
 
 /**
@@ -93,7 +94,7 @@ export function stopWatching(): void {
 		}
 		pendingUpdates.clear();
 
-		console.log("File watcher stopped");
+		log.embedding.info("File watcher stopped");
 	}
 }
 
@@ -117,14 +118,14 @@ async function handleFileChange(
 			// 'change' means content modified
 			await updateFile(projectRoot, relativePath);
 		}
-		console.log(`Indexed: ${relativePath}`);
+		log.embedding.debug(`Indexed: ${relativePath}`);
 	} catch (error) {
 		// File might have been deleted
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") {
 			await removeFile(projectRoot, relativePath);
-			console.log(`Removed from index: ${relativePath}`);
+			log.embedding.debug(`Removed from index: ${relativePath}`);
 		} else {
-			console.error(`Failed to index ${relativePath}:`, error);
+			log.embedding.error(`Failed to index ${relativePath}:`, error);
 		}
 	}
 }

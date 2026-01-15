@@ -3,6 +3,8 @@
  * This keeps the main event loop responsive while embedding runs in the background.
  */
 
+import { log } from "@/backend/logger";
+
 // =============================================================================
 // Configuration
 // =============================================================================
@@ -65,7 +67,7 @@ function initWorker(): Promise<void> {
 		};
 
 		worker.onerror = (error) => {
-			console.error("[Embedding] Worker error:", error);
+			log.embedding.error("Worker error:", error);
 			reject(error);
 		};
 	});

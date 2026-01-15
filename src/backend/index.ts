@@ -4,6 +4,7 @@ import index from "../index.html";
 import { initSessionManager } from "./agents/runner";
 import { getProjectDb } from "./db/project";
 import { findRepoRoot } from "./git";
+import { log } from "./logger";
 import { agentRoutes, handleAgentRoute } from "./routes/agent";
 import { settingsRoutes } from "./routes/settings";
 import { startWatching } from "./services/embedding";
@@ -57,12 +58,12 @@ const server = serve({
 		close: handleClose,
 	},
 
-	development: process.env.NODE_ENV !== "production" && {
-		// Enable browser hot reloading in development
-		hmr: true,
-
-		// Echo console logs from the browser to the server
-		console: true,
+	development: {
+		...(process.env.NODE_ENV !== "production" && {
+			// Enable browser hot reloading in development
+			hmr: true,
+		}),
+		...{ console: true },
 	},
 });
 
@@ -72,8 +73,9 @@ serverRef = server;
 let projectRoot: string;
 try {
 	projectRoot = findRepoRoot(process.cwd());
+	log.server.info(`Project root: ${projectRoot}`);
 } catch {
-	console.error("Error: Please run autarch from a git repository.");
+	log.server.error("Please run autarch from a git repository");
 	process.exit(1);
 }
 
@@ -81,13 +83,13 @@ try {
 (async () => {
 	const db = await getProjectDb(projectRoot);
 	initSessionManager(db);
-	console.log("✓ Agent system initialized");
+	log.server.success("Agent system initialized");
 })();
 
 // Start embedding index + file watcher
 startWatching(projectRoot);
 
-console.log(`🚀 Autarch running at ${server.url}`);
+log.server.box(`Autarch running at ${server.url}`);
 
 // Auto-open browser in development
 if (process.env.NODE_ENV !== "production") {
