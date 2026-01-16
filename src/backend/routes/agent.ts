@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { ids } from "@/backend/utils";
 import {
 	type Channel,
 	type ChannelHistoryResponse,
@@ -75,10 +76,6 @@ const IdParamSchema = z.object({
 // =============================================================================
 // Helpers
 // =============================================================================
-
-function generateChannelId(): string {
-	return `ch_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
 
 /**
  * Parse and validate route params with Zod.
@@ -664,7 +661,7 @@ export const agentRoutes = {
 				}
 
 				const now = Date.now();
-				const channelId = generateChannelId();
+				const channelId = ids.channel();
 
 				await db
 					.insertInto("channels")

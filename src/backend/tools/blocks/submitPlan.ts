@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { getWorkflowOrchestrator } from "@/backend/agents/runner";
 import { getProjectDb } from "@/backend/db/project";
+import { ids } from "@/backend/utils";
 import type { ToolDefinition, ToolResult } from "../types";
 
 // =============================================================================
@@ -39,17 +40,6 @@ export interface SubmitPlanOutput {
 }
 
 // =============================================================================
-// Helpers
-// =============================================================================
-
-/**
- * Generate a unique plan ID
- */
-function generatePlanId(): string {
-	return `plan_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-// =============================================================================
 // Tool Definition
 // =============================================================================
 
@@ -74,7 +64,7 @@ After submitting, the workflow will await user approval before transitioning to 
 			const db = await getProjectDb(context.projectRoot);
 
 			const now = Date.now();
-			const planId = generatePlanId();
+			const planId = ids.plan();
 
 			try {
 				// Insert the plan into the database

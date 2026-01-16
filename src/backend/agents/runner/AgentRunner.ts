@@ -25,6 +25,7 @@ import {
 } from "@/backend/llm";
 import { log } from "@/backend/logger";
 import type { ToolContext } from "@/backend/tools/types";
+import { ids } from "@/backend/utils";
 import { broadcast } from "@/backend/ws";
 import {
 	createTurnCompletedEvent,
@@ -874,7 +875,7 @@ export class AgentRunner {
 		hidden = false,
 	): Promise<Turn> {
 		const now = Date.now();
-		const turnId = generateTurnId();
+		const turnId = ids.turn();
 		const index = this.turnIndex++;
 
 		await this.config.db
@@ -964,7 +965,7 @@ export class AgentRunner {
 		content: string,
 	): Promise<void> {
 		const now = Date.now();
-		const messageId = generateMessageId();
+		const messageId = ids.message();
 
 		await this.config.db
 			.insertInto("turn_messages")
@@ -1096,7 +1097,7 @@ export class AgentRunner {
 		content: string,
 	): Promise<void> {
 		const now = Date.now();
-		const thoughtId = generateThoughtId();
+		const thoughtId = ids.thought();
 
 		await this.config.db
 			.insertInto("turn_thoughts")
@@ -1109,20 +1110,4 @@ export class AgentRunner {
 			})
 			.execute();
 	}
-}
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-function generateTurnId(): string {
-	return `turn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function generateMessageId(): string {
-	return `msg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function generateThoughtId(): string {
-	return `thought_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }

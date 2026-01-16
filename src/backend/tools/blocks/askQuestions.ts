@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import { getProjectDb } from "@/backend/db/project";
+import { ids } from "@/backend/utils";
 import { broadcast } from "@/backend/ws";
 import { createQuestionsAskedEvent } from "@/shared/schemas/events";
 import {
@@ -31,17 +32,6 @@ export interface AskQuestionsOutput {
 	success: boolean;
 	questionIds: string[];
 	questionCount: number;
-}
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-/**
- * Generate a unique question ID
- */
-function generateQuestionId(): string {
-	return `question_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 // =============================================================================
@@ -101,7 +91,7 @@ export const askQuestionsTool: ToolDefinition<
 			const question = input.questions[i];
 			if (!question) continue;
 
-			const questionId = generateQuestionId();
+			const questionId = ids.question();
 			questionIds.push(questionId);
 
 			try {

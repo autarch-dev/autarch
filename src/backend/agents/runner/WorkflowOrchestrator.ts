@@ -12,6 +12,7 @@ import type { Kysely } from "kysely";
 import type { ProjectDatabase } from "@/backend/db/project";
 import { findRepoRoot } from "@/backend/git";
 import { log } from "@/backend/logger";
+import { ids } from "@/backend/utils";
 import { broadcast } from "@/backend/ws";
 import {
 	createWorkflowApprovalNeededEvent,
@@ -78,7 +79,7 @@ export class WorkflowOrchestrator {
 		priority: "low" | "medium" | "high" | "urgent" = "medium",
 	): Promise<Workflow> {
 		const now = Date.now();
-		const workflowId = generateWorkflowId();
+		const workflowId = ids.workflow();
 
 		// Insert workflow
 		await this.db
@@ -728,14 +729,6 @@ ${plan.approach_summary}
 			updatedAt: row.updated_at,
 		};
 	}
-}
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-function generateWorkflowId(): string {
-	return `wf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 // =============================================================================

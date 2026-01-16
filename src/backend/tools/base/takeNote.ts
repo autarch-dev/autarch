@@ -8,6 +8,7 @@
 
 import { z } from "zod";
 import { getProjectDb } from "@/backend/db/project";
+import { ids } from "@/backend/utils";
 import type { SessionContextType } from "@/shared/schemas/session";
 import {
 	REASON_DESCRIPTION,
@@ -29,19 +30,6 @@ export type TakeNoteInput = z.infer<typeof takeNoteInputSchema>;
 export interface TakeNoteOutput {
 	noteId: string;
 	noteCount: number;
-}
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-/**
- * Generate a unique note ID
- */
-function generateNoteId(): string {
-	const timestamp = Date.now().toString(36);
-	const random = Math.random().toString(36).slice(2, 8);
-	return `note_${timestamp}_${random}`;
 }
 
 // =============================================================================
@@ -82,7 +70,7 @@ export const takeNoteTool: ToolDefinition<TakeNoteInput, TakeNoteOutput> = {
 		const db = await getProjectDb(context.projectRoot);
 
 		// Generate note ID and timestamp
-		const noteId = generateNoteId();
+		const noteId = ids.note();
 		const now = Date.now();
 
 		// Insert the note

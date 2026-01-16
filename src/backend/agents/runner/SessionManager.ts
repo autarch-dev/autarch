@@ -9,6 +9,7 @@
 import type { Kysely } from "kysely";
 import type { ProjectDatabase } from "@/backend/db/project";
 import { log } from "@/backend/logger";
+import { ids } from "@/backend/utils";
 import { broadcast } from "@/backend/ws";
 import {
 	createSessionCompletedEvent,
@@ -39,7 +40,7 @@ export class SessionManager {
 	 */
 	async startSession(context: SessionContext): Promise<ActiveSession> {
 		const now = Date.now();
-		const sessionId = generateSessionId();
+		const sessionId = ids.session();
 
 		// Check if there's already an active session for this context
 		const existingSessionId = this.contextIndex.get(
@@ -259,14 +260,6 @@ export class SessionManager {
 	private contextKey(contextType: string, contextId: string): string {
 		return `${contextType}:${contextId}`;
 	}
-}
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-function generateSessionId(): string {
-	return `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 // =============================================================================

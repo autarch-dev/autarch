@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { getWorkflowOrchestrator } from "@/backend/agents/runner";
 import { getProjectDb } from "@/backend/db/project";
+import { ids } from "@/backend/utils";
 import type { ToolDefinition, ToolResult } from "../types";
 
 // =============================================================================
@@ -81,17 +82,6 @@ export interface SubmitResearchOutput {
 }
 
 // =============================================================================
-// Helpers
-// =============================================================================
-
-/**
- * Generate a unique research card ID
- */
-function generateResearchCardId(): string {
-	return `research_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-// =============================================================================
 // Tool Definition
 // =============================================================================
 
@@ -121,7 +111,7 @@ After submitting, the workflow will await user approval before transitioning to 
 		const db = await getProjectDb(context.projectRoot);
 
 		const now = Date.now();
-		const researchCardId = generateResearchCardId();
+		const researchCardId = ids.researchCard();
 
 		try {
 			// Insert the research card into the database
