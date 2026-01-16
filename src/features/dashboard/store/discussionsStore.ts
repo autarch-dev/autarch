@@ -10,6 +10,7 @@ import type {
 	Channel,
 	ChannelHistoryResponse,
 	ChannelMessage,
+	MessageQuestion,
 } from "@/shared/schemas/channel";
 import type {
 	ChannelCreatedPayload,
@@ -26,7 +27,6 @@ import type {
 	TurnToolStartedPayload,
 	WebSocketEvent,
 } from "@/shared/schemas/events";
-import type { QuestionStatus, QuestionType } from "@/shared/schemas/questions";
 
 // =============================================================================
 // Types
@@ -39,16 +39,11 @@ export interface StreamingSegment {
 	isComplete: boolean;
 }
 
-/** Question in a streaming message */
-export interface StreamingQuestion {
-	id: string;
-	questionIndex: number;
-	type: QuestionType;
-	prompt: string;
-	options?: string[];
-	answer?: unknown;
-	status: QuestionStatus;
-}
+/**
+ * Question in a streaming message.
+ * Uses the same type as MessageQuestion from the channel schema.
+ */
+export type StreamingQuestion = MessageQuestion;
 
 /** Streaming state for an active message */
 export interface StreamingMessage {

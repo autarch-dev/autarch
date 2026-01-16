@@ -83,32 +83,23 @@ export async function closeAllProjectDbs(): Promise<void> {
 	}
 }
 
-// Re-export all types
+// Export table interfaces only
+// NOTE: For type aliases (WorkflowStatus, SessionContextType, etc.),
+// import directly from @/shared/schemas/*
 export type {
 	ChannelsTable,
-	PendingArtifactType,
 	PlansTable,
 	ProjectDatabase,
 	ProjectMetaTable,
-	QuestionStatus,
 	QuestionsTable,
-	QuestionType,
-	RecommendedPath,
 	ResearchCardsTable,
 	ScopeCardsTable,
 	ScopeComplexity,
-	SessionContextType,
 	SessionNotesTable,
-	SessionStatus,
 	SessionsTable,
-	ToolStatus,
 	TurnMessagesTable,
-	TurnRole,
-	TurnStatus,
 	TurnsTable,
 	TurnThoughtsTable,
 	TurnToolsTable,
-	WorkflowPriority,
-	WorkflowStatus,
 	WorkflowsTable,
 } from "./types";

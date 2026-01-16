@@ -7,23 +7,22 @@
 
 import { z } from "zod";
 import { getProjectDb } from "@/backend/db/project";
-import type { QuestionType } from "@/backend/db/project/types";
 import { broadcast } from "@/backend/ws";
 import { createQuestionsAskedEvent } from "@/shared/schemas/events";
+import {
+	QuestionInputSchema,
+	type QuestionType,
+} from "@/shared/schemas/questions";
 import type { ToolDefinition, ToolResult } from "../types";
 
 // =============================================================================
 // Schema
 // =============================================================================
 
-const questionSchema = z.object({
-	type: z.enum(["single_select", "multi_select", "ranked", "free_text"]),
-	prompt: z.string(),
-	options: z.array(z.string()).optional(),
-});
-
 export const askQuestionsInputSchema = z.object({
-	questions: z.array(questionSchema).describe("Array of structured questions"),
+	questions: z
+		.array(QuestionInputSchema)
+		.describe("Array of structured questions"),
 });
 
 export type AskQuestionsInput = z.infer<typeof askQuestionsInputSchema>;

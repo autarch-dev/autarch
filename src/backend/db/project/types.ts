@@ -1,6 +1,27 @@
 /**
  * Project database schema types
+ *
+ * Type aliases are imported from shared schemas to ensure consistency.
+ * Database table interfaces use these types for their columns.
+ *
+ * NOTE: Consumers should import type aliases directly from @/shared/schemas/*
+ * rather than from this file. This file only exports table interfaces.
  */
+
+import type { PendingArtifactType } from "@/shared/schemas/events";
+import type { QuestionStatus, QuestionType } from "@/shared/schemas/questions";
+import type {
+	SessionContextType,
+	SessionStatus,
+	ToolStatus,
+	TurnRole,
+	TurnStatus,
+} from "@/shared/schemas/session";
+import type {
+	RecommendedPath,
+	WorkflowPriority,
+	WorkflowStatus,
+} from "@/shared/schemas/workflow";
 
 // =============================================================================
 // Database Interface
@@ -48,24 +69,6 @@ export interface ChannelsTable {
 // Workflows
 // =============================================================================
 
-export type WorkflowStatus =
-	| "backlog"
-	| "scoping"
-	| "researching"
-	| "planning"
-	| "in_progress"
-	| "review"
-	| "done";
-
-export type WorkflowPriority = "low" | "medium" | "high" | "urgent";
-
-export type PendingArtifactType =
-	| "scope_card"
-	| "research"
-	| "plan"
-	| "review"
-	| null;
-
 export interface WorkflowsTable {
 	id: string;
 	title: string;
@@ -74,7 +77,7 @@ export interface WorkflowsTable {
 	priority: WorkflowPriority;
 	current_session_id: string | null;
 	awaiting_approval: number; // 0 or 1 (SQLite boolean)
-	pending_artifact_type: PendingArtifactType;
+	pending_artifact_type: PendingArtifactType | null;
 	created_at: number;
 	updated_at: number;
 }
@@ -89,8 +92,6 @@ export type ScopeComplexity =
 	| "medium"
 	| "large"
 	| "unknown";
-
-export type RecommendedPath = "quick" | "full";
 
 export interface ScopeCardsTable {
 	id: string;
@@ -138,10 +139,6 @@ export interface PlansTable {
 // Sessions
 // =============================================================================
 
-export type SessionContextType = "channel" | "workflow";
-
-export type SessionStatus = "active" | "completed" | "error";
-
 export interface SessionsTable {
 	id: string;
 	context_type: SessionContextType;
@@ -169,10 +166,6 @@ export interface SessionNotesTable {
 // Turns
 // =============================================================================
 
-export type TurnRole = "user" | "assistant";
-
-export type TurnStatus = "streaming" | "completed" | "error";
-
 export interface TurnsTable {
 	id: string;
 	session_id: string;
@@ -199,8 +192,6 @@ export interface TurnMessagesTable {
 // =============================================================================
 // Turn Tools
 // =============================================================================
-
-export type ToolStatus = "pending" | "running" | "completed" | "error";
 
 export interface TurnToolsTable {
 	id: string;
@@ -230,14 +221,6 @@ export interface TurnThoughtsTable {
 // =============================================================================
 // Questions (Agent-asked questions requiring user input)
 // =============================================================================
-
-export type QuestionType =
-	| "single_select"
-	| "multi_select"
-	| "ranked"
-	| "free_text";
-
-export type QuestionStatus = "pending" | "answered";
 
 export interface QuestionsTable {
 	id: string;

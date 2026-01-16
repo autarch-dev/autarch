@@ -31,21 +31,16 @@ export {
 	initSessionManager,
 	SessionManager,
 } from "./SessionManager";
-// Types
+// Types (for schema types like SessionContextType, TurnRole, etc., import from @/shared/schemas/*)
 export type {
 	ActiveSession,
 	ArtifactType,
 	RunnerConfig,
 	RunOptions,
 	SessionContext,
-	SessionContextType,
-	SessionStatus,
 	StageTransitionResult,
 	ToolCall,
-	ToolStatus,
 	Turn,
-	TurnRole,
-	TurnStatus,
 } from "./types";
 // WorkflowOrchestrator
 export {

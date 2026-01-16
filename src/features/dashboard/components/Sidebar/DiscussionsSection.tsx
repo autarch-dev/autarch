@@ -10,7 +10,8 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import type { Channel, ViewType } from "../../types";
+import type { Channel } from "@/shared/schemas/channel";
+import type { ViewType } from "../../types";
 import { CreateChannelDialog } from "./CreateChannelDialog";
 
 interface DiscussionsSectionProps {
@@ -62,9 +63,7 @@ export function DiscussionsSection({
 										<Hash className="size-4" />
 										<span>{channel.name}</span>
 									</SidebarMenuButton>
-									{channel.unreadCount && channel.unreadCount > 0 ? (
-										<SidebarMenuBadge>{channel.unreadCount}</SidebarMenuBadge>
-									) : null}
+									{/* TODO: Implement unread count tracking */}
 								</SidebarMenuItem>
 							))
 						)}

@@ -89,13 +89,15 @@ async function downloadEmbed(): Promise<string> {
 
 	const contentLength = response.headers.get("content-length");
 	if (contentLength) {
-		const sizeMB = (Number.parseInt(contentLength, 10) / 1024 / 1024).toFixed(1);
+		const sizeMB = (Number.parseInt(contentLength, 10) / 1024 / 1024).toFixed(
+			1,
+		);
 		logger.info(`Download size: ${sizeMB} MB`);
 	}
 
 	logger.info("Downloading...");
 	const buffer = await response.arrayBuffer();
-	
+
 	logger.info(`Writing to ${destPath}...`);
 	await Bun.write(destPath, buffer);
 

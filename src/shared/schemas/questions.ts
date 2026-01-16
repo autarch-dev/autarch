@@ -16,18 +16,43 @@ export const QuestionStatusSchema = z.enum(["pending", "answered"]);
 export type QuestionStatus = z.infer<typeof QuestionStatusSchema>;
 
 // =============================================================================
-// Question Schema (for display/history)
+// Question Input Schema (for tool input - no id, status, or timestamps)
 // =============================================================================
 
 /**
- * A question asked by the agent
+ * Schema for question input when asking questions via tool
  */
-export const QuestionSchema = z.object({
+export const QuestionInputSchema = z.object({
+	type: QuestionTypeSchema,
+	prompt: z.string(),
+	options: z.array(z.string()).optional(),
+});
+export type QuestionInput = z.infer<typeof QuestionInputSchema>;
+
+// =============================================================================
+// Base Question Schema (core fields shared across contexts)
+// =============================================================================
+
+/**
+ * Base question fields used in events and messages
+ */
+export const BaseQuestionSchema = z.object({
 	id: z.string(),
 	questionIndex: z.number(),
 	type: QuestionTypeSchema,
 	prompt: z.string(),
 	options: z.array(z.string()).optional(),
+});
+export type BaseQuestion = z.infer<typeof BaseQuestionSchema>;
+
+// =============================================================================
+// Question Schema (for display/history - extends base with answer/status)
+// =============================================================================
+
+/**
+ * A question asked by the agent with full state
+ */
+export const QuestionSchema = BaseQuestionSchema.extend({
 	answer: z.unknown().optional(), // string for single_select/free_text, string[] for multi_select/ranked
 	status: QuestionStatusSchema,
 	createdAt: z.number(),

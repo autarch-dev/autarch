@@ -1,6 +1,6 @@
 import type {
 	Author,
-	Channel,
+	LegacyChannel,
 	Message,
 	Workflow,
 	WorkflowMessage,
@@ -23,7 +23,7 @@ export const authors = {
 } as const satisfies Record<string, Author>;
 
 // Mock Channels
-export const mockChannels: Channel[] = [
+export const mockChannels: LegacyChannel[] = [
 	{
 		id: "general",
 		name: "general",

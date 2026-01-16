@@ -8,7 +8,7 @@
 
 import { z } from "zod";
 import { getProjectDb } from "@/backend/db/project";
-import type { SessionContextType } from "@/backend/db/project/types";
+import type { SessionContextType } from "@/shared/schemas/session";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,

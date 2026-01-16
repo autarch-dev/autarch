@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import type { Channel } from "@/shared/schemas/channel";
 import { ChannelView } from "./components/ChannelView";
 import { AppSidebar } from "./components/Sidebar";
 import { WorkflowView } from "./components/WorkflowView";
 import { mockWorkflowMessages, mockWorkflows } from "./mockData";
 import { useDiscussionsStore } from "./store";
-import type { Channel, ViewType } from "./types";
+import type { ViewType } from "./types";
 
 export function Dashboard() {
 	const [selectedView, setSelectedView] = useState<ViewType>("channel");
@@ -76,24 +77,9 @@ export function Dashboard() {
 		console.log("Sending workflow message:", content);
 	}, []);
 
-	// Convert store channels to the local Channel type
-	const channelsForSidebar = useMemo((): Channel[] => {
-		return channels.map((c) => ({
-			id: c.id,
-			name: c.name,
-			description: c.description,
-		}));
-	}, [channels]);
-
 	const selectedChannel = useMemo((): Channel | null => {
 		if (selectedView !== "channel" || !selectedId) return null;
-		const channel = channels.find((c) => c.id === selectedId);
-		if (!channel) return null;
-		return {
-			id: channel.id,
-			name: channel.name,
-			description: channel.description,
-		};
+		return channels.find((c) => c.id === selectedId) ?? null;
 	}, [selectedView, selectedId, channels]);
 
 	const selectedWorkflow = useMemo(() => {
@@ -117,7 +103,7 @@ export function Dashboard() {
 	return (
 		<SidebarProvider>
 			<AppSidebar
-				channels={channelsForSidebar}
+				channels={channels}
 				workflows={mockWorkflows}
 				selectedView={selectedView}
 				selectedId={selectedId}

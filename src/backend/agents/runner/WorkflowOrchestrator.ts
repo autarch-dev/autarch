@@ -9,7 +9,7 @@
  */
 
 import type { Kysely } from "kysely";
-import type { ProjectDatabase, WorkflowStatus } from "@/backend/db/project";
+import type { ProjectDatabase } from "@/backend/db/project";
 import { log } from "@/backend/logger";
 import { broadcast } from "@/backend/ws";
 import {
@@ -20,6 +20,7 @@ import {
 	createWorkflowStageChangedEvent,
 } from "@/shared/schemas/events";
 import type { ModelScenario } from "@/shared/schemas/settings";
+import type { WorkflowStatus } from "@/shared/schemas/workflow";
 import {
 	APPROVAL_REQUIRED_TOOLS,
 	AUTO_TRANSITION_TOOLS,

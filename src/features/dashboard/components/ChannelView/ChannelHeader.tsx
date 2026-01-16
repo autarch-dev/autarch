@@ -7,7 +7,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { Channel } from "../../types";
+import type { Channel } from "@/shared/schemas/channel";
 
 interface ChannelHeaderProps {
 	channel: Channel;

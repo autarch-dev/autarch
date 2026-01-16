@@ -1,19 +1,31 @@
 /**
  * Types for the Agent Runner system
+ *
+ * NOTE: For type aliases (SessionContextType, TurnRole, etc.),
+ * import directly from @/shared/schemas/*
  */
 
 import type { Kysely } from "kysely";
 import type { ProjectDatabase } from "@/backend/db/project";
+import type { PendingArtifactType } from "@/shared/schemas/events";
+import type {
+	SessionContextType,
+	SessionStatus,
+	ToolStatus,
+	TurnRole,
+	TurnStatus,
+} from "@/shared/schemas/session";
 import type { ModelScenario } from "@/shared/schemas/settings";
 import type { WorkflowStatus } from "@/shared/schemas/workflow";
+
+/**
+ * Artifact types that can be submitted for approval
+ */
+export type ArtifactType = PendingArtifactType;
 
 // =============================================================================
 // Session Types
 // =============================================================================
-
-export type SessionContextType = "channel" | "workflow";
-
-export type SessionStatus = "active" | "completed" | "error";
 
 /**
  * Context for creating a new session
@@ -41,10 +53,6 @@ export interface ActiveSession {
 // Turn Types
 // =============================================================================
 
-export type TurnRole = "user" | "assistant";
-
-export type TurnStatus = "streaming" | "completed" | "error";
-
 /**
  * Represents a single turn in a conversation
  */
@@ -62,8 +70,6 @@ export interface Turn {
 // =============================================================================
 // Tool Execution Types
 // =============================================================================
-
-export type ToolStatus = "pending" | "running" | "completed" | "error";
 
 /**
  * Represents a tool call within a turn
@@ -94,11 +100,6 @@ export interface StageTransitionResult {
 	awaitingApproval: boolean;
 	artifactId?: string;
 }
-
-/**
- * Artifact types that can be submitted for approval
- */
-export type ArtifactType = "scope_card" | "research" | "plan" | "review";
 
 // =============================================================================
 // Runner Configuration

@@ -1,8 +1,7 @@
 import { useEffect, useRef } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import type { ChannelMessage } from "@/shared/schemas/channel";
+import type { Channel, ChannelMessage } from "@/shared/schemas/channel";
 import type { StreamingMessage } from "../../store/discussionsStore";
-import type { Channel } from "../../types";
 import { MessageInput } from "../MessageInput";
 import { ChannelHeader } from "./ChannelHeader";
 import { ChannelMessageBubble, StreamingMessageBubble } from "./MessageBubble";

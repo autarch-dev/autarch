@@ -1,9 +1,30 @@
 /**
  * Types for the Project Dashboard
+ *
+ * NOTE: Channel type should be imported from @/shared/schemas/channel
+ * NOTE: WorkflowStatus should be imported from @/shared/schemas/workflow
  */
 
-// Discussion Channels (Slack-like)
-export interface Channel {
+// =============================================================================
+// Navigation (UI-specific types)
+// =============================================================================
+
+export type ViewType = "channel" | "workflow";
+
+export interface NavigationState {
+	view: ViewType;
+	selectedId: string | null;
+}
+
+// =============================================================================
+// Legacy Types (used by mock data and WorkflowView - TODO: migrate to schemas)
+// =============================================================================
+
+/**
+ * @deprecated Use Channel from @/shared/schemas/channel instead.
+ * This is only kept for mockData.ts compatibility.
+ */
+export interface LegacyChannel {
 	id: string;
 	name: string;
 	description?: string;
@@ -11,6 +32,10 @@ export interface Channel {
 	lastActivity?: Date;
 }
 
+/**
+ * @deprecated Legacy message type for mock data.
+ * Production code uses ChannelMessage from @/shared/schemas/channel.
+ */
 export interface Message {
 	id: string;
 	channelId: string;
@@ -35,7 +60,14 @@ export interface Author {
 	isAI?: boolean;
 }
 
-// Workflows (Linear-like)
+// =============================================================================
+// Workflow Types (used by WorkflowView - TODO: wire up to backend schemas)
+// =============================================================================
+
+/**
+ * @deprecated Import WorkflowStatus from @/shared/schemas/workflow instead.
+ * This is kept for WorkflowView compatibility until it's wired to the backend.
+ */
 export type WorkflowStatus =
 	| "backlog"
 	| "scoping"
@@ -45,6 +77,10 @@ export type WorkflowStatus =
 	| "review"
 	| "done";
 
+/**
+ * Legacy Workflow interface for WorkflowView.
+ * TODO: Migrate to use Workflow from @/shared/schemas/workflow when backend is wired up.
+ */
 export interface Workflow {
 	id: string;
 	title: string;
@@ -56,6 +92,9 @@ export interface Workflow {
 	messages: WorkflowMessage[];
 }
 
+/**
+ * Legacy WorkflowMessage for WorkflowView mock data.
+ */
 export interface WorkflowMessage {
 	id: string;
 	workflowId: string;
@@ -71,12 +110,4 @@ export interface WorkflowArtifact {
 	type: "plan" | "code" | "diff" | "research";
 	title: string;
 	content: string;
-}
-
-// Navigation
-export type ViewType = "channel" | "workflow";
-
-export interface NavigationState {
-	view: ViewType;
-	selectedId: string | null;
 }

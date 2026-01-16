@@ -46,7 +46,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 			set({ project, isLoading: false });
 		} catch (err) {
 			set({
-				error: err instanceof Error ? err.message : "Failed to fetch project info",
+				error:
+					err instanceof Error ? err.message : "Failed to fetch project info",
 				isLoading: false,
 			});
 		}

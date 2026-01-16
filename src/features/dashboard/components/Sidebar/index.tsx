@@ -3,7 +3,8 @@ import {
 	SidebarContent,
 	SidebarSeparator,
 } from "@/components/ui/sidebar";
-import type { Channel, ViewType, Workflow } from "../../types";
+import type { Channel } from "@/shared/schemas/channel";
+import type { ViewType, Workflow } from "../../types";
 import { DiscussionsSection } from "./DiscussionsSection";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarHeader } from "./SidebarHeader";

@@ -341,21 +341,13 @@ export type TurnToolCompletedEvent = z.infer<
 // Question Events
 // =============================================================================
 
-import { QuestionSchema, QuestionTypeSchema } from "./questions";
+import { BaseQuestionSchema } from "./questions";
 
 // questions:asked - Agent asked questions requiring user input
 export const QuestionsAskedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
-	questions: z.array(
-		z.object({
-			id: z.string(),
-			questionIndex: z.number(),
-			type: QuestionTypeSchema,
-			prompt: z.string(),
-			options: z.array(z.string()).optional(),
-		}),
-	),
+	questions: z.array(BaseQuestionSchema),
 });
 export type QuestionsAskedPayload = z.infer<typeof QuestionsAskedPayloadSchema>;
 

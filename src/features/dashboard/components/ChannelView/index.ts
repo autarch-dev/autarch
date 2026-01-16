@@ -4,5 +4,5 @@ export {
 	MessageBubble,
 	StreamingMessageBubble,
 } from "./MessageBubble";
-export { QuestionBlock } from "./QuestionBlock";
 export type { QuestionBlockProps } from "./QuestionBlock";
+export { QuestionBlock } from "./QuestionBlock";
