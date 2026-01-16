@@ -5,11 +5,7 @@
  * consistent domain object mapping.
  */
 
-import type { Kysely } from "kysely";
-import type {
-	ProjectDatabase,
-	WorkflowsTable,
-} from "@/backend/db/project/types";
+import type { WorkflowsTable } from "@/backend/db/project/types";
 import { ids } from "@/backend/utils";
 import type { PendingArtifactType } from "@/shared/schemas/events";
 import type {

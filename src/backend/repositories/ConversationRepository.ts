@@ -8,14 +8,23 @@
  * - Tool call tracking
  * - Thought (extended thinking) persistence
  * - Questions and notes
+ *
+ * All JSON fields are validated on read/write using Zod schemas.
  */
 
+import {
+	parseJson,
+	parseJsonOptional,
+	QuestionAnswerJsonSchema,
+	QuestionOptionsJsonSchema,
+	stringifyJson,
+	ToolInputJsonSchema,
+	ToolOutputJsonSchema,
+} from "@/backend/db/project/json-schemas";
 import type {
 	QuestionsTable,
-	SessionsTable,
 	TurnMessagesTable,
 	TurnsTable,
-	TurnThoughtsTable,
 	TurnToolsTable,
 } from "@/backend/db/project/types";
 import { ids } from "@/backend/utils";
@@ -23,7 +32,6 @@ import type { ChannelMessage, MessageQuestion } from "@/shared/schemas/channel";
 import type {
 	SessionContextType,
 	SessionStatus,
-	ToolStatus,
 	TurnStatus,
 } from "@/shared/schemas/session";
 import type { ProjectDb, Repository } from "./types";
@@ -64,6 +72,8 @@ export interface TurnWithDetails {
 }
 
 export interface ToolStartData {
+	/** Optional explicit ID (from AI SDK's toolCallId). If not provided, uses toolName. */
+	id?: string;
 	turnId: string;
 	toolIndex: number;
 	toolName: string;
@@ -157,7 +167,8 @@ export class ConversationRepository implements Repository {
 	}
 
 	/**
-	 * Build a single ChannelMessage from a turn
+	 * Build a single ChannelMessage from a turn.
+	 * All JSON fields are validated against their schemas.
 	 */
 	private async buildTurnMessage(
 		turn: TurnsTable,
@@ -215,14 +226,7 @@ export class ConversationRepository implements Repository {
 			timestamp: turn.created_at,
 			toolCalls:
 				toolCalls.length > 0
-					? toolCalls.map((tc) => ({
-							id: tc.id,
-							index: tc.tool_index,
-							name: tc.tool_name,
-							input: JSON.parse(tc.input_json),
-							output: tc.output_json ? JSON.parse(tc.output_json) : undefined,
-							status: tc.status as "running" | "completed" | "error",
-						}))
+					? toolCalls.map((tc) => this.toToolCall(tc))
 					: undefined,
 			thought:
 				thoughts.length > 0
@@ -236,7 +240,38 @@ export class ConversationRepository implements Repository {
 	}
 
 	/**
-	 * Convert a question row to MessageQuestion
+	 * Convert a tool row to a typed tool call object.
+	 * JSON fields are validated against their schemas.
+	 */
+	private toToolCall(tc: TurnToolsTable): {
+		id: string;
+		index: number;
+		name: string;
+		input: unknown;
+		output: unknown | undefined;
+		status: "running" | "completed" | "error";
+	} {
+		return {
+			id: tc.id,
+			index: tc.tool_index,
+			name: tc.tool_name,
+			input: parseJson(
+				tc.input_json,
+				ToolInputJsonSchema,
+				`tool[${tc.id}].input_json`,
+			),
+			output: parseJsonOptional(
+				tc.output_json,
+				ToolOutputJsonSchema,
+				`tool[${tc.id}].output_json`,
+			),
+			status: tc.status as "running" | "completed" | "error",
+		};
+	}
+
+	/**
+	 * Convert a question row to MessageQuestion.
+	 * JSON fields are validated against their schemas.
 	 */
 	private toMessageQuestion(q: QuestionsTable): MessageQuestion {
 		return {
@@ -244,8 +279,16 @@ export class ConversationRepository implements Repository {
 			questionIndex: q.question_index,
 			type: q.type as "single_select" | "multi_select" | "ranked" | "free_text",
 			prompt: q.prompt,
-			options: q.options_json ? JSON.parse(q.options_json) : undefined,
-			answer: q.answer_json ? JSON.parse(q.answer_json) : undefined,
+			options: parseJsonOptional(
+				q.options_json,
+				QuestionOptionsJsonSchema,
+				`question[${q.id}].options_json`,
+			),
+			answer: parseJsonOptional(
+				q.answer_json,
+				QuestionAnswerJsonSchema,
+				`question[${q.id}].answer_json`,
+			),
 			status: q.status as "pending" | "answered",
 		};
 	}
@@ -411,10 +454,14 @@ export class ConversationRepository implements Repository {
 	// ===========================================================================
 
 	/**
-	 * Record the start of a tool call
+	 * Record the start of a tool call.
+	 * Input is validated before serialization.
+	 *
+	 * @param data.id - Explicit ID to use (e.g., from AI SDK's toolCallId). Falls back to toolName.
 	 */
 	async recordToolStart(data: ToolStartData): Promise<string> {
-		const toolId = data.toolName; // Use tool name as ID for AI SDK compatibility
+		// Use provided ID or fall back to tool name
+		const toolId = data.id ?? data.toolName;
 
 		await this.db
 			.insertInto("turn_tools")
@@ -424,7 +471,11 @@ export class ConversationRepository implements Repository {
 				tool_index: data.toolIndex,
 				tool_name: data.toolName,
 				reason: data.reason,
-				input_json: JSON.stringify(data.input),
+				input_json: stringifyJson(
+					data.input,
+					ToolInputJsonSchema,
+					`tool[${toolId}].input_json`,
+				),
 				output_json: null,
 				status: "running",
 				started_at: Date.now(),
@@ -436,7 +487,8 @@ export class ConversationRepository implements Repository {
 	}
 
 	/**
-	 * Record tool completion
+	 * Record tool completion.
+	 * Output is validated before serialization.
 	 */
 	async recordToolComplete(
 		toolId: string,
@@ -446,7 +498,11 @@ export class ConversationRepository implements Repository {
 		await this.db
 			.updateTable("turn_tools")
 			.set({
-				output_json: JSON.stringify(output),
+				output_json: stringifyJson(
+					output,
+					ToolOutputJsonSchema,
+					`tool[${toolId}].output_json`,
+				),
 				status: success ? "completed" : "error",
 				completed_at: Date.now(),
 			})
@@ -465,6 +521,42 @@ export class ConversationRepository implements Repository {
 			.orderBy("tool_index", "asc")
 			.orderBy("started_at", "asc")
 			.execute();
+	}
+
+	/**
+	 * Get tool names for a turn (lightweight query for checking terminal tools)
+	 */
+	async getToolNames(turnId: string): Promise<string[]> {
+		const tools = await this.db
+			.selectFrom("turn_tools")
+			.select("tool_name")
+			.where("turn_id", "=", turnId)
+			.execute();
+		return tools.map((t) => t.tool_name);
+	}
+
+	/**
+	 * Parse tool input JSON with validation.
+	 * Returns the parsed input or undefined if null/invalid.
+	 */
+	parseToolInput(tool: TurnToolsTable): unknown {
+		return parseJson(
+			tool.input_json,
+			ToolInputJsonSchema,
+			`tool[${tool.id}].input_json`,
+		);
+	}
+
+	/**
+	 * Parse tool output JSON with validation.
+	 * Returns the parsed output or undefined if null.
+	 */
+	parseToolOutput(tool: TurnToolsTable): unknown | undefined {
+		return parseJsonOptional(
+			tool.output_json,
+			ToolOutputJsonSchema,
+			`tool[${tool.id}].output_json`,
+		);
 	}
 
 	// ===========================================================================
@@ -536,6 +628,18 @@ export class ConversationRepository implements Repository {
 	// ===========================================================================
 
 	/**
+	 * Get a question by ID
+	 */
+	async getQuestionById(questionId: string): Promise<QuestionsTable | null> {
+		const question = await this.db
+			.selectFrom("questions")
+			.selectAll()
+			.where("id", "=", questionId)
+			.executeTakeFirst();
+		return question ?? null;
+	}
+
+	/**
 	 * Get questions for a turn
 	 */
 	async getQuestionsByTurn(turnId: string): Promise<QuestionsTable[]> {
@@ -561,18 +665,101 @@ export class ConversationRepository implements Repository {
 	}
 
 	/**
-	 * Answer a question
+	 * Get pending questions for a turn
+	 */
+	async getPendingQuestionsByTurn(turnId: string): Promise<QuestionsTable[]> {
+		return this.db
+			.selectFrom("questions")
+			.selectAll()
+			.where("turn_id", "=", turnId)
+			.where("status", "=", "pending")
+			.orderBy("question_index", "asc")
+			.execute();
+	}
+
+	/**
+	 * Answer a question.
+	 * Answer is validated before serialization.
 	 */
 	async answerQuestion(questionId: string, answer: unknown): Promise<void> {
 		await this.db
 			.updateTable("questions")
 			.set({
-				answer_json: JSON.stringify(answer),
+				answer_json: stringifyJson(
+					answer,
+					QuestionAnswerJsonSchema,
+					`question[${questionId}].answer_json`,
+				),
 				status: "answered",
 				answered_at: Date.now(),
 			})
 			.where("id", "=", questionId)
 			.execute();
+	}
+
+	/**
+	 * Mark remaining pending questions for a turn as skipped
+	 */
+	async skipPendingQuestions(turnId: string): Promise<number> {
+		const result = await this.db
+			.updateTable("questions")
+			.set({ status: "skipped" })
+			.where("turn_id", "=", turnId)
+			.where("status", "=", "pending")
+			.execute();
+		return Number(result[0]?.numUpdatedRows ?? 0);
+	}
+
+	/**
+	 * Parse and return the answer from a question row.
+	 * Uses safe JSON parsing with schema validation.
+	 */
+	parseQuestionAnswer(question: QuestionsTable): unknown | undefined {
+		return parseJsonOptional(
+			question.answer_json,
+			QuestionAnswerJsonSchema,
+			`question[${question.id}].answer_json`,
+		);
+	}
+
+	/**
+	 * Format answered questions as a user message string.
+	 * Helper for resuming agents after questions are answered.
+	 */
+	formatAnsweredQuestionsMessage(
+		questions: QuestionsTable[],
+		comment?: string,
+	): string {
+		const messageParts: string[] = [];
+
+		// Add answered questions
+		const answeredQuestions = questions.filter((q) => q.status === "answered");
+		if (answeredQuestions.length > 0) {
+			const answerLines = answeredQuestions.map((q) => {
+				const answer = this.parseQuestionAnswer(q);
+				const formattedAnswer = Array.isArray(answer)
+					? answer.join(", ")
+					: String(answer ?? "");
+				return `**${q.prompt}**: ${formattedAnswer}`;
+			});
+			messageParts.push(answerLines.join("\n\n"));
+		}
+
+		// Note skipped questions
+		const skippedQuestions = questions.filter((q) => q.status === "skipped");
+		if (skippedQuestions.length > 0) {
+			const skippedList = skippedQuestions
+				.map((q) => `- ${q.prompt}`)
+				.join("\n");
+			messageParts.push(`**Questions I chose not to answer:**\n${skippedList}`);
+		}
+
+		// Add user comment if provided
+		if (comment) {
+			messageParts.push(`**Additional comments:**\n${comment}`);
+		}
+
+		return messageParts.join("\n\n---\n\n");
 	}
 
 	// ===========================================================================

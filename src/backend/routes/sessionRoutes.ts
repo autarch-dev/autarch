@@ -5,11 +5,7 @@
  */
 
 import { z } from "zod";
-import {
-	AgentRunner,
-	getSessionManager,
-} from "../agents/runner";
-import { getProjectDb } from "../db/project";
+import { AgentRunner, getSessionManager } from "../agents/runner";
 import { findRepoRoot } from "../git";
 import { log } from "../logger";
 import { getRepositories } from "../repositories";
@@ -62,7 +58,10 @@ export const sessionRoutes = {
 				const parsed = SendMessageRequestSchema.safeParse(body);
 				if (!parsed.success) {
 					return Response.json(
-						{ error: "Invalid request body", details: z.prettifyError(parsed.error) },
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
 						{ status: 400 },
 					);
 				}
@@ -86,12 +85,10 @@ export const sessionRoutes = {
 				}
 
 				const projectRoot = findRepoRoot(process.cwd());
-				const db = await getProjectDb(projectRoot);
 				const repos = getRepositories();
 
 				const runner = new AgentRunner(session, {
 					projectRoot,
-					db,
 					conversationRepo: repos.conversations,
 				});
 

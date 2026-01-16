@@ -25,7 +25,6 @@ import {
 } from "@/backend/llm";
 import { log } from "@/backend/logger";
 import type { ToolContext } from "@/backend/tools/types";
-import { ids } from "@/backend/utils";
 import { broadcast } from "@/backend/ws";
 import {
 	createTurnCompletedEvent,
@@ -238,14 +237,8 @@ export class AgentRunner {
 			return;
 		}
 
-		// Query tools called in this turn
-		const toolsCalled = await this.config.db
-			.selectFrom("turn_tools")
-			.select("tool_name")
-			.where("turn_id", "=", turnId)
-			.execute();
-
-		const toolNames = toolsCalled.map((t) => t.tool_name);
+		// Query tool names via repository
+		const toolNames = await this.config.conversationRepo.getToolNames(turnId);
 		const hasTerminalTool = toolNames.some((name) =>
 			terminalTools.includes(name),
 		);
@@ -284,19 +277,28 @@ export class AgentRunner {
 	 * call/result details. Older tools are summarized and returned separately
 	 * to be injected into the current user message.
 	 *
+	 * NOTE: We bypass Zod validation when reading history because:
+	 * 1. We wrote this data ourselves (validated on write)
+	 * 2. The type gymnastics between Zod's JsonValue and AI SDK's JSONValue are painful
+	 * 3. This is read-path only - write-path still validates
+	 *
 	 * @returns Context to inject into the current user message
 	 */
 	private async loadConversationHistory(): Promise<{
 		toolSummaries: string[];
 	}> {
+		const repo = this.config.conversationRepo;
+
 		// Get all completed turns for this session via repository
-		const { turns, nextTurnIndex } =
-			await this.config.conversationRepo.loadSessionContext(this.session.id);
+		const { turns, nextTurnIndex } = await repo.loadSessionContext(
+			this.session.id,
+		);
 
 		// Update turn index to continue from where we left off
 		this.turnIndex = nextTurnIndex;
 
 		// First pass: collect all tools to determine which are "recent"
+		// We trust the JSON since we validated on write - no need for Zod overhead here
 		const allTools: Array<{
 			id: string;
 			turnId: string;
@@ -309,13 +311,7 @@ export class AgentRunner {
 
 		for (const turn of turns) {
 			if (turn.role === "assistant") {
-				const tools = await this.config.db
-					.selectFrom("turn_tools")
-					.selectAll()
-					.where("turn_id", "=", turn.id)
-					.orderBy("tool_index", "asc")
-					.orderBy("started_at", "asc")
-					.execute();
+				const tools = await repo.getTools(turn.id);
 
 				for (const tool of tools) {
 					allTools.push({
@@ -346,13 +342,8 @@ export class AgentRunner {
 
 		// Second pass: build conversation history
 		for (const turn of turns) {
-			// Get messages for this turn
-			const messages = await this.config.db
-				.selectFrom("turn_messages")
-				.selectAll()
-				.where("turn_id", "=", turn.id)
-				.orderBy("message_index", "asc")
-				.execute();
+			// Get messages for this turn via repository
+			const messages = await repo.getMessages(turn.id);
 
 			if (turn.role === "user") {
 				// User turns are simple text
@@ -393,16 +384,19 @@ export class AgentRunner {
 				}
 
 				// Then add all tool calls (turnTools is already filtered to recent with output)
+				// We use raw JSON.parse here - data was validated on write, no need to re-validate
 				for (const tool of turnTools) {
+					const toolInput = JSON.parse(tool.inputJson);
+					const toolOutput = JSON.parse(tool.outputJson as string);
+
 					assistantParts.push({
 						type: "tool-call",
 						toolCallId: tool.id,
 						toolName: tool.toolName,
-						input: JSON.parse(tool.inputJson),
+						input: toolInput,
 					} satisfies ToolCallPart);
 
 					// Collect tool result for separate message
-					const toolOutput = JSON.parse(tool.outputJson as string);
 					toolResultParts.push({
 						type: "tool-result",
 						toolCallId: tool.id,
@@ -527,25 +521,19 @@ export class AgentRunner {
 	 * Returns null if no notes exist.
 	 */
 	private async buildNotesContent(): Promise<string | null> {
-		let notes: Array<{ content: string; created_at: number }>;
+		const repo = this.config.conversationRepo;
+		let notes: Array<{ id: string; content: string; createdAt: number }>;
 
 		if (this.session.contextType === "channel") {
 			// For channels: notes persist across channel lifetime
-			notes = await this.config.db
-				.selectFrom("session_notes")
-				.select(["content", "created_at"])
-				.where("context_type", "=", "channel")
-				.where("context_id", "=", this.session.contextId)
-				.orderBy("created_at", "asc")
-				.execute();
+			notes = await repo.getNotes("channel", this.session.contextId);
 		} else {
 			// For workflows: notes are ephemeral per stage (session)
-			notes = await this.config.db
-				.selectFrom("session_notes")
-				.select(["content", "created_at"])
-				.where("session_id", "=", this.session.id)
-				.orderBy("created_at", "asc")
-				.execute();
+			notes = await repo.getNotes(
+				"workflow",
+				this.session.contextId,
+				this.session.id,
+			);
 		}
 
 		if (notes.length === 0) {
@@ -864,33 +852,25 @@ export class AgentRunner {
 		role: "user" | "assistant",
 		hidden = false,
 	): Promise<Turn> {
-		const now = Date.now();
-		const turnId = ids.turn();
+		const repo = this.config.conversationRepo;
 		const index = this.turnIndex++;
 
-		await this.config.db
-			.insertInto("turns")
-			.values({
-				id: turnId,
-				session_id: this.session.id,
-				turn_index: index,
-				role,
-				status: "streaming",
-				token_count: null,
-				hidden: hidden ? 1 : 0,
-				created_at: now,
-				completed_at: null,
-			})
-			.execute();
+		// Use repository for DB operation
+		const turnData = await repo.createTurn({
+			sessionId: this.session.id,
+			turnIndex: index,
+			role,
+			hidden,
+		});
 
 		const turn: Turn = {
-			id: turnId,
+			id: turnData.id,
 			sessionId: this.session.id,
 			turnIndex: index,
 			role,
 			status: "streaming",
 			hidden,
-			createdAt: now,
+			createdAt: turnData.createdAt,
 		};
 
 		// Don't broadcast turn started for hidden turns
@@ -898,7 +878,7 @@ export class AgentRunner {
 			broadcast(
 				createTurnStartedEvent({
 					sessionId: this.session.id,
-					turnId,
+					turnId: turn.id,
 					role,
 				}),
 			);
@@ -911,17 +891,8 @@ export class AgentRunner {
 		turnId: string,
 		tokenCount?: number,
 	): Promise<void> {
-		const now = Date.now();
-
-		await this.config.db
-			.updateTable("turns")
-			.set({
-				status: "completed",
-				token_count: tokenCount ?? null,
-				completed_at: now,
-			})
-			.where("id", "=", turnId)
-			.execute();
+		// Use repository for DB operation
+		await this.config.conversationRepo.completeTurn(turnId, tokenCount);
 
 		broadcast(
 			createTurnCompletedEvent({
@@ -933,16 +904,8 @@ export class AgentRunner {
 	}
 
 	private async errorTurn(turnId: string, _error: string): Promise<void> {
-		const now = Date.now();
-
-		await this.config.db
-			.updateTable("turns")
-			.set({
-				status: "error",
-				completed_at: now,
-			})
-			.where("id", "=", turnId)
-			.execute();
+		// Use repository for DB operation
+		await this.config.conversationRepo.errorTurn(turnId);
 	}
 
 	// ===========================================================================
@@ -954,19 +917,12 @@ export class AgentRunner {
 		messageIndex: number,
 		content: string,
 	): Promise<void> {
-		const now = Date.now();
-		const messageId = ids.message();
-
-		await this.config.db
-			.insertInto("turn_messages")
-			.values({
-				id: messageId,
-				turn_id: turnId,
-				message_index: messageIndex,
-				content,
-				created_at: now,
-			})
-			.execute();
+		// Use repository for DB operation
+		await this.config.conversationRepo.saveMessage(
+			turnId,
+			messageIndex,
+			content,
+		);
 	}
 
 	// ===========================================================================
@@ -994,6 +950,16 @@ export class AgentRunner {
 				? ((input as Record<string, unknown>).reason as string)
 				: null;
 
+		// Use repository with explicit ID from AI SDK
+		await this.config.conversationRepo.recordToolStart({
+			id: toolCallId,
+			turnId,
+			toolIndex,
+			toolName,
+			reason,
+			input,
+		});
+
 		const toolCall: ToolCall = {
 			id: toolCallId,
 			turnId,
@@ -1004,23 +970,6 @@ export class AgentRunner {
 			status: "running",
 			startedAt: now,
 		};
-
-		// Save to DB
-		await this.config.db
-			.insertInto("turn_tools")
-			.values({
-				id: toolCallId,
-				turn_id: turnId,
-				tool_index: toolIndex,
-				tool_name: toolName,
-				reason,
-				input_json: JSON.stringify(input),
-				output_json: null,
-				status: "running",
-				started_at: now,
-				completed_at: null,
-			})
-			.execute();
 
 		// Broadcast start event
 		broadcast(
@@ -1051,16 +1000,12 @@ export class AgentRunner {
 		toolCall.status = success ? "completed" : "error";
 		toolCall.completedAt = now;
 
-		// Update DB
-		await this.config.db
-			.updateTable("turn_tools")
-			.set({
-				output_json: JSON.stringify(output),
-				status: toolCall.status,
-				completed_at: now,
-			})
-			.where("id", "=", toolCall.id)
-			.execute();
+		// Use repository for DB operation with safe JSON serialization
+		await this.config.conversationRepo.recordToolComplete(
+			toolCall.id,
+			output,
+			success,
+		);
 
 		// Broadcast completion event
 		broadcast(
@@ -1086,18 +1031,11 @@ export class AgentRunner {
 		thoughtIndex: number,
 		content: string,
 	): Promise<void> {
-		const now = Date.now();
-		const thoughtId = ids.thought();
-
-		await this.config.db
-			.insertInto("turn_thoughts")
-			.values({
-				id: thoughtId,
-				turn_id: turnId,
-				thought_index: thoughtIndex,
-				content,
-				created_at: now,
-			})
-			.execute();
+		// Use repository for DB operation
+		await this.config.conversationRepo.saveThought(
+			turnId,
+			thoughtIndex,
+			content,
+		);
 	}
 }

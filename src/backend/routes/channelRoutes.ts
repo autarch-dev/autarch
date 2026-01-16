@@ -69,7 +69,10 @@ export const channelRoutes = {
 				const parsed = CreateChannelRequestSchema.safeParse(body);
 				if (!parsed.success) {
 					return Response.json(
-						{ error: "Invalid request body", details: z.prettifyError(parsed.error) },
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
 						{ status: 400 },
 					);
 				}

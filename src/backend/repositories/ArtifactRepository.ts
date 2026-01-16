@@ -3,8 +3,24 @@
  *
  * Handles ScopeCard, ResearchCard, and Plan entities.
  * These are the key deliverables produced during workflow stages.
+ *
+ * All JSON fields are validated on read/write using Zod schemas.
  */
 
+import {
+	ChallengesJsonSchema,
+	DependenciesJsonSchema,
+	IntegrationPointsJsonSchema,
+	KeyFilesJsonSchema,
+	PatternsJsonSchema,
+	PulsesJsonSchema,
+	parseJson,
+	parseJsonOptional,
+	RecommendationsJsonSchema,
+	ScopeListSchema,
+	stringifyJson,
+	stringifyJsonOptional,
+} from "@/backend/db/project/json-schemas";
 import type {
 	PlansTable,
 	ResearchCardsTable,
@@ -71,6 +87,7 @@ export class ArtifactRepository implements Repository {
 
 	/**
 	 * Convert a database row to a domain ScopeCard object.
+	 * All JSON fields are validated against their schemas.
 	 */
 	private toScopeCard(row: ScopeCardsTable): ScopeCard {
 		return {
@@ -78,11 +95,21 @@ export class ArtifactRepository implements Repository {
 			workflowId: row.workflow_id,
 			title: row.title,
 			description: row.description,
-			inScope: JSON.parse(row.in_scope_json),
-			outOfScope: JSON.parse(row.out_of_scope_json),
-			constraints: row.constraints_json
-				? JSON.parse(row.constraints_json)
-				: undefined,
+			inScope: parseJson(
+				row.in_scope_json,
+				ScopeListSchema,
+				"scope_card.in_scope_json",
+			),
+			outOfScope: parseJson(
+				row.out_of_scope_json,
+				ScopeListSchema,
+				"scope_card.out_of_scope_json",
+			),
+			constraints: parseJsonOptional(
+				row.constraints_json,
+				ScopeListSchema,
+				"scope_card.constraints_json",
+			),
 			recommendedPath: row.recommended_path,
 			rationale: row.rationale ?? undefined,
 			createdAt: row.created_at,
@@ -117,11 +144,21 @@ export class ArtifactRepository implements Repository {
 				workflow_id: data.workflowId,
 				title: data.title,
 				description: data.description,
-				in_scope_json: JSON.stringify(data.inScope),
-				out_of_scope_json: JSON.stringify(data.outOfScope),
-				constraints_json: data.constraints
-					? JSON.stringify(data.constraints)
-					: null,
+				in_scope_json: stringifyJson(
+					data.inScope,
+					ScopeListSchema,
+					"scope_card.in_scope_json",
+				),
+				out_of_scope_json: stringifyJson(
+					data.outOfScope,
+					ScopeListSchema,
+					"scope_card.out_of_scope_json",
+				),
+				constraints_json: stringifyJsonOptional(
+					data.constraints,
+					ScopeListSchema,
+					"scope_card.constraints_json",
+				),
 				recommended_path: data.recommendedPath,
 				rationale: data.rationale ?? null,
 				created_at: now,
@@ -154,24 +191,43 @@ export class ArtifactRepository implements Repository {
 
 	/**
 	 * Convert a database row to a domain ResearchCard object.
+	 * All JSON fields are validated against their schemas.
 	 */
 	private toResearchCard(row: ResearchCardsTable): ResearchCard {
 		return {
 			id: row.id,
 			workflowId: row.workflow_id,
 			summary: row.summary,
-			keyFiles: JSON.parse(row.key_files_json),
-			patterns: row.patterns_json ? JSON.parse(row.patterns_json) : undefined,
-			dependencies: row.dependencies_json
-				? JSON.parse(row.dependencies_json)
-				: undefined,
-			integrationPoints: row.integration_points_json
-				? JSON.parse(row.integration_points_json)
-				: undefined,
-			challenges: row.challenges_json
-				? JSON.parse(row.challenges_json)
-				: undefined,
-			recommendations: JSON.parse(row.recommendations_json),
+			keyFiles: parseJson(
+				row.key_files_json,
+				KeyFilesJsonSchema,
+				"research_card.key_files_json",
+			),
+			patterns: parseJsonOptional(
+				row.patterns_json,
+				PatternsJsonSchema,
+				"research_card.patterns_json",
+			),
+			dependencies: parseJsonOptional(
+				row.dependencies_json,
+				DependenciesJsonSchema,
+				"research_card.dependencies_json",
+			),
+			integrationPoints: parseJsonOptional(
+				row.integration_points_json,
+				IntegrationPointsJsonSchema,
+				"research_card.integration_points_json",
+			),
+			challenges: parseJsonOptional(
+				row.challenges_json,
+				ChallengesJsonSchema,
+				"research_card.challenges_json",
+			),
+			recommendations: parseJson(
+				row.recommendations_json,
+				RecommendationsJsonSchema,
+				"research_card.recommendations_json",
+			),
 			createdAt: row.created_at,
 		};
 	}
@@ -179,7 +235,9 @@ export class ArtifactRepository implements Repository {
 	/**
 	 * Get the latest research card for a workflow
 	 */
-	async getLatestResearchCard(workflowId: string): Promise<ResearchCard | null> {
+	async getLatestResearchCard(
+		workflowId: string,
+	): Promise<ResearchCard | null> {
 		const row = await this.db
 			.selectFrom("research_cards")
 			.selectAll()
@@ -193,7 +251,9 @@ export class ArtifactRepository implements Repository {
 	/**
 	 * Create a new research card
 	 */
-	async createResearchCard(data: CreateResearchCardData): Promise<ResearchCard> {
+	async createResearchCard(
+		data: CreateResearchCardData,
+	): Promise<ResearchCard> {
 		const now = Date.now();
 		const researchCardId = ids.researchCard();
 
@@ -203,18 +263,36 @@ export class ArtifactRepository implements Repository {
 				id: researchCardId,
 				workflow_id: data.workflowId,
 				summary: data.summary,
-				key_files_json: JSON.stringify(data.keyFiles),
-				patterns_json: data.patterns ? JSON.stringify(data.patterns) : null,
-				dependencies_json: data.dependencies
-					? JSON.stringify(data.dependencies)
-					: null,
-				integration_points_json: data.integrationPoints
-					? JSON.stringify(data.integrationPoints)
-					: null,
-				challenges_json: data.challenges
-					? JSON.stringify(data.challenges)
-					: null,
-				recommendations_json: JSON.stringify(data.recommendations),
+				key_files_json: stringifyJson(
+					data.keyFiles,
+					KeyFilesJsonSchema,
+					"research_card.key_files_json",
+				),
+				patterns_json: stringifyJsonOptional(
+					data.patterns,
+					PatternsJsonSchema,
+					"research_card.patterns_json",
+				),
+				dependencies_json: stringifyJsonOptional(
+					data.dependencies,
+					DependenciesJsonSchema,
+					"research_card.dependencies_json",
+				),
+				integration_points_json: stringifyJsonOptional(
+					data.integrationPoints,
+					IntegrationPointsJsonSchema,
+					"research_card.integration_points_json",
+				),
+				challenges_json: stringifyJsonOptional(
+					data.challenges,
+					ChallengesJsonSchema,
+					"research_card.challenges_json",
+				),
+				recommendations_json: stringifyJson(
+					data.recommendations,
+					RecommendationsJsonSchema,
+					"research_card.recommendations_json",
+				),
 				created_at: now,
 			})
 			.execute();
@@ -245,13 +323,14 @@ export class ArtifactRepository implements Repository {
 
 	/**
 	 * Convert a database row to a domain Plan object.
+	 * All JSON fields are validated against their schemas.
 	 */
 	private toPlan(row: PlansTable): Plan {
 		return {
 			id: row.id,
 			workflowId: row.workflow_id,
 			approachSummary: row.approach_summary,
-			pulses: JSON.parse(row.pulses_json),
+			pulses: parseJson(row.pulses_json, PulsesJsonSchema, "plan.pulses_json"),
 			createdAt: row.created_at,
 		};
 	}
@@ -283,7 +362,11 @@ export class ArtifactRepository implements Repository {
 				id: planId,
 				workflow_id: data.workflowId,
 				approach_summary: data.approachSummary,
-				pulses_json: JSON.stringify(data.pulses),
+				pulses_json: stringifyJson(
+					data.pulses,
+					PulsesJsonSchema,
+					"plan.pulses_json",
+				),
 				created_at: now,
 			})
 			.execute();

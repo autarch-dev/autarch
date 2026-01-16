@@ -5,8 +5,6 @@
  * import directly from @/shared/schemas/*
  */
 
-import type { Kysely } from "kysely";
-import type { ProjectDatabase } from "@/backend/db/project";
 import type { ConversationRepository } from "@/backend/repositories";
 import type { PendingArtifactType } from "@/shared/schemas/events";
 import type {
@@ -113,7 +111,6 @@ export interface StageTransitionResult {
  */
 export interface RunnerConfig {
 	projectRoot: string;
-	db: Kysely<ProjectDatabase>;
 	conversationRepo: ConversationRepository;
 	worktreePath?: string; // For pulsing agent isolation
 }

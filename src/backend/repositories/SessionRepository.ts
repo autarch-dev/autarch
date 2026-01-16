@@ -8,7 +8,10 @@
 
 import type { SessionsTable } from "@/backend/db/project/types";
 import { ids } from "@/backend/utils";
-import type { SessionContextType, SessionStatus } from "@/shared/schemas/session";
+import type {
+	SessionContextType,
+	SessionStatus,
+} from "@/shared/schemas/session";
 import type { ProjectDb, Repository } from "./types";
 
 // =============================================================================

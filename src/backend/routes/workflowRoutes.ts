@@ -74,7 +74,10 @@ export const workflowRoutes = {
 				const parsed = CreateWorkflowRequestSchema.safeParse(body);
 				if (!parsed.success) {
 					return Response.json(
-						{ error: "Invalid request body", details: z.prettifyError(parsed.error) },
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
 						{ status: 400 },
 					);
 				}
@@ -156,7 +159,10 @@ export const workflowRoutes = {
 				const parsed = RequestChangesSchema.safeParse(body);
 				if (!parsed.success) {
 					return Response.json(
-						{ error: "Invalid request body", details: z.prettifyError(parsed.error) },
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
 						{ status: 400 },
 					);
 				}

@@ -8,8 +8,6 @@
  * - Spawning appropriate agents for each stage
  */
 
-import type { Kysely } from "kysely";
-import type { ProjectDatabase } from "@/backend/db/project";
 import { findRepoRoot } from "@/backend/git";
 import { log } from "@/backend/logger";
 import type {
@@ -67,7 +65,6 @@ const TOOL_TO_ARTIFACT_TYPE: Record<string, ArtifactType> = {
 export class WorkflowOrchestrator {
 	constructor(
 		private sessionManager: SessionManager,
-		private db: Kysely<ProjectDatabase>,
 		private workflowRepo: WorkflowRepository,
 		private artifactRepo: ArtifactRepository,
 		private conversationRepo: ConversationRepository,
@@ -119,7 +116,6 @@ export class WorkflowOrchestrator {
 		const projectRoot = findRepoRoot(process.cwd());
 		const runner = new AgentRunner(session, {
 			projectRoot,
-			db: this.db,
 			conversationRepo: this.conversationRepo,
 		});
 
@@ -279,7 +275,6 @@ export class WorkflowOrchestrator {
 		const projectRoot = findRepoRoot(process.cwd());
 		const runner = new AgentRunner(session, {
 			projectRoot,
-			db: this.db,
 			conversationRepo: this.conversationRepo,
 		});
 
@@ -368,7 +363,6 @@ export class WorkflowOrchestrator {
 			const projectRoot = findRepoRoot(process.cwd());
 			const runner = new AgentRunner(session, {
 				projectRoot,
-				db: this.db,
 				conversationRepo: this.conversationRepo,
 			});
 
@@ -620,14 +614,12 @@ export function getWorkflowOrchestrator(): WorkflowOrchestrator {
  */
 export function initWorkflowOrchestrator(
 	sessionManager: SessionManager,
-	db: Kysely<ProjectDatabase>,
 	workflowRepo: WorkflowRepository,
 	artifactRepo: ArtifactRepository,
 	conversationRepo: ConversationRepository,
 ): WorkflowOrchestrator {
 	orchestratorInstance = new WorkflowOrchestrator(
 		sessionManager,
-		db,
 		workflowRepo,
 		artifactRepo,
 		conversationRepo,

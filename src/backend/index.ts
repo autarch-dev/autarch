@@ -63,14 +63,13 @@ try {
 	process.exit(1);
 }
 
-// Initialize agent system (SessionManager and WorkflowOrchestrator need the database)
+// Initialize agent system (SessionManager and WorkflowOrchestrator)
 (async () => {
 	const db = await getProjectDb(projectRoot);
 	const repos = initRepositories(db);
 	const sessionManager = initSessionManager(repos.sessions);
 	initWorkflowOrchestrator(
 		sessionManager,
-		db,
 		repos.workflows,
 		repos.artifacts,
 		repos.conversations,

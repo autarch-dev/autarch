@@ -2,13 +2,13 @@
  * Question API Routes
  *
  * Routes for answering agent-asked questions.
+ * Uses ConversationRepository for all DB operations with safe JSON handling.
  */
 
 import { z } from "zod";
 import { createQuestionsAnsweredEvent } from "@/shared/schemas/events";
 import type { AnswerQuestionsResponse } from "@/shared/schemas/questions";
 import { AgentRunner, getSessionManager } from "../agents/runner";
-import { getProjectDb } from "../db/project";
 import { findRepoRoot } from "../git";
 import { log } from "../logger";
 import { getRepositories } from "../repositories";
@@ -75,21 +75,19 @@ export const questionRoutes = {
 
 				if (!parsed.success) {
 					return Response.json(
-						{ error: "Invalid request", details: parsed.error.flatten() },
+						{
+							error: "Invalid request",
+							details: z.prettifyError(parsed.error),
+						},
 						{ status: 400 },
 					);
 				}
 
 				const projectRoot = findRepoRoot(process.cwd());
-				const db = await getProjectDb(projectRoot);
 				const repos = getRepositories();
 
-				// Get the question
-				const question = await db
-					.selectFrom("questions")
-					.selectAll()
-					.where("id", "=", questionId)
-					.executeTakeFirst();
+				// Get the question via repository
+				const question = await repos.conversations.getQuestionById(questionId);
 
 				if (!question) {
 					return Response.json(
@@ -105,7 +103,7 @@ export const questionRoutes = {
 					);
 				}
 
-				// Answer the question via repository
+				// Answer the question via repository (uses safe JSON serialization)
 				await repos.conversations.answerQuestion(
 					questionId,
 					parsed.data.answer,
@@ -122,34 +120,20 @@ export const questionRoutes = {
 				);
 
 				// Check if all questions for this turn are answered
-				const pendingQuestions = await db
-					.selectFrom("questions")
-					.select(["id"])
-					.where("turn_id", "=", question.turn_id)
-					.where("status", "=", "pending")
-					.execute();
-
+				const pendingQuestions =
+					await repos.conversations.getPendingQuestionsByTurn(question.turn_id);
 				const allAnswered = pendingQuestions.length === 0;
 
 				// If all questions are answered, auto-resume the agent
 				if (allAnswered) {
 					// Get all questions for this turn to format the answer message
-					const allQuestions = await db
-						.selectFrom("questions")
-						.selectAll()
-						.where("turn_id", "=", question.turn_id)
-						.orderBy("question_index", "asc")
-						.execute();
+					const allQuestions = await repos.conversations.getQuestionsByTurn(
+						question.turn_id,
+					);
 
-					// Format answers as a user message
-					const answerLines = allQuestions.map((q) => {
-						const answer = q.answer_json ? JSON.parse(q.answer_json) : null;
-						const formattedAnswer = Array.isArray(answer)
-							? answer.join(", ")
-							: String(answer);
-						return `**${q.prompt}**: ${formattedAnswer}`;
-					});
-					const answerMessage = answerLines.join("\n\n");
+					// Format answers using repository helper (safe JSON parsing)
+					const answerMessage =
+						repos.conversations.formatAnsweredQuestionsMessage(allQuestions);
 
 					// Get session and send the answer message
 					const sessionManager = getSessionManager();
@@ -160,7 +144,6 @@ export const questionRoutes = {
 					if (session && session.status === "active") {
 						const runner = new AgentRunner(session, {
 							projectRoot,
-							db,
 							conversationRepo: repos.conversations,
 						});
 
@@ -208,15 +191,16 @@ export const questionRoutes = {
 
 				if (!parsed.success) {
 					return Response.json(
-						{ error: "Invalid request", details: parsed.error.flatten() },
+						{
+							error: "Invalid request",
+							details: z.prettifyError(parsed.error),
+						},
 						{ status: 400 },
 					);
 				}
 
 				const projectRoot = findRepoRoot(process.cwd());
-				const db = await getProjectDb(projectRoot);
 				const repos = getRepositories();
-				const now = Date.now();
 
 				let sessionId: string | null = null;
 				let turnId: string | null = null;
@@ -225,11 +209,8 @@ export const questionRoutes = {
 
 				// Process each answer
 				for (const { questionId, answer } of answers) {
-					const question = await db
-						.selectFrom("questions")
-						.selectAll()
-						.where("id", "=", questionId)
-						.executeTakeFirst();
+					const question =
+						await repos.conversations.getQuestionById(questionId);
 
 					if (!question || question.status === "answered") {
 						continue;
@@ -239,16 +220,8 @@ export const questionRoutes = {
 					sessionId = question.session_id;
 					turnId = question.turn_id;
 
-					// Update the question
-					await db
-						.updateTable("questions")
-						.set({
-							answer_json: JSON.stringify(answer),
-							status: "answered",
-							answered_at: now,
-						})
-						.where("id", "=", questionId)
-						.execute();
+					// Answer the question via repository (uses safe JSON serialization)
+					await repos.conversations.answerQuestion(questionId, answer);
 
 					// Broadcast the answer event
 					broadcast(
@@ -267,11 +240,9 @@ export const questionRoutes = {
 				if (!sessionId || !turnId) {
 					const firstAnswer = answers[0];
 					if (firstAnswer) {
-						const firstQuestion = await db
-							.selectFrom("questions")
-							.selectAll()
-							.where("id", "=", firstAnswer.questionId)
-							.executeTakeFirst();
+						const firstQuestion = await repos.conversations.getQuestionById(
+							firstAnswer.questionId,
+						);
 						if (firstQuestion) {
 							sessionId = firstQuestion.session_id;
 							turnId = firstQuestion.turn_id;
@@ -287,62 +258,22 @@ export const questionRoutes = {
 				}
 
 				// Mark any remaining pending questions as "skipped"
-				await db
-					.updateTable("questions")
-					.set({ status: "skipped" })
-					.where("turn_id", "=", turnId)
-					.where("status", "=", "pending")
-					.execute();
+				await repos.conversations.skipPendingQuestions(turnId);
 
 				// All questions are now processed
 				const allAnswered = true;
 
 				// Auto-resume the agent with the user's responses
 				if (allAnswered) {
-					const allQuestions = await db
-						.selectFrom("questions")
-						.selectAll()
-						.where("turn_id", "=", turnId)
-						.orderBy("question_index", "asc")
-						.execute();
+					const allQuestions =
+						await repos.conversations.getQuestionsByTurn(turnId);
 
-					// Format answers as a user message
-					const messageParts: string[] = [];
-
-					// Add answered questions
-					const answeredQuestions = allQuestions.filter(
-						(q) => q.status === "answered",
-					);
-					if (answeredQuestions.length > 0) {
-						const answerLines = answeredQuestions.map((q) => {
-							const answer = q.answer_json ? JSON.parse(q.answer_json) : null;
-							const formattedAnswer = Array.isArray(answer)
-								? answer.join(", ")
-								: String(answer);
-							return `**${q.prompt}**: ${formattedAnswer}`;
-						});
-						messageParts.push(answerLines.join("\n\n"));
-					}
-
-					// Note skipped questions
-					const skippedQuestions = allQuestions.filter(
-						(q) => q.status === "skipped",
-					);
-					if (skippedQuestions.length > 0) {
-						const skippedList = skippedQuestions
-							.map((q) => `- ${q.prompt}`)
-							.join("\n");
-						messageParts.push(
-							`**Questions I chose not to answer:**\n${skippedList}`,
+					// Format answers using repository helper (safe JSON parsing)
+					const answerMessage =
+						repos.conversations.formatAnsweredQuestionsMessage(
+							allQuestions,
+							comment,
 						);
-					}
-
-					// Add user comment if provided
-					if (comment) {
-						messageParts.push(`**Additional comments:**\n${comment}`);
-					}
-
-					const answerMessage = messageParts.join("\n\n---\n\n");
 
 					// Get session and send the answer message
 					const sessionManager = getSessionManager();
@@ -351,7 +282,6 @@ export const questionRoutes = {
 					if (session && session.status === "active") {
 						const runner = new AgentRunner(session, {
 							projectRoot,
-							db,
 							conversationRepo: repos.conversations,
 						});
 
