@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, type ReactNode, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,30 @@ interface MarkdownProps {
 	className?: string;
 }
 
-export function Markdown({ children, className }: MarkdownProps) {
+/**
+ * Check if markdown has an unclosed code block (still being streamed).
+ * Returns true if there's an odd number of ``` markers.
+ */
+function hasUnclosedCodeBlock(markdown: string): boolean {
+	// Count occurrences of ``` (code fence markers)
+	const matches = markdown.match(/```/g);
+	return matches ? matches.length % 2 === 1 : false;
+}
+
+/**
+ * Markdown renderer with syntax highlighting.
+ * Memoized to prevent re-renders during streaming that cause code block flickering.
+ */
+export const Markdown = memo(function Markdown({
+	children,
+	className,
+}: MarkdownProps) {
+	// Detect if we're in the middle of streaming a code block
+	const isStreamingCodeBlock = useMemo(
+		() => hasUnclosedCodeBlock(children),
+		[children],
+	);
+
 	return (
 		<div
 			className={cn(
@@ -62,6 +85,7 @@ export function Markdown({ children, className }: MarkdownProps) {
 									code={codeString}
 									language={language || "text"}
 									className="text-sm"
+									isStreaming={isStreamingCodeBlock}
 								/>
 							);
 						}
@@ -79,7 +103,7 @@ export function Markdown({ children, className }: MarkdownProps) {
 			</ReactMarkdown>
 		</div>
 	);
-}
+});
 
 /**
  * Extract plain text from React children (handles nested elements)
