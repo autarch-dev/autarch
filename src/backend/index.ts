@@ -6,8 +6,7 @@ import { getProjectDb } from "./db/project";
 import { findRepoRoot } from "./git";
 import { log } from "./logger";
 import { initRepositories } from "./repositories";
-import { agentRoutes } from "./routes/agent";
-import { settingsRoutes } from "./routes/settings";
+import { agentRoutes, settingsRoutes } from "./routes";
 import { startWatching } from "./services/embedding";
 import { handleClose, handleMessage, handleOpen } from "./ws";
 
