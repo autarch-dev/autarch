@@ -19,6 +19,7 @@ import {
 } from "@/shared/schemas/events";
 import type { AnswerQuestionsResponse } from "@/shared/schemas/questions";
 import type {
+	Plan,
 	ResearchCard,
 	ScopeCard,
 	WorkflowHistoryResponse,
@@ -167,6 +168,33 @@ async function fetchPendingResearchCard(
 		recommendations: JSON.parse(researchCard.recommendations_json),
 		createdAt: researchCard.created_at,
 	} satisfies ResearchCard;
+}
+
+/**
+ * Fetch the most recent plan for a workflow
+ */
+async function fetchPendingPlan(
+	db: Awaited<ReturnType<typeof getProjectDb>>,
+	workflowId: string,
+): Promise<Plan | undefined> {
+	const plan = await db
+		.selectFrom("plans")
+		.selectAll()
+		.where("workflow_id", "=", workflowId)
+		.orderBy("created_at", "desc")
+		.executeTakeFirst();
+
+	if (!plan) {
+		return undefined;
+	}
+
+	return {
+		id: plan.id,
+		workflowId: plan.workflow_id,
+		approachSummary: plan.approach_summary,
+		pulses: JSON.parse(plan.pulses_json),
+		createdAt: plan.created_at,
+	} satisfies Plan;
 }
 
 // =============================================================================
@@ -475,6 +503,12 @@ export const agentRoutes = {
 						? await fetchPendingResearchCard(db, workflowId)
 						: undefined;
 
+				// Get pending plan if workflow is awaiting approval
+				const pendingPlanCard =
+					workflow.awaitingApproval && workflow.pendingArtifactType === "plan"
+						? await fetchPendingPlan(db, workflowId)
+						: undefined;
+
 				const response = {
 					workflow,
 					sessionId: activeSession?.id,
@@ -486,6 +520,7 @@ export const agentRoutes = {
 					messages,
 					pendingScopeCard,
 					pendingResearchCard,
+					pendingPlanCard,
 				} satisfies WorkflowHistoryResponse;
 
 				return Response.json(response);
@@ -553,6 +588,34 @@ export const agentRoutes = {
 				return Response.json(researchCard);
 			} catch (error) {
 				log.api.error("Failed to get research card:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/workflows/:id/plan": {
+		async GET(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			const workflowId = params.id;
+			try {
+				const projectRoot = findRepoRoot(process.cwd());
+				const db = await getProjectDb(projectRoot);
+
+				const plan = await fetchPendingPlan(db, workflowId);
+
+				if (!plan) {
+					return Response.json({ error: "Plan not found" }, { status: 404 });
+				}
+
+				return Response.json(plan);
+			} catch (error) {
+				log.api.error("Failed to get plan:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },

@@ -31,6 +31,7 @@ export function Dashboard() {
 		conversations: workflowConversations,
 		pendingScopeCards,
 		pendingResearchCards,
+		pendingPlans,
 		fetchWorkflows,
 		createWorkflow,
 		selectWorkflow,
@@ -161,6 +162,12 @@ export function Dashboard() {
 		return pendingResearchCards.get(selectedId);
 	}, [selectedView, selectedId, pendingResearchCards]);
 
+	// Get pending plan for selected workflow
+	const selectedPendingPlanCard = useMemo(() => {
+		if (selectedView !== "workflow" || !selectedId) return undefined;
+		return pendingPlans.get(selectedId);
+	}, [selectedView, selectedId, pendingPlans]);
+
 	return (
 		<SidebarProvider>
 			<AppSidebar
@@ -194,6 +201,7 @@ export function Dashboard() {
 						}
 						pendingScopeCard={selectedPendingScopeCard}
 						pendingResearchCard={selectedPendingResearchCard}
+						pendingPlanCard={selectedPendingPlanCard}
 						onApprove={handleApproveScope}
 						onRequestChanges={handleRequestChanges}
 					/>

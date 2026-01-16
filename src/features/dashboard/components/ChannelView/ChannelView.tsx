@@ -26,8 +26,8 @@ export function ChannelView({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll to bottom when new messages arrive
 	useEffect(() => {
 		const isStreaming = !!streamingMessage;
-		messagesEndRef.current?.scrollIntoView({ 
-			behavior: isStreaming ? "instant" : "smooth" 
+		messagesEndRef.current?.scrollIntoView({
+			behavior: isStreaming ? "instant" : "smooth",
 		});
 	}, [messages, streamingMessage?.segments]);
 

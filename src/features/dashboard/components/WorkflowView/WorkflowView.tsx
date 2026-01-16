@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ChannelMessage } from "@/shared/schemas/channel";
 import type {
+	Plan,
 	ResearchCard,
 	ScopeCard,
 	Workflow,
@@ -18,6 +19,7 @@ import {
 	ChannelMessageBubble,
 	StreamingMessageBubble,
 } from "../ChannelView/MessageBubble";
+import { PlanCardApproval } from "./PlanCardApproval";
 import { ResearchCardApproval } from "./ResearchCardApproval";
 import { ScopeCardApproval } from "./ScopeCardApproval";
 import { WorkflowEmptyState } from "./WorkflowEmptyState";
@@ -30,6 +32,7 @@ interface WorkflowViewProps {
 	isLoading?: boolean;
 	pendingScopeCard?: ScopeCard;
 	pendingResearchCard?: ResearchCard;
+	pendingPlanCard?: Plan;
 	onApprove?: () => Promise<void>;
 	onRequestChanges?: (feedback: string) => Promise<void>;
 }
@@ -41,6 +44,7 @@ export function WorkflowView({
 	isLoading,
 	pendingScopeCard,
 	pendingResearchCard,
+	pendingPlanCard,
 	onApprove,
 	onRequestChanges,
 }: WorkflowViewProps) {
@@ -66,6 +70,13 @@ export function WorkflowView({
 		onApprove &&
 		onRequestChanges;
 
+	const showPlanApproval =
+		workflow.awaitingApproval &&
+		workflow.pendingArtifactType === "plan" &&
+		pendingPlanCard &&
+		onApprove &&
+		onRequestChanges;
+
 	return (
 		<TooltipProvider>
 			<div className="flex flex-col h-full">
@@ -82,7 +93,8 @@ export function WorkflowView({
 						) : messages.length === 0 &&
 							!streamingMessage &&
 							!showScopeApproval &&
-							!showResearchApproval ? (
+							!showResearchApproval &&
+							!showPlanApproval ? (
 							<WorkflowEmptyState />
 						) : (
 							<>
@@ -108,6 +120,15 @@ export function WorkflowView({
 						{showResearchApproval && (
 							<ResearchCardApproval
 								researchCard={pendingResearchCard}
+								onApprove={onApprove}
+								onDeny={onRequestChanges}
+							/>
+						)}
+
+						{/* Plan Card Approval UI */}
+						{showPlanApproval && (
+							<PlanCardApproval
+								plan={pendingPlanCard}
 								onApprove={onApprove}
 								onDeny={onRequestChanges}
 							/>

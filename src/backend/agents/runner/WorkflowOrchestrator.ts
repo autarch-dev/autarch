@@ -121,16 +121,17 @@ export class WorkflowOrchestrator {
 			.execute();
 
 		// Build the initial prompt from title and description
-		const initialPrompt = description
-			? `${title}\n\n${description}`
-			: title;
+		const initialPrompt = description ? `${title}\n\n${description}` : title;
 
 		// Run the scoping agent with the initial prompt (non-blocking)
 		const projectRoot = findRepoRoot(process.cwd());
 		const runner = new AgentRunner(session, { projectRoot, db: this.db });
 
 		runner.run(initialPrompt).catch((error) => {
-			log.agent.error(`Scoping agent failed for workflow ${workflowId}:`, error);
+			log.agent.error(
+				`Scoping agent failed for workflow ${workflowId}:`,
+				error,
+			);
 			this.sessionManager.errorSession(
 				session.id,
 				error instanceof Error ? error.message : "Unknown error",
@@ -175,9 +176,7 @@ export class WorkflowOrchestrator {
 		if (approvalTargetStage) {
 			const artifactType = TOOL_TO_ARTIFACT_TYPE[toolName];
 			if (!artifactType) {
-				log.workflow.error(
-					`No artifact type mapping for tool ${toolName}`,
-				);
+				log.workflow.error(`No artifact type mapping for tool ${toolName}`);
 				return { transitioned: false, awaitingApproval: false };
 			}
 			log.workflow.info(
@@ -530,14 +529,30 @@ ${outOfScope.map((item) => `- ${item}`).join("\n")}`;
 			return message;
 		}
 
-		// Research -> Planning: send the approved research findings
+		// Research -> Planning: send BOTH scope card AND research findings
 		if (previousStage === "researching" && newStage === "planning") {
+			// Fetch the scope card (what to build)
+			const scopeCard = await this.db
+				.selectFrom("scope_cards")
+				.selectAll()
+				.where("workflow_id", "=", workflowId)
+				.orderBy("created_at", "desc")
+				.executeTakeFirst();
+
+			// Fetch the research card (how the codebase works)
 			const researchCard = await this.db
 				.selectFrom("research_cards")
 				.selectAll()
 				.where("workflow_id", "=", workflowId)
 				.orderBy("created_at", "desc")
 				.executeTakeFirst();
+
+			if (!scopeCard) {
+				log.workflow.error(
+					`No scope card found for workflow ${workflowId} when transitioning to planning`,
+				);
+				return null;
+			}
 
 			if (!researchCard) {
 				log.workflow.error(
@@ -546,36 +561,131 @@ ${outOfScope.map((item) => `- ${item}`).join("\n")}`;
 				return null;
 			}
 
+			// Parse scope card data
+			const inScope = JSON.parse(scopeCard.in_scope_json) as string[];
+			const outOfScope = JSON.parse(scopeCard.out_of_scope_json) as string[];
+			const constraints = scopeCard.constraints_json
+				? (JSON.parse(scopeCard.constraints_json) as string[])
+				: [];
+
+			// Parse research card data
 			const keyFiles = JSON.parse(researchCard.key_files_json) as Array<{
 				path: string;
-				reason: string;
+				purpose: string;
 			}>;
 			const recommendations = JSON.parse(
 				researchCard.recommendations_json,
 			) as string[];
 
-			let message = `## Approved Research Findings
+			// Build message with BOTH scope and research context
+			let message = `## Approved Scope
 
-The following research has been approved. Please create a detailed implementation plan.
+The following scope has been approved for this task.
+
+### Title
+${scopeCard.title}
+
+### Description
+${scopeCard.description}
+
+### In Scope
+${inScope.map((item) => `- ${item}`).join("\n")}
+
+### Out of Scope
+${outOfScope.map((item) => `- ${item}`).join("\n")}`;
+
+			if (constraints.length > 0) {
+				message += `\n\n### Constraints\n${constraints.map((item) => `- ${item}`).join("\n")}`;
+			}
+
+			message += `\n\n---\n\n## Approved Research Findings
+
+The following research has been approved.
 
 ### Summary
 ${researchCard.summary}
 
 ### Key Files
-${keyFiles.map((f) => `- \`${f.path}\`: ${f.reason}`).join("\n")}
+${keyFiles.map((f) => `- \`${f.path}\`: ${f.purpose}`).join("\n")}
 
 ### Recommendations
 ${recommendations.map((r) => `- ${r}`).join("\n")}`;
 
 			if (researchCard.patterns_json) {
-				const patterns = JSON.parse(researchCard.patterns_json) as string[];
-				message += `\n\n### Patterns Identified\n${patterns.map((p) => `- ${p}`).join("\n")}`;
+				const patterns = JSON.parse(researchCard.patterns_json) as Array<{
+					category: string;
+					description: string;
+				}>;
+				message += `\n\n### Patterns Identified\n${patterns.map((p) => `- **${p.category}**: ${p.description}`).join("\n")}`;
+			}
+
+			if (researchCard.integration_points_json) {
+				const integrationPoints = JSON.parse(
+					researchCard.integration_points_json,
+				) as Array<{ location: string; description: string }>;
+				message += `\n\n### Integration Points\n${integrationPoints.map((ip) => `- \`${ip.location}\`: ${ip.description}`).join("\n")}`;
 			}
 
 			if (researchCard.challenges_json) {
-				const challenges = JSON.parse(researchCard.challenges_json) as string[];
-				message += `\n\n### Potential Challenges\n${challenges.map((c) => `- ${c}`).join("\n")}`;
+				const challenges = JSON.parse(researchCard.challenges_json) as Array<{
+					issue: string;
+					mitigation: string;
+				}>;
+				message += `\n\n### Potential Challenges\n${challenges.map((c) => `- **${c.issue}**: ${c.mitigation}`).join("\n")}`;
 			}
+
+			message +=
+				"\n\nPlease create a detailed implementation plan based on this scope and research. Break the work into discrete pulses ordered by dependencies.";
+
+			return message;
+		}
+
+		// Planning -> Execution: send the approved plan
+		if (previousStage === "planning" && newStage === "in_progress") {
+			const plan = await this.db
+				.selectFrom("plans")
+				.selectAll()
+				.where("workflow_id", "=", workflowId)
+				.orderBy("created_at", "desc")
+				.executeTakeFirst();
+
+			if (!plan) {
+				log.workflow.error(
+					`No plan found for workflow ${workflowId} when transitioning to execution`,
+				);
+				return null;
+			}
+
+			const pulses = JSON.parse(plan.pulses_json) as Array<{
+				id: string;
+				title: string;
+				description: string;
+				expectedChanges: string[];
+				estimatedSize: string;
+				dependsOn?: string[];
+			}>;
+
+			let message = `## Approved Execution Plan
+
+The following plan has been approved. Begin executing the pulses in order.
+
+### Approach
+${plan.approach_summary}
+
+### Pulses`;
+
+			for (const pulse of pulses) {
+				message += `\n\n#### ${pulse.id}: ${pulse.title}
+**Description:** ${pulse.description}
+**Expected Changes:** ${pulse.expectedChanges.map((f) => `\`${f}\``).join(", ")}
+**Estimated Size:** ${pulse.estimatedSize}`;
+				if (pulse.dependsOn && pulse.dependsOn.length > 0) {
+					message += `\n**Depends On:** ${pulse.dependsOn.join(", ")}`;
+				}
+			}
+
+			message +=
+				"\n\nExecute each pulse in dependency order. After completing a pulse, call `complete_pulse` or `request_extension` as appropriate.";
 
 			return message;
 		}

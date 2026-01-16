@@ -25,6 +25,7 @@ import type {
 	WorkflowStageChangedPayload,
 } from "@/shared/schemas/events";
 import type {
+	Plan,
 	ResearchCard,
 	ScopeCard,
 	Workflow,
@@ -104,6 +105,9 @@ interface WorkflowsState {
 	// Pending research cards (for approval UI)
 	pendingResearchCards: Map<string, ResearchCard>;
 
+	// Pending plans (for approval UI)
+	pendingPlans: Map<string, Plan>;
+
 	// Actions - Workflow CRUD
 	fetchWorkflows: () => Promise<void>;
 	createWorkflow: (title: string, description?: string) => Promise<Workflow>;
@@ -128,6 +132,7 @@ interface WorkflowsState {
 	getSelectedConversation: () => WorkflowConversationState | undefined;
 	getPendingScopeCard: (workflowId: string) => ScopeCard | undefined;
 	getPendingResearchCard: (workflowId: string) => ResearchCard | undefined;
+	getPendingPlan: (workflowId: string) => Plan | undefined;
 }
 
 // =============================================================================
@@ -143,6 +148,7 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	selectedWorkflowId: null,
 	pendingScopeCards: new Map(),
 	pendingResearchCards: new Map(),
+	pendingPlans: new Map(),
 
 	// ===========================================================================
 	// Workflow CRUD
@@ -248,11 +254,18 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 					pendingResearchCards.set(workflowId, history.pendingResearchCard);
 				}
 
+				// Store pending plan if present
+				const pendingPlans = new Map(state.pendingPlans);
+				if (history.pendingPlanCard) {
+					pendingPlans.set(workflowId, history.pendingPlanCard);
+				}
+
 				return {
 					conversations,
 					workflows,
 					pendingScopeCards,
 					pendingResearchCards,
+					pendingPlans,
 				};
 			});
 		} catch (error) {
@@ -471,6 +484,10 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 
 	getPendingResearchCard: (workflowId: string) => {
 		return get().pendingResearchCards.get(workflowId);
+	},
+
+	getPendingPlan: (workflowId: string) => {
+		return get().pendingPlans.get(workflowId);
 	},
 }));
 

@@ -73,7 +73,8 @@ After submitting, the workflow will await user approval before transitioning to 
 		if (!context.workflowId) {
 			return {
 				success: false,
-				error: "No workflow context - submit_scope can only be used in workflow sessions",
+				error:
+					"No workflow context - submit_scope can only be used in workflow sessions",
 			};
 		}
 

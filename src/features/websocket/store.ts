@@ -1,5 +1,8 @@
 import { create } from "zustand";
-import { useDiscussionsStore, useWorkflowsStore } from "@/features/dashboard/store";
+import {
+	useDiscussionsStore,
+	useWorkflowsStore,
+} from "@/features/dashboard/store";
 import {
 	type IndexingProgressPayload,
 	type SessionStartedPayload,
