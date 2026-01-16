@@ -14,7 +14,6 @@ import {
 	ChannelMessageBubble,
 	StreamingMessageBubble,
 } from "../ChannelView/MessageBubble";
-import { MessageInput } from "../MessageInput";
 import { ScopeCardApproval } from "./ScopeCardApproval";
 import { WorkflowEmptyState } from "./WorkflowEmptyState";
 import { WorkflowHeader } from "./WorkflowHeader";
@@ -36,7 +35,6 @@ export function WorkflowView({
 	streamingMessage,
 	isLoading,
 	pendingScopeCard,
-	onSendMessage,
 	onApproveScope,
 	onRequestChanges,
 }: WorkflowViewProps) {
@@ -54,18 +52,6 @@ export function WorkflowView({
 		pendingScopeCard &&
 		onApproveScope &&
 		onRequestChanges;
-
-	// Determine if input should be disabled
-	const inputDisabled =
-		!!streamingMessage || workflow.awaitingApproval || !workflow.currentSessionId;
-
-	// Determine placeholder text
-	let placeholder = "Describe your task or ask a question...";
-	if (workflow.awaitingApproval) {
-		placeholder = "Review the scope card above and approve or request changes...";
-	} else if (!workflow.currentSessionId) {
-		placeholder = "Waiting for agent session to start...";
-	}
 
 	return (
 		<TooltipProvider>
