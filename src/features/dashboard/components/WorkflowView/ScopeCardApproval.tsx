@@ -58,7 +58,7 @@ export function ScopeCardApproval({
 	return (
 		<>
 			<Card className="mx-4 my-4 border-primary/50 bg-primary/5">
-				<CardHeader className="pb-2">
+				<CardHeader>
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<Button
@@ -72,7 +72,9 @@ export function ScopeCardApproval({
 									<ChevronRight className="size-4" />
 								)}
 							</Button>
-							<CardTitle className="text-lg">Scope Card: {scopeCard.title}</CardTitle>
+							<CardTitle className="text-lg">
+								Scope Card: {scopeCard.title}
+							</CardTitle>
 						</div>
 						<div className="flex items-center gap-2">
 							<Button
@@ -85,11 +87,7 @@ export function ScopeCardApproval({
 								<XCircle className="size-4 mr-1" />
 								Request Changes
 							</Button>
-							<Button
-								size="sm"
-								onClick={handleApprove}
-								disabled={isSubmitting}
-							>
+							<Button size="sm" onClick={handleApprove} disabled={isSubmitting}>
 								<CheckCircle className="size-4 mr-1" />
 								Approve
 							</Button>
@@ -152,27 +150,29 @@ export function ScopeCardApproval({
 						)}
 
 						{/* Recommended Path */}
-						<div>
-							<h4 className="text-sm font-medium text-muted-foreground mb-1">
-								Recommended Path
-							</h4>
+						<div className="space-y-1">
 							<div className="flex items-center gap-2">
+								<h4 className="text-sm font-medium text-muted-foreground">
+									Recommended Path:
+								</h4>
 								<span
 									className={cn(
-										"px-2 py-0.5 rounded text-xs font-medium",
+										"px-2 py-0.5 rounded text-xs font-medium w-fit flex-shrink-0",
 										scopeCard.recommendedPath === "quick"
 											? "bg-green-500/10 text-green-700 dark:text-green-400"
 											: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
 									)}
 								>
-									{scopeCard.recommendedPath === "quick" ? "Quick Path" : "Full Path"}
+									{scopeCard.recommendedPath === "quick"
+										? "Quick Path"
+										: "Full Path"}
 								</span>
-								{scopeCard.rationale && (
-									<span className="text-sm text-muted-foreground">
-										— {scopeCard.rationale}
-									</span>
-								)}
 							</div>
+							{scopeCard.rationale && (
+								<span className="text-sm text-muted-foreground">
+									{scopeCard.rationale}
+								</span>
+							)}
 						</div>
 					</CardContent>
 				)}
