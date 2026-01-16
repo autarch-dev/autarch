@@ -6,7 +6,7 @@ interface CodeBlockProps {
 	code: string;
 	language?: string;
 	className?: string;
-	/** If true, skip syntax highlighting and show plain text (for streaming) */
+	/** If true, skip syntax highlighting (for streaming) */
 	isStreaming?: boolean;
 }
 
@@ -70,22 +70,33 @@ export const CodeBlock = memo(function CodeBlock({
 		};
 	}, [code, language, isStreaming, cacheKey, html]);
 
+	const wrapperClasses = cn(
+		"[&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg",
+		"[&_.shiki]:rounded-lg",
+		className,
+	);
+
 	// Show plain fallback while streaming or loading
+	// Structure mirrors Shiki output: <div> → <pre> → <code>
+	// Use Shiki CSS variables for consistent theming
 	if ((isStreaming || !html) && !cachedHtml) {
 		return (
-			<pre className={cn("p-4 overflow-x-auto bg-muted rounded-lg", className)}>
-				<code>{code}</code>
-			</pre>
+			<div className={wrapperClasses}>
+				<pre
+					className="shiki rounded-lg"
+					style={{
+						backgroundColor: "var(--shiki-dark-bg, var(--shiki-light-bg))",
+					}}
+				>
+					<code>{code}</code>
+				</pre>
+			</div>
 		);
 	}
 
 	return (
 		<div
-			className={cn(
-				"[&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg",
-				"[&_.shiki]:rounded-lg",
-				className,
-			)}
+			className={wrapperClasses}
 			// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output is assumed safe
 			dangerouslySetInnerHTML={{ __html: html ?? cachedHtml ?? "" }}
 		/>
