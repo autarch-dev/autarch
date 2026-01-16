@@ -87,7 +87,7 @@ export const CodeBlock = memo(function CodeBlock({
 				className,
 			)}
 			// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output is assumed safe
-			dangerouslySetInnerHTML={{ __html: html }}
+			dangerouslySetInnerHTML={{ __html: html ?? cachedHtml ?? "" }}
 		/>
 	);
 });
