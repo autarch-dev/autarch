@@ -8,12 +8,17 @@
 import { useEffect, useRef } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ChannelMessage } from "@/shared/schemas/channel";
-import type { ScopeCard, Workflow } from "@/shared/schemas/workflow";
+import type {
+	ResearchCard,
+	ScopeCard,
+	Workflow,
+} from "@/shared/schemas/workflow";
 import type { StreamingMessage } from "../../store/workflowsStore";
 import {
 	ChannelMessageBubble,
 	StreamingMessageBubble,
 } from "../ChannelView/MessageBubble";
+import { ResearchCardApproval } from "./ResearchCardApproval";
 import { ScopeCardApproval } from "./ScopeCardApproval";
 import { WorkflowEmptyState } from "./WorkflowEmptyState";
 import { WorkflowHeader } from "./WorkflowHeader";
@@ -24,8 +29,8 @@ interface WorkflowViewProps {
 	streamingMessage?: StreamingMessage;
 	isLoading?: boolean;
 	pendingScopeCard?: ScopeCard;
-	onSendMessage?: (content: string) => void;
-	onApproveScope?: () => Promise<void>;
+	pendingResearchCard?: ResearchCard;
+	onApprove?: () => Promise<void>;
 	onRequestChanges?: (feedback: string) => Promise<void>;
 }
 
@@ -35,7 +40,8 @@ export function WorkflowView({
 	streamingMessage,
 	isLoading,
 	pendingScopeCard,
-	onApproveScope,
+	pendingResearchCard,
+	onApprove,
 	onRequestChanges,
 }: WorkflowViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -46,11 +52,18 @@ export function WorkflowView({
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages, streamingMessage?.segments]);
 
-	const showApproval =
+	const showScopeApproval =
 		workflow.awaitingApproval &&
 		workflow.pendingArtifactType === "scope_card" &&
 		pendingScopeCard &&
-		onApproveScope &&
+		onApprove &&
+		onRequestChanges;
+
+	const showResearchApproval =
+		workflow.awaitingApproval &&
+		workflow.pendingArtifactType === "research" &&
+		pendingResearchCard &&
+		onApprove &&
 		onRequestChanges;
 
 	return (
@@ -66,7 +79,10 @@ export function WorkflowView({
 									Loading conversation...
 								</span>
 							</div>
-						) : messages.length === 0 && !streamingMessage && !showApproval ? (
+						) : messages.length === 0 &&
+							!streamingMessage &&
+							!showScopeApproval &&
+							!showResearchApproval ? (
 							<WorkflowEmptyState />
 						) : (
 							<>
@@ -80,10 +96,19 @@ export function WorkflowView({
 						)}
 
 						{/* Scope Card Approval UI */}
-						{showApproval && (
+						{showScopeApproval && (
 							<ScopeCardApproval
 								scopeCard={pendingScopeCard}
-								onApprove={onApproveScope}
+								onApprove={onApprove}
+								onDeny={onRequestChanges}
+							/>
+						)}
+
+						{/* Research Card Approval UI */}
+						{showResearchApproval && (
+							<ResearchCardApproval
+								researchCard={pendingResearchCard}
+								onApprove={onApprove}
 								onDeny={onRequestChanges}
 							/>
 						)}

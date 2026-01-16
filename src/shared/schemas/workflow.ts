@@ -197,6 +197,8 @@ export const WorkflowHistoryResponseSchema = z.object({
 	messages: z.array(ChannelMessageSchema),
 	/** Pending scope card awaiting approval */
 	pendingScopeCard: ScopeCardSchema.optional(),
+	/** Pending research card awaiting approval */
+	pendingResearchCard: ResearchCardSchema.optional(),
 });
 export type WorkflowHistoryResponse = z.infer<
 	typeof WorkflowHistoryResponseSchema

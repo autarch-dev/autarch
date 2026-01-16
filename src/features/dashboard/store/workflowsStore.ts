@@ -25,6 +25,7 @@ import type {
 	WorkflowStageChangedPayload,
 } from "@/shared/schemas/events";
 import type {
+	ResearchCard,
 	ScopeCard,
 	Workflow,
 	WorkflowHistoryResponse,
@@ -100,6 +101,9 @@ interface WorkflowsState {
 	// Pending scope cards (for approval UI)
 	pendingScopeCards: Map<string, ScopeCard>;
 
+	// Pending research cards (for approval UI)
+	pendingResearchCards: Map<string, ResearchCard>;
+
 	// Actions - Workflow CRUD
 	fetchWorkflows: () => Promise<void>;
 	createWorkflow: (title: string, description?: string) => Promise<Workflow>;
@@ -118,9 +122,12 @@ interface WorkflowsState {
 
 	// Getters
 	getWorkflow: (workflowId: string) => Workflow | undefined;
-	getConversation: (workflowId: string) => WorkflowConversationState | undefined;
+	getConversation: (
+		workflowId: string,
+	) => WorkflowConversationState | undefined;
 	getSelectedConversation: () => WorkflowConversationState | undefined;
 	getPendingScopeCard: (workflowId: string) => ScopeCard | undefined;
+	getPendingResearchCard: (workflowId: string) => ResearchCard | undefined;
 }
 
 // =============================================================================
@@ -135,6 +142,7 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	conversations: new Map(),
 	selectedWorkflowId: null,
 	pendingScopeCards: new Map(),
+	pendingResearchCards: new Map(),
 
 	// ===========================================================================
 	// Workflow CRUD
@@ -151,7 +159,8 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 			set({ workflows, workflowsLoading: false });
 		} catch (error) {
 			set({
-				workflowsError: error instanceof Error ? error.message : "Unknown error",
+				workflowsError:
+					error instanceof Error ? error.message : "Unknown error",
 				workflowsLoading: false,
 			});
 		}
@@ -233,7 +242,18 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 					pendingScopeCards.set(workflowId, history.pendingScopeCard);
 				}
 
-				return { conversations, workflows, pendingScopeCards };
+				// Store pending research card if present
+				const pendingResearchCards = new Map(state.pendingResearchCards);
+				if (history.pendingResearchCard) {
+					pendingResearchCards.set(workflowId, history.pendingResearchCard);
+				}
+
+				return {
+					conversations,
+					workflows,
+					pendingScopeCards,
+					pendingResearchCards,
+				};
 			});
 		} catch (error) {
 			set((state) => {
@@ -324,11 +344,14 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	},
 
 	requestChanges: async (workflowId: string, feedback: string) => {
-		const response = await fetch(`/api/workflows/${workflowId}/request-changes`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ feedback }),
-		});
+		const response = await fetch(
+			`/api/workflows/${workflowId}/request-changes`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ feedback }),
+			},
+		);
 
 		if (!response.ok) {
 			const error = await response.json();
@@ -445,6 +468,10 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	getPendingScopeCard: (workflowId: string) => {
 		return get().pendingScopeCards.get(workflowId);
 	},
+
+	getPendingResearchCard: (workflowId: string) => {
+		return get().pendingResearchCards.get(workflowId);
+	},
 }));
 
 // =============================================================================
@@ -530,7 +557,8 @@ function handleWorkflowApprovalNeeded(
 				? {
 						...w,
 						awaitingApproval: true,
-						pendingArtifactType: payload.artifactType as Workflow["pendingArtifactType"],
+						pendingArtifactType:
+							payload.artifactType as Workflow["pendingArtifactType"],
 						updatedAt: Date.now(),
 					}
 				: w,
@@ -542,6 +570,11 @@ function handleWorkflowApprovalNeeded(
 	// Fetch the scope card if it's a scope_card approval
 	if (payload.artifactType === "scope_card") {
 		fetchScopeCard(payload.workflowId, payload.artifactId, set);
+	}
+
+	// Fetch the research card if it's a research approval
+	if (payload.artifactType === "research") {
+		fetchResearchCard(payload.workflowId, payload.artifactId, set);
 	}
 }
 
@@ -562,6 +595,26 @@ async function fetchScopeCard(
 		}
 	} catch {
 		// Ignore fetch errors - scope card will be fetched with history
+	}
+}
+
+async function fetchResearchCard(
+	workflowId: string,
+	_researchCardId: string,
+	set: SetState,
+): Promise<void> {
+	try {
+		const response = await fetch(`/api/workflows/${workflowId}/research-card`);
+		if (response.ok) {
+			const researchCard: ResearchCard = await response.json();
+			set((state) => {
+				const pendingResearchCards = new Map(state.pendingResearchCards);
+				pendingResearchCards.set(workflowId, researchCard);
+				return { pendingResearchCards };
+			});
+		}
+	} catch {
+		// Ignore fetch errors - research card will be fetched with history
 	}
 }
 

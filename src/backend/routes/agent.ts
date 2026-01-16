@@ -18,7 +18,11 @@ import {
 	createQuestionsAnsweredEvent,
 } from "@/shared/schemas/events";
 import type { AnswerQuestionsResponse } from "@/shared/schemas/questions";
-import type { ScopeCard, WorkflowHistoryResponse } from "@/shared/schemas/workflow";
+import type {
+	ResearchCard,
+	ScopeCard,
+	WorkflowHistoryResponse,
+} from "@/shared/schemas/workflow";
 import {
 	AgentRunner,
 	getSessionManager,
@@ -123,6 +127,46 @@ async function fetchPendingScopeCard(
 		rationale: scopeCard.rationale ?? undefined,
 		createdAt: scopeCard.created_at,
 	} satisfies ScopeCard;
+}
+
+/**
+ * Fetch the most recent research card for a workflow
+ */
+async function fetchPendingResearchCard(
+	db: Awaited<ReturnType<typeof getProjectDb>>,
+	workflowId: string,
+): Promise<ResearchCard | undefined> {
+	const researchCard = await db
+		.selectFrom("research_cards")
+		.selectAll()
+		.where("workflow_id", "=", workflowId)
+		.orderBy("created_at", "desc")
+		.executeTakeFirst();
+
+	if (!researchCard) {
+		return undefined;
+	}
+
+	return {
+		id: researchCard.id,
+		workflowId: researchCard.workflow_id,
+		summary: researchCard.summary,
+		keyFiles: JSON.parse(researchCard.key_files_json),
+		patterns: researchCard.patterns_json
+			? JSON.parse(researchCard.patterns_json)
+			: undefined,
+		dependencies: researchCard.dependencies_json
+			? JSON.parse(researchCard.dependencies_json)
+			: undefined,
+		integrationPoints: researchCard.integration_points_json
+			? JSON.parse(researchCard.integration_points_json)
+			: undefined,
+		challenges: researchCard.challenges_json
+			? JSON.parse(researchCard.challenges_json)
+			: undefined,
+		recommendations: JSON.parse(researchCard.recommendations_json),
+		createdAt: researchCard.created_at,
+	} satisfies ResearchCard;
 }
 
 // =============================================================================
@@ -423,6 +467,13 @@ export const agentRoutes = {
 						? await fetchPendingScopeCard(db, workflowId)
 						: undefined;
 
+				// Get pending research card if workflow is awaiting approval
+				const pendingResearchCard =
+					workflow.awaitingApproval &&
+					workflow.pendingArtifactType === "research"
+						? await fetchPendingResearchCard(db, workflowId)
+						: undefined;
+
 				const response = {
 					workflow,
 					sessionId: activeSession?.id,
@@ -433,6 +484,7 @@ export const agentRoutes = {
 						| undefined,
 					messages,
 					pendingScopeCard,
+					pendingResearchCard,
 				} satisfies WorkflowHistoryResponse;
 
 				return Response.json(response);
@@ -469,6 +521,37 @@ export const agentRoutes = {
 				return Response.json(scopeCard);
 			} catch (error) {
 				log.api.error("Failed to get scope card:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/workflows/:id/research-card": {
+		async GET(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			const workflowId = params.id;
+			try {
+				const projectRoot = findRepoRoot(process.cwd());
+				const db = await getProjectDb(projectRoot);
+
+				const researchCard = await fetchPendingResearchCard(db, workflowId);
+
+				if (!researchCard) {
+					return Response.json(
+						{ error: "Research card not found" },
+						{ status: 404 },
+					);
+				}
+
+				return Response.json(researchCard);
+			} catch (error) {
+				log.api.error("Failed to get research card:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },

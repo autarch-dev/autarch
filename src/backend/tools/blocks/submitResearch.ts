@@ -1,8 +1,13 @@
 /**
  * submit_research - Submit completed research findings for user approval
+ *
+ * Persists the research card to the database and triggers the approval workflow.
+ * The workflow will await user approval before transitioning to the planning phase.
  */
 
 import { z } from "zod";
+import { getWorkflowOrchestrator } from "@/backend/agents/runner";
+import { getProjectDb } from "@/backend/db/project";
 import type { ToolDefinition, ToolResult } from "../types";
 
 // =============================================================================
@@ -72,6 +77,18 @@ export type SubmitResearchInput = z.infer<typeof submitResearchInputSchema>;
 export interface SubmitResearchOutput {
 	success: boolean;
 	research_card_id: string;
+	message: string;
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Generate a unique research card ID
+ */
+function generateResearchCardId(): string {
+	return `research_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 // =============================================================================
@@ -84,15 +101,75 @@ export const submitResearchTool: ToolDefinition<
 > = {
 	name: "submit_research",
 	description: `Submit completed research findings for user approval.
-Use when sufficient understanding has been built to guide implementation.`,
+Use when sufficient understanding has been built to guide implementation.
+After submitting, the workflow will await user approval before transitioning to planning.`,
 	inputSchema: submitResearchInputSchema,
 	execute: async (
-		_input,
-		_context,
+		input,
+		context,
 	): Promise<ToolResult<SubmitResearchOutput>> => {
-		return {
-			success: false,
-			error: "submit_research not implemented",
-		};
+		// Workflow ID is required for storing research cards
+		if (!context.workflowId) {
+			return {
+				success: false,
+				error:
+					"No workflow context - submit_research can only be used in workflow sessions",
+			};
+		}
+
+		// Get database connection
+		const db = await getProjectDb(context.projectRoot);
+
+		const now = Date.now();
+		const researchCardId = generateResearchCardId();
+
+		try {
+			// Insert the research card into the database
+			await db
+				.insertInto("research_cards")
+				.values({
+					id: researchCardId,
+					workflow_id: context.workflowId,
+					summary: input.summary,
+					key_files_json: JSON.stringify(input.keyFiles),
+					patterns_json: input.patterns ? JSON.stringify(input.patterns) : null,
+					dependencies_json: input.dependencies
+						? JSON.stringify(input.dependencies)
+						: null,
+					integration_points_json: input.integrationPoints
+						? JSON.stringify(input.integrationPoints)
+						: null,
+					challenges_json: input.challenges
+						? JSON.stringify(input.challenges)
+						: null,
+					recommendations_json: JSON.stringify(input.recommendations),
+					created_at: now,
+				})
+				.execute();
+
+			// Notify the workflow orchestrator about the tool result
+			// This will set the workflow to awaiting_approval state and broadcast the event
+			const orchestrator = getWorkflowOrchestrator();
+			await orchestrator.handleToolResult(
+				context.workflowId,
+				"submit_research",
+				researchCardId,
+			);
+
+			return {
+				success: true,
+				data: {
+					success: true,
+					research_card_id: researchCardId,
+					message:
+						"Research findings submitted successfully. Awaiting user approval before proceeding to planning phase.",
+				},
+			};
+		} catch (err) {
+			return {
+				success: false,
+				error: `Failed to submit research card: ${err instanceof Error ? err.message : "unknown error"}`,
+			};
+		}
 	},
 };

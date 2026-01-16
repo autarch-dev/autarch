@@ -30,11 +30,11 @@ export function Dashboard() {
 		workflowsLoading,
 		conversations: workflowConversations,
 		pendingScopeCards,
+		pendingResearchCards,
 		fetchWorkflows,
 		createWorkflow,
 		selectWorkflow,
 		fetchHistory: fetchWorkflowHistory,
-		sendMessage: sendWorkflowMessage,
 		approveArtifact,
 		requestChanges,
 	} = useWorkflowsStore();
@@ -112,15 +112,6 @@ export function Dashboard() {
 		[selectedView, selectedId, sendChannelMessage],
 	);
 
-	const handleSendWorkflowMessage = useCallback(
-		async (content: string) => {
-			if (selectedView === "workflow" && selectedId) {
-				await sendWorkflowMessage(selectedId, content);
-			}
-		},
-		[selectedView, selectedId, sendWorkflowMessage],
-	);
-
 	const handleApproveScope = useCallback(async () => {
 		if (selectedId) {
 			await approveArtifact(selectedId);
@@ -164,6 +155,12 @@ export function Dashboard() {
 		return pendingScopeCards.get(selectedId);
 	}, [selectedView, selectedId, pendingScopeCards]);
 
+	// Get pending research card for selected workflow
+	const selectedPendingResearchCard = useMemo(() => {
+		if (selectedView !== "workflow" || !selectedId) return undefined;
+		return pendingResearchCards.get(selectedId);
+	}, [selectedView, selectedId, pendingResearchCards]);
+
 	return (
 		<SidebarProvider>
 			<AppSidebar
@@ -182,7 +179,9 @@ export function Dashboard() {
 						channel={selectedChannel}
 						messages={selectedChannelConversation?.messages ?? []}
 						streamingMessage={selectedChannelConversation?.streamingMessage}
-						isLoading={selectedChannelConversation?.isLoading ?? channelsLoading}
+						isLoading={
+							selectedChannelConversation?.isLoading ?? channelsLoading
+						}
 						onSendMessage={handleSendChannelMessage}
 					/>
 				) : selectedView === "workflow" && selectedWorkflow ? (
@@ -190,10 +189,12 @@ export function Dashboard() {
 						workflow={selectedWorkflow}
 						messages={selectedWorkflowConversation?.messages ?? []}
 						streamingMessage={selectedWorkflowConversation?.streamingMessage}
-						isLoading={selectedWorkflowConversation?.isLoading ?? workflowsLoading}
+						isLoading={
+							selectedWorkflowConversation?.isLoading ?? workflowsLoading
+						}
 						pendingScopeCard={selectedPendingScopeCard}
-						onSendMessage={handleSendWorkflowMessage}
-						onApproveScope={handleApproveScope}
+						pendingResearchCard={selectedPendingResearchCard}
+						onApprove={handleApproveScope}
 						onRequestChanges={handleRequestChanges}
 					/>
 				) : (
