@@ -28,32 +28,27 @@ export interface ToolContext {
 }
 
 /**
- * Result returned from tool execution
+ * Result returned from tool execution.
+ * All tool outputs are plain text strings.
  */
-export interface ToolResult<T = unknown> {
+export interface ToolResult {
 	success: boolean;
-	data?: T;
-	error?: string;
-	blocked?: boolean;
-	reason?: string;
+	output: string;
 }
 
 /**
- * Fully-typed tool definition used when defining individual tools.
- * Preserves input/output types for type safety during tool implementation.
+ * Tool definition with typed input schema.
+ * All tools return plain text output.
  */
-export interface ToolDefinition<TInput, TOutput> {
+export interface ToolDefinition<TInput> {
 	/** Unique tool name (snake_case) */
 	name: string;
 	/** Human-readable description for the LLM */
 	description: string;
 	/** Zod schema for input validation */
 	inputSchema: z.ZodType<TInput>;
-	/** Execute the tool with validated input */
-	execute: (
-		input: TInput,
-		context: ToolContext,
-	) => Promise<ToolResult<TOutput>>;
+	/** Execute the tool with validated input, returns plain text */
+	execute: (input: TInput, context: ToolContext) => Promise<ToolResult>;
 }
 
 /**
@@ -75,8 +70,8 @@ export interface RegisteredTool {
  * Convert a typed ToolDefinition to a RegisteredTool for storage.
  * Wraps execute to validate input through the schema first.
  */
-export function registerTool<TInput, TOutput>(
-	tool: ToolDefinition<TInput, TOutput>,
+export function registerTool<TInput>(
+	tool: ToolDefinition<TInput>,
 ): RegisteredTool {
 	return {
 		name: tool.name,

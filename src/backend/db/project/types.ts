@@ -34,6 +34,9 @@ export interface ProjectDatabase {
 	scope_cards: ScopeCardsTable;
 	research_cards: ResearchCardsTable;
 	plans: PlansTable;
+	pulses: PulsesTable;
+	preflight_setup: PreflightSetupTable;
+	preflight_baselines: PreflightBaselinesTable;
 	sessions: SessionsTable;
 	session_notes: SessionNotesTable;
 	turns: TurnsTable;
@@ -133,6 +136,86 @@ export interface PlansTable {
 	approach_summary: string;
 	pulses_json: string; // JSON array of pulse definitions
 	created_at: number;
+}
+
+// =============================================================================
+// Pulses
+// =============================================================================
+
+export type PulseStatus =
+	| "proposed"
+	| "running"
+	| "succeeded"
+	| "failed"
+	| "stopped";
+
+export interface PulsesTable {
+	id: string;
+	workflow_id: string;
+	/** Reference to the planned pulse from the Plan (optional, pulses can be ad-hoc) */
+	planned_pulse_id: string | null;
+	status: PulseStatus;
+	/** Description/summary of the pulse work (becomes commit message) */
+	description: string | null;
+	/** The pulse branch name (e.g., "autarch/workflow-x/pulse-y") */
+	pulse_branch: string | null;
+	/** Path to the worktree where this pulse executes */
+	worktree_path: string | null;
+	/** Commit SHA when pulse completes successfully */
+	checkpoint_commit_sha: string | null;
+	/** Diff artifact ID for review */
+	diff_artifact_id: string | null;
+	/** If true, pulse completed with acknowledged unresolved issues */
+	has_unresolved_issues: number; // 0 or 1 (SQLite boolean)
+	/** If true, this checkpoint was created from a failure/stop recovery */
+	is_recovery_checkpoint: number; // 0 or 1 (SQLite boolean)
+	/** Number of times completion was rejected (for escape hatch threshold) */
+	rejection_count: number;
+	created_at: number;
+	started_at: number | null;
+	ended_at: number | null;
+	failure_reason: string | null;
+}
+
+// =============================================================================
+// Preflight Setup
+// =============================================================================
+
+export type PreflightStatus = "running" | "completed" | "failed";
+
+export interface PreflightSetupTable {
+	id: string;
+	workflow_id: string;
+	/** Session ID for the preflight agent */
+	session_id: string | null;
+	status: PreflightStatus;
+	/** Progress message for UI display */
+	progress_message: string | null;
+	/** Error message if failed */
+	error_message: string | null;
+	created_at: number;
+	completed_at: number | null;
+}
+
+// =============================================================================
+// Preflight Baselines
+// =============================================================================
+
+export type BaselineIssueType = "error" | "warning";
+export type BaselineSource = "build" | "lint" | "test";
+
+export interface PreflightBaselinesTable {
+	id: string;
+	workflow_id: string;
+	issue_type: BaselineIssueType;
+	source: BaselineSource;
+	/** Error code or message pattern to match */
+	pattern: string;
+	/** Optional file path associated with this issue */
+	file_path: string | null;
+	/** Optional description for context */
+	description: string | null;
+	recorded_at: number;
 }
 
 // =============================================================================

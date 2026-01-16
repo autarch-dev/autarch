@@ -19,29 +19,19 @@ export const requestExtensionInputSchema = z.object({
 
 export type RequestExtensionInput = z.infer<typeof requestExtensionInputSchema>;
 
-export interface RequestExtensionOutput {
-	success: boolean;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const requestExtensionTool: ToolDefinition<
-	RequestExtensionInput,
-	RequestExtensionOutput
-> = {
+export const requestExtensionTool: ToolDefinition<RequestExtensionInput> = {
 	name: "request_extension",
 	description: `Request additional execution time. Used as a yield point to pause execution.
 When emitted, the agent pauses execution, allows context compaction, and continues in a subsequent turn.`,
 	inputSchema: requestExtensionInputSchema,
-	execute: async (
-		_input,
-		_context,
-	): Promise<ToolResult<RequestExtensionOutput>> => {
+	execute: async (_input, _context): Promise<ToolResult> => {
 		return {
 			success: true,
-			data: { success: true },
+			output: "Extension granted. You may continue with the remaining work.",
 		};
 	},
 };

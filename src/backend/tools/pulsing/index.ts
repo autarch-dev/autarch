@@ -4,28 +4,20 @@
 
 export {
 	type EditFileInput,
-	type EditFileOutput,
 	editFileInputSchema,
 	editFileTool,
 } from "./editFile";
 
 export {
 	type MultiEditInput,
-	type MultiEditOutput,
 	multiEditInputSchema,
 	multiEditTool,
 } from "./multiEdit";
 
-export {
-	type ShellInput,
-	type ShellOutput,
-	shellInputSchema,
-	shellTool,
-} from "./shell";
+export { type ShellInput, shellInputSchema, shellTool } from "./shell";
 
 export {
 	type WriteFileInput,
-	type WriteFileOutput,
 	writeFileInputSchema,
 	writeFileTool,
 } from "./writeFile";

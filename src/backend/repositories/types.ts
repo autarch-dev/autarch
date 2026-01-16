@@ -31,6 +31,7 @@ export interface Repository {
 import type { ArtifactRepository } from "./ArtifactRepository";
 import type { ChannelRepository } from "./ChannelRepository";
 import type { ConversationRepository } from "./ConversationRepository";
+import type { PulseRepository } from "./PulseRepository";
 import type { SessionRepository } from "./SessionRepository";
 import type { WorkflowRepository } from "./WorkflowRepository";
 
@@ -43,4 +44,5 @@ export interface Repositories {
 	sessions: SessionRepository;
 	artifacts: ArtifactRepository;
 	conversations: ConversationRepository;
+	pulses: PulseRepository;
 }

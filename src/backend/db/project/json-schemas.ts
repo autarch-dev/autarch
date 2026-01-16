@@ -82,11 +82,19 @@ export const PulsesJsonSchema = z.array(PulseJsonSchema);
 // =============================================================================
 
 /**
- * Tool input/output can be any JSON value.
- * We validate structure but allow any valid JSON.
+ * Tool input can be any JSON-serializable object.
+ * The actual shape is validated by the tool's inputSchema at runtime.
  */
-export const ToolInputJsonSchema = z.json();
-export const ToolOutputJsonSchema = z.json();
+export const ToolInputJsonSchema = z.record(z.string(), z.unknown());
+
+/**
+ * Tool output schema matches ToolResult.
+ * All tools return { success: boolean, output: string }.
+ */
+export const ToolOutputJsonSchema = z.object({
+	success: z.boolean(),
+	output: z.string(),
+});
 
 // =============================================================================
 // Questions

@@ -55,16 +55,11 @@ interface DirectoryEntry {
 	is_directory: boolean;
 }
 
-export type ListDirectoryOutput = string;
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const listDirectoryTool: ToolDefinition<
-	ListDirectoryInput,
-	ListDirectoryOutput
-> = {
+export const listDirectoryTool: ToolDefinition<ListDirectoryInput> = {
 	name: "list_directory",
 	description: `List files and directories at a given path.
 Respects .gitignore and .autarchignore rules.
@@ -74,16 +69,14 @@ Returns a newline-separated list of relative paths. Directories have a trailing 
 - type filters results: 'files' (only files), 'directories' (only dirs), 'all' (both) - defaults to 'all'
 - optionally, a glob pattern can be used to filter results, e.g. "**/*.cs" for all C# files`,
 	inputSchema: listDirectoryInputSchema,
-	execute: async (input, context): Promise<ToolResult<ListDirectoryOutput>> => {
+	execute: async (input, context): Promise<ToolResult> => {
 		// Resolve and validate path
 		const targetPath = input.path || ".";
 		const absolutePath = resolveSafePath(context.projectRoot, targetPath);
 		if (!absolutePath) {
 			return {
 				success: false,
-				error: `Invalid path: ${targetPath} - path must be within project root`,
-				blocked: true,
-				reason: "Path escapes project root",
+				output: `Error: Invalid path: ${targetPath} - path must be within project root`,
 			};
 		}
 
@@ -95,7 +88,7 @@ Returns a newline-separated list of relative paths. Directories have a trailing 
 			} catch {
 				return {
 					success: false,
-					error: `Invalid glob pattern: ${input.glob}`,
+					output: `Error: Invalid glob pattern: ${input.glob}`,
 				};
 			}
 		}
@@ -181,7 +174,7 @@ Returns a newline-separated list of relative paths. Directories have a trailing 
 		} catch (err) {
 			return {
 				success: false,
-				error: `Failed to list directory: ${targetPath} - ${err instanceof Error ? err.message : "unknown error"}`,
+				output: `Error: Failed to list directory: ${targetPath} - ${err instanceof Error ? err.message : "unknown error"}`,
 			};
 		}
 
@@ -195,7 +188,7 @@ Returns a newline-separated list of relative paths. Directories have a trailing 
 
 		return {
 			success: true,
-			data: output,
+			output: output || "(empty directory)",
 		};
 	},
 };

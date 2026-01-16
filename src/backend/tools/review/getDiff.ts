@@ -19,25 +19,20 @@ export const getDiffInputSchema = z.object({
 
 export type GetDiffInput = z.infer<typeof getDiffInputSchema>;
 
-export interface GetDiffOutput {
-	success: boolean;
-	diff: string;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const getDiffTool: ToolDefinition<GetDiffInput, GetDiffOutput> = {
+export const getDiffTool: ToolDefinition<GetDiffInput> = {
 	name: "get_diff",
 	description: `Retrieve the diff content for the current review.
 Returns the unified diff showing all changes made during the workflow.
 Use this to analyze what was changed before submitting your review summary.`,
 	inputSchema: getDiffInputSchema,
-	execute: async (_input, _context): Promise<ToolResult<GetDiffOutput>> => {
+	execute: async (_input, _context): Promise<ToolResult> => {
 		return {
 			success: false,
-			error: "Diff artifact not found",
+			output: "Error: Diff artifact not found",
 		};
 	},
 };

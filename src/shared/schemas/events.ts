@@ -340,6 +340,138 @@ export type TurnToolCompletedEvent = z.infer<
 >;
 
 // =============================================================================
+// Pulse Events
+// =============================================================================
+
+export const PulseStatusSchema = z.enum([
+	"proposed",
+	"running",
+	"succeeded",
+	"failed",
+	"stopped",
+]);
+export type PulseStatus = z.infer<typeof PulseStatusSchema>;
+
+// pulse:started
+export const PulseStartedPayloadSchema = z.object({
+	workflowId: z.string(),
+	pulseId: z.string(),
+	description: z.string().optional(),
+	pulseBranch: z.string(),
+});
+export type PulseStartedPayload = z.infer<typeof PulseStartedPayloadSchema>;
+
+export const PulseStartedEventSchema = z.object({
+	type: z.literal("pulse:started"),
+	payload: PulseStartedPayloadSchema,
+});
+export type PulseStartedEvent = z.infer<typeof PulseStartedEventSchema>;
+
+// pulse:completed
+export const PulseCompletedPayloadSchema = z.object({
+	workflowId: z.string(),
+	pulseId: z.string(),
+	commitSha: z.string(),
+	commitMessage: z.string(),
+	hasUnresolvedIssues: z.boolean(),
+});
+export type PulseCompletedPayload = z.infer<typeof PulseCompletedPayloadSchema>;
+
+export const PulseCompletedEventSchema = z.object({
+	type: z.literal("pulse:completed"),
+	payload: PulseCompletedPayloadSchema,
+});
+export type PulseCompletedEvent = z.infer<typeof PulseCompletedEventSchema>;
+
+// pulse:failed
+export const PulseFailedPayloadSchema = z.object({
+	workflowId: z.string(),
+	pulseId: z.string(),
+	reason: z.string(),
+	recoveryCheckpointSha: z.string().optional(),
+});
+export type PulseFailedPayload = z.infer<typeof PulseFailedPayloadSchema>;
+
+export const PulseFailedEventSchema = z.object({
+	type: z.literal("pulse:failed"),
+	payload: PulseFailedPayloadSchema,
+});
+export type PulseFailedEvent = z.infer<typeof PulseFailedEventSchema>;
+
+// =============================================================================
+// Preflight Events
+// =============================================================================
+
+export const PreflightStatusSchema = z.enum(["running", "completed", "failed"]);
+export type PreflightStatus = z.infer<typeof PreflightStatusSchema>;
+
+// preflight:started
+export const PreflightStartedPayloadSchema = z.object({
+	workflowId: z.string(),
+	worktreePath: z.string(),
+});
+export type PreflightStartedPayload = z.infer<
+	typeof PreflightStartedPayloadSchema
+>;
+
+export const PreflightStartedEventSchema = z.object({
+	type: z.literal("preflight:started"),
+	payload: PreflightStartedPayloadSchema,
+});
+export type PreflightStartedEvent = z.infer<typeof PreflightStartedEventSchema>;
+
+// preflight:progress
+export const PreflightProgressPayloadSchema = z.object({
+	workflowId: z.string(),
+	message: z.string(),
+	baselinesRecorded: z.number(),
+});
+export type PreflightProgressPayload = z.infer<
+	typeof PreflightProgressPayloadSchema
+>;
+
+export const PreflightProgressEventSchema = z.object({
+	type: z.literal("preflight:progress"),
+	payload: PreflightProgressPayloadSchema,
+});
+export type PreflightProgressEvent = z.infer<
+	typeof PreflightProgressEventSchema
+>;
+
+// preflight:completed
+export const PreflightCompletedPayloadSchema = z.object({
+	workflowId: z.string(),
+	summary: z.string(),
+	baselinesRecorded: z.number(),
+});
+export type PreflightCompletedPayload = z.infer<
+	typeof PreflightCompletedPayloadSchema
+>;
+
+export const PreflightCompletedEventSchema = z.object({
+	type: z.literal("preflight:completed"),
+	payload: PreflightCompletedPayloadSchema,
+});
+export type PreflightCompletedEvent = z.infer<
+	typeof PreflightCompletedEventSchema
+>;
+
+// preflight:failed
+export const PreflightFailedPayloadSchema = z.object({
+	workflowId: z.string(),
+	error: z.string(),
+});
+export type PreflightFailedPayload = z.infer<
+	typeof PreflightFailedPayloadSchema
+>;
+
+export const PreflightFailedEventSchema = z.object({
+	type: z.literal("preflight:failed"),
+	payload: PreflightFailedPayloadSchema,
+});
+export type PreflightFailedEvent = z.infer<typeof PreflightFailedEventSchema>;
+
+// =============================================================================
 // Question Events
 // =============================================================================
 
@@ -408,6 +540,15 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	// Tool events
 	TurnToolStartedEventSchema,
 	TurnToolCompletedEventSchema,
+	// Pulse events
+	PulseStartedEventSchema,
+	PulseCompletedEventSchema,
+	PulseFailedEventSchema,
+	// Preflight events
+	PreflightStartedEventSchema,
+	PreflightProgressEventSchema,
+	PreflightCompletedEventSchema,
+	PreflightFailedEventSchema,
 	// Question events
 	QuestionsAskedEventSchema,
 	QuestionsAnsweredEventSchema,
@@ -544,4 +685,48 @@ export function createQuestionsAnsweredEvent(
 	payload: QuestionsAnsweredPayload,
 ): QuestionsAnsweredEvent {
 	return { type: "questions:answered", payload };
+}
+
+// Pulse events
+export function createPulseStartedEvent(
+	payload: PulseStartedPayload,
+): PulseStartedEvent {
+	return { type: "pulse:started", payload };
+}
+
+export function createPulseCompletedEvent(
+	payload: PulseCompletedPayload,
+): PulseCompletedEvent {
+	return { type: "pulse:completed", payload };
+}
+
+export function createPulseFailedEvent(
+	payload: PulseFailedPayload,
+): PulseFailedEvent {
+	return { type: "pulse:failed", payload };
+}
+
+// Preflight events
+export function createPreflightStartedEvent(
+	payload: PreflightStartedPayload,
+): PreflightStartedEvent {
+	return { type: "preflight:started", payload };
+}
+
+export function createPreflightProgressEvent(
+	payload: PreflightProgressPayload,
+): PreflightProgressEvent {
+	return { type: "preflight:progress", payload };
+}
+
+export function createPreflightCompletedEvent(
+	payload: PreflightCompletedPayload,
+): PreflightCompletedEvent {
+	return { type: "preflight:completed", payload };
+}
+
+export function createPreflightFailedEvent(
+	payload: PreflightFailedPayload,
+): PreflightFailedEvent {
+	return { type: "preflight:failed", payload };
 }

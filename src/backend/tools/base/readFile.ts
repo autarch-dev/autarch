@@ -35,27 +35,23 @@ export const readFileInputSchema = z.object({
 
 export type ReadFileInput = z.infer<typeof readFileInputSchema>;
 
-export type ReadFileOutput = string;
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const readFileTool: ToolDefinition<ReadFileInput, ReadFileOutput> = {
+export const readFileTool: ToolDefinition<ReadFileInput> = {
 	name: "read_file",
 	description: `Read the contents of a file from the repository.
 Can optionally specify a line range to read only a portion of the file.
 Some files may be blocked due to sensitive content policies.`,
 	inputSchema: readFileInputSchema,
-	execute: async (input, context): Promise<ToolResult<ReadFileOutput>> => {
+	execute: async (input, context): Promise<ToolResult> => {
 		// Resolve and validate path
 		const absolutePath = resolveSafePath(context.projectRoot, input.path);
 		if (!absolutePath) {
 			return {
 				success: false,
-				error: `Invalid path: ${input.path} - path must be within project root`,
-				blocked: true,
-				reason: "Path escapes project root",
+				output: `Error: Invalid path: ${input.path} - path must be within project root`,
 			};
 		}
 
@@ -63,9 +59,7 @@ Some files may be blocked due to sensitive content policies.`,
 		if (isSensitiveFile(input.path)) {
 			return {
 				success: false,
-				error: `Cannot read sensitive file: ${input.path}`,
-				blocked: true,
-				reason: "File matches sensitive content patterns",
+				output: `Error: Cannot read sensitive file: ${input.path}`,
 			};
 		}
 
@@ -75,7 +69,7 @@ Some files may be blocked due to sensitive content policies.`,
 		if (!exists) {
 			return {
 				success: false,
-				error: `File not found: ${input.path}`,
+				output: `Error: File not found: ${input.path}`,
 			};
 		}
 
@@ -86,7 +80,7 @@ Some files may be blocked due to sensitive content policies.`,
 		} catch (err) {
 			return {
 				success: false,
-				error: `Failed to read file: ${input.path} - ${err instanceof Error ? err.message : "unknown error"}`,
+				output: `Error: Failed to read file: ${input.path} - ${err instanceof Error ? err.message : "unknown error"}`,
 			};
 		}
 
@@ -99,14 +93,14 @@ Some files may be blocked due to sensitive content policies.`,
 			if (start < 0 || start >= lines.length) {
 				return {
 					success: false,
-					error: `Invalid start line: ${input.startLine} (file has ${lines.length} lines)`,
+					output: `Error: Invalid start line: ${input.startLine} (file has ${lines.length} lines)`,
 				};
 			}
 
 			if (end < start) {
 				return {
 					success: false,
-					error: `Invalid line range: end (${input.endLine}) < start (${input.startLine})`,
+					output: `Error: Invalid line range: end (${input.endLine}) < start (${input.startLine})`,
 				};
 			}
 
@@ -115,7 +109,7 @@ Some files may be blocked due to sensitive content policies.`,
 
 		return {
 			success: true,
-			data: content,
+			output: content,
 		};
 	},
 };

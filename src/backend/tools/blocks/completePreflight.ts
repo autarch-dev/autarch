@@ -3,6 +3,8 @@
  */
 
 import { z } from "zod";
+import { log } from "@/backend/logger";
+import { getRepositories } from "@/backend/repositories";
 import type { ToolDefinition, ToolResult } from "../types";
 
 // =============================================================================
@@ -22,29 +24,58 @@ export type CompletePreflightInput = z.infer<
 	typeof completePreflightInputSchema
 >;
 
-export interface CompletePreflightOutput {
-	success: boolean;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const completePreflightTool: ToolDefinition<
-	CompletePreflightInput,
-	CompletePreflightOutput
-> = {
+export const completePreflightTool: ToolDefinition<CompletePreflightInput> = {
 	name: "complete_preflight",
 	description: `Signal preflight environment setup is complete.
-Use after initializing dependencies and recording baselines.`,
+Use after initializing dependencies and recording baselines.
+
+Provide:
+- summary: Brief description of what was set up
+- setupCommands: List of commands that were run
+- buildSuccess: Whether the project builds successfully
+- baselinesRecorded: Count of baseline issues recorded`,
 	inputSchema: completePreflightInputSchema,
-	execute: async (
-		_input,
-		_context,
-	): Promise<ToolResult<CompletePreflightOutput>> => {
-		return {
-			success: true,
-			data: { success: true },
-		};
+	execute: async (input, context): Promise<ToolResult> => {
+		// Validate we have a workflow context
+		if (!context.workflowId) {
+			return {
+				success: false,
+				output: "Error: complete_preflight requires a workflow context",
+			};
+		}
+
+		// If build failed, we cannot proceed
+		if (!input.buildSuccess) {
+			return {
+				success: false,
+				output:
+					"Error: Cannot complete preflight: build did not succeed. Fix build issues or record them as baselines if they are pre-existing.",
+			};
+		}
+
+		try {
+			const { pulses } = getRepositories();
+
+			// Mark preflight as complete
+			await pulses.completePreflightSetup(context.workflowId);
+
+			log.workflow.info(
+				`Preflight complete for workflow ${context.workflowId}: ${input.summary}`,
+			);
+
+			return {
+				success: true,
+				output: `Preflight complete. Setup: ${input.setupCommands.length} commands run, ${input.baselinesRecorded} baselines recorded.`,
+			};
+		} catch (error) {
+			return {
+				success: false,
+				output: `Error: ${error instanceof Error ? error.message : "Failed to complete preflight"}`,
+			};
+		}
 	},
 };

@@ -3,6 +3,7 @@
  */
 
 import { z } from "zod";
+import { getRepositories } from "@/backend/repositories";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -36,20 +37,11 @@ export const recordBaselineInputSchema = z.object({
 
 export type RecordBaselineInput = z.infer<typeof recordBaselineInputSchema>;
 
-export interface RecordBaselineOutput {
-	success: boolean;
-	baselineId: string;
-	message: string;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const recordBaselineTool: ToolDefinition<
-	RecordBaselineInput,
-	RecordBaselineOutput
-> = {
+export const recordBaselineTool: ToolDefinition<RecordBaselineInput> = {
 	name: "record_baseline",
 	description: `Record a known build/lint error or warning from the clean worktree state.
 Agents verifying a build after making code changes will ignore these.
@@ -64,13 +56,41 @@ Parameters:
 - filePath: Optional file path associated with the issue
 - description: Optional description for context`,
 	inputSchema: recordBaselineInputSchema,
-	execute: async (
-		_input,
-		_context,
-	): Promise<ToolResult<RecordBaselineOutput>> => {
-		return {
-			success: false,
-			error: "record_baseline not implemented",
-		};
+	execute: async (input, context): Promise<ToolResult> => {
+		// Validate we have a workflow context
+		if (!context.workflowId) {
+			return {
+				success: false,
+				output: "Error: record_baseline requires a workflow context",
+			};
+		}
+
+		try {
+			const { pulses } = getRepositories();
+
+			// Record the baseline
+			const baseline = await pulses.recordBaseline({
+				workflowId: context.workflowId,
+				issueType: input.issueType,
+				source: input.source,
+				pattern: input.pattern,
+				filePath: input.filePath,
+				description: input.description,
+			});
+
+			const issueLabel = input.issueType === "error" ? "Error" : "Warning";
+			const sourceLabel =
+				input.source.charAt(0).toUpperCase() + input.source.slice(1);
+
+			return {
+				success: true,
+				output: `Recorded ${issueLabel} baseline from ${sourceLabel} (${baseline.id}): ${input.pattern.slice(0, 50)}${input.pattern.length > 50 ? "..." : ""}`,
+			};
+		} catch (error) {
+			return {
+				success: false,
+				output: `Error: ${error instanceof Error ? error.message : "Failed to record baseline"}`,
+			};
+		}
 	},
 };

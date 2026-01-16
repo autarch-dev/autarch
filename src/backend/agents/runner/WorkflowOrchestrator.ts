@@ -9,12 +9,15 @@
  */
 
 import { findRepoRoot } from "@/backend/git";
+import { getWorktreePath } from "@/backend/git/worktree";
 import { log } from "@/backend/logger";
 import type {
 	ArtifactRepository,
 	ConversationRepository,
+	PulseRepository,
 	WorkflowRepository,
 } from "@/backend/repositories";
+import { PulseOrchestrator } from "@/backend/services/pulsing";
 import { broadcast } from "@/backend/ws";
 import {
 	createWorkflowApprovalNeededEvent,
@@ -63,12 +66,20 @@ const TOOL_TO_ARTIFACT_TYPE: Record<string, ArtifactType> = {
 // =============================================================================
 
 export class WorkflowOrchestrator {
+	private pulseOrchestrator: PulseOrchestrator;
+
 	constructor(
 		private sessionManager: SessionManager,
 		private workflowRepo: WorkflowRepository,
 		private artifactRepo: ArtifactRepository,
 		private conversationRepo: ConversationRepository,
-	) {}
+		private pulseRepo: PulseRepository,
+	) {
+		this.pulseOrchestrator = new PulseOrchestrator({
+			pulseRepo: this.pulseRepo,
+			projectRoot: findRepoRoot(process.cwd()),
+		});
+	}
 
 	// ===========================================================================
 	// Workflow Creation
@@ -361,13 +372,21 @@ export class WorkflowOrchestrator {
 
 		if (initialMessage) {
 			const projectRoot = findRepoRoot(process.cwd());
+
+			// For execution stage, include worktree path
+			const worktreePath =
+				newStage === "in_progress"
+					? getWorktreePath(projectRoot, workflowId)
+					: undefined;
+
 			const runner = new AgentRunner(session, {
 				projectRoot,
 				conversationRepo: this.conversationRepo,
+				worktreePath,
 			});
 
 			log.workflow.info(
-				`Starting ${agentRole} agent for workflow ${workflowId}`,
+				`Starting ${agentRole} agent for workflow ${workflowId}${worktreePath ? ` (worktree: ${worktreePath})` : ""}`,
 			);
 
 			// Run in background (non-blocking)
@@ -406,6 +425,97 @@ export class WorkflowOrchestrator {
 
 		// Broadcast error event
 		broadcast(createWorkflowErrorEvent({ workflowId, error }));
+	}
+
+	// ===========================================================================
+	// Pulse Handling
+	// ===========================================================================
+
+	/**
+	 * Handle pulse completion
+	 *
+	 * Called when complete_pulse tool succeeds. Commits changes and either
+	 * starts the next pulse or transitions to review.
+	 */
+	async handlePulseCompletion(
+		workflowId: string,
+		commitMessage: string,
+		hasUnresolvedIssues: boolean,
+	): Promise<void> {
+		const pulse = await this.pulseOrchestrator.getRunningPulse(workflowId);
+		if (!pulse) {
+			log.workflow.error(
+				`No running pulse found for workflow ${workflowId} during completion`,
+			);
+			return;
+		}
+
+		// Complete the pulse (commits, merges, etc.)
+		const result = await this.pulseOrchestrator.completePulse(
+			pulse.id,
+			commitMessage,
+			hasUnresolvedIssues,
+		);
+
+		if (!result.success) {
+			log.workflow.error(`Failed to complete pulse: ${result.error}`);
+			await this.errorWorkflow(
+				workflowId,
+				result.error ?? "Pulse completion failed",
+			);
+			return;
+		}
+
+		// If pulse has unresolved issues, halt for human review
+		if (hasUnresolvedIssues) {
+			log.workflow.info(
+				`Pulse ${pulse.id} completed with unresolved issues - halting orchestration`,
+			);
+			// Don't start next pulse - wait for human intervention
+			return;
+		}
+
+		// Check if there are more pulses
+		if (result.hasMorePulses) {
+			// Start next pulse
+			const projectRoot = findRepoRoot(process.cwd());
+			const worktreePath = getWorktreePath(projectRoot, workflowId);
+
+			const nextPulse = await this.pulseOrchestrator.startNextPulse(
+				workflowId,
+				worktreePath,
+			);
+
+			if (nextPulse) {
+				log.workflow.info(`Started next pulse: ${nextPulse.id}`);
+				// The agent session continues - it will receive a message about the next pulse
+				// TODO: Send continuation message to agent
+			}
+		} else {
+			// All pulses complete - transition to review
+			log.workflow.info(
+				`All pulses complete for workflow ${workflowId} - transitioning to review`,
+			);
+			await this.transitionStage(workflowId, "review");
+		}
+	}
+
+	/**
+	 * Handle pulse failure
+	 */
+	async handlePulseFailure(workflowId: string, reason: string): Promise<void> {
+		const pulse = await this.pulseOrchestrator.getRunningPulse(workflowId);
+		if (pulse) {
+			await this.pulseOrchestrator.failPulse(pulse.id, reason);
+		}
+		// Don't transition - wait for human intervention
+	}
+
+	/**
+	 * Get the pulse orchestrator (for external access)
+	 */
+	getPulseOrchestrator(): PulseOrchestrator {
+		return this.pulseOrchestrator;
 	}
 
 	// ===========================================================================
@@ -536,7 +646,7 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 			return message;
 		}
 
-		// Planning -> Execution: send the approved plan
+		// Planning -> Execution: initialize pulsing and start preflight
 		if (previousStage === "planning" && newStage === "in_progress") {
 			const plan = await this.artifactRepo.getLatestPlan(workflowId);
 
@@ -547,9 +657,26 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 				return null;
 			}
 
+			// Initialize pulsing (create worktree and branch)
+			const pulsingResult =
+				await this.pulseOrchestrator.initializePulsing(workflowId);
+			if (!pulsingResult.success) {
+				log.workflow.error(
+					`Failed to initialize pulsing: ${pulsingResult.error}`,
+				);
+				return null;
+			}
+
+			// Create pulses from the plan
+			await this.pulseOrchestrator.createPulsesFromPlan(
+				workflowId,
+				plan.pulses,
+			);
+
+			// Build the initial message for the preflight/execution agent
 			let message = `## Approved Execution Plan
 
-The following plan has been approved. Begin executing the pulses in order.
+The following plan has been approved. You are working in an isolated worktree at: \`${pulsingResult.worktreePath}\`
 
 ### Approach
 ${plan.approachSummary}
@@ -617,12 +744,14 @@ export function initWorkflowOrchestrator(
 	workflowRepo: WorkflowRepository,
 	artifactRepo: ArtifactRepository,
 	conversationRepo: ConversationRepository,
+	pulseRepo: PulseRepository,
 ): WorkflowOrchestrator {
 	orchestratorInstance = new WorkflowOrchestrator(
 		sessionManager,
 		workflowRepo,
 		artifactRepo,
 		conversationRepo,
+		pulseRepo,
 	);
 	return orchestratorInstance;
 }

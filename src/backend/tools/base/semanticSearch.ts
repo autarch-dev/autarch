@@ -39,17 +39,6 @@ export const semanticSearchInputSchema = z.object({
 
 export type SemanticSearchInput = z.infer<typeof semanticSearchInputSchema>;
 
-export interface SemanticSearchResult {
-	file_path: string;
-	start_line: number;
-	end_line: number;
-	snippet: string;
-	score: number;
-	adjusted_score?: number;
-}
-
-export type SemanticSearchOutput = SemanticSearchResult[];
-
 // =============================================================================
 // Pattern Weight Parsing
 // =============================================================================
@@ -104,14 +93,41 @@ function getWeightForPath(path: string, weights: PatternWeight[]): number {
 	return 1.0; // No match, use default weight
 }
 
+interface SearchResult {
+	filePath: string;
+	startLine: number;
+	endLine: number;
+	snippet: string;
+	score: number;
+	adjustedScore?: number;
+}
+
+/**
+ * Format search results as plain text
+ */
+function formatResults(results: SearchResult[]): string {
+	if (results.length === 0) {
+		return "No results found.";
+	}
+
+	const lines: string[] = [`Found ${results.length} result(s):\n`];
+
+	for (const result of results) {
+		lines.push(
+			`--- ${result.filePath}:${result.startLine}-${result.endLine} ---`,
+		);
+		lines.push(result.snippet);
+		lines.push("");
+	}
+
+	return lines.join("\n");
+}
+
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const semanticSearchTool: ToolDefinition<
-	SemanticSearchInput,
-	SemanticSearchOutput
-> = {
+export const semanticSearchTool: ToolDefinition<SemanticSearchInput> = {
 	name: "semantic_search",
 	description: `Search the codebase for files and code relevant to a query.
 Returns ranked results with file paths, line numbers, and matched content snippets.
@@ -124,17 +140,14 @@ patternWeights adjusts result ranking by file path:
 
 Common patterns: boost test files for test questions, deprioritize docs for code questions.`,
 	inputSchema: semanticSearchInputSchema,
-	execute: async (
-		input,
-		context,
-	): Promise<ToolResult<SemanticSearchOutput>> => {
+	execute: async (input, context): Promise<ToolResult> => {
 		// Check if indexing is in progress
 		const status = getIndexingStatus();
 		if (status.isIndexing) {
 			return {
 				success: false,
-				error:
-					"Project indexing is in progress. Please wait for it to complete.",
+				output:
+					"Error: Project indexing is in progress. Please wait for it to complete.",
 			};
 		}
 
@@ -158,46 +171,47 @@ Common patterns: boost test files for test questions, deprioritize docs for code
 			if (err instanceof Error && err.message.includes("not been indexed")) {
 				return {
 					success: false,
-					error: "Project has not been indexed yet. Please run indexing first.",
+					output:
+						"Error: Project has not been indexed yet. Please run indexing first.",
 				};
 			}
 			return {
 				success: false,
-				error: `Semantic search failed: ${err instanceof Error ? err.message : "unknown error"}`,
+				output: `Error: Semantic search failed: ${err instanceof Error ? err.message : "unknown error"}`,
 			};
 		}
 
 		if (rawResults.length === 0) {
 			return {
 				success: true,
-				data: [],
+				output: "No results found.",
 			};
 		}
 
 		// Apply pattern weights
-		const weightedResults: SemanticSearchOutput = rawResults.map((result) => {
+		const weightedResults: SearchResult[] = rawResults.map((result) => {
 			const weight = getWeightForPath(result.filePath, patternWeights);
 			const adjustedScore = result.score * weight;
 
 			return {
-				file_path: result.filePath,
-				start_line: result.startLine,
-				end_line: result.endLine,
+				filePath: result.filePath,
+				startLine: result.startLine,
+				endLine: result.endLine,
 				snippet: result.snippet,
 				score: result.score,
-				adjusted_score: patternWeights.length > 0 ? adjustedScore : undefined,
+				adjustedScore: patternWeights.length > 0 ? adjustedScore : undefined,
 			};
 		});
 
 		// Filter out excluded results (weight = 0)
 		const filteredResults = weightedResults.filter(
-			(r) => r.adjusted_score === undefined || r.adjusted_score > 0,
+			(r) => r.adjustedScore === undefined || r.adjustedScore > 0,
 		);
 
 		// Sort by adjusted score (or original score if no weights)
 		filteredResults.sort((a, b) => {
-			const scoreA = a.adjusted_score ?? a.score;
-			const scoreB = b.adjusted_score ?? b.score;
+			const scoreA = a.adjustedScore ?? a.score;
+			const scoreB = b.adjustedScore ?? b.score;
 			return scoreB - scoreA;
 		});
 
@@ -206,7 +220,7 @@ Common patterns: boost test files for test questions, deprioritize docs for code
 
 		return {
 			success: true,
-			data: limitedResults,
+			output: formatResults(limitedResults),
 		};
 	},
 };

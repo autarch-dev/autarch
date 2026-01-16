@@ -9,7 +9,6 @@ export {
 } from "./addFileComment";
 
 export {
-	type AddCommentOutput,
 	type AddLineCommentInput,
 	addLineCommentInputSchema,
 	addLineCommentTool,
@@ -23,21 +22,18 @@ export {
 
 export {
 	type CompleteReviewInput,
-	type CompleteReviewOutput,
 	completeReviewInputSchema,
 	completeReviewTool,
 } from "./completeReview";
 
 export {
 	type GetDiffInput,
-	type GetDiffOutput,
 	getDiffInputSchema,
 	getDiffTool,
 } from "./getDiff";
 
 export {
 	type GetScopeCardInput,
-	type GetScopeCardOutput,
 	getScopeCardInputSchema,
 	getScopeCardTool,
 } from "./getScopeCard";

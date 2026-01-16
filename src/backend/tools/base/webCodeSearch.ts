@@ -29,8 +29,6 @@ export const webCodeSearchInputSchema = z.object({
 
 export type WebCodeSearchInput = z.infer<typeof webCodeSearchInputSchema>;
 
-export type WebCodeSearchOutput = string;
-
 // =============================================================================
 // Exa Context API Response Schema
 // =============================================================================
@@ -49,10 +47,7 @@ const ExaContextResponseSchema = z.object({
 // Tool Definition
 // =============================================================================
 
-export const webCodeSearchTool: ToolDefinition<
-	WebCodeSearchInput,
-	WebCodeSearchOutput
-> = {
+export const webCodeSearchTool: ToolDefinition<WebCodeSearchInput> = {
 	name: "web_code_search",
 	description: `Search and get relevant code context using Exa Code API.
 Searches billions of GitHub repos, docs pages, and Stack Overflow posts.
@@ -65,16 +60,13 @@ Use this tool for:
 - Development setup and configuration
 - Best practices and patterns`,
 	inputSchema: webCodeSearchInputSchema,
-	execute: async (
-		input,
-		_context,
-	): Promise<ToolResult<WebCodeSearchOutput>> => {
+	execute: async (input, _context): Promise<ToolResult> => {
 		// Get API key from environment (tool is filtered if not set, but check anyway)
 		const apiKey = process.env.EXA_API_KEY;
 		if (!apiKey) {
 			return {
 				success: false,
-				error: "EXA_API_KEY environment variable is not set",
+				output: "Error: EXA_API_KEY environment variable is not set",
 			};
 		}
 
@@ -96,7 +88,7 @@ Use this tool for:
 				const errorText = await response.text().catch(() => "Unknown error");
 				return {
 					success: false,
-					error: `Exa Context API error (${response.status}): ${errorText}`,
+					output: `Error: Exa Context API error (${response.status}): ${errorText}`,
 				};
 			}
 
@@ -106,7 +98,7 @@ Use this tool for:
 			if (!parseResult.success) {
 				return {
 					success: false,
-					error: `Invalid response from Exa API: ${parseResult.error.message}`,
+					output: `Error: Invalid response from Exa API: ${parseResult.error.message}`,
 				};
 			}
 
@@ -115,18 +107,18 @@ Use this tool for:
 			if (!data.response) {
 				return {
 					success: true,
-					data: "No code context found for the query.",
+					output: "No code context found for the query.",
 				};
 			}
 
 			return {
 				success: true,
-				data: data.response,
+				output: data.response,
 			};
 		} catch (err) {
 			return {
 				success: false,
-				error: `Exa API error: ${err instanceof Error ? err.message : "unknown error"}`,
+				output: `Error: Exa API error: ${err instanceof Error ? err.message : "unknown error"}`,
 			};
 		}
 	},

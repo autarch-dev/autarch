@@ -43,8 +43,8 @@ export const CodeBlock = memo(function CodeBlock({
 
 		// Already have cached result
 		if (highlightCache.has(cacheKey)) {
-			const cached = highlightCache.get(cacheKey)!;
-			if (html !== cached) {
+			const cached = highlightCache.get(cacheKey);
+			if (cached && html !== cached) {
 				setHtml(cached);
 			}
 			return;

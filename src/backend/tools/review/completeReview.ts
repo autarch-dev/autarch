@@ -26,32 +26,20 @@ export const completeReviewInputSchema = z.object({
 
 export type CompleteReviewInput = z.infer<typeof completeReviewInputSchema>;
 
-export interface CompleteReviewOutput {
-	success: boolean;
-	recommendation: string;
-	message: string;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const completeReviewTool: ToolDefinition<
-	CompleteReviewInput,
-	CompleteReviewOutput
-> = {
+export const completeReviewTool: ToolDefinition<CompleteReviewInput> = {
 	name: "complete_review",
 	description: `Complete the review with a recommendation and summary.
 Call this tool once after adding all comments to finalize the review.
 The recommendation must be one of: approve, reject, or manual_review.`,
 	inputSchema: completeReviewInputSchema,
-	execute: async (
-		_input,
-		_context,
-	): Promise<ToolResult<CompleteReviewOutput>> => {
+	execute: async (_input, _context): Promise<ToolResult> => {
 		return {
 			success: false,
-			error: "Review card not found",
+			output: "Error: Review card not found",
 		};
 	},
 };

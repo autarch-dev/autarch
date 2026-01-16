@@ -8,7 +8,6 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
-import type { AddCommentOutput } from "./addLineComment";
 
 // =============================================================================
 // Schema
@@ -30,18 +29,15 @@ export type AddFileCommentInput = z.infer<typeof addFileCommentInputSchema>;
 // Tool Definition
 // =============================================================================
 
-export const addFileCommentTool: ToolDefinition<
-	AddFileCommentInput,
-	AddCommentOutput
-> = {
+export const addFileCommentTool: ToolDefinition<AddFileCommentInput> = {
 	name: "add_file_comment",
 	description: `Add a comment attached to a file as a whole.
 Use this to provide feedback about a file that isn't tied to specific lines.`,
 	inputSchema: addFileCommentInputSchema,
-	execute: async (_input, _context): Promise<ToolResult<AddCommentOutput>> => {
+	execute: async (_input, _context): Promise<ToolResult> => {
 		return {
 			success: false,
-			error: "Review card not found",
+			output: "Error: Review card not found",
 		};
 	},
 };

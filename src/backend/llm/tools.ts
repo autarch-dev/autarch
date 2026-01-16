@@ -65,20 +65,10 @@ export function convertToAISDKTools(
  * Format our ToolResult for the AI SDK.
  *
  * The AI SDK expects either the raw result or an error.
- * We convert our structured result to a format the LLM can understand.
+ * All tools now return plain text output.
  */
-function formatToolResult(result: ToolResult): unknown {
-	if (result.success) {
-		return result.data;
-	}
-
-	// Return error information in a structured way the LLM can understand
-	return {
-		error: true,
-		message: result.error ?? "Tool execution failed",
-		blocked: result.blocked,
-		reason: result.reason,
-	};
+function formatToolResult(result: ToolResult): string {
+	return result.output;
 }
 
 /**

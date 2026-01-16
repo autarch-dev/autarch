@@ -27,20 +27,15 @@ export const takeNoteInputSchema = z.object({
 
 export type TakeNoteInput = z.infer<typeof takeNoteInputSchema>;
 
-export interface TakeNoteOutput {
-	noteId: string;
-	noteCount: number;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const takeNoteTool: ToolDefinition<TakeNoteInput, TakeNoteOutput> = {
+export const takeNoteTool: ToolDefinition<TakeNoteInput> = {
 	name: "take_note",
 	description: `Store a note for yourself to remember. Notes will disappear when your conversation ends. The user can never see them.`,
 	inputSchema: takeNoteInputSchema,
-	execute: async (input, context): Promise<ToolResult<TakeNoteOutput>> => {
+	execute: async (input, context): Promise<ToolResult> => {
 		// Determine context type and ID
 		let contextType: SessionContextType;
 		let contextId: string;
@@ -54,7 +49,7 @@ export const takeNoteTool: ToolDefinition<TakeNoteInput, TakeNoteOutput> = {
 		} else {
 			return {
 				success: false,
-				error: "Notes require either a channel or workflow context",
+				output: "Error: Notes require either a channel or workflow context",
 			};
 		}
 
@@ -62,7 +57,7 @@ export const takeNoteTool: ToolDefinition<TakeNoteInput, TakeNoteOutput> = {
 		if (!context.sessionId) {
 			return {
 				success: false,
-				error: "No active session - cannot store note",
+				output: "Error: No active session - cannot store note",
 			};
 		}
 
@@ -89,7 +84,7 @@ export const takeNoteTool: ToolDefinition<TakeNoteInput, TakeNoteOutput> = {
 		} catch (err) {
 			return {
 				success: false,
-				error: `Failed to store note: ${err instanceof Error ? err.message : "unknown error"}`,
+				output: `Error: Failed to store note: ${err instanceof Error ? err.message : "unknown error"}`,
 			};
 		}
 
@@ -120,10 +115,7 @@ export const takeNoteTool: ToolDefinition<TakeNoteInput, TakeNoteOutput> = {
 
 		return {
 			success: true,
-			data: {
-				noteId,
-				noteCount,
-			},
+			output: `Note stored (${noteCount} total notes in this context).`,
 		};
 	},
 };

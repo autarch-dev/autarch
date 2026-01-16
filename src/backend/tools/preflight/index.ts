@@ -8,7 +8,6 @@ import { shellTool } from "../pulsing/shell";
 export { shellTool as preflightShellTool } from "../pulsing/shell";
 export {
 	type RecordBaselineInput,
-	type RecordBaselineOutput,
 	recordBaselineInputSchema,
 	recordBaselineTool,
 } from "./recordBaseline";

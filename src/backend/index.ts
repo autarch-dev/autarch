@@ -73,6 +73,7 @@ try {
 		repos.workflows,
 		repos.artifacts,
 		repos.conversations,
+		repos.pulses,
 	);
 	log.server.success("Agent system initialized");
 })();

@@ -19,35 +19,20 @@ export const getScopeCardInputSchema = z.object({
 
 export type GetScopeCardInput = z.infer<typeof getScopeCardInputSchema>;
 
-export interface GetScopeCardOutput {
-	success: boolean;
-	title: string;
-	description: string;
-	in_scope: string[];
-	out_of_scope: string[];
-	constraints: string[];
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const getScopeCardTool: ToolDefinition<
-	GetScopeCardInput,
-	GetScopeCardOutput
-> = {
+export const getScopeCardTool: ToolDefinition<GetScopeCardInput> = {
 	name: "get_scope_card",
 	description: `Retrieve the approved scope card for the current workflow.
 Returns the scope definition including in-scope items, out-of-scope items,
 and constraints. Use this to verify changes align with the approved scope.`,
 	inputSchema: getScopeCardInputSchema,
-	execute: async (
-		_input,
-		_context,
-	): Promise<ToolResult<GetScopeCardOutput>> => {
+	execute: async (_input, _context): Promise<ToolResult> => {
 		return {
 			success: false,
-			error: "Scope card not found",
+			output: "Error: Scope card not found",
 		};
 	},
 };

@@ -7,49 +7,42 @@
 
 export {
 	type AskQuestionsInput,
-	type AskQuestionsOutput,
 	askQuestionsInputSchema,
 	askQuestionsTool,
 } from "./askQuestions";
 
 export {
 	type CompletePreflightInput,
-	type CompletePreflightOutput,
 	completePreflightInputSchema,
 	completePreflightTool,
 } from "./completePreflight";
 
 export {
 	type CompletePulseInput,
-	type CompletePulseOutput,
 	completePulseInputSchema,
 	completePulseTool,
 } from "./completePulse";
 
 export {
 	type RequestExtensionInput,
-	type RequestExtensionOutput,
 	requestExtensionInputSchema,
 	requestExtensionTool,
 } from "./requestExtension";
 
 export {
 	type SubmitPlanInput,
-	type SubmitPlanOutput,
 	submitPlanInputSchema,
 	submitPlanTool,
 } from "./submitPlan";
 
 export {
 	type SubmitResearchInput,
-	type SubmitResearchOutput,
 	submitResearchInputSchema,
 	submitResearchTool,
 } from "./submitResearch";
 
 export {
 	type SubmitScopeInput,
-	type SubmitScopeOutput,
 	submitScopeInputSchema,
 	submitScopeTool,
 } from "./submitScope";

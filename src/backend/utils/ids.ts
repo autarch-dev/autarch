@@ -32,6 +32,9 @@ export const ids = {
 	scopeCard: () => generateId("scope"),
 	researchCard: () => generateId("research"),
 	plan: () => generateId("plan"),
+	pulse: () => generateId("pulse"),
+	preflight: () => generateId("preflight"),
+	baseline: () => generateId("baseline"),
 	question: () => generateId("question"),
 	note: () => generateId("note"),
 } as const;

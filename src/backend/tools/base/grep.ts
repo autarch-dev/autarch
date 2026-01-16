@@ -46,8 +46,6 @@ export const grepInputSchema = z.object({
 
 export type GrepInput = z.infer<typeof grepInputSchema>;
 
-export type GrepOutput = string;
-
 // =============================================================================
 // Constants
 // =============================================================================
@@ -62,7 +60,7 @@ const MAX_LINE_LENGTH = 200;
 // Tool Definition
 // =============================================================================
 
-export const grepTool: ToolDefinition<GrepInput, GrepOutput> = {
+export const grepTool: ToolDefinition<GrepInput> = {
 	name: "grep",
 	description: `Search file contents for a pattern using regex matching.
 Returns matches in standard grep format: file:line:content (one per line).
@@ -74,7 +72,7 @@ Returns matches in standard grep format: file:line:content (one per line).
 
 Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 	inputSchema: grepInputSchema,
-	execute: async (input, context): Promise<ToolResult<GrepOutput>> => {
+	execute: async (input, context): Promise<ToolResult> => {
 		// Build ripgrep arguments
 		const args: string[] = [
 			"--line-number", // Include line numbers
@@ -107,7 +105,7 @@ Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 		} catch (err) {
 			return {
 				success: false,
-				error: `Failed to spawn ripgrep: ${err instanceof Error ? err.message : "unknown error"}`,
+				output: `Error: Failed to spawn ripgrep: ${err instanceof Error ? err.message : "unknown error"}`,
 			};
 		}
 
@@ -123,7 +121,7 @@ Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 		) {
 			return {
 				success: false,
-				error: "Failed to capture ripgrep output",
+				output: "Error: Failed to capture ripgrep output",
 			};
 		}
 
@@ -136,7 +134,7 @@ Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 		if (exitCode > 1) {
 			return {
 				success: false,
-				error: `ripgrep failed: ${stderr || "unknown error"}`,
+				output: `Error: ripgrep failed: ${stderr || "unknown error"}`,
 			};
 		}
 
@@ -144,6 +142,13 @@ Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 		const skip = input.skip ?? 0;
 		const allLines = stdout.split("\n").filter((line) => line.length > 0);
 		const totalMatches = allLines.length;
+
+		if (totalMatches === 0) {
+			return {
+				success: true,
+				output: "No matches found.",
+			};
+		}
 
 		const lines = allLines
 			.slice(skip, skip + MAX_RESULTS)
@@ -163,7 +168,7 @@ Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 
 		return {
 			success: true,
-			data: lines.join("\n"),
+			output: lines.join("\n"),
 		};
 	},
 };

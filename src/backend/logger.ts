@@ -44,4 +44,7 @@ export const log = {
 
 	/** Workflow orchestration */
 	workflow: createLogger("workflow"),
+
+	/** Git operations */
+	git: createLogger("git"),
 };

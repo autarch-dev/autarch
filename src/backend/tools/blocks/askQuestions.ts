@@ -28,30 +28,21 @@ export const askQuestionsInputSchema = z.object({
 
 export type AskQuestionsInput = z.infer<typeof askQuestionsInputSchema>;
 
-export interface AskQuestionsOutput {
-	success: boolean;
-	questionIds: string[];
-	questionCount: number;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const askQuestionsTool: ToolDefinition<
-	AskQuestionsInput,
-	AskQuestionsOutput
-> = {
+export const askQuestionsTool: ToolDefinition<AskQuestionsInput> = {
 	name: "ask_questions",
 	description:
 		"Ask structured questions requiring user input. Use when directed by the system prompt.",
 	inputSchema: askQuestionsInputSchema,
-	execute: async (input, context): Promise<ToolResult<AskQuestionsOutput>> => {
+	execute: async (input, context): Promise<ToolResult> => {
 		// Session ID is required for storing questions
 		if (!context.sessionId) {
 			return {
 				success: false,
-				error: "No active session - cannot store questions",
+				output: "Error: No active session - cannot store questions",
 			};
 		}
 
@@ -71,7 +62,7 @@ export const askQuestionsTool: ToolDefinition<
 		if (!currentTurn) {
 			return {
 				success: false,
-				error: "No active turn found - cannot store questions",
+				output: "Error: No active turn found - cannot store questions",
 			};
 		}
 
@@ -124,7 +115,7 @@ export const askQuestionsTool: ToolDefinition<
 			} catch (err) {
 				return {
 					success: false,
-					error: `Failed to store question: ${err instanceof Error ? err.message : "unknown error"}`,
+					output: `Error: Failed to store question: ${err instanceof Error ? err.message : "unknown error"}`,
 				};
 			}
 		}
@@ -140,11 +131,7 @@ export const askQuestionsTool: ToolDefinition<
 
 		return {
 			success: true,
-			data: {
-				success: true,
-				questionIds,
-				questionCount: questionIds.length,
-			},
+			output: `Asked ${questionIds.length} question(s). Waiting for user response.`,
 		};
 	},
 };

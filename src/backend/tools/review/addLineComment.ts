@@ -42,28 +42,19 @@ export const addLineCommentInputSchema = z.object({
 
 export type AddLineCommentInput = z.infer<typeof addLineCommentInputSchema>;
 
-export interface AddCommentOutput {
-	success: boolean;
-	comment_id: string;
-	message: string;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const addLineCommentTool: ToolDefinition<
-	AddLineCommentInput,
-	AddCommentOutput
-> = {
+export const addLineCommentTool: ToolDefinition<AddLineCommentInput> = {
 	name: "add_line_comment",
 	description: `Add a comment attached to specific line(s) in a file.
 Use this to provide feedback on specific code changes in the diff.`,
 	inputSchema: addLineCommentInputSchema,
-	execute: async (_input, _context): Promise<ToolResult<AddCommentOutput>> => {
+	execute: async (_input, _context): Promise<ToolResult> => {
 		return {
 			success: false,
-			error: "Review card not found",
+			output: "Error: Review card not found",
 		};
 	},
 };

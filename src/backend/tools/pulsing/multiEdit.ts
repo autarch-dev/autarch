@@ -2,7 +2,10 @@
  * multi_edit - Apply multiple exact string replacements to a file atomically
  */
 
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { isAbsolute, join, normalize } from "node:path";
 import { z } from "zod";
+import { log } from "@/backend/logger";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -36,16 +39,88 @@ export const multiEditInputSchema = z.object({
 
 export type MultiEditInput = z.infer<typeof multiEditInputSchema>;
 
-export interface MultiEditOutput {
-	success: boolean;
-	edits_applied: number;
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Count occurrences of a substring in a string
+ */
+function countOccurrences(content: string, search: string): number {
+	let count = 0;
+	let pos = content.indexOf(search, 0);
+	while (pos !== -1) {
+		count++;
+		pos = content.indexOf(search, pos + search.length);
+	}
+	return count;
+}
+
+interface EditValidationResult {
+	valid: boolean;
+	error?: string;
+	editIndex?: number;
+}
+
+/**
+ * Validate all edits can be applied and simulate the result
+ */
+function validateEdits(
+	content: string,
+	edits: Array<{ oldString: string; newString: string; replaceAll?: boolean }>,
+): EditValidationResult {
+	let simulatedContent = content;
+
+	for (const [i, edit] of edits.entries()) {
+		// Check for empty oldString
+		if (edit.oldString.length === 0) {
+			return {
+				valid: false,
+				error: `Edit ${i}: oldString cannot be empty`,
+				editIndex: i,
+			};
+		}
+
+		// Count occurrences in current simulated state
+		const occurrences = countOccurrences(simulatedContent, edit.oldString);
+
+		if (occurrences === 0) {
+			return {
+				valid: false,
+				error: `Edit ${i}: oldString not found`,
+				editIndex: i,
+			};
+		}
+
+		if (occurrences > 1 && !edit.replaceAll) {
+			return {
+				valid: false,
+				error: `Edit ${i}: oldString found ${occurrences} times (set replaceAll=true to replace all)`,
+				editIndex: i,
+			};
+		}
+
+		// Apply the edit to simulated content
+		if (edit.replaceAll) {
+			simulatedContent = simulatedContent
+				.split(edit.oldString)
+				.join(edit.newString);
+		} else {
+			simulatedContent = simulatedContent.replace(
+				edit.oldString,
+				edit.newString,
+			);
+		}
+	}
+
+	return { valid: true };
 }
 
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const multiEditTool: ToolDefinition<MultiEditInput, MultiEditOutput> = {
+export const multiEditTool: ToolDefinition<MultiEditInput> = {
 	name: "multi_edit",
 	description: `Apply **multiple exact string replacements** to a single file atomically.
 More efficient than multiple edit_file calls when making several changes to the same file.
@@ -66,22 +141,83 @@ Rules:
 Failure is final: do not attempt fuzzy matching or retries.
 Note: You are working in an isolated git worktree. Changes are isolated until pulse completion.`,
 	inputSchema: multiEditInputSchema,
-	execute: async (input, context): Promise<ToolResult<MultiEditOutput>> => {
-		// TODO: Implement multi-edit
-		// - Read file from context.worktreePath
-		// - Apply edits sequentially
-		// - Fail atomically if any edit fails
-
+	execute: async (input, context): Promise<ToolResult> => {
+		// Validate inputs
 		if (input.edits.length === 0) {
 			return {
 				success: false,
-				error: "No edits provided",
+				output: "Error: No edits provided",
 			};
 		}
 
-		return {
-			success: false,
-			error: `File not found: ${input.path}`,
-		};
+		// Determine the root to use
+		const root = context.worktreePath ?? context.projectRoot;
+
+		// Validate path
+		if (isAbsolute(input.path)) {
+			return {
+				success: false,
+				output: "Error: Path must be relative to worktree root",
+			};
+		}
+
+		const normalizedPath = normalize(input.path);
+		if (normalizedPath.startsWith("..")) {
+			return {
+				success: false,
+				output: "Error: Path cannot escape worktree root",
+			};
+		}
+
+		const fullPath = join(root, normalizedPath);
+
+		// Check file exists
+		if (!existsSync(fullPath)) {
+			return {
+				success: false,
+				output: `Error: File not found: ${normalizedPath}`,
+			};
+		}
+
+		try {
+			// Read file content
+			const content = readFileSync(fullPath, "utf-8");
+
+			// Validate all edits first
+			const validation = validateEdits(content, input.edits);
+			if (!validation.valid) {
+				return {
+					success: false,
+					output: `Error: ${validation.error}`,
+				};
+			}
+
+			// Apply all edits
+			let newContent = content;
+			for (const edit of input.edits) {
+				if (edit.replaceAll) {
+					newContent = newContent.split(edit.oldString).join(edit.newString);
+				} else {
+					newContent = newContent.replace(edit.oldString, edit.newString);
+				}
+			}
+
+			// Write the file
+			writeFileSync(fullPath, newContent, "utf-8");
+
+			log.tools.info(
+				`multi_edit: ${normalizedPath} (${input.edits.length} edits applied)`,
+			);
+
+			return {
+				success: true,
+				output: `Applied ${input.edits.length} edits to ${normalizedPath}`,
+			};
+		} catch (error) {
+			return {
+				success: false,
+				output: `Error: ${error instanceof Error ? error.message : `Failed to edit file: ${normalizedPath}`}`,
+			};
+		}
 	},
 };

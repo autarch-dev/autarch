@@ -75,35 +75,23 @@ export const submitResearchInputSchema = z.object({
 
 export type SubmitResearchInput = z.infer<typeof submitResearchInputSchema>;
 
-export interface SubmitResearchOutput {
-	success: boolean;
-	research_card_id: string;
-	message: string;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const submitResearchTool: ToolDefinition<
-	SubmitResearchInput,
-	SubmitResearchOutput
-> = {
+export const submitResearchTool: ToolDefinition<SubmitResearchInput> = {
 	name: "submit_research",
 	description: `Submit completed research findings for user approval.
 Use when sufficient understanding has been built to guide implementation.
 After submitting, the workflow will await user approval before transitioning to planning.`,
 	inputSchema: submitResearchInputSchema,
-	execute: async (
-		input,
-		context,
-	): Promise<ToolResult<SubmitResearchOutput>> => {
+	execute: async (input, context): Promise<ToolResult> => {
 		// Workflow ID is required for storing research cards
 		if (!context.workflowId) {
 			return {
 				success: false,
-				error:
-					"No workflow context - submit_research can only be used in workflow sessions",
+				output:
+					"Error: No workflow context - submit_research can only be used in workflow sessions",
 			};
 		}
 
@@ -148,17 +136,13 @@ After submitting, the workflow will await user approval before transitioning to 
 
 			return {
 				success: true,
-				data: {
-					success: true,
-					research_card_id: researchCardId,
-					message:
-						"Research findings submitted successfully. Awaiting user approval before proceeding to planning phase.",
-				},
+				output:
+					"Research findings submitted successfully. Awaiting user approval before proceeding to planning phase.",
 			};
 		} catch (err) {
 			return {
 				success: false,
-				error: `Failed to submit research card: ${err instanceof Error ? err.message : "unknown error"}`,
+				output: `Error: Failed to submit research card: ${err instanceof Error ? err.message : "unknown error"}`,
 			};
 		}
 	},

@@ -39,32 +39,23 @@ export const submitScopeInputSchema = z.object({
 
 export type SubmitScopeInput = z.infer<typeof submitScopeInputSchema>;
 
-export interface SubmitScopeOutput {
-	success: boolean;
-	scope_card_id: string;
-	message: string;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
 
-export const submitScopeTool: ToolDefinition<
-	SubmitScopeInput,
-	SubmitScopeOutput
-> = {
+export const submitScopeTool: ToolDefinition<SubmitScopeInput> = {
 	name: "submit_scope",
 	description: `Submit a finalized scope card for user approval.
 Use when all Four Pillars (outcome, boundaries, constraints, success criteria) are clearly defined.
 After submitting, the workflow will await user approval before transitioning to research.`,
 	inputSchema: submitScopeInputSchema,
-	execute: async (input, context): Promise<ToolResult<SubmitScopeOutput>> => {
+	execute: async (input, context): Promise<ToolResult> => {
 		// Workflow ID is required for storing scope cards
 		if (!context.workflowId) {
 			return {
 				success: false,
-				error:
-					"No workflow context - submit_scope can only be used in workflow sessions",
+				output:
+					"Error: No workflow context - submit_scope can only be used in workflow sessions",
 			};
 		}
 
@@ -105,17 +96,13 @@ After submitting, the workflow will await user approval before transitioning to 
 
 			return {
 				success: true,
-				data: {
-					success: true,
-					scope_card_id: scopeCardId,
-					message:
-						"Scope card submitted successfully. Awaiting user approval before proceeding to research phase.",
-				},
+				output:
+					"Scope card submitted successfully. Awaiting user approval before proceeding to research phase.",
 			};
 		} catch (err) {
 			return {
 				success: false,
-				error: `Failed to submit scope card: ${err instanceof Error ? err.message : "unknown error"}`,
+				output: `Error: Failed to submit scope card: ${err instanceof Error ? err.message : "unknown error"}`,
 			};
 		}
 	},
