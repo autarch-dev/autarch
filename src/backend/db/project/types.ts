@@ -19,6 +19,7 @@ export interface ProjectDatabase {
 	turn_messages: TurnMessagesTable;
 	turn_tools: TurnToolsTable;
 	turn_thoughts: TurnThoughtsTable;
+	questions: QuestionsTable;
 }
 
 // =============================================================================
@@ -224,4 +225,30 @@ export interface TurnThoughtsTable {
 	thought_index: number;
 	content: string;
 	created_at: number;
+}
+
+// =============================================================================
+// Questions (Agent-asked questions requiring user input)
+// =============================================================================
+
+export type QuestionType =
+	| "single_select"
+	| "multi_select"
+	| "ranked"
+	| "free_text";
+
+export type QuestionStatus = "pending" | "answered";
+
+export interface QuestionsTable {
+	id: string;
+	session_id: string;
+	turn_id: string;
+	question_index: number;
+	type: QuestionType;
+	prompt: string;
+	options_json: string | null; // JSON array of strings
+	answer_json: string | null; // JSON (string[] for multi/ranked, string otherwise)
+	status: QuestionStatus;
+	created_at: number;
+	answered_at: number | null;
 }

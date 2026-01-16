@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { QuestionStatusSchema, QuestionTypeSchema } from "./questions";
 
 // =============================================================================
 // Channel Schema
@@ -61,6 +62,20 @@ export const MessageSegmentSchema = z.object({
 export type MessageSegment = z.infer<typeof MessageSegmentSchema>;
 
 /**
+ * Schema for a question in a message (simplified for messages)
+ */
+export const MessageQuestionSchema = z.object({
+	id: z.string(),
+	questionIndex: z.number(),
+	type: QuestionTypeSchema,
+	prompt: z.string(),
+	options: z.array(z.string()).optional(),
+	answer: z.unknown().optional(),
+	status: QuestionStatusSchema,
+});
+export type MessageQuestion = z.infer<typeof MessageQuestionSchema>;
+
+/**
  * Schema for a message in channel history
  */
 export const ChannelMessageSchema = z.object({
@@ -87,6 +102,8 @@ export const ChannelMessageSchema = z.object({
 		.optional(),
 	/** Extended thinking content (assistant only, if available) */
 	thought: z.string().optional(),
+	/** Questions asked by the agent (assistant only) */
+	questions: z.array(MessageQuestionSchema).optional(),
 });
 export type ChannelMessage = z.infer<typeof ChannelMessageSchema>;
 

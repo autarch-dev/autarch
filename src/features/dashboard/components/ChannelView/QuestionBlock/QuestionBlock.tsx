@@ -1,0 +1,208 @@
+/**
+ * QuestionBlock - Renders agent questions requiring user input
+ *
+ * Supports different question types:
+ * - single_select: Radio group
+ * - multi_select: Checkboxes
+ * - ranked: Ordered selection (checkboxes with order indicators)
+ * - free_text: Text area
+ *
+ * Collapsed when answered, expanded when pending.
+ */
+
+import { ChevronDown, ChevronRight, Loader2, Send } from "lucide-react";
+import { useCallback, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Label } from "@/components/ui/label";
+import type { MessageQuestion } from "@/shared/schemas/channel";
+import { FreeTextQuestion } from "./FreeTextQuestion";
+import { MultiSelectQuestion } from "./MultiSelectQuestion";
+import { RankedQuestion } from "./RankedQuestion";
+import { SingleSelectQuestion } from "./SingleSelectQuestion";
+import type { QuestionBlockProps } from "./types";
+
+const QUESTION_COMPONENTS = {
+	single_select: SingleSelectQuestion,
+	multi_select: MultiSelectQuestion,
+	ranked: RankedQuestion,
+	free_text: FreeTextQuestion,
+} as const;
+
+export function QuestionBlock({
+	questions,
+	onAnswer,
+	disabled,
+}: QuestionBlockProps) {
+	const [answers, setAnswers] = useState<Map<string, unknown>>(new Map());
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isExpanded, setIsExpanded] = useState(true);
+
+	// Check if all questions are answered (from server)
+	const allAnsweredFromServer = questions.every((q) => q.status === "answered");
+
+	// Check if user has filled all required answers
+	const allAnsweredByUser = questions.every((q) => {
+		if (q.status === "answered") return true;
+		const answer = answers.get(q.id);
+		if (answer === undefined || answer === null) return false;
+		if (typeof answer === "string" && answer.trim() === "") return false;
+		if (Array.isArray(answer) && answer.length === 0) return false;
+		return true;
+	});
+
+	const pendingQuestions = questions.filter((q) => q.status === "pending");
+	const answeredQuestions = questions.filter((q) => q.status === "answered");
+
+	const handleAnswerChange = useCallback(
+		(questionId: string, value: unknown) => {
+			setAnswers((prev) => {
+				const next = new Map(prev);
+				next.set(questionId, value);
+				return next;
+			});
+		},
+		[],
+	);
+
+	const handleSubmit = useCallback(async () => {
+		if (!onAnswer || !allAnsweredByUser) return;
+
+		setIsSubmitting(true);
+		try {
+			const answersToSubmit = pendingQuestions.map((q) => ({
+				questionId: q.id,
+				answer: answers.get(q.id),
+			}));
+			await onAnswer(answersToSubmit);
+		} finally {
+			setIsSubmitting(false);
+		}
+	}, [onAnswer, allAnsweredByUser, pendingQuestions, answers]);
+
+	const renderQuestion = (question: MessageQuestion) => {
+		const value =
+			question.status === "answered"
+				? question.answer
+				: answers.get(question.id);
+		const isAnswered = question.status === "answered";
+
+		const QuestionComponent = QUESTION_COMPONENTS[question.type];
+
+		return (
+			<div key={question.id} className="space-y-3">
+				<Label className="text-sm font-medium">{question.prompt}</Label>
+				<QuestionComponent
+					question={question}
+					value={value}
+					onChange={(v) => handleAnswerChange(question.id, v)}
+					disabled={disabled || isAnswered || isSubmitting}
+				/>
+				{isAnswered && (
+					<p className="text-xs text-muted-foreground">
+						Answered:{" "}
+						{Array.isArray(question.answer)
+							? question.answer.join(", ")
+							: String(question.answer)}
+					</p>
+				)}
+			</div>
+		);
+	};
+
+	// If all answered, show collapsed view
+	if (allAnsweredFromServer) {
+		return (
+			<Collapsible
+				open={isExpanded}
+				onOpenChange={setIsExpanded}
+				className="my-3"
+			>
+				<div className="rounded-lg border bg-muted/30">
+					<CollapsibleTrigger asChild>
+						<Button
+							variant="ghost"
+							className="w-full justify-start gap-2 p-3 h-auto font-medium text-muted-foreground hover:text-foreground"
+						>
+							{isExpanded ? (
+								<ChevronDown className="size-4" />
+							) : (
+								<ChevronRight className="size-4" />
+							)}
+							{questions.length} question{questions.length !== 1 ? "s" : ""}{" "}
+							answered
+						</Button>
+					</CollapsibleTrigger>
+					<CollapsibleContent>
+						<div className="px-4 pb-4 space-y-4">
+							{questions.map(renderQuestion)}
+						</div>
+					</CollapsibleContent>
+				</div>
+			</Collapsible>
+		);
+	}
+
+	// Show pending questions with submit button
+	return (
+		<Card className="my-3 py-4 gap-4">
+			<CardHeader className="pb-0 py-0">
+				<CardTitle className="text-sm flex items-center gap-2">
+					Questions
+					{pendingQuestions.length > 0 && (
+						<span className="text-xs font-normal text-muted-foreground">
+							({pendingQuestions.length} pending)
+						</span>
+					)}
+				</CardTitle>
+			</CardHeader>
+
+			<CardContent className="space-y-4">
+				{/* Answered questions note */}
+				{answeredQuestions.length > 0 && (
+					<p className="text-xs text-muted-foreground rounded-md bg-muted/30 p-2">
+						{answeredQuestions.length} already answered
+					</p>
+				)}
+
+				{/* Pending questions */}
+				{pendingQuestions.map(renderQuestion)}
+			</CardContent>
+
+			{/* Submit button */}
+			{pendingQuestions.length > 0 && onAnswer && (
+				<CardFooter>
+					<Button
+						onClick={handleSubmit}
+						disabled={!allAnsweredByUser || isSubmitting || disabled}
+						size="sm"
+						className="w-full"
+					>
+						{isSubmitting ? (
+							<>
+								<Loader2 className="size-4 mr-2 animate-spin" />
+								Submitting...
+							</>
+						) : (
+							<>
+								<Send className="size-4 mr-2" />
+								Submit Answers
+							</>
+						)}
+					</Button>
+				</CardFooter>
+			)}
+		</Card>
+	);
+}

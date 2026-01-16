@@ -6,13 +6,15 @@
  */
 
 import { CheckCircle2, Loader2, Wrench, XCircle } from "lucide-react";
+import { useCallback } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { ChannelMessage, MessageSegment } from "@/shared/schemas/channel";
+import type { ChannelMessage, MessageQuestion } from "@/shared/schemas/channel";
 import type { StreamingMessage } from "../../store/discussionsStore";
 import { formatTime } from "../../utils";
 import { Markdown } from "../Markdown";
+import { QuestionBlock } from "./QuestionBlock";
 
 // =============================================================================
 // Types
@@ -175,6 +177,11 @@ export function MessageBubble(props: MessageBubbleProps) {
 			? props.message.thought
 			: props.message.thought;
 
+	const questions: MessageQuestion[] =
+		props.variant === "streaming"
+			? props.message.questions
+			: (props.message.questions ?? []);
+
 	const activeSegmentIndex =
 		props.variant === "streaming" ? props.message.activeSegmentIndex : -1;
 
@@ -186,6 +193,28 @@ export function MessageBubble(props: MessageBubbleProps) {
 	// Check if we have any content at all (for streaming empty state)
 	const hasAnyContent =
 		segments.some((s) => s.content.length > 0) || tools.length > 0;
+
+	// Handle answering questions
+	const handleAnswerQuestions = useCallback(
+		async (answers: Array<{ questionId: string; answer: unknown }>) => {
+			try {
+				const response = await fetch("/api/questions/batch-answer", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ answers }),
+				});
+
+				if (!response.ok) {
+					const error = await response.json();
+					throw new Error(error.error ?? "Failed to submit answers");
+				}
+			} catch (error) {
+				console.error("Failed to submit answers:", error);
+				throw error;
+			}
+		},
+		[],
+	);
 
 	return (
 		<div
@@ -265,6 +294,15 @@ export function MessageBubble(props: MessageBubbleProps) {
 				{/* Show cursor when no content yet (streaming only) */}
 				{isStreaming && !hasAnyContent && (
 					<span className="inline-block w-2 h-4 bg-primary/50 animate-pulse" />
+				)}
+
+				{/* Questions */}
+				{questions.length > 0 && (
+					<QuestionBlock
+						questions={questions}
+						onAnswer={handleAnswerQuestions}
+						disabled={isStreaming}
+					/>
 				)}
 
 				{/* Extended thinking / reasoning */}

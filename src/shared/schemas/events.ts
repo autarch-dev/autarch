@@ -338,6 +338,53 @@ export type TurnToolCompletedEvent = z.infer<
 >;
 
 // =============================================================================
+// Question Events
+// =============================================================================
+
+import { QuestionSchema, QuestionTypeSchema } from "./questions";
+
+// questions:asked - Agent asked questions requiring user input
+export const QuestionsAskedPayloadSchema = z.object({
+	sessionId: z.string(),
+	turnId: z.string(),
+	questions: z.array(
+		z.object({
+			id: z.string(),
+			questionIndex: z.number(),
+			type: QuestionTypeSchema,
+			prompt: z.string(),
+			options: z.array(z.string()).optional(),
+		}),
+	),
+});
+export type QuestionsAskedPayload = z.infer<typeof QuestionsAskedPayloadSchema>;
+
+export const QuestionsAskedEventSchema = z.object({
+	type: z.literal("questions:asked"),
+	payload: QuestionsAskedPayloadSchema,
+});
+export type QuestionsAskedEvent = z.infer<typeof QuestionsAskedEventSchema>;
+
+// questions:answered - User answered a question
+export const QuestionsAnsweredPayloadSchema = z.object({
+	sessionId: z.string(),
+	turnId: z.string(),
+	questionId: z.string(),
+	answer: z.unknown(),
+});
+export type QuestionsAnsweredPayload = z.infer<
+	typeof QuestionsAnsweredPayloadSchema
+>;
+
+export const QuestionsAnsweredEventSchema = z.object({
+	type: z.literal("questions:answered"),
+	payload: QuestionsAnsweredPayloadSchema,
+});
+export type QuestionsAnsweredEvent = z.infer<
+	typeof QuestionsAnsweredEventSchema
+>;
+
+// =============================================================================
 // WebSocket Event Union
 // =============================================================================
 
@@ -367,6 +414,9 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	// Tool events
 	TurnToolStartedEventSchema,
 	TurnToolCompletedEventSchema,
+	// Question events
+	QuestionsAskedEventSchema,
+	QuestionsAnsweredEventSchema,
 ]);
 
 export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
@@ -487,4 +537,17 @@ export function createTurnToolCompletedEvent(
 	payload: TurnToolCompletedPayload,
 ): TurnToolCompletedEvent {
 	return { type: "turn:tool_completed", payload };
+}
+
+// Question events
+export function createQuestionsAskedEvent(
+	payload: QuestionsAskedPayload,
+): QuestionsAskedEvent {
+	return { type: "questions:asked", payload };
+}
+
+export function createQuestionsAnsweredEvent(
+	payload: QuestionsAnsweredPayload,
+): QuestionsAnsweredEvent {
+	return { type: "questions:answered", payload };
 }

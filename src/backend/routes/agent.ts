@@ -15,7 +15,9 @@ import {
 import {
 	createChannelCreatedEvent,
 	createChannelDeletedEvent,
+	createQuestionsAnsweredEvent,
 } from "@/shared/schemas/events";
+import type { AnswerQuestionsResponse } from "@/shared/schemas/questions";
 import {
 	AgentRunner,
 	getSessionManager,
@@ -42,6 +44,19 @@ const SendMessageRequestSchema = z.object({
 
 const RequestChangesRequestSchema = z.object({
 	feedback: z.string().min(1),
+});
+
+const AnswerQuestionRequestSchema = z.object({
+	answer: z.unknown(),
+});
+
+const AnswerQuestionsRequestSchema = z.object({
+	answers: z.array(
+		z.object({
+			questionId: z.string(),
+			answer: z.unknown(),
+		}),
+	),
 });
 
 /** Schema for routes with :id param */
@@ -528,15 +543,23 @@ export const agentRoutes = {
 							.orderBy("thought_index", "asc")
 							.execute();
 
+						// Get questions for this turn
+						const questions = await db
+							.selectFrom("questions")
+							.selectAll()
+							.where("turn_id", "=", turn.id)
+							.orderBy("question_index", "asc")
+							.execute();
+
 						// Build segments array from turn messages (ordered by message_index)
 						const segments = turnMessages.map((m) => ({
 							index: m.message_index,
 							content: m.content,
 						}));
 
-						// Only include turns that have content or tools
+						// Only include turns that have content, tools, or questions
 						const hasContent = segments.some((s) => s.content.length > 0);
-						if (hasContent || toolCalls.length > 0) {
+						if (hasContent || toolCalls.length > 0 || questions.length > 0) {
 							const message: ChannelMessage = {
 								id: turn.id,
 								turnId: turn.id,
@@ -558,6 +581,26 @@ export const agentRoutes = {
 								thought:
 									thoughts.length > 0
 										? thoughts.map((t) => t.content).join("\n")
+										: undefined,
+								questions:
+									questions.length > 0
+										? questions.map((q) => ({
+												id: q.id,
+												questionIndex: q.question_index,
+												type: q.type as
+													| "single_select"
+													| "multi_select"
+													| "ranked"
+													| "free_text",
+												prompt: q.prompt,
+												options: q.options_json
+													? JSON.parse(q.options_json)
+													: undefined,
+												answer: q.answer_json
+													? JSON.parse(q.answer_json)
+													: undefined,
+												status: q.status as "pending" | "answered",
+											}))
 										: undefined,
 							};
 
@@ -652,6 +695,292 @@ export const agentRoutes = {
 				return Response.json({ success: true, sessionId });
 			} catch (error) {
 				log.api.error("Failed to send message:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	// =========================================================================
+	// Question Routes
+	// =========================================================================
+
+	"/api/questions/:id/answer": {
+		async POST(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid question ID" }, { status: 400 });
+			}
+			const questionId = params.id;
+
+			try {
+				const body = await req.json();
+				const parsed = AnswerQuestionRequestSchema.safeParse(body);
+
+				if (!parsed.success) {
+					return Response.json(
+						{ error: "Invalid request", details: parsed.error.flatten() },
+						{ status: 400 },
+					);
+				}
+
+				const projectRoot = findRepoRoot(process.cwd());
+				const db = await getProjectDb(projectRoot);
+
+				// Get the question
+				const question = await db
+					.selectFrom("questions")
+					.selectAll()
+					.where("id", "=", questionId)
+					.executeTakeFirst();
+
+				if (!question) {
+					return Response.json(
+						{ error: "Question not found" },
+						{ status: 404 },
+					);
+				}
+
+				if (question.status === "answered") {
+					return Response.json(
+						{ error: "Question already answered" },
+						{ status: 400 },
+					);
+				}
+
+				const now = Date.now();
+
+				// Update the question with the answer
+				await db
+					.updateTable("questions")
+					.set({
+						answer_json: JSON.stringify(parsed.data.answer),
+						status: "answered",
+						answered_at: now,
+					})
+					.where("id", "=", questionId)
+					.execute();
+
+				// Broadcast the answer event
+				broadcast(
+					createQuestionsAnsweredEvent({
+						sessionId: question.session_id,
+						turnId: question.turn_id,
+						questionId,
+						answer: parsed.data.answer,
+					}),
+				);
+
+				// Check if all questions for this turn are answered
+				const pendingQuestions = await db
+					.selectFrom("questions")
+					.select(["id"])
+					.where("turn_id", "=", question.turn_id)
+					.where("status", "=", "pending")
+					.execute();
+
+				const allAnswered = pendingQuestions.length === 0;
+
+				// If all questions are answered, auto-resume the agent
+				if (allAnswered) {
+					// Get all questions for this turn to format the answer message
+					const allQuestions = await db
+						.selectFrom("questions")
+						.selectAll()
+						.where("turn_id", "=", question.turn_id)
+						.orderBy("question_index", "asc")
+						.execute();
+
+					// Format answers as a user message
+					const answerLines = allQuestions.map((q) => {
+						const answer = q.answer_json ? JSON.parse(q.answer_json) : null;
+						const formattedAnswer = Array.isArray(answer)
+							? answer.join(", ")
+							: String(answer);
+						return `**${q.prompt}**: ${formattedAnswer}`;
+					});
+					const answerMessage = answerLines.join("\n\n");
+
+					// Get session and send the answer message
+					const sessionManager = getSessionManager();
+					const session = await sessionManager.getOrRestoreSession(
+						question.session_id,
+					);
+
+					if (session && session.status === "active") {
+						const runner = new AgentRunner(session, { projectRoot, db });
+
+						log.api.info(
+							`All questions answered, resuming session ${question.session_id}`,
+						);
+
+						// Run in background (non-blocking)
+						runner.run(answerMessage).catch((error) => {
+							log.agent.error(
+								`Agent run failed after answers for session ${question.session_id}:`,
+								error,
+							);
+							sessionManager.errorSession(
+								question.session_id,
+								error instanceof Error ? error.message : "Unknown error",
+							);
+						});
+					}
+				}
+
+				const response: AnswerQuestionsResponse = {
+					success: true,
+					answeredCount: 1,
+					allAnswered,
+					sessionResumed: allAnswered,
+				};
+
+				return Response.json(response);
+			} catch (error) {
+				log.api.error("Failed to answer question:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/questions/batch-answer": {
+		async POST(req: Request) {
+			try {
+				const body = await req.json();
+				const parsed = AnswerQuestionsRequestSchema.safeParse(body);
+
+				if (!parsed.success) {
+					return Response.json(
+						{ error: "Invalid request", details: parsed.error.flatten() },
+						{ status: 400 },
+					);
+				}
+
+				const projectRoot = findRepoRoot(process.cwd());
+				const db = await getProjectDb(projectRoot);
+				const now = Date.now();
+
+				let sessionId: string | null = null;
+				let turnId: string | null = null;
+				let answeredCount = 0;
+
+				// Process each answer
+				for (const { questionId, answer } of parsed.data.answers) {
+					const question = await db
+						.selectFrom("questions")
+						.selectAll()
+						.where("id", "=", questionId)
+						.executeTakeFirst();
+
+					if (!question || question.status === "answered") {
+						continue;
+					}
+
+					// Track session/turn for later
+					sessionId = question.session_id;
+					turnId = question.turn_id;
+
+					// Update the question
+					await db
+						.updateTable("questions")
+						.set({
+							answer_json: JSON.stringify(answer),
+							status: "answered",
+							answered_at: now,
+						})
+						.where("id", "=", questionId)
+						.execute();
+
+					// Broadcast the answer event
+					broadcast(
+						createQuestionsAnsweredEvent({
+							sessionId: question.session_id,
+							turnId: question.turn_id,
+							questionId,
+							answer,
+						}),
+					);
+
+					answeredCount++;
+				}
+
+				if (!sessionId || !turnId) {
+					return Response.json(
+						{ error: "No valid questions to answer" },
+						{ status: 400 },
+					);
+				}
+
+				// Check if all questions for this turn are answered
+				const pendingQuestions = await db
+					.selectFrom("questions")
+					.select(["id"])
+					.where("turn_id", "=", turnId)
+					.where("status", "=", "pending")
+					.execute();
+
+				const allAnswered = pendingQuestions.length === 0;
+
+				// If all questions are answered, auto-resume the agent
+				if (allAnswered) {
+					// Get all questions for this turn to format the answer message
+					const allQuestions = await db
+						.selectFrom("questions")
+						.selectAll()
+						.where("turn_id", "=", turnId)
+						.orderBy("question_index", "asc")
+						.execute();
+
+					// Format answers as a user message
+					const answerLines = allQuestions.map((q) => {
+						const answer = q.answer_json ? JSON.parse(q.answer_json) : null;
+						const formattedAnswer = Array.isArray(answer)
+							? answer.join(", ")
+							: String(answer);
+						return `**${q.prompt}**: ${formattedAnswer}`;
+					});
+					const answerMessage = answerLines.join("\n\n");
+
+					// Get session and send the answer message
+					const sessionManager = getSessionManager();
+					const session = await sessionManager.getOrRestoreSession(sessionId);
+
+					if (session && session.status === "active") {
+						const runner = new AgentRunner(session, { projectRoot, db });
+
+						log.api.info(
+							`All questions answered (batch), resuming session ${sessionId}`,
+						);
+
+						// Run in background (non-blocking)
+						runner.run(answerMessage).catch((error) => {
+							log.agent.error(
+								`Agent run failed after answers for session ${sessionId}:`,
+								error,
+							);
+							sessionManager.errorSession(
+								sessionId as string,
+								error instanceof Error ? error.message : "Unknown error",
+							);
+						});
+					}
+				}
+
+				const response: AnswerQuestionsResponse = {
+					success: true,
+					answeredCount,
+					allAnswered,
+					sessionResumed: allAnswered,
+				};
+
+				return Response.json(response);
+			} catch (error) {
+				log.api.error("Failed to batch answer questions:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },

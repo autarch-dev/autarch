@@ -14,6 +14,8 @@ import type {
 import type {
 	ChannelCreatedPayload,
 	ChannelDeletedPayload,
+	QuestionsAnsweredPayload,
+	QuestionsAskedPayload,
 	SessionStartedPayload,
 	TurnCompletedPayload,
 	TurnMessageDeltaPayload,
@@ -24,6 +26,7 @@ import type {
 	TurnToolStartedPayload,
 	WebSocketEvent,
 } from "@/shared/schemas/events";
+import type { QuestionStatus, QuestionType } from "@/shared/schemas/questions";
 
 // =============================================================================
 // Types
@@ -34,6 +37,17 @@ export interface StreamingSegment {
 	index: number;
 	content: string;
 	isComplete: boolean;
+}
+
+/** Question in a streaming message */
+export interface StreamingQuestion {
+	id: string;
+	questionIndex: number;
+	type: QuestionType;
+	prompt: string;
+	options?: string[];
+	answer?: unknown;
+	status: QuestionStatus;
 }
 
 /** Streaming state for an active message */
@@ -52,6 +66,8 @@ export interface StreamingMessage {
 		output?: unknown;
 		status: "running" | "completed" | "error";
 	}[];
+	/** Questions asked by the agent */
+	questions: StreamingQuestion[];
 	isComplete: boolean;
 }
 
@@ -370,6 +386,14 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 			case "turn:tool_completed":
 				handleToolCompleted(event.payload, set, get);
 				break;
+
+			// Question events
+			case "questions:asked":
+				handleQuestionsAsked(event.payload, set, get);
+				break;
+			case "questions:answered":
+				handleQuestionsAnswered(event.payload, set, get);
+				break;
 		}
 	},
 
@@ -531,6 +555,7 @@ function handleTurnStarted(
 					activeSegmentIndex: 0,
 					thought: "",
 					tools: [],
+					questions: [],
 					isComplete: false,
 				},
 			});
@@ -569,6 +594,10 @@ function handleTurnCompleted(
 						? existing.streamingMessage.tools
 						: undefined,
 				thought: existing.streamingMessage.thought || undefined,
+				questions:
+					existing.streamingMessage.questions.length > 0
+						? existing.streamingMessage.questions
+						: undefined,
 			};
 
 			conversations.set(channelId, {
@@ -772,6 +801,118 @@ function handleToolCompleted(
 				},
 			});
 		}
+		return { conversations };
+	});
+}
+
+function handleQuestionsAsked(
+	payload: QuestionsAskedPayload,
+	set: SetState,
+	get: GetState,
+): void {
+	const channelId = findChannelBySession(payload.sessionId, get);
+	if (!channelId) return;
+
+	set((state) => {
+		const conversations = new Map(state.conversations);
+		const existing = conversations.get(channelId);
+		if (existing?.streamingMessage?.turnId === payload.turnId) {
+			// Add questions to streaming message
+			const questions: StreamingQuestion[] = payload.questions.map((q) => ({
+				id: q.id,
+				questionIndex: q.questionIndex,
+				type: q.type,
+				prompt: q.prompt,
+				options: q.options,
+				status: "pending" as const,
+			}));
+
+			conversations.set(channelId, {
+				...existing,
+				streamingMessage: {
+					...existing.streamingMessage,
+					questions: [...existing.streamingMessage.questions, ...questions],
+				},
+			});
+		} else if (existing) {
+			// Turn already completed, update the last message
+			const messages = [...existing.messages];
+			const lastMessage = messages[messages.length - 1];
+			if (lastMessage?.turnId === payload.turnId) {
+				const questions = payload.questions.map((q) => ({
+					id: q.id,
+					questionIndex: q.questionIndex,
+					type: q.type,
+					prompt: q.prompt,
+					options: q.options,
+					status: "pending" as const,
+				}));
+
+				messages[messages.length - 1] = {
+					...lastMessage,
+					questions: [...(lastMessage.questions ?? []), ...questions],
+				};
+
+				conversations.set(channelId, {
+					...existing,
+					messages,
+				});
+			}
+		}
+		return { conversations };
+	});
+}
+
+function handleQuestionsAnswered(
+	payload: QuestionsAnsweredPayload,
+	set: SetState,
+	get: GetState,
+): void {
+	const channelId = findChannelBySession(payload.sessionId, get);
+	if (!channelId) return;
+
+	set((state) => {
+		const conversations = new Map(state.conversations);
+		const existing = conversations.get(channelId);
+		if (!existing) return { conversations };
+
+		// Update question in streaming message if present
+		if (existing.streamingMessage?.turnId === payload.turnId) {
+			const questions = existing.streamingMessage.questions.map((q) =>
+				q.id === payload.questionId
+					? { ...q, answer: payload.answer, status: "answered" as const }
+					: q,
+			);
+
+			conversations.set(channelId, {
+				...existing,
+				streamingMessage: {
+					...existing.streamingMessage,
+					questions,
+				},
+			});
+		} else {
+			// Update question in completed messages
+			const messages = existing.messages.map((msg) => {
+				if (msg.turnId === payload.turnId && msg.questions) {
+					return {
+						...msg,
+						questions: msg.questions.map((q) =>
+							q.id === payload.questionId
+								? { ...q, answer: payload.answer, status: "answered" as const }
+								: q,
+						),
+					};
+				}
+				return msg;
+			});
+
+			conversations.set(channelId, {
+				...existing,
+				messages,
+			});
+		}
+
 		return { conversations };
 	});
 }
