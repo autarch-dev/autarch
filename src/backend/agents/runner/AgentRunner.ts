@@ -112,10 +112,8 @@ Please continue and ensure your next response ends with one of these tools.`,
 // =============================================================================
 
 export class AgentRunner {
-	private session: ActiveSession;
-	private config: RunnerConfig;
-	private turnIndex = 0;
-	private conversationHistory: ModelMessage[] = [];
+	private readonly session: ActiveSession;
+	private readonly config: RunnerConfig;
 
 	constructor(session: ActiveSession, config: RunnerConfig) {
 		this.session = session;
@@ -156,15 +154,15 @@ export class AgentRunner {
 		);
 
 		// Load existing conversation history for this session
-		const historyContext = await this.loadConversationHistory();
-		log.agent.debug(
-			`Loaded ${this.conversationHistory.length} messages from history`,
-		);
+		const { messages: conversationHistory, toolSummaries, nextTurnIndex } =
+			await this.loadConversationHistory();
+		let turnIndex = nextTurnIndex;
+		log.agent.debug(`Loaded ${conversationHistory.length} messages from history`);
 
 		// Create user turn and add to history
 		// Nudge turns are hidden from UI
 		const isNudge = nudgeCount > 0;
-		const userTurn = await this.createTurn("user", isNudge);
+		const userTurn = await this.createTurn("user", isNudge, turnIndex++);
 		await this.saveMessage(userTurn.id, 0, userMessage);
 		await this.completeTurn(userTurn.id);
 
@@ -174,8 +172,8 @@ export class AgentRunner {
 		const notesContent = await this.buildNotesContent();
 		const contextParts: string[] = [];
 
-		if (historyContext.toolSummaries.length > 0) {
-			const toolSummarySection = `## Previous Tool Usage\n\nEarlier in this conversation, you executed the following tools (results omitted for brevity):\n\n${historyContext.toolSummaries.join("\n")}`;
+		if (toolSummaries.length > 0) {
+			const toolSummarySection = `## Previous Tool Usage\n\nEarlier in this conversation, you executed the following tools (results omitted for brevity):\n\n${toolSummaries.join("\n")}`;
 			contextParts.push(toolSummarySection);
 		}
 		if (notesContent) {
@@ -191,13 +189,18 @@ export class AgentRunner {
 			role: "user",
 			content: userMessageContent,
 		};
-		this.conversationHistory.push(userMsg);
+		conversationHistory.push(userMsg);
 
 		// Create assistant turn (also hidden if this is a nudge)
-		const assistantTurn = await this.createTurn("assistant", isNudge);
+		const assistantTurn = await this.createTurn("assistant", isNudge, turnIndex++);
 
 		try {
-			await this.streamLLMResponse(assistantTurn, agentConfig, options);
+			await this.streamLLMResponse(
+				assistantTurn,
+				agentConfig,
+				options,
+				conversationHistory,
+			);
 			await this.completeTurn(assistantTurn.id);
 			log.agent.success(`Agent turn ${assistantTurn.id} completed`);
 
@@ -306,20 +309,20 @@ export class AgentRunner {
 	 * 2. The type gymnastics between Zod's JsonValue and AI SDK's JSONValue are painful
 	 * 3. This is read-path only - write-path still validates
 	 *
-	 * @returns Context to inject into the current user message
+	 * @returns Messages array, tool summaries for older tools, and next turn index
 	 */
 	private async loadConversationHistory(): Promise<{
+		messages: ModelMessage[];
 		toolSummaries: string[];
+		nextTurnIndex: number;
 	}> {
 		const repo = this.config.conversationRepo;
+		const messages: ModelMessage[] = [];
 
 		// Get all completed turns for this session via repository
 		const { turns, nextTurnIndex } = await repo.loadSessionContext(
 			this.session.id,
 		);
-
-		// Update turn index to continue from where we left off
-		this.turnIndex = nextTurnIndex;
 
 		// First pass: collect all tools to determine which are "recent"
 		// We trust the JSON since we validated on write - no need for Zod overhead here
@@ -367,16 +370,16 @@ export class AgentRunner {
 		// Second pass: build conversation history
 		for (const turn of turns) {
 			// Get messages for this turn via repository
-			const messages = await repo.getMessages(turn.id);
+			const turnMessages = await repo.getMessages(turn.id);
 
 			if (turn.role === "user") {
 				// User turns are simple text
-				const content = messages.map((m) => m.content).join("\n");
+				const content = turnMessages.map((m) => m.content).join("\n");
 				const userMsg: UserModelMessage = {
 					role: "user",
 					content,
 				};
-				this.conversationHistory.push(userMsg);
+				messages.push(userMsg);
 			} else {
 				// Get ALL tools for this turn first (for debugging)
 				const allTurnTools = allTools.filter((t) => t.turnId === turn.id);
@@ -403,7 +406,7 @@ export class AgentRunner {
 				const toolResultParts: ToolResultPart[] = [];
 
 				// Add all text segments first (in order)
-				for (const msg of messages) {
+				for (const msg of turnMessages) {
 					assistantParts.push({ type: "text", text: msg.content });
 				}
 
@@ -463,7 +466,7 @@ export class AgentRunner {
 						role: "assistant",
 						content: assistantParts,
 					};
-					this.conversationHistory.push(assistantMsg);
+					messages.push(assistantMsg);
 
 					// Add tool results in a separate message (required by Anthropic API)
 					if (toolResultParts.length > 0) {
@@ -471,17 +474,17 @@ export class AgentRunner {
 							role: "tool",
 							content: toolResultParts,
 						};
-						this.conversationHistory.push(toolMsg);
+						messages.push(toolMsg);
 					}
 				}
 			}
 		}
 
 		log.agent.debug(
-			`loadConversationHistory complete: ${this.conversationHistory.length} messages built`,
+			`loadConversationHistory complete: ${messages.length} messages built`,
 		);
 
-		return { toolSummaries: olderToolSummaries };
+		return { messages, toolSummaries: olderToolSummaries, nextTurnIndex };
 	}
 
 	/**
@@ -589,6 +592,7 @@ export class AgentRunner {
 		turn: Turn,
 		agentConfig: ReturnType<typeof getAgentConfig>,
 		options: RunOptions,
+		conversationHistory: ModelMessage[],
 	): Promise<void> {
 		// Get the model for this agent's scenario
 		const model = await getModelForScenario(agentConfig.role);
@@ -614,9 +618,9 @@ export class AgentRunner {
 
 		// Log conversation history structure before API call
 		log.agent.debug(
-			`Sending ${this.conversationHistory.length} messages to LLM:`,
+			`Sending ${conversationHistory.length} messages to LLM:`,
 		);
-		for (const [i, msg] of this.conversationHistory.entries()) {
+		for (const [i, msg] of conversationHistory.entries()) {
 			if (msg.role === "user") {
 				const content =
 					typeof msg.content === "string"
@@ -644,7 +648,7 @@ export class AgentRunner {
 		const result = streamText({
 			model,
 			system: agentConfig.systemPrompt,
-			messages: this.conversationHistory,
+			messages: conversationHistory,
 			tools,
 			stopWhen: stepCountIs(MAX_TOOL_STEPS),
 			abortSignal: signal,
@@ -810,37 +814,6 @@ export class AgentRunner {
 			await this.saveThought(turn.id, 0, thoughtBuffer);
 		}
 
-		// Add assistant response to conversation history for context
-		// Build interleaved content: text segments and tool calls ordered by their indices
-		const assistantParts: AssistantModelMessage["content"] = [];
-
-		// Convert tool calls to array with their indices for interleaving
-		const toolCallsArray = Array.from(activeToolCalls.values());
-
-		// Simple approach: add all text segments first, then all tool calls
-		// The LLM understands this pattern well
-		for (const segment of completedSegments) {
-			assistantParts.push({ type: "text", text: segment.content });
-		}
-
-		for (const toolCall of toolCallsArray) {
-			const toolCallPart: ToolCallPart = {
-				type: "tool-call",
-				toolCallId: toolCall.id,
-				toolName: toolCall.toolName,
-				input: toolCall.input,
-			};
-			assistantParts.push(toolCallPart);
-		}
-
-		if (assistantParts.length > 0) {
-			const assistantMsg: AssistantModelMessage = {
-				role: "assistant",
-				content: assistantParts,
-			};
-			this.conversationHistory.push(assistantMsg);
-		}
-
 		// Complete the turn with token count
 		await this.completeTurn(turn.id, tokenCount);
 	}
@@ -874,15 +847,15 @@ export class AgentRunner {
 
 	private async createTurn(
 		role: "user" | "assistant",
-		hidden = false,
+		hidden: boolean,
+		turnIndex: number,
 	): Promise<Turn> {
 		const repo = this.config.conversationRepo;
-		const index = this.turnIndex++;
 
 		// Use repository for DB operation
 		const turnData = await repo.createTurn({
 			sessionId: this.session.id,
-			turnIndex: index,
+			turnIndex,
 			role,
 			hidden,
 		});
@@ -890,7 +863,7 @@ export class AgentRunner {
 		const turn: Turn = {
 			id: turnData.id,
 			sessionId: this.session.id,
-			turnIndex: index,
+			turnIndex,
 			role,
 			status: "streaming",
 			hidden,
