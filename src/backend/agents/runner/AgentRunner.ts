@@ -181,6 +181,7 @@ export class AgentRunner {
 		const allTools: Array<{
 			id: string;
 			turnId: string;
+			toolIndex: number;
 			toolName: string;
 			reason: string | null;
 			inputJson: string;
@@ -194,12 +195,14 @@ export class AgentRunner {
 					.selectAll()
 					.where("turn_id", "=", turn.id)
 					.orderBy("tool_index", "asc")
+					.orderBy("started_at", "asc")
 					.execute();
 
 				for (const tool of tools) {
 					allTools.push({
 						id: tool.id,
 						turnId: turn.id,
+						toolIndex: tool.tool_index,
 						toolName: tool.tool_name,
 						reason: tool.reason,
 						inputJson: tool.input_json,
@@ -237,18 +240,14 @@ export class AgentRunner {
 				};
 				this.conversationHistory.push(userMsg);
 			} else {
-				// Get tools for this turn, filtering to only recent ones
-				const turnTools = allTools.filter(
-					(t) => t.turnId === turn.id && recentToolIds.has(t.id),
-				);
+				// Get ALL tools for this turn first (for debugging)
+				const allTurnTools = allTools.filter((t) => t.turnId === turn.id);
 
-				// Get the actual tool data with indices for interleaving
-				const toolsWithIndex = await this.config.db
-					.selectFrom("turn_tools")
-					.selectAll()
-					.where("turn_id", "=", turn.id)
-					.orderBy("tool_index", "asc")
-					.execute();
+				// Get tools for this turn, filtering to only recent ones WITH output
+				// (tools without output can't be included since Anthropic requires tool_result for every tool_use)
+				const turnTools = allTurnTools.filter(
+					(t) => recentToolIds.has(t.id) && t.outputJson !== null,
+				);
 
 				// Build a map of tool_index -> tool data array (multiple tools can share an index)
 				const recentToolsByIndex = new Map<
@@ -256,12 +255,9 @@ export class AgentRunner {
 					Array<(typeof turnTools)[0]>
 				>();
 				for (const tool of turnTools) {
-					const fullTool = toolsWithIndex.find((t) => t.id === tool.id);
-					if (fullTool) {
-						const existing = recentToolsByIndex.get(fullTool.tool_index) ?? [];
-						existing.push(tool);
-						recentToolsByIndex.set(fullTool.tool_index, existing);
-					}
+					const existing = recentToolsByIndex.get(tool.toolIndex) ?? [];
+					existing.push(tool);
+					recentToolsByIndex.set(tool.toolIndex, existing);
 				}
 
 				// Assistant turns may have text segments interleaved with tool calls
@@ -269,12 +265,13 @@ export class AgentRunner {
 				const assistantParts: AssistantModelMessage["content"] = [];
 
 				// Build interleaved content
-				const maxIndex = Math.max(
-					messages.length - 1,
-					toolsWithIndex.length > 0
-						? (toolsWithIndex[toolsWithIndex.length - 1]?.tool_index ?? -1)
-						: -1,
-				);
+				const maxToolIndex = turnTools.length > 0
+					? Math.max(...turnTools.map((t) => t.toolIndex))
+					: -1;
+				const maxIndex = Math.max(messages.length - 1, maxToolIndex);
+
+				// Collect tool results for the separate tool message
+				const toolResultParts: ToolResultPart[] = [];
 
 				for (let i = 0; i <= maxIndex; i++) {
 					// Add text segment at this index if it exists
@@ -283,44 +280,64 @@ export class AgentRunner {
 						assistantParts.push({ type: "text", text: segment.content });
 					}
 
-					// Add ALL tool calls at this index (tools are pre-ordered by started_at)
+					// Add tool calls at this index (tools are pre-ordered by started_at)
 					const toolsAtIndex = recentToolsByIndex.get(i) ?? [];
 					for (const tool of toolsAtIndex) {
-						const toolCallPart: ToolCallPart = {
+						// Add tool call to assistant message
+						assistantParts.push({
 							type: "tool-call",
 							toolCallId: tool.id,
 							toolName: tool.toolName,
 							input: JSON.parse(tool.inputJson),
-						};
-						assistantParts.push(toolCallPart);
+						} satisfies ToolCallPart);
+
+						// Collect tool result for separate message
+						const toolOutput = JSON.parse(tool.outputJson as string);
+						toolResultParts.push({
+							type: "tool-result",
+							toolCallId: tool.id,
+							toolName: tool.toolName,
+							output: {
+								type: typeof toolOutput === "object" ? "json" : "text",
+								value: toolOutput,
+							},
+						} satisfies ToolResultPart);
 					}
 				}
 
 				if (assistantParts.length > 0) {
+					// Count tool calls in assistant parts
+					const toolCallCount = assistantParts.filter(
+						(p) => p.type === "tool-call",
+					).length;
+					const toolCallIds = assistantParts
+						.filter((p) => p.type === "tool-call")
+						.map((p) => (p as ToolCallPart).toolCallId);
+					const toolResultIds = toolResultParts.map((p) => p.toolCallId);
+
+					log.agent.debug(
+						`Turn ${turn.turn_index}: ${toolCallCount} tool calls, ${toolResultParts.length} tool results`,
+					);
+					if (toolCallCount !== toolResultParts.length) {
+						log.agent.error(
+							`MISMATCH! Tool call IDs: ${toolCallIds.join(", ")}`,
+						);
+						log.agent.error(`Tool result IDs: ${toolResultIds.join(", ")}`);
+					}
+
 					const assistantMsg: AssistantModelMessage = {
 						role: "assistant",
 						content: assistantParts,
 					};
 					this.conversationHistory.push(assistantMsg);
 
-					// Add tool results only for recent tools (in order)
-					for (const tool of turnTools) {
-						if (tool.outputJson) {
-							const toolResultPart: ToolResultPart = {
-								type: "tool-result",
-								toolCallId: tool.id,
-								toolName: tool.toolName,
-								output: {
-									type: "json",
-									value: JSON.parse(tool.outputJson),
-								},
-							};
-							const toolMsg: ToolModelMessage = {
-								role: "tool",
-								content: [toolResultPart],
-							};
-							this.conversationHistory.push(toolMsg);
-						}
+					// Add tool results in a separate message (required by Anthropic API)
+					if (toolResultParts.length > 0) {
+						const toolMsg: ToolModelMessage = {
+							role: "tool",
+							content: toolResultParts,
+						};
+						this.conversationHistory.push(toolMsg);
 					}
 				}
 			}
