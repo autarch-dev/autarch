@@ -47,6 +47,14 @@ const STAGE_TO_AGENT: Record<WorkflowStatus, ModelScenario> = {
 	done: "basic", // No agent needed for done state
 };
 
+/** Maps tool names to artifact types for the pending_artifact_type column */
+const TOOL_TO_ARTIFACT_TYPE: Record<string, ArtifactType> = {
+	submit_scope: "scope_card",
+	submit_research: "research",
+	submit_plan: "plan",
+	complete_review: "review",
+};
+
 // =============================================================================
 // WorkflowOrchestrator
 // =============================================================================
@@ -158,14 +166,24 @@ export class WorkflowOrchestrator {
 		toolName: string,
 		artifactId: string,
 	): Promise<StageTransitionResult> {
+		log.workflow.info(
+			`handleToolResult: workflowId=${workflowId}, toolName=${toolName}, artifactId=${artifactId}`,
+		);
+
 		// Check if this is an approval-required tool
 		const approvalTargetStage = APPROVAL_REQUIRED_TOOLS[toolName];
 		if (approvalTargetStage) {
-			return this.setAwaitingApproval(
-				workflowId,
-				toolName as ArtifactType,
-				artifactId,
+			const artifactType = TOOL_TO_ARTIFACT_TYPE[toolName];
+			if (!artifactType) {
+				log.workflow.error(
+					`No artifact type mapping for tool ${toolName}`,
+				);
+				return { transitioned: false, awaitingApproval: false };
+			}
+			log.workflow.info(
+				`Tool ${toolName} requires approval, setting awaiting approval with artifactType=${artifactType}`,
 			);
+			return this.setAwaitingApproval(workflowId, artifactType, artifactId);
 		}
 
 		// Check if this is an auto-transition tool
@@ -202,6 +220,9 @@ export class WorkflowOrchestrator {
 			.execute();
 
 		// Broadcast approval needed event
+		log.workflow.info(
+			`Broadcasting workflow:approval_needed for ${workflowId}, artifactType=${artifactType}, artifactId=${artifactId}`,
+		);
 		broadcast(
 			createWorkflowApprovalNeededEvent({
 				workflowId,

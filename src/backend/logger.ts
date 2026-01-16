@@ -41,4 +41,7 @@ export const log = {
 
 	/** Embedding indexer and file watcher */
 	embedding: createLogger("embedding"),
+
+	/** Workflow orchestration */
+	workflow: createLogger("workflow"),
 };
