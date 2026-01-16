@@ -410,6 +410,37 @@ export class WorkflowOrchestrator {
 			}),
 		);
 
+		// Start the new agent with an appropriate initial message
+		const initialMessage = await this.buildInitialMessage(
+			workflowId,
+			previousStage,
+			newStage,
+		);
+
+		if (initialMessage) {
+			const projectRoot = findRepoRoot(process.cwd());
+			const runner = new AgentRunner(session, {
+				projectRoot,
+				db: this.db,
+			});
+
+			log.workflow.info(
+				`Starting ${agentRole} agent for workflow ${workflowId}`,
+			);
+
+			// Run in background (non-blocking)
+			runner.run(initialMessage).catch((error) => {
+				log.workflow.error(
+					`Agent run failed for ${agentRole} in workflow ${workflowId}:`,
+					error,
+				);
+				this.errorWorkflow(
+					workflowId,
+					error instanceof Error ? error.message : "Unknown error",
+				);
+			});
+		}
+
 		return {
 			transitioned: true,
 			newStage,
@@ -438,6 +469,120 @@ export class WorkflowOrchestrator {
 	// ===========================================================================
 	// Helpers
 	// ===========================================================================
+
+	/**
+	 * Build the initial message for a new stage's agent based on the approved artifact
+	 */
+	private async buildInitialMessage(
+		workflowId: string,
+		previousStage: WorkflowStatus,
+		newStage: WorkflowStatus,
+	): Promise<string | null> {
+		// Scoping -> Research: send the approved scope card
+		if (previousStage === "scoping" && newStage === "researching") {
+			const scopeCard = await this.db
+				.selectFrom("scope_cards")
+				.selectAll()
+				.where("workflow_id", "=", workflowId)
+				.orderBy("created_at", "desc")
+				.executeTakeFirst();
+
+			if (!scopeCard) {
+				log.workflow.error(
+					`No scope card found for workflow ${workflowId} when transitioning to research`,
+				);
+				return null;
+			}
+
+			const inScope = JSON.parse(scopeCard.in_scope_json) as string[];
+			const outOfScope = JSON.parse(scopeCard.out_of_scope_json) as string[];
+			const constraints = scopeCard.constraints_json
+				? (JSON.parse(scopeCard.constraints_json) as string[])
+				: [];
+
+			let message = `## Approved Scope Card
+
+The following scope has been approved for this task. Please begin your research phase.
+
+### Title
+${scopeCard.title}
+
+### Description
+${scopeCard.description}
+
+### In Scope
+${inScope.map((item) => `- ${item}`).join("\n")}
+
+### Out of Scope
+${outOfScope.map((item) => `- ${item}`).join("\n")}`;
+
+			if (constraints.length > 0) {
+				message += `\n\n### Constraints\n${constraints.map((item) => `- ${item}`).join("\n")}`;
+			}
+
+			if (scopeCard.rationale) {
+				message += `\n\n### Rationale\n${scopeCard.rationale}`;
+			}
+
+			message +=
+				"\n\nPlease analyze the codebase to understand the relevant architecture, patterns, and integration points needed to implement this scope.";
+
+			return message;
+		}
+
+		// Research -> Planning: send the approved research findings
+		if (previousStage === "researching" && newStage === "planning") {
+			const researchCard = await this.db
+				.selectFrom("research_cards")
+				.selectAll()
+				.where("workflow_id", "=", workflowId)
+				.orderBy("created_at", "desc")
+				.executeTakeFirst();
+
+			if (!researchCard) {
+				log.workflow.error(
+					`No research card found for workflow ${workflowId} when transitioning to planning`,
+				);
+				return null;
+			}
+
+			const keyFiles = JSON.parse(researchCard.key_files_json) as Array<{
+				path: string;
+				reason: string;
+			}>;
+			const recommendations = JSON.parse(
+				researchCard.recommendations_json,
+			) as string[];
+
+			let message = `## Approved Research Findings
+
+The following research has been approved. Please create a detailed implementation plan.
+
+### Summary
+${researchCard.summary}
+
+### Key Files
+${keyFiles.map((f) => `- \`${f.path}\`: ${f.reason}`).join("\n")}
+
+### Recommendations
+${recommendations.map((r) => `- ${r}`).join("\n")}`;
+
+			if (researchCard.patterns_json) {
+				const patterns = JSON.parse(researchCard.patterns_json) as string[];
+				message += `\n\n### Patterns Identified\n${patterns.map((p) => `- ${p}`).join("\n")}`;
+			}
+
+			if (researchCard.challenges_json) {
+				const challenges = JSON.parse(researchCard.challenges_json) as string[];
+				message += `\n\n### Potential Challenges\n${challenges.map((c) => `- ${c}`).join("\n")}`;
+			}
+
+			return message;
+		}
+
+		// For other transitions, return null (no automatic message)
+		return null;
+	}
 
 	/**
 	 * Get agent role for a workflow stage
