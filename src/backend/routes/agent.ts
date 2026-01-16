@@ -18,6 +18,7 @@ import {
 	createQuestionsAnsweredEvent,
 } from "@/shared/schemas/events";
 import type { AnswerQuestionsResponse } from "@/shared/schemas/questions";
+import type { ScopeCard, WorkflowHistoryResponse } from "@/shared/schemas/workflow";
 import {
 	AgentRunner,
 	getSessionManager,
@@ -86,6 +87,40 @@ function parseParams<T extends z.ZodTypeAny>(
 		return null;
 	}
 	return result.data;
+}
+
+/**
+ * Fetch the most recent scope card for a workflow
+ */
+async function fetchPendingScopeCard(
+	db: Awaited<ReturnType<typeof getProjectDb>>,
+	workflowId: string,
+): Promise<ScopeCard | undefined> {
+	const scopeCard = await db
+		.selectFrom("scope_cards")
+		.selectAll()
+		.where("workflow_id", "=", workflowId)
+		.orderBy("created_at", "desc")
+		.executeTakeFirst();
+
+	if (!scopeCard) {
+		return undefined;
+	}
+
+	return {
+		id: scopeCard.id,
+		workflowId: scopeCard.workflow_id,
+		title: scopeCard.title,
+		description: scopeCard.description,
+		inScope: JSON.parse(scopeCard.in_scope_json),
+		outOfScope: JSON.parse(scopeCard.out_of_scope_json),
+		constraints: scopeCard.constraints_json
+			? JSON.parse(scopeCard.constraints_json)
+			: undefined,
+		recommendedPath: scopeCard.recommended_path,
+		rationale: scopeCard.rationale ?? undefined,
+		createdAt: scopeCard.created_at,
+	} satisfies ScopeCard;
 }
 
 // =============================================================================
@@ -232,6 +267,206 @@ export const agentRoutes = {
 				return Response.json({ success: true });
 			} catch (error) {
 				log.api.error("Failed to request changes:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/workflows/:id/history": {
+		async GET(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			const workflowId = params.id;
+			try {
+				const projectRoot = findRepoRoot(process.cwd());
+				const db = await getProjectDb(projectRoot);
+				const orchestrator = getWorkflowOrchestrator();
+
+				// Get the workflow
+				const workflow = await orchestrator.getWorkflow(workflowId);
+				if (!workflow) {
+					return Response.json(
+						{ error: "Workflow not found" },
+						{ status: 404 },
+					);
+				}
+
+				// Get all sessions for this workflow
+				const sessions = await db
+					.selectFrom("sessions")
+					.selectAll()
+					.where("context_type", "=", "workflow")
+					.where("context_id", "=", workflowId)
+					.orderBy("created_at", "asc")
+					.execute();
+
+				// Find the most recent active session
+				const activeSession = sessions.find((s) => s.status === "active");
+
+				// Build messages from all sessions
+				const messages: ChannelMessage[] = [];
+
+				for (const session of sessions) {
+					// Get turns for this session
+					const turns = await db
+						.selectFrom("turns")
+						.selectAll()
+						.where("session_id", "=", session.id)
+						.orderBy("turn_index", "asc")
+						.execute();
+
+					for (const turn of turns) {
+						// Get messages for this turn
+						const turnMessages = await db
+							.selectFrom("turn_messages")
+							.selectAll()
+							.where("turn_id", "=", turn.id)
+							.orderBy("message_index", "asc")
+							.execute();
+
+						// Get tool calls for this turn
+						// Order by tool_index (segment position), then started_at (order within segment)
+						const toolCalls = await db
+							.selectFrom("turn_tools")
+							.selectAll()
+							.where("turn_id", "=", turn.id)
+							.orderBy("tool_index", "asc")
+							.orderBy("started_at", "asc")
+							.execute();
+
+						// Get thoughts for this turn
+						const thoughts = await db
+							.selectFrom("turn_thoughts")
+							.selectAll()
+							.where("turn_id", "=", turn.id)
+							.orderBy("thought_index", "asc")
+							.execute();
+
+						// Get questions for this turn
+						const questions = await db
+							.selectFrom("questions")
+							.selectAll()
+							.where("turn_id", "=", turn.id)
+							.orderBy("question_index", "asc")
+							.execute();
+
+						// Build segments array from turn messages (ordered by message_index)
+						const segments = turnMessages.map((m) => ({
+							index: m.message_index,
+							content: m.content,
+						}));
+
+						// Only include turns that have content, tools, or questions
+						const hasContent = segments.some((s) => s.content.length > 0);
+						if (hasContent || toolCalls.length > 0 || questions.length > 0) {
+							const message: ChannelMessage = {
+								id: turn.id,
+								turnId: turn.id,
+								role: turn.role as "user" | "assistant",
+								segments,
+								timestamp: turn.created_at,
+								toolCalls:
+									toolCalls.length > 0
+										? toolCalls.map((tc) => ({
+												id: tc.id,
+												index: tc.tool_index,
+												name: tc.tool_name,
+												input: JSON.parse(tc.input_json),
+												output: tc.output_json
+													? JSON.parse(tc.output_json)
+													: undefined,
+												status: tc.status as "running" | "completed" | "error",
+											}))
+										: undefined,
+								thought:
+									thoughts.length > 0
+										? thoughts.map((t) => t.content).join("\n")
+										: undefined,
+								questions:
+									questions.length > 0
+										? questions.map((q) => ({
+												id: q.id,
+												questionIndex: q.question_index,
+												type: q.type as
+													| "single_select"
+													| "multi_select"
+													| "ranked"
+													| "free_text",
+												prompt: q.prompt,
+												options: q.options_json
+													? JSON.parse(q.options_json)
+													: undefined,
+												answer: q.answer_json
+													? JSON.parse(q.answer_json)
+													: undefined,
+												status: q.status as "pending" | "answered",
+											}))
+										: undefined,
+							};
+
+							messages.push(message);
+						}
+					}
+				}
+
+				// Get pending scope card if workflow is awaiting approval
+				const pendingScopeCard =
+					workflow.awaitingApproval &&
+					workflow.pendingArtifactType === "scope_card"
+						? await fetchPendingScopeCard(db, workflowId)
+						: undefined;
+
+				const response = {
+					workflow,
+					sessionId: activeSession?.id,
+					sessionStatus: activeSession?.status as
+						| "active"
+						| "completed"
+						| "error"
+						| undefined,
+					messages,
+					pendingScopeCard,
+				} satisfies WorkflowHistoryResponse;
+
+				return Response.json(response);
+			} catch (error) {
+				log.api.error("Failed to get workflow history:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/workflows/:id/scope-card": {
+		async GET(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			const workflowId = params.id;
+			try {
+				const projectRoot = findRepoRoot(process.cwd());
+				const db = await getProjectDb(projectRoot);
+
+				const scopeCard = await fetchPendingScopeCard(db, workflowId);
+
+				if (!scopeCard) {
+					return Response.json(
+						{ error: "Scope card not found" },
+						{ status: 404 },
+					);
+				}
+
+				return Response.json(scopeCard);
+			} catch (error) {
+				log.api.error("Failed to get scope card:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },
@@ -528,11 +763,13 @@ export const agentRoutes = {
 							.execute();
 
 						// Get tool calls for this turn
+						// Order by tool_index (segment position), then started_at (order within segment)
 						const toolCalls = await db
 							.selectFrom("turn_tools")
 							.selectAll()
 							.where("turn_id", "=", turn.id)
 							.orderBy("tool_index", "asc")
+							.orderBy("started_at", "asc")
 							.execute();
 
 						// Get thoughts for this turn
@@ -570,6 +807,7 @@ export const agentRoutes = {
 									toolCalls.length > 0
 										? toolCalls.map((tc) => ({
 												id: tc.id,
+												index: tc.tool_index,
 												name: tc.tool_name,
 												input: JSON.parse(tc.input_json),
 												output: tc.output_json

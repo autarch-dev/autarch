@@ -1,7 +1,7 @@
 import { serve } from "bun";
 import open from "open";
 import index from "../index.html";
-import { initSessionManager } from "./agents/runner";
+import { initSessionManager, initWorkflowOrchestrator } from "./agents/runner";
 import { getProjectDb } from "./db/project";
 import { findRepoRoot } from "./git";
 import { log } from "./logger";
@@ -63,10 +63,11 @@ try {
 	process.exit(1);
 }
 
-// Initialize agent system (SessionManager needs the database)
+// Initialize agent system (SessionManager and WorkflowOrchestrator need the database)
 (async () => {
 	const db = await getProjectDb(projectRoot);
-	initSessionManager(db);
+	const sessionManager = initSessionManager(db);
+	initWorkflowOrchestrator(sessionManager, db);
 	log.server.success("Agent system initialized");
 })();
 

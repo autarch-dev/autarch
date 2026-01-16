@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { useDiscussionsStore } from "@/features/dashboard/store";
+import { useDiscussionsStore, useWorkflowsStore } from "@/features/dashboard/store";
 import {
 	type IndexingProgressPayload,
 	type SessionStartedPayload,
@@ -11,11 +11,7 @@ import {
 	type TurnToolStartedPayload,
 	type WebSocketEvent,
 	WebSocketEventSchema,
-	type WorkflowApprovalNeededPayload,
-	type WorkflowCreatedPayload,
-	type WorkflowStageChangedPayload,
 } from "@/shared/schemas/events";
-import type { WorkflowStatus } from "@/shared/schemas/workflow";
 
 // =============================================================================
 // Types
@@ -53,17 +49,6 @@ export interface SessionState {
 	error?: string;
 }
 
-/** State of a workflow */
-export interface WorkflowState {
-	id: string;
-	title: string;
-	status: WorkflowStatus;
-	awaitingApproval: boolean;
-	pendingArtifactType?: string;
-	pendingArtifactId?: string;
-	currentSessionId?: string;
-}
-
 // =============================================================================
 // Store State
 // =============================================================================
@@ -76,17 +61,12 @@ interface WebSocketState {
 	// Indexing state
 	indexingProgress: IndexingProgressPayload | null;
 
-	// Agent system state
-	workflows: Map<string, WorkflowState>;
+	// Session tracking for streaming UI
 	sessions: Map<string, SessionState>;
 
 	// Actions
 	connect: () => void;
 	disconnect: () => void;
-
-	// Workflow actions
-	getWorkflow: (workflowId: string) => WorkflowState | undefined;
-	getWorkflowsArray: () => WorkflowState[];
 
 	// Session actions
 	getSession: (sessionId: string) => SessionState | undefined;
@@ -111,7 +91,6 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 	connected: false,
 	error: null,
 	indexingProgress: null,
-	workflows: new Map(),
 	sessions: new Map(),
 
 	// Connection actions
@@ -166,15 +145,6 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 		set({ connected: false });
 	},
 
-	// Workflow getters
-	getWorkflow: (workflowId: string) => {
-		return get().workflows.get(workflowId);
-	},
-
-	getWorkflowsArray: () => {
-		return Array.from(get().workflows.values());
-	},
-
 	// Session getters
 	getSession: (sessionId: string) => {
 		return get().sessions.get(sessionId);
@@ -212,41 +182,32 @@ function handleEvent(
 	// This handles channel events and session/turn events for channels
 	useDiscussionsStore.getState().handleWebSocketEvent(event);
 
+	// Forward relevant events to the workflows store
+	// This handles workflow events and session/turn events for workflows
+	useWorkflowsStore.getState().handleWebSocketEvent(event);
+
 	switch (event.type) {
 		// Indexing events
 		case "indexing:progress":
 			set({ indexingProgress: event.payload });
 			break;
 
-		// Workflow events
+		// Workflow events - handled by workflowsStore via forwarding above
 		case "workflow:created":
-			handleWorkflowCreated(event.payload, set, get);
-			break;
 		case "workflow:approval_needed":
-			handleWorkflowApprovalNeeded(event.payload, set, get);
-			break;
 		case "workflow:stage_changed":
-			handleWorkflowStageChanged(event.payload, set, get);
-			break;
 		case "workflow:completed":
-			handleWorkflowCompleted(event.payload.workflowId, set, get);
-			break;
 		case "workflow:error":
-			handleWorkflowError(
-				event.payload.workflowId,
-				event.payload.error,
-				set,
-				get,
-			);
+			// Handled by workflowsStore
 			break;
 
-		// Channel events (handled by discussionsStore, but can be extended here)
+		// Channel events - handled by discussionsStore via forwarding above
 		case "channel:created":
 		case "channel:deleted":
 			// Handled by discussionsStore
 			break;
 
-		// Session events
+		// Session events - update local tracking for streaming UI
 		case "session:started":
 			handleSessionStarted(event.payload, set, get);
 			break;
@@ -286,108 +247,6 @@ function handleEvent(
 			handleToolCompleted(event.payload, set, get);
 			break;
 	}
-}
-
-// =============================================================================
-// Workflow Handlers
-// =============================================================================
-
-function handleWorkflowCreated(
-	payload: WorkflowCreatedPayload,
-	set: (fn: (state: WebSocketState) => Partial<WebSocketState>) => void,
-	_get: () => WebSocketState,
-): void {
-	set((state) => {
-		const workflows = new Map(state.workflows);
-		workflows.set(payload.workflowId, {
-			id: payload.workflowId,
-			title: payload.title,
-			status: payload.status,
-			awaitingApproval: false,
-		});
-		return { workflows };
-	});
-}
-
-function handleWorkflowApprovalNeeded(
-	payload: WorkflowApprovalNeededPayload,
-	set: (fn: (state: WebSocketState) => Partial<WebSocketState>) => void,
-	_get: () => WebSocketState,
-): void {
-	set((state) => {
-		const workflows = new Map(state.workflows);
-		const workflow = workflows.get(payload.workflowId);
-		if (workflow) {
-			workflows.set(payload.workflowId, {
-				...workflow,
-				awaitingApproval: true,
-				pendingArtifactType: payload.artifactType,
-				pendingArtifactId: payload.artifactId,
-			});
-		}
-		return { workflows };
-	});
-}
-
-function handleWorkflowStageChanged(
-	payload: WorkflowStageChangedPayload,
-	set: (fn: (state: WebSocketState) => Partial<WebSocketState>) => void,
-	_get: () => WebSocketState,
-): void {
-	set((state) => {
-		const workflows = new Map(state.workflows);
-		const workflow = workflows.get(payload.workflowId);
-		if (workflow) {
-			workflows.set(payload.workflowId, {
-				...workflow,
-				status: payload.newStage,
-				awaitingApproval: false,
-				pendingArtifactType: undefined,
-				pendingArtifactId: undefined,
-				currentSessionId: payload.sessionId,
-			});
-		}
-		return { workflows };
-	});
-}
-
-function handleWorkflowCompleted(
-	workflowId: string,
-	set: (fn: (state: WebSocketState) => Partial<WebSocketState>) => void,
-	_get: () => WebSocketState,
-): void {
-	set((state) => {
-		const workflows = new Map(state.workflows);
-		const workflow = workflows.get(workflowId);
-		if (workflow) {
-			workflows.set(workflowId, {
-				...workflow,
-				status: "done",
-				awaitingApproval: false,
-				currentSessionId: undefined,
-			});
-		}
-		return { workflows };
-	});
-}
-
-function handleWorkflowError(
-	workflowId: string,
-	_error: string,
-	set: (fn: (state: WebSocketState) => Partial<WebSocketState>) => void,
-	_get: () => WebSocketState,
-): void {
-	set((state) => {
-		const workflows = new Map(state.workflows);
-		const workflow = workflows.get(workflowId);
-		if (workflow) {
-			workflows.set(workflowId, {
-				...workflow,
-				awaitingApproval: false,
-			});
-		}
-		return { workflows };
-	});
 }
 
 // =============================================================================

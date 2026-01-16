@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ChannelMessageSchema } from "./channel";
 
 // =============================================================================
 // Workflow Status and Priority
@@ -178,3 +179,25 @@ export function getNextStage(
 ): WorkflowStatus | null {
 	return STAGE_TRANSITIONS[currentStage];
 }
+
+// =============================================================================
+// Workflow History Response
+// =============================================================================
+
+/**
+ * Schema for workflow history response (used for page reload hydration)
+ */
+export const WorkflowHistoryResponseSchema = z.object({
+	workflow: WorkflowSchema,
+	/** Active session ID if there's an ongoing conversation */
+	sessionId: z.string().optional(),
+	/** Session status */
+	sessionStatus: z.enum(["active", "completed", "error"]).optional(),
+	/** Messages in the workflow conversation */
+	messages: z.array(ChannelMessageSchema),
+	/** Pending scope card awaiting approval */
+	pendingScopeCard: ScopeCardSchema.optional(),
+});
+export type WorkflowHistoryResponse = z.infer<
+	typeof WorkflowHistoryResponseSchema
+>;

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import type { Workflow } from "../../types";
+import type { Workflow } from "@/shared/schemas/workflow";
 import { priorityConfig, statusConfig } from "./config";
 import { PhaseIndicator } from "./PhaseIndicator";
 

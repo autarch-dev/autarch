@@ -7,7 +7,7 @@ import {
 	Search,
 	Target,
 } from "lucide-react";
-import type { WorkflowStatus } from "../../types";
+import type { WorkflowStatus } from "@/shared/schemas/workflow";
 
 export const statusConfig = {
 	backlog: {

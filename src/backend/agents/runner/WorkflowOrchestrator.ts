@@ -10,6 +10,7 @@
 
 import type { Kysely } from "kysely";
 import type { ProjectDatabase } from "@/backend/db/project";
+import { findRepoRoot } from "@/backend/git";
 import { log } from "@/backend/logger";
 import { broadcast } from "@/backend/ws";
 import {
@@ -27,6 +28,7 @@ import {
 	STAGE_TRANSITIONS,
 	type Workflow,
 } from "@/shared/schemas/workflow";
+import { AgentRunner } from "./AgentRunner";
 import type { SessionManager } from "./SessionManager";
 import type { ArtifactType, StageTransitionResult } from "./types";
 
@@ -109,6 +111,23 @@ export class WorkflowOrchestrator {
 			.set({ current_session_id: session.id, updated_at: Date.now() })
 			.where("id", "=", workflowId)
 			.execute();
+
+		// Build the initial prompt from title and description
+		const initialPrompt = description
+			? `${title}\n\n${description}`
+			: title;
+
+		// Run the scoping agent with the initial prompt (non-blocking)
+		const projectRoot = findRepoRoot(process.cwd());
+		const runner = new AgentRunner(session, { projectRoot, db: this.db });
+
+		runner.run(initialPrompt).catch((error) => {
+			log.agent.error(`Scoping agent failed for workflow ${workflowId}:`, error);
+			this.sessionManager.errorSession(
+				session.id,
+				error instanceof Error ? error.message : "Unknown error",
+			);
+		});
 
 		return {
 			id: workflowId,

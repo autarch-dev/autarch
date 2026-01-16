@@ -23,6 +23,8 @@ import { QuestionBlock } from "./QuestionBlock";
 /** Common tool call structure used by both message types */
 export interface ToolCallInfo {
 	id: string;
+	/** Index for interleaving - tools with index N appear after segment N */
+	index: number;
 	name: string;
 	input: unknown;
 	output?: unknown;
@@ -65,14 +67,21 @@ export type MessageBubbleProps =
 
 /**
  * Build interleaved content items from segments and tools.
- * Pattern: segment[0] -> tool[0] -> segment[1] -> tool[1] -> ...
+ * Pattern: segment[N] -> all tools with index N -> segment[N+1] -> ...
+ *
+ * Tools store the segment index they appear AFTER, so multiple tools
+ * can share the same index (they all appear after the same segment).
  */
 function buildInterleavedContent(
 	segments: SegmentInfo[],
 	tools: ToolCallInfo[],
 ): InterleavedItem[] {
 	const items: InterleavedItem[] = [];
-	const maxIndex = Math.max(segments.length - 1, tools.length - 1);
+
+	// Find the max index across both segments and tools
+	const maxSegmentIndex = Math.max(-1, ...segments.map((s) => s.index));
+	const maxToolIndex = Math.max(-1, ...tools.map((t) => t.index));
+	const maxIndex = Math.max(maxSegmentIndex, maxToolIndex);
 
 	for (let i = 0; i <= maxIndex; i++) {
 		// Add segment at this index if it exists
@@ -81,9 +90,9 @@ function buildInterleavedContent(
 			items.push({ type: "segment", segment });
 		}
 
-		// Add tool at this index if it exists
-		const tool = tools[i];
-		if (tool) {
+		// Add ALL tools that appear after this segment (tools are pre-ordered)
+		const toolsAtIndex = tools.filter((t) => t.index === i);
+		for (const tool of toolsAtIndex) {
 			items.push({ type: "tool", tool });
 		}
 	}

@@ -11,7 +11,6 @@
 import type {
 	AssistantModelMessage,
 	ModelMessage,
-	SystemModelMessage,
 	ToolCallPart,
 	ToolModelMessage,
 	ToolResultPart,
@@ -92,7 +91,7 @@ export class AgentRunner {
 		);
 
 		// Load existing conversation history for this session
-		await this.loadConversationHistory();
+		const historyContext = await this.loadConversationHistory();
 		log.agent.debug(
 			`Loaded ${this.conversationHistory.length} messages from history`,
 		);
@@ -102,16 +101,28 @@ export class AgentRunner {
 		await this.saveMessage(userTurn.id, 0, userMessage);
 		await this.completeTurn(userTurn.id);
 
-		// Inject notes as a system message just before the user message
-		const notesMessage = await this.buildNotesSystemMessage();
-		if (notesMessage) {
-			this.conversationHistory.push(notesMessage);
+		// Build user message with optional context prefix
+		// Tool summaries and notes are injected into the user message to avoid
+		// multiple system messages (which some LLMs don't support)
+		const notesContent = await this.buildNotesContent();
+		const contextParts: string[] = [];
+
+		if (historyContext.toolSummaries.length > 0) {
+			const toolSummarySection = `## Previous Tool Usage\n\nEarlier in this conversation, you executed the following tools (results omitted for brevity):\n\n${historyContext.toolSummaries.join("\n")}`;
+			contextParts.push(toolSummarySection);
+		}
+		if (notesContent) {
+			contextParts.push(notesContent);
 		}
 
-		// Add user message to history (use simple string content)
+		const userMessageContent =
+			contextParts.length > 0
+				? `<system_note>\n${contextParts.join("\n\n")}\n</system_note>\n\n${userMessage}`
+				: userMessage;
+
 		const userMsg: UserModelMessage = {
 			role: "user",
-			content: userMessage,
+			content: userMessageContent,
 		};
 		this.conversationHistory.push(userMsg);
 
@@ -143,9 +154,12 @@ export class AgentRunner {
 	 * Load conversation history from the database for context.
 	 *
 	 * To manage context size, only the last N tools are included with full
-	 * call/result details. Older tools are summarized in a system message.
+	 * call/result details. Older tools are summarized and returned separately
+	 * to be injected into the current user message.
+	 *
+	 * @returns Context to inject into the current user message
 	 */
-	private async loadConversationHistory(): Promise<void> {
+	private async loadConversationHistory(): Promise<{ toolSummaries: string[] }> {
 		// Get all completed turns for this session
 		const turns = await this.config.db
 			.selectFrom("turns")
@@ -204,15 +218,6 @@ export class AgentRunner {
 		const olderTools = allTools.filter((t) => !recentToolIds.has(t.id));
 		const olderToolSummaries = this.buildToolSummaries(olderTools);
 
-		// Inject older tool summaries at the start of history (if any)
-		if (olderToolSummaries) {
-			const summaryMsg: SystemModelMessage = {
-				role: "system",
-				content: olderToolSummaries,
-			};
-			this.conversationHistory.push(summaryMsg);
-		}
-
 		// Second pass: build conversation history
 		for (const turn of turns) {
 			// Get messages for this turn
@@ -245,21 +250,25 @@ export class AgentRunner {
 					.orderBy("tool_index", "asc")
 					.execute();
 
-				// Build a map of tool_index -> tool data (only for recent tools)
-				const recentToolsByIndex = new Map<number, (typeof turnTools)[0]>();
+				// Build a map of tool_index -> tool data array (multiple tools can share an index)
+				const recentToolsByIndex = new Map<
+					number,
+					Array<(typeof turnTools)[0]>
+				>();
 				for (const tool of turnTools) {
 					const fullTool = toolsWithIndex.find((t) => t.id === tool.id);
 					if (fullTool) {
-						recentToolsByIndex.set(fullTool.tool_index, tool);
+						const existing = recentToolsByIndex.get(fullTool.tool_index) ?? [];
+						existing.push(tool);
+						recentToolsByIndex.set(fullTool.tool_index, existing);
 					}
 				}
 
 				// Assistant turns may have text segments interleaved with tool calls
-				// The pattern is: segment[0] -> tool[0] -> segment[1] -> tool[1] -> ...
+				// Pattern: segment[N] -> all tools with index N -> segment[N+1] -> ...
 				const assistantParts: AssistantModelMessage["content"] = [];
 
 				// Build interleaved content
-				// Each message segment at index N comes BEFORE tool at index N
 				const maxIndex = Math.max(
 					messages.length - 1,
 					toolsWithIndex.length > 0
@@ -274,9 +283,9 @@ export class AgentRunner {
 						assistantParts.push({ type: "text", text: segment.content });
 					}
 
-					// Add tool call at this index if it exists and is recent
-					const tool = recentToolsByIndex.get(i);
-					if (tool) {
+					// Add ALL tool calls at this index (tools are pre-ordered by started_at)
+					const toolsAtIndex = recentToolsByIndex.get(i) ?? [];
+					for (const tool of toolsAtIndex) {
 						const toolCallPart: ToolCallPart = {
 							type: "tool-call",
 							toolCallId: tool.id,
@@ -316,10 +325,13 @@ export class AgentRunner {
 				}
 			}
 		}
+
+		return { toolSummaries: olderToolSummaries };
 	}
 
 	/**
 	 * Build a summary of older tool calls for context preservation.
+	 * Returns an array of individual tool summaries.
 	 */
 	private buildToolSummaries(
 		tools: Array<{
@@ -327,20 +339,14 @@ export class AgentRunner {
 			reason: string | null;
 			inputJson: string;
 		}>,
-	): string | null {
-		if (tools.length === 0) {
-			return null;
-		}
-
-		const summaries = tools.map((tool) => {
+	): string[] {
+		return tools.map((tool) => {
 			const input = JSON.parse(tool.inputJson);
 			// Summarize input args - just show keys or truncated values
 			const inputSummary = this.summarizeToolInput(input);
 			const reasonPart = tool.reason ? ` for reason: "${tool.reason}"` : "";
 			return `- You ran \`${tool.toolName}\` with input ${inputSummary}${reasonPart}`;
 		});
-
-		return `## Previous Tool Usage\n\nEarlier in this conversation, you executed the following tools (results omitted for brevity):\n\n${summaries.join("\n")}`;
 	}
 
 	/**
@@ -375,13 +381,15 @@ export class AgentRunner {
 	}
 
 	/**
-	 * Build a system message containing notes for the current context.
+	 * Build a note content string for the current context.
 	 *
 	 * Notes have different scoping based on context:
 	 * - Channels: Notes persist across the entire channel lifetime (query by context_id)
 	 * - Workflows: Notes are ephemeral per stage (query by session_id)
+	 *
+	 * Returns null if no notes exist.
 	 */
-	private async buildNotesSystemMessage(): Promise<SystemModelMessage | null> {
+	private async buildNotesContent(): Promise<string | null> {
 		let notes: Array<{ content: string; created_at: number }>;
 
 		if (this.session.contextType === "channel") {
@@ -407,15 +415,12 @@ export class AgentRunner {
 			return null;
 		}
 
-		// Format notes as a system message
+		// Format notes
 		const formattedNotes = notes
 			.map((note, index) => `[Note ${index + 1}] ${note.content}`)
 			.join("\n\n");
 
-		return {
-			role: "system",
-			content: `## Your Notes\n\nYou have saved the following notes for yourself:\n\n${formattedNotes}`,
-		};
+		return `## Your Notes\n\nYou have saved the following notes for yourself:\n\n${formattedNotes}`;
 	}
 
 	// ===========================================================================
@@ -447,11 +452,11 @@ export class AgentRunner {
 
 		// Track state during streaming
 		// Segments: text is split into segments separated by tool calls
+		// Tools store the segment index they appear AFTER (for proper interleaving)
 		let currentSegmentBuffer = "";
 		let currentSegmentIndex = 0;
 		const completedSegments: Array<{ index: number; content: string }> = [];
 		let thoughtBuffer = "";
-		let toolIndex = 0;
 		const activeToolCalls = new Map<string, ToolCall>();
 
 		// Create the abort signal from session + options
@@ -539,9 +544,11 @@ export class AgentRunner {
 					// The tool-call type has toolCallId from BaseToolCall
 					const toolCallId = part.toolCallId;
 					log.tools.info(`Tool call: ${part.toolName}`);
+					// Use currentSegmentIndex as tool_index - this means the tool
+					// appears AFTER segment N (for proper interleaving)
 					const toolCall = await this.recordToolStart(
 						turn.id,
-						toolIndex++,
+						currentSegmentIndex,
 						toolCallId,
 						part.toolName,
 						part.input,
@@ -848,6 +855,7 @@ export class AgentRunner {
 				sessionId: this.session.id,
 				turnId,
 				toolId: toolCallId,
+				index: toolIndex,
 				name: toolName,
 				input,
 			}),

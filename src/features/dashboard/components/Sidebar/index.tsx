@@ -4,7 +4,8 @@ import {
 	SidebarSeparator,
 } from "@/components/ui/sidebar";
 import type { Channel } from "@/shared/schemas/channel";
-import type { ViewType, Workflow } from "../../types";
+import type { Workflow } from "@/shared/schemas/workflow";
+import type { ViewType } from "../../types";
 import { DiscussionsSection } from "./DiscussionsSection";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarHeader } from "./SidebarHeader";
@@ -18,6 +19,7 @@ interface AppSidebarProps {
 	onSelectChannel: (channelId: string) => void;
 	onSelectWorkflow: (workflowId: string) => void;
 	onCreateChannel: (name: string, description?: string) => Promise<void>;
+	onCreateWorkflow?: (title: string) => Promise<void>;
 }
 
 export function AppSidebar({
@@ -28,6 +30,7 @@ export function AppSidebar({
 	onSelectChannel,
 	onSelectWorkflow,
 	onCreateChannel,
+	onCreateWorkflow,
 }: AppSidebarProps) {
 	return (
 		<Sidebar collapsible="icon">
@@ -49,6 +52,7 @@ export function AppSidebar({
 					selectedView={selectedView}
 					selectedId={selectedId}
 					onSelectWorkflow={onSelectWorkflow}
+					onCreateWorkflow={onCreateWorkflow}
 				/>
 			</SidebarContent>
 

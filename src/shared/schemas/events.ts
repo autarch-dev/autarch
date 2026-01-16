@@ -304,6 +304,8 @@ export const TurnToolStartedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	toolId: z.string(),
+	/** Index for interleaving - tool appears after segment with this index */
+	index: z.number(),
 	name: z.string(),
 	input: z.unknown(),
 });

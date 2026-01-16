@@ -11,7 +11,8 @@ import {
 	SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import type { ViewType, Workflow } from "../../types";
+import type { Workflow } from "@/shared/schemas/workflow";
+import type { ViewType } from "../../types";
 import { CreateWorkflowDialog } from "./CreateWorkflowDialog";
 import { priorityBorders, statusColors } from "./constants";
 
@@ -20,7 +21,7 @@ interface WorkflowsSectionProps {
 	selectedView: ViewType;
 	selectedId: string | null;
 	onSelectWorkflow: (workflowId: string) => void;
-	onCreateWorkflow?: (prompt: string) => void;
+	onCreateWorkflow?: (title: string) => Promise<void>;
 }
 
 export function WorkflowsSection({
@@ -34,8 +35,8 @@ export function WorkflowsSection({
 	const activeWorkflows = workflows.filter((w) => w.status !== "done");
 	const completedWorkflows = workflows.filter((w) => w.status === "done");
 
-	const handleCreate = (prompt: string) => {
-		onCreateWorkflow?.(prompt);
+	const handleCreate = async (prompt: string) => {
+		await onCreateWorkflow?.(prompt);
 	};
 
 	return (

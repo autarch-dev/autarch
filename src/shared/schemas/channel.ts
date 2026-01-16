@@ -93,6 +93,8 @@ export const ChannelMessageSchema = z.object({
 		.array(
 			z.object({
 				id: z.string(),
+				/** Index for interleaving with text segments */
+				index: z.number(),
 				name: z.string(),
 				input: z.unknown(),
 				output: z.unknown().optional(),

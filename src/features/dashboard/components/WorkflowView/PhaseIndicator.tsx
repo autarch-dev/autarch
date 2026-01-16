@@ -5,7 +5,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { WorkflowStatus } from "../../types";
+import type { WorkflowStatus } from "@/shared/schemas/workflow";
 import { statusConfig, workflowPhases } from "./config";
 
 interface PhaseIndicatorProps {

@@ -1,20 +1,13 @@
 /**
- * Discussions Store
+ * Workflows Store
  *
- * Zustand store for managing discussion channels and their conversations.
- * Handles channel CRUD, message history, and real-time streaming updates.
+ * Zustand store for managing workflows and their conversations.
+ * Handles workflow CRUD, message history, and real-time streaming updates.
  */
 
 import { create } from "zustand";
+import type { ChannelMessage, MessageQuestion } from "@/shared/schemas/channel";
 import type {
-	Channel,
-	ChannelHistoryResponse,
-	ChannelMessage,
-	MessageQuestion,
-} from "@/shared/schemas/channel";
-import type {
-	ChannelCreatedPayload,
-	ChannelDeletedPayload,
 	QuestionsAnsweredPayload,
 	QuestionsAskedPayload,
 	SessionStartedPayload,
@@ -26,7 +19,17 @@ import type {
 	TurnToolCompletedPayload,
 	TurnToolStartedPayload,
 	WebSocketEvent,
+	WorkflowApprovalNeededPayload,
+	WorkflowCreatedPayload,
+	WorkflowErrorPayload,
+	WorkflowStageChangedPayload,
 } from "@/shared/schemas/events";
+import type {
+	ScopeCard,
+	Workflow,
+	WorkflowHistoryResponse,
+	WorkflowStatus,
+} from "@/shared/schemas/workflow";
 
 // =============================================================================
 // Types
@@ -68,8 +71,8 @@ export interface StreamingMessage {
 	isComplete: boolean;
 }
 
-/** Per-channel conversation state */
-export interface ChannelConversationState {
+/** Per-workflow conversation state */
+export interface WorkflowConversationState {
 	sessionId?: string;
 	sessionStatus?: "active" | "completed" | "error";
 	messages: ChannelMessage[];
@@ -82,153 +85,161 @@ export interface ChannelConversationState {
 // Store State
 // =============================================================================
 
-interface DiscussionsState {
-	// Channel list
-	channels: Channel[];
-	channelsLoading: boolean;
-	channelsError: string | null;
+interface WorkflowsState {
+	// Workflow list
+	workflows: Workflow[];
+	workflowsLoading: boolean;
+	workflowsError: string | null;
 
-	// Per-channel conversation state
-	conversations: Map<string, ChannelConversationState>;
+	// Per-workflow conversation state
+	conversations: Map<string, WorkflowConversationState>;
 
-	// Selected channel
-	selectedChannelId: string | null;
+	// Selected workflow
+	selectedWorkflowId: string | null;
 
-	// Actions - Channel CRUD
-	fetchChannels: () => Promise<void>;
-	createChannel: (name: string, description?: string) => Promise<Channel>;
-	deleteChannel: (channelId: string) => Promise<void>;
-	selectChannel: (channelId: string | null) => void;
+	// Pending scope cards (for approval UI)
+	pendingScopeCards: Map<string, ScopeCard>;
+
+	// Actions - Workflow CRUD
+	fetchWorkflows: () => Promise<void>;
+	createWorkflow: (title: string, description?: string) => Promise<Workflow>;
+	selectWorkflow: (workflowId: string | null) => void;
 
 	// Actions - Conversation
-	fetchHistory: (channelId: string) => Promise<void>;
-	sendMessage: (channelId: string, content: string) => Promise<void>;
+	fetchHistory: (workflowId: string) => Promise<void>;
+	sendMessage: (workflowId: string, content: string) => Promise<void>;
+
+	// Actions - Approval
+	approveArtifact: (workflowId: string) => Promise<void>;
+	requestChanges: (workflowId: string, feedback: string) => Promise<void>;
 
 	// Actions - WebSocket event handling
 	handleWebSocketEvent: (event: WebSocketEvent) => void;
 
 	// Getters
-	getChannel: (channelId: string) => Channel | undefined;
-	getConversation: (channelId: string) => ChannelConversationState | undefined;
-	getSelectedConversation: () => ChannelConversationState | undefined;
+	getWorkflow: (workflowId: string) => Workflow | undefined;
+	getConversation: (workflowId: string) => WorkflowConversationState | undefined;
+	getSelectedConversation: () => WorkflowConversationState | undefined;
+	getPendingScopeCard: (workflowId: string) => ScopeCard | undefined;
 }
 
 // =============================================================================
 // Store
 // =============================================================================
 
-export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
+export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	// Initial state
-	channels: [],
-	channelsLoading: false,
-	channelsError: null,
+	workflows: [],
+	workflowsLoading: false,
+	workflowsError: null,
 	conversations: new Map(),
-	selectedChannelId: null,
+	selectedWorkflowId: null,
+	pendingScopeCards: new Map(),
 
 	// ===========================================================================
-	// Channel CRUD
+	// Workflow CRUD
 	// ===========================================================================
 
-	fetchChannels: async () => {
-		set({ channelsLoading: true, channelsError: null });
+	fetchWorkflows: async () => {
+		set({ workflowsLoading: true, workflowsError: null });
 		try {
-			const response = await fetch("/api/channels");
+			const response = await fetch("/api/workflows");
 			if (!response.ok) {
-				throw new Error("Failed to fetch channels");
+				throw new Error("Failed to fetch workflows");
 			}
-			const channels: Channel[] = await response.json();
-			set({ channels, channelsLoading: false });
+			const workflows: Workflow[] = await response.json();
+			set({ workflows, workflowsLoading: false });
 		} catch (error) {
 			set({
-				channelsError: error instanceof Error ? error.message : "Unknown error",
-				channelsLoading: false,
+				workflowsError: error instanceof Error ? error.message : "Unknown error",
+				workflowsLoading: false,
 			});
 		}
 	},
 
-	createChannel: async (name: string, description?: string) => {
-		const response = await fetch("/api/channels", {
+	createWorkflow: async (title: string, description?: string) => {
+		const response = await fetch("/api/workflows", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ name, description }),
+			body: JSON.stringify({ title, description }),
 		});
 
 		if (!response.ok) {
 			const error = await response.json();
-			throw new Error(error.error ?? "Failed to create channel");
+			throw new Error(error.error ?? "Failed to create workflow");
 		}
 
-		const channel: Channel = await response.json();
+		const workflow: Workflow = await response.json();
 
-		// Add to local state (will also receive WebSocket event)
-		set((state) => ({
-			channels: [...state.channels, channel],
-		}));
-
-		return channel;
-	},
-
-	deleteChannel: async (channelId: string) => {
-		const response = await fetch(`/api/channels/${channelId}`, {
-			method: "DELETE",
+		// Don't add optimistically - the WebSocket workflow:created event handles this.
+		// Adding here causes a race condition with duplicate entries.
+		// But we DO need to ensure the workflow is in state before returning
+		// so the caller can select it. Update if not already present.
+		set((state) => {
+			if (state.workflows.some((w) => w.id === workflow.id)) {
+				return {}; // Already added by WebSocket event
+			}
+			return { workflows: [...state.workflows, workflow] };
 		});
 
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error ?? "Failed to delete channel");
-		}
-
-		// Remove from local state (will also receive WebSocket event)
-		set((state) => ({
-			channels: state.channels.filter((c) => c.id !== channelId),
-			selectedChannelId:
-				state.selectedChannelId === channelId ? null : state.selectedChannelId,
-		}));
+		return workflow;
 	},
 
-	selectChannel: (channelId: string | null) => {
-		set({ selectedChannelId: channelId });
+	selectWorkflow: (workflowId: string | null) => {
+		set({ selectedWorkflowId: workflowId });
 	},
 
 	// ===========================================================================
 	// Conversation Management
 	// ===========================================================================
 
-	fetchHistory: async (channelId: string) => {
+	fetchHistory: async (workflowId: string) => {
 		// Mark as loading
 		set((state) => {
 			const conversations = new Map(state.conversations);
-			const existing = conversations.get(channelId) ?? {
+			const existing = conversations.get(workflowId) ?? {
 				messages: [],
 				isLoading: true,
 			};
-			conversations.set(channelId, { ...existing, isLoading: true });
+			conversations.set(workflowId, { ...existing, isLoading: true });
 			return { conversations };
 		});
 
 		try {
-			const response = await fetch(`/api/channels/${channelId}/history`);
+			const response = await fetch(`/api/workflows/${workflowId}/history`);
 			if (!response.ok) {
 				throw new Error("Failed to fetch history");
 			}
 
-			const history: ChannelHistoryResponse = await response.json();
+			const history: WorkflowHistoryResponse = await response.json();
 
 			set((state) => {
 				const conversations = new Map(state.conversations);
-				conversations.set(channelId, {
+				conversations.set(workflowId, {
 					sessionId: history.sessionId,
 					sessionStatus: history.sessionStatus,
 					messages: history.messages,
 					isLoading: false,
 				});
-				return { conversations };
+
+				// Update workflow in list with latest data
+				const workflows = state.workflows.map((w) =>
+					w.id === workflowId ? history.workflow : w,
+				);
+
+				// Store pending scope card if present
+				const pendingScopeCards = new Map(state.pendingScopeCards);
+				if (history.pendingScopeCard) {
+					pendingScopeCards.set(workflowId, history.pendingScopeCard);
+				}
+
+				return { conversations, workflows, pendingScopeCards };
 			});
 		} catch (error) {
 			set((state) => {
 				const conversations = new Map(state.conversations);
-				const existing = conversations.get(channelId);
-				conversations.set(channelId, {
+				const existing = conversations.get(workflowId);
+				conversations.set(workflowId, {
 					...existing,
 					messages: existing?.messages ?? [],
 					isLoading: false,
@@ -239,37 +250,20 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 		}
 	},
 
-	sendMessage: async (channelId: string, content: string) => {
+	sendMessage: async (workflowId: string, content: string) => {
 		const state = get();
-		let sessionId = state.conversations.get(channelId)?.sessionId;
+		const workflow = state.workflows.find((w) => w.id === workflowId);
+		let sessionId = state.conversations.get(workflowId)?.sessionId;
 
-		// Start a session if needed
+		// Use current session from workflow if available
+		if (!sessionId && workflow?.currentSessionId) {
+			sessionId = workflow.currentSessionId;
+		}
+
+		// If no session, we need to wait for one to be created
+		// Workflows should already have a session from creation
 		if (!sessionId) {
-			const response = await fetch(`/api/channels/${channelId}/session`, {
-				method: "POST",
-			});
-
-			if (!response.ok) {
-				const error = await response.json();
-				throw new Error(error.error ?? "Failed to start session");
-			}
-
-			const { sessionId: newSessionId } = await response.json();
-			sessionId = newSessionId;
-
-			// Update session in state
-			set((state) => {
-				const conversations = new Map(state.conversations);
-				const existing = conversations.get(channelId);
-				conversations.set(channelId, {
-					...existing,
-					messages: existing?.messages ?? [],
-					isLoading: false,
-					sessionId: newSessionId,
-					sessionStatus: "active",
-				});
-				return { conversations };
-			});
+			throw new Error("No active session for this workflow");
 		}
 
 		// Add user message optimistically
@@ -283,8 +277,8 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 
 		set((state) => {
 			const conversations = new Map(state.conversations);
-			const existing = conversations.get(channelId);
-			conversations.set(channelId, {
+			const existing = conversations.get(workflowId);
+			conversations.set(workflowId, {
 				...existing,
 				messages: [...(existing?.messages ?? []), userMessage],
 				isLoading: false,
@@ -303,28 +297,55 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 
 		if (!response.ok) {
 			const error = await response.json();
-
-			// If session not found (e.g., server restarted), clear it and retry
-			if (response.status === 404) {
-				set((state) => {
-					const conversations = new Map(state.conversations);
-					const existing = conversations.get(channelId);
-					if (existing) {
-						conversations.set(channelId, {
-							...existing,
-							sessionId: undefined,
-							sessionStatus: undefined,
-						});
-					}
-					return { conversations };
-				});
-
-				// Retry - this will start a fresh session
-				return get().sendMessage(channelId, content);
-			}
-
 			throw new Error(error.error ?? "Failed to send message");
 		}
+	},
+
+	// ===========================================================================
+	// Approval Actions
+	// ===========================================================================
+
+	approveArtifact: async (workflowId: string) => {
+		const response = await fetch(`/api/workflows/${workflowId}/approve`, {
+			method: "POST",
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error ?? "Failed to approve artifact");
+		}
+
+		// Clear pending scope card
+		set((state) => {
+			const pendingScopeCards = new Map(state.pendingScopeCards);
+			pendingScopeCards.delete(workflowId);
+			return { pendingScopeCards };
+		});
+	},
+
+	requestChanges: async (workflowId: string, feedback: string) => {
+		const response = await fetch(`/api/workflows/${workflowId}/request-changes`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ feedback }),
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error ?? "Failed to request changes");
+		}
+
+		// Update workflow to clear awaiting approval
+		set((state) => {
+			const workflows = state.workflows.map((w) =>
+				w.id === workflowId
+					? { ...w, awaitingApproval: false, pendingArtifactType: undefined }
+					: w,
+			);
+			const pendingScopeCards = new Map(state.pendingScopeCards);
+			pendingScopeCards.delete(workflowId);
+			return { workflows, pendingScopeCards };
+		});
 	},
 
 	// ===========================================================================
@@ -333,15 +354,24 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 
 	handleWebSocketEvent: (event: WebSocketEvent) => {
 		switch (event.type) {
-			// Channel events
-			case "channel:created":
-				handleChannelCreated(event.payload, set, get);
+			// Workflow events
+			case "workflow:created":
+				handleWorkflowCreated(event.payload, set, get);
 				break;
-			case "channel:deleted":
-				handleChannelDeleted(event.payload, set, get);
+			case "workflow:stage_changed":
+				handleWorkflowStageChanged(event.payload, set, get);
+				break;
+			case "workflow:approval_needed":
+				handleWorkflowApprovalNeeded(event.payload, set, get);
+				break;
+			case "workflow:completed":
+				handleWorkflowCompleted(event.payload.workflowId, set, get);
+				break;
+			case "workflow:error":
+				handleWorkflowError(event.payload, set, get);
 				break;
 
-			// Session events for channels
+			// Session events for workflows
 			case "session:started":
 				handleSessionStarted(event.payload, set, get);
 				break;
@@ -398,18 +428,22 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 	// Getters
 	// ===========================================================================
 
-	getChannel: (channelId: string) => {
-		return get().channels.find((c) => c.id === channelId);
+	getWorkflow: (workflowId: string) => {
+		return get().workflows.find((w) => w.id === workflowId);
 	},
 
-	getConversation: (channelId: string) => {
-		return get().conversations.get(channelId);
+	getConversation: (workflowId: string) => {
+		return get().conversations.get(workflowId);
 	},
 
 	getSelectedConversation: () => {
-		const { selectedChannelId, conversations } = get();
-		if (!selectedChannelId) return undefined;
-		return conversations.get(selectedChannelId);
+		const { selectedWorkflowId, conversations } = get();
+		if (!selectedWorkflowId) return undefined;
+		return conversations.get(selectedWorkflowId);
+	},
+
+	getPendingScopeCard: (workflowId: string) => {
+		return get().pendingScopeCards.get(workflowId);
 	},
 }));
 
@@ -418,47 +452,159 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 // =============================================================================
 
 type SetState = (
-	fn: (state: DiscussionsState) => Partial<DiscussionsState>,
+	fn: (state: WorkflowsState) => Partial<WorkflowsState>,
 ) => void;
-type GetState = () => DiscussionsState;
+type GetState = () => WorkflowsState;
 
-function handleChannelCreated(
-	payload: ChannelCreatedPayload,
+function handleWorkflowCreated(
+	payload: WorkflowCreatedPayload,
 	set: SetState,
 	_get: GetState,
 ): void {
 	set((state) => {
 		// Check if already exists (from optimistic update)
-		if (state.channels.some((c) => c.id === payload.channelId)) {
+		if (state.workflows.some((w) => w.id === payload.workflowId)) {
 			return {};
 		}
 
-		const newChannel: Channel = {
-			id: payload.channelId,
-			name: payload.name,
-			description: payload.description,
+		const newWorkflow: Workflow = {
+			id: payload.workflowId,
+			title: payload.title,
+			status: payload.status,
+			priority: "medium",
+			awaitingApproval: false,
 			createdAt: Date.now(),
 			updatedAt: Date.now(),
 		};
 
 		return {
-			channels: [...state.channels, newChannel],
+			workflows: [...state.workflows, newWorkflow],
 		};
 	});
 }
 
-function handleChannelDeleted(
-	payload: ChannelDeletedPayload,
+function handleWorkflowStageChanged(
+	payload: WorkflowStageChangedPayload,
 	set: SetState,
 	_get: GetState,
 ): void {
-	set((state) => ({
-		channels: state.channels.filter((c) => c.id !== payload.channelId),
-		selectedChannelId:
-			state.selectedChannelId === payload.channelId
-				? null
-				: state.selectedChannelId,
-	}));
+	set((state) => {
+		const workflows = state.workflows.map((w) =>
+			w.id === payload.workflowId
+				? {
+						...w,
+						status: payload.newStage,
+						currentSessionId: payload.sessionId,
+						awaitingApproval: false,
+						pendingArtifactType: undefined,
+						updatedAt: Date.now(),
+					}
+				: w,
+		);
+
+		// Update conversation with new session if provided
+		const conversations = new Map(state.conversations);
+		if (payload.sessionId) {
+			const existing = conversations.get(payload.workflowId);
+			conversations.set(payload.workflowId, {
+				...existing,
+				messages: existing?.messages ?? [],
+				isLoading: false,
+				sessionId: payload.sessionId,
+				sessionStatus: "active",
+			});
+		}
+
+		return { workflows, conversations };
+	});
+}
+
+function handleWorkflowApprovalNeeded(
+	payload: WorkflowApprovalNeededPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const workflows = state.workflows.map((w) =>
+			w.id === payload.workflowId
+				? {
+						...w,
+						awaitingApproval: true,
+						pendingArtifactType: payload.artifactType as Workflow["pendingArtifactType"],
+						updatedAt: Date.now(),
+					}
+				: w,
+		);
+
+		return { workflows };
+	});
+
+	// Fetch the scope card if it's a scope_card approval
+	if (payload.artifactType === "scope_card") {
+		fetchScopeCard(payload.workflowId, payload.artifactId, set);
+	}
+}
+
+async function fetchScopeCard(
+	workflowId: string,
+	_scopeCardId: string,
+	set: SetState,
+): Promise<void> {
+	try {
+		const response = await fetch(`/api/workflows/${workflowId}/scope-card`);
+		if (response.ok) {
+			const scopeCard: ScopeCard = await response.json();
+			set((state) => {
+				const pendingScopeCards = new Map(state.pendingScopeCards);
+				pendingScopeCards.set(workflowId, scopeCard);
+				return { pendingScopeCards };
+			});
+		}
+	} catch {
+		// Ignore fetch errors - scope card will be fetched with history
+	}
+}
+
+function handleWorkflowCompleted(
+	workflowId: string,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const workflows = state.workflows.map((w) =>
+			w.id === workflowId
+				? {
+						...w,
+						status: "done" as WorkflowStatus,
+						awaitingApproval: false,
+						pendingArtifactType: undefined,
+						updatedAt: Date.now(),
+					}
+				: w,
+		);
+
+		return { workflows };
+	});
+}
+
+function handleWorkflowError(
+	payload: WorkflowErrorPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const conversations = new Map(state.conversations);
+		const existing = conversations.get(payload.workflowId);
+		if (existing) {
+			conversations.set(payload.workflowId, {
+				...existing,
+				sessionStatus: "error",
+				error: payload.error,
+				streamingMessage: undefined,
+			});
+		}
+		return { conversations };
+	});
 }
 
 function handleSessionStarted(
@@ -466,7 +612,7 @@ function handleSessionStarted(
 	set: SetState,
 	_get: GetState,
 ): void {
-	if (payload.contextType !== "channel") return;
+	if (payload.contextType !== "workflow") return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
@@ -478,7 +624,15 @@ function handleSessionStarted(
 			sessionId: payload.sessionId,
 			sessionStatus: "active",
 		});
-		return { conversations };
+
+		// Also update workflow's currentSessionId
+		const workflows = state.workflows.map((w) =>
+			w.id === payload.contextId
+				? { ...w, currentSessionId: payload.sessionId }
+				: w,
+		);
+
+		return { conversations, workflows };
 	});
 }
 
@@ -487,14 +641,14 @@ function handleSessionCompleted(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(sessionId, get);
+	if (!workflowId) return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (existing) {
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				sessionStatus: "completed",
 				streamingMessage: undefined,
@@ -510,14 +664,14 @@ function handleSessionError(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(sessionId, get);
+	if (!workflowId) return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (existing) {
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				sessionStatus: "error",
 				error,
@@ -533,17 +687,17 @@ function handleTurnStarted(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(payload.sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	if (!workflowId) return;
 
 	// Only create streaming state for assistant turns
 	if (payload.role !== "assistant") return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (existing) {
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				streamingMessage: {
 					turnId: payload.turnId,
@@ -566,12 +720,12 @@ function handleTurnCompleted(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(payload.sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	if (!workflowId) return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
 			// Build segments array from streaming segments
 			const segments = existing.streamingMessage.segments.map((s) => ({
@@ -597,7 +751,7 @@ function handleTurnCompleted(
 						: undefined,
 			};
 
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				messages: [...existing.messages, completedMessage],
 				streamingMessage: undefined,
@@ -612,14 +766,14 @@ function handleMessageDelta(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(payload.sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	if (!workflowId) return;
 
 	const segmentIndex = payload.segmentIndex ?? 0;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
 			// Get or create the segment at the given index
 			const segments = [...existing.streamingMessage.segments];
@@ -642,7 +796,7 @@ function handleMessageDelta(
 				};
 			}
 
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -660,12 +814,12 @@ function handleSegmentComplete(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(payload.sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	if (!workflowId) return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
 			const segments = [...existing.streamingMessage.segments];
 
@@ -698,7 +852,7 @@ function handleSegmentComplete(
 				});
 			}
 
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -716,14 +870,14 @@ function handleThoughtDelta(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(payload.sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	if (!workflowId) return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -740,14 +894,14 @@ function handleToolStarted(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(payload.sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	if (!workflowId) return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -773,12 +927,12 @@ function handleToolCompleted(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(payload.sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	if (!workflowId) return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
 			const tools = existing.streamingMessage.tools.map((t) =>
 				t.id === payload.toolId
@@ -791,7 +945,7 @@ function handleToolCompleted(
 						}
 					: t,
 			);
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -808,12 +962,12 @@ function handleQuestionsAsked(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(payload.sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	if (!workflowId) return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
 			// Add questions to streaming message
 			const questions: StreamingQuestion[] = payload.questions.map((q) => ({
@@ -825,7 +979,7 @@ function handleQuestionsAsked(
 				status: "pending" as const,
 			}));
 
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -851,7 +1005,7 @@ function handleQuestionsAsked(
 					questions: [...(lastMessage.questions ?? []), ...questions],
 				};
 
-				conversations.set(channelId, {
+				conversations.set(workflowId, {
 					...existing,
 					messages,
 				});
@@ -866,12 +1020,12 @@ function handleQuestionsAnswered(
 	set: SetState,
 	get: GetState,
 ): void {
-	const channelId = findChannelBySession(payload.sessionId, get);
-	if (!channelId) return;
+	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	if (!workflowId) return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(channelId);
+		const existing = conversations.get(workflowId);
 		if (!existing) return { conversations };
 
 		// Update question in streaming message if present
@@ -882,7 +1036,7 @@ function handleQuestionsAnswered(
 					: q,
 			);
 
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -905,7 +1059,7 @@ function handleQuestionsAnswered(
 				return msg;
 			});
 
-			conversations.set(channelId, {
+			conversations.set(workflowId, {
 				...existing,
 				messages,
 			});
@@ -920,17 +1074,22 @@ function handleQuestionsAnswered(
 // =============================================================================
 
 /**
- * Find the channel ID that a session belongs to
+ * Find the workflow ID that a session belongs to
  */
-function findChannelBySession(
+function findWorkflowBySession(
 	sessionId: string,
 	get: GetState,
 ): string | undefined {
-	const { conversations } = get();
-	for (const [channelId, conversation] of conversations) {
+	const { conversations, workflows } = get();
+
+	// First check conversations map
+	for (const [workflowId, conversation] of conversations) {
 		if (conversation.sessionId === sessionId) {
-			return channelId;
+			return workflowId;
 		}
 	}
-	return undefined;
+
+	// Also check workflows for currentSessionId
+	const workflow = workflows.find((w) => w.currentSessionId === sessionId);
+	return workflow?.id;
 }
