@@ -33,6 +33,7 @@ import {
 import { getProjectDb } from "../db/project";
 import { findRepoRoot } from "../git";
 import { log } from "../logger";
+import { getRepositories } from "../repositories";
 import { broadcast } from "../ws";
 
 // =============================================================================
@@ -1063,8 +1064,13 @@ export const agentRoutes = {
 
 				const projectRoot = findRepoRoot(process.cwd());
 				const db = await getProjectDb(projectRoot);
+				const repos = getRepositories();
 
-				const runner = new AgentRunner(session, { projectRoot, db });
+				const runner = new AgentRunner(session, {
+					projectRoot,
+					db,
+					conversationRepo: repos.conversations,
+				});
 
 				log.api.info(`Message received for session ${sessionId}`);
 
@@ -1195,7 +1201,12 @@ export const agentRoutes = {
 					);
 
 					if (session && session.status === "active") {
-						const runner = new AgentRunner(session, { projectRoot, db });
+						const repos = getRepositories();
+						const runner = new AgentRunner(session, {
+							projectRoot,
+							db,
+							conversationRepo: repos.conversations,
+						});
 
 						log.api.info(
 							`All questions answered, resuming session ${question.session_id}`,
@@ -1385,7 +1396,12 @@ export const agentRoutes = {
 					const session = await sessionManager.getOrRestoreSession(sessionId);
 
 					if (session && session.status === "active") {
-						const runner = new AgentRunner(session, { projectRoot, db });
+						const repos = getRepositories();
+						const runner = new AgentRunner(session, {
+							projectRoot,
+							db,
+							conversationRepo: repos.conversations,
+						});
 
 						log.api.info(
 							`All questions answered (batch), resuming session ${sessionId}`,

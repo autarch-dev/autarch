@@ -289,22 +289,12 @@ export class AgentRunner {
 	private async loadConversationHistory(): Promise<{
 		toolSummaries: string[];
 	}> {
-		// Get all completed turns for this session
-		const turns = await this.config.db
-			.selectFrom("turns")
-			.selectAll()
-			.where("session_id", "=", this.session.id)
-			.where("status", "=", "completed")
-			.orderBy("turn_index", "asc")
-			.execute();
+		// Get all completed turns for this session via repository
+		const { turns, nextTurnIndex } =
+			await this.config.conversationRepo.loadSessionContext(this.session.id);
 
 		// Update turn index to continue from where we left off
-		if (turns.length > 0) {
-			const lastTurn = turns[turns.length - 1];
-			if (lastTurn) {
-				this.turnIndex = lastTurn.turn_index + 1;
-			}
-		}
+		this.turnIndex = nextTurnIndex;
 
 		// First pass: collect all tools to determine which are "recent"
 		const allTools: Array<{

@@ -5,6 +5,7 @@ import { initSessionManager, initWorkflowOrchestrator } from "./agents/runner";
 import { getProjectDb } from "./db/project";
 import { findRepoRoot } from "./git";
 import { log } from "./logger";
+import { initRepositories } from "./repositories";
 import { agentRoutes } from "./routes/agent";
 import { settingsRoutes } from "./routes/settings";
 import { startWatching } from "./services/embedding";
@@ -66,8 +67,15 @@ try {
 // Initialize agent system (SessionManager and WorkflowOrchestrator need the database)
 (async () => {
 	const db = await getProjectDb(projectRoot);
-	const sessionManager = initSessionManager(db);
-	initWorkflowOrchestrator(sessionManager, db);
+	const repos = initRepositories(db);
+	const sessionManager = initSessionManager(repos.sessions);
+	initWorkflowOrchestrator(
+		sessionManager,
+		db,
+		repos.workflows,
+		repos.artifacts,
+		repos.conversations,
+	);
 	log.server.success("Agent system initialized");
 })();
 

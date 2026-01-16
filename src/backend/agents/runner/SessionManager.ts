@@ -4,12 +4,13 @@
  * Manages the lifecycle of active sessions across channels and workflows.
  * Supports multiple concurrent sessions (e.g., user chatting in a channel
  * while a workflow executes in the background).
+ *
+ * Maintains in-memory state (AbortControllers, session tracking) while
+ * delegating all persistence to SessionRepository.
  */
 
-import type { Kysely } from "kysely";
-import type { ProjectDatabase } from "@/backend/db/project";
 import { log } from "@/backend/logger";
-import { ids } from "@/backend/utils";
+import type { SessionRepository } from "@/backend/repositories";
 import { broadcast } from "@/backend/ws";
 import {
 	createSessionCompletedEvent,
@@ -29,7 +30,7 @@ export class SessionManager {
 	/** Index of sessions by context (contextType:contextId -> sessionId) */
 	private contextIndex = new Map<string, string>();
 
-	constructor(private db: Kysely<ProjectDatabase>) {}
+	constructor(private sessionRepo: SessionRepository) {}
 
 	// ===========================================================================
 	// Session Lifecycle
@@ -39,9 +40,6 @@ export class SessionManager {
 	 * Start a new session for a given context
 	 */
 	async startSession(context: SessionContext): Promise<ActiveSession> {
-		const now = Date.now();
-		const sessionId = ids.session();
-
 		// Check if there's already an active session for this context
 		const existingSessionId = this.contextIndex.get(
 			this.contextKey(context.contextType, context.contextId),
@@ -57,41 +55,35 @@ export class SessionManager {
 			}
 		}
 
+		// Create session in database via repository
+		const dbSession = await this.sessionRepo.create({
+			contextType: context.contextType,
+			contextId: context.contextId,
+			agentRole: context.agentRole,
+		});
+
+		// Build runtime session with AbortController
 		const session: ActiveSession = {
-			id: sessionId,
+			id: dbSession.id,
 			contextType: context.contextType,
 			contextId: context.contextId,
 			agentRole: context.agentRole,
 			status: "active",
 			abortController: new AbortController(),
-			createdAt: now,
+			createdAt: dbSession.createdAt,
 		};
 
-		// Persist to database
-		await this.db
-			.insertInto("sessions")
-			.values({
-				id: sessionId,
-				context_type: context.contextType,
-				context_id: context.contextId,
-				agent_role: context.agentRole,
-				status: "active",
-				created_at: now,
-				updated_at: now,
-			})
-			.execute();
-
 		// Track in memory
-		this.sessions.set(sessionId, session);
+		this.sessions.set(session.id, session);
 		this.contextIndex.set(
 			this.contextKey(context.contextType, context.contextId),
-			sessionId,
+			session.id,
 		);
 
 		// Broadcast event
 		broadcast(
 			createSessionStartedEvent({
-				sessionId,
+				sessionId: session.id,
 				contextType: context.contextType,
 				contextId: context.contextId,
 				agentRole: context.agentRole,
@@ -99,7 +91,7 @@ export class SessionManager {
 		);
 
 		log.session.info(
-			`Started session ${sessionId} [${context.agentRole}] for ${context.contextType}:${context.contextId}`,
+			`Started session ${session.id} [${context.agentRole}] for ${context.contextType}:${context.contextId}`,
 		);
 		return session;
 	}
@@ -118,21 +110,12 @@ export class SessionManager {
 			return;
 		}
 
-		const now = Date.now();
-
 		// Abort any in-flight operations
 		session.abortController.abort();
 		session.status = status;
 
-		// Update database
-		await this.db
-			.updateTable("sessions")
-			.set({
-				status,
-				updated_at: now,
-			})
-			.where("id", "=", sessionId)
-			.execute();
+		// Update database via repository
+		await this.sessionRepo.updateStatus(sessionId, status);
 
 		// Remove from indices
 		this.sessions.delete(sessionId);
@@ -180,13 +163,8 @@ export class SessionManager {
 			return existing;
 		}
 
-		// Try to restore from database
-		const dbSession = await this.db
-			.selectFrom("sessions")
-			.selectAll()
-			.where("id", "=", sessionId)
-			.where("status", "=", "active")
-			.executeTakeFirst();
+		// Try to restore from database via repository
+		const dbSession = await this.sessionRepo.getActiveById(sessionId);
 
 		if (!dbSession) {
 			return undefined;
@@ -195,12 +173,12 @@ export class SessionManager {
 		// Rehydrate into memory with a fresh AbortController
 		const session: ActiveSession = {
 			id: dbSession.id,
-			contextType: dbSession.context_type as ActiveSession["contextType"],
-			contextId: dbSession.context_id,
-			agentRole: dbSession.agent_role as ActiveSession["agentRole"],
+			contextType: dbSession.contextType as ActiveSession["contextType"],
+			contextId: dbSession.contextId,
+			agentRole: dbSession.agentRole as ActiveSession["agentRole"],
 			status: "active",
 			abortController: new AbortController(),
-			createdAt: dbSession.created_at,
+			createdAt: dbSession.createdAt,
 		};
 
 		this.sessions.set(sessionId, session);
@@ -285,8 +263,8 @@ export function getSessionManager(): SessionManager {
  * Initialize the singleton SessionManager instance
  */
 export function initSessionManager(
-	db: Kysely<ProjectDatabase>,
+	sessionRepo: SessionRepository,
 ): SessionManager {
-	sessionManagerInstance = new SessionManager(db);
+	sessionManagerInstance = new SessionManager(sessionRepo);
 	return sessionManagerInstance;
 }
