@@ -203,6 +203,9 @@ export class AgentRunner {
 
 			// Check if a terminal tool was called - if not, nudge the agent
 			await this.maybeNudge(assistantTurn.id, options, nudgeCount);
+
+			// Check if request_extension was called - if so, auto-continue
+			await this.maybeContinue(assistantTurn.id, options);
 		} catch (error) {
 			log.agent.error(`Agent turn ${assistantTurn.id} failed:`, error);
 			await this.errorTurn(
@@ -261,6 +264,27 @@ export class AgentRunner {
 
 		// Recursively call run with the nudge message
 		await this.run(nudgeMessage, options, currentNudgeCount + 1);
+	}
+
+	/**
+	 * Check if the turn ended with request_extension; if so, auto-continue
+	 */
+	private async maybeContinue(
+		turnId: string,
+		options: RunOptions,
+	): Promise<void> {
+		// Query tool names for this turn
+		const toolNames = await this.config.conversationRepo.getToolNames(turnId);
+
+		// Check if request_extension was called
+		if (!toolNames.includes("request_extension")) {
+			return;
+		}
+
+		log.agent.info(`Agent requested extension - auto-continuing`);
+
+		// Continue with a simple prompt (reset nudge count for fresh allowance)
+		await this.run("Continue.", options, 0);
 	}
 
 	// ===========================================================================

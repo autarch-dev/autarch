@@ -137,7 +137,7 @@ After submitting, the workflow will await user approval before transitioning to 
 			return {
 				success: true,
 				output:
-					"Research findings submitted successfully. Awaiting user approval before proceeding to planning phase.",
+					"Research findings submitted successfully. Wait for the user to approve the research.",
 			};
 		} catch (err) {
 			return {

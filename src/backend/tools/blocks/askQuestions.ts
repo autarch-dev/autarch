@@ -131,7 +131,7 @@ export const askQuestionsTool: ToolDefinition<AskQuestionsInput> = {
 
 		return {
 			success: true,
-			output: `Asked ${questionIds.length} question(s). Waiting for user response.`,
+			output: `Asked ${questionIds.length} question(s). Wait for the user to respond.`,
 		};
 	},
 };

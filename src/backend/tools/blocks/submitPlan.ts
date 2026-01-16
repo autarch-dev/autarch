@@ -84,7 +84,7 @@ After submitting, the workflow will await user approval before transitioning to 
 			return {
 				success: true,
 				output:
-					"Execution plan submitted successfully. Awaiting user approval before proceeding to execution phase.",
+					"Execution plan submitted successfully. Wait for the user to approve the plan.",
 			};
 		} catch (err) {
 			return {

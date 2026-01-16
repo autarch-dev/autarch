@@ -69,7 +69,7 @@ Provide:
 
 			return {
 				success: true,
-				output: `Preflight complete. Setup: ${input.setupCommands.length} commands run, ${input.baselinesRecorded} baselines recorded.`,
+				output: `Preflight complete. Setup: ${input.setupCommands.length} commands run, ${input.baselinesRecorded} baselines recorded. Wait for the user to respond.`,
 			};
 		} catch (error) {
 			return {

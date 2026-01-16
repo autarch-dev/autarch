@@ -97,7 +97,7 @@ After submitting, the workflow will await user approval before transitioning to 
 			return {
 				success: true,
 				output:
-					"Scope card submitted successfully. Awaiting user approval before proceeding to research phase.",
+					"Scope card submitted successfully. Wait for the user to approve the scope.",
 			};
 		} catch (err) {
 			return {
