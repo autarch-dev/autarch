@@ -12,7 +12,7 @@ export const QuestionTypeSchema = z.enum([
 ]);
 export type QuestionType = z.infer<typeof QuestionTypeSchema>;
 
-export const QuestionStatusSchema = z.enum(["pending", "answered"]);
+export const QuestionStatusSchema = z.enum(["pending", "answered", "skipped"]);
 export type QuestionStatus = z.infer<typeof QuestionStatusSchema>;
 
 // =============================================================================
@@ -82,6 +82,8 @@ export const AnswerQuestionsRequestSchema = z.object({
 			answer: z.unknown(),
 		}),
 	),
+	/** Optional additional comment/feedback from the user */
+	comment: z.string().optional(),
 });
 export type AnswerQuestionsRequest = z.infer<
 	typeof AnswerQuestionsRequestSchema

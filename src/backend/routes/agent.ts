@@ -58,6 +58,8 @@ const AnswerQuestionsRequestSchema = z.object({
 			answer: z.unknown(),
 		}),
 	),
+	/** Optional additional comment/feedback from the user */
+	comment: z.string().optional(),
 });
 
 /** Schema for routes with :id param */
@@ -1106,9 +1108,10 @@ export const agentRoutes = {
 				let sessionId: string | null = null;
 				let turnId: string | null = null;
 				let answeredCount = 0;
+				const { answers, comment } = parsed.data;
 
 				// Process each answer
-				for (const { questionId, answer } of parsed.data.answers) {
+				for (const { questionId, answer } of answers) {
 					const question = await db
 						.selectFrom("questions")
 						.selectAll()
@@ -1147,24 +1150,44 @@ export const agentRoutes = {
 					answeredCount++;
 				}
 
+				// If no questions were answered, try to get session/turn from first pending question
+				// (this happens when user submits only a comment)
 				if (!sessionId || !turnId) {
-					return Response.json(
-						{ error: "No valid questions to answer" },
-						{ status: 400 },
-					);
+					const firstAnswer = answers[0];
+					if (firstAnswer) {
+						// Answers were provided but none were valid - get context from first one
+						const firstQuestion = await db
+							.selectFrom("questions")
+							.selectAll()
+							.where("id", "=", firstAnswer.questionId)
+							.executeTakeFirst();
+						if (firstQuestion) {
+							sessionId = firstQuestion.session_id;
+							turnId = firstQuestion.turn_id;
+						}
+					}
+
+					// Still no context? Must have at least one question ID or this is invalid
+					if (!sessionId || !turnId) {
+						return Response.json(
+							{ error: "No valid questions to answer" },
+							{ status: 400 },
+						);
+					}
 				}
 
-				// Check if all questions for this turn are answered
-				const pendingQuestions = await db
-					.selectFrom("questions")
-					.select(["id"])
+				// Mark any remaining pending questions as "skipped" so we don't block on them
+				await db
+					.updateTable("questions")
+					.set({ status: "skipped" })
 					.where("turn_id", "=", turnId)
 					.where("status", "=", "pending")
 					.execute();
 
-				const allAnswered = pendingQuestions.length === 0;
+				// All questions are now processed (answered or skipped)
+				const allAnswered = true;
 
-				// If all questions are answered, auto-resume the agent
+				// Auto-resume the agent with the user's responses
 				if (allAnswered) {
 					// Get all questions for this turn to format the answer message
 					const allQuestions = await db
@@ -1175,14 +1198,42 @@ export const agentRoutes = {
 						.execute();
 
 					// Format answers as a user message
-					const answerLines = allQuestions.map((q) => {
-						const answer = q.answer_json ? JSON.parse(q.answer_json) : null;
-						const formattedAnswer = Array.isArray(answer)
-							? answer.join(", ")
-							: String(answer);
-						return `**${q.prompt}**: ${formattedAnswer}`;
-					});
-					const answerMessage = answerLines.join("\n\n");
+					const messageParts: string[] = [];
+
+					// Add answered questions
+					const answeredQuestions = allQuestions.filter(
+						(q) => q.status === "answered",
+					);
+					if (answeredQuestions.length > 0) {
+						const answerLines = answeredQuestions.map((q) => {
+							const answer = q.answer_json ? JSON.parse(q.answer_json) : null;
+							const formattedAnswer = Array.isArray(answer)
+								? answer.join(", ")
+								: String(answer);
+							return `**${q.prompt}**: ${formattedAnswer}`;
+						});
+						messageParts.push(answerLines.join("\n\n"));
+					}
+
+					// Note skipped questions
+					const skippedQuestions = allQuestions.filter(
+						(q) => q.status === "skipped",
+					);
+					if (skippedQuestions.length > 0) {
+						const skippedList = skippedQuestions
+							.map((q) => `- ${q.prompt}`)
+							.join("\n");
+						messageParts.push(
+							`**Questions I chose not to answer:**\n${skippedList}`,
+						);
+					}
+
+					// Add user comment if provided
+					if (comment) {
+						messageParts.push(`**Additional comments:**\n${comment}`);
+					}
+
+					const answerMessage = messageParts.join("\n\n---\n\n");
 
 					// Get session and send the answer message
 					const sessionManager = getSessionManager();

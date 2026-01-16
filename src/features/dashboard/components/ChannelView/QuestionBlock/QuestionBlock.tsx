@@ -26,6 +26,7 @@ import {
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { MessageQuestion } from "@/shared/schemas/channel";
 import { FreeTextQuestion } from "./FreeTextQuestion";
 import { MultiSelectQuestion } from "./MultiSelectQuestion";
@@ -46,21 +47,28 @@ export function QuestionBlock({
 	disabled,
 }: QuestionBlockProps) {
 	const [answers, setAnswers] = useState<Map<string, unknown>>(new Map());
+	const [comment, setComment] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isExpanded, setIsExpanded] = useState(true);
 
 	// Check if all questions are answered (from server)
 	const allAnsweredFromServer = questions.every((q) => q.status === "answered");
 
-	// Check if user has filled all required answers
-	const allAnsweredByUser = questions.every((q) => {
-		if (q.status === "answered") return true;
+	// Check if user has provided at least one answer
+	const hasAnyAnswer = questions.some((q) => {
+		if (q.status === "answered") return false; // Don't count already-answered
 		const answer = answers.get(q.id);
 		if (answer === undefined || answer === null) return false;
 		if (typeof answer === "string" && answer.trim() === "") return false;
 		if (Array.isArray(answer) && answer.length === 0) return false;
 		return true;
 	});
+
+	// Check if comment has content
+	const hasComment = comment.trim().length > 0;
+
+	// Can submit if either at least one question is answered OR comment has content
+	const canSubmit = hasAnyAnswer || hasComment;
 
 	const pendingQuestions = questions.filter((q) => q.status === "pending");
 	const answeredQuestions = questions.filter((q) => q.status === "answered");
@@ -77,19 +85,28 @@ export function QuestionBlock({
 	);
 
 	const handleSubmit = useCallback(async () => {
-		if (!onAnswer || !allAnsweredByUser) return;
+		if (!onAnswer || !canSubmit) return;
 
 		setIsSubmitting(true);
 		try {
-			const answersToSubmit = pendingQuestions.map((q) => ({
-				questionId: q.id,
-				answer: answers.get(q.id),
-			}));
-			await onAnswer(answersToSubmit);
+			// Only include questions that have answers
+			const answersToSubmit = pendingQuestions
+				.filter((q) => {
+					const answer = answers.get(q.id);
+					if (answer === undefined || answer === null) return false;
+					if (typeof answer === "string" && answer.trim() === "") return false;
+					if (Array.isArray(answer) && answer.length === 0) return false;
+					return true;
+				})
+				.map((q) => ({
+					questionId: q.id,
+					answer: answers.get(q.id),
+				}));
+			await onAnswer(answersToSubmit, comment.trim() || undefined);
 		} finally {
 			setIsSubmitting(false);
 		}
-	}, [onAnswer, allAnsweredByUser, pendingQuestions, answers]);
+	}, [onAnswer, canSubmit, pendingQuestions, answers, comment]);
 
 	const renderQuestion = (question: MessageQuestion) => {
 		const value =
@@ -178,14 +195,32 @@ export function QuestionBlock({
 
 				{/* Pending questions */}
 				{pendingQuestions.map(renderQuestion)}
+
+				{/* Additional comments */}
+				<div className="space-y-2 pt-2 border-t">
+					<Label
+						htmlFor="question-comment"
+						className="text-sm font-medium text-muted-foreground"
+					>
+						Additional comments (optional)
+					</Label>
+					<Textarea
+						id="question-comment"
+						placeholder="Add any additional context or feedback..."
+						value={comment}
+						onChange={(e) => setComment(e.target.value)}
+						disabled={disabled || isSubmitting}
+						className="min-h-[80px] resize-none"
+					/>
+				</div>
 			</CardContent>
 
 			{/* Submit button */}
 			{pendingQuestions.length > 0 && onAnswer && (
-				<CardFooter>
+				<CardFooter className="flex-col gap-2">
 					<Button
 						onClick={handleSubmit}
-						disabled={!allAnsweredByUser || isSubmitting || disabled}
+						disabled={!canSubmit || isSubmitting || disabled}
 						size="sm"
 						className="w-full"
 					>
@@ -197,10 +232,13 @@ export function QuestionBlock({
 						) : (
 							<>
 								<Send className="size-4 mr-2" />
-								Submit Answers
+								Submit
 							</>
 						)}
 					</Button>
+					<p className="text-xs text-muted-foreground text-center">
+						Answer at least one question or add a comment to submit
+					</p>
 				</CardFooter>
 			)}
 		</Card>

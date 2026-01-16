@@ -205,12 +205,15 @@ export function MessageBubble(props: MessageBubbleProps) {
 
 	// Handle answering questions
 	const handleAnswerQuestions = useCallback(
-		async (answers: Array<{ questionId: string; answer: unknown }>) => {
+		async (
+			answers: Array<{ questionId: string; answer: unknown }>,
+			comment?: string,
+		) => {
 			try {
 				const response = await fetch("/api/questions/batch-answer", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ answers }),
+					body: JSON.stringify({ answers, comment }),
 				});
 
 				if (!response.ok) {

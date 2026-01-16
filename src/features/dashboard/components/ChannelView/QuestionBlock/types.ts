@@ -2,7 +2,11 @@ import type { MessageQuestion } from "@/shared/schemas/channel";
 
 export interface QuestionBlockProps {
 	questions: MessageQuestion[];
-	onAnswer?: (answers: Array<{ questionId: string; answer: unknown }>) => void;
+	/** Called when user submits answers. Comment is optional additional feedback. */
+	onAnswer?: (
+		answers: Array<{ questionId: string; answer: unknown }>,
+		comment?: string,
+	) => void;
 	disabled?: boolean;
 }
 
