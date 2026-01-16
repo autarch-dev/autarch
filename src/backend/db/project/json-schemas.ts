@@ -88,13 +88,10 @@ export const PulsesJsonSchema = z.array(PulseJsonSchema);
 export const ToolInputJsonSchema = z.record(z.string(), z.unknown());
 
 /**
- * Tool output schema matches ToolResult.
- * All tools return { success: boolean, output: string }.
+ * Tool output is plain text.
+ * The AI SDK receives the formatted string output from tools.
  */
-export const ToolOutputJsonSchema = z.object({
-	success: z.boolean(),
-	output: z.string(),
-});
+export const ToolOutputJsonSchema = z.string();
 
 // =============================================================================
 // Questions

@@ -31,7 +31,7 @@ When emitted, the agent pauses execution, allows context compaction, and continu
 	execute: async (_input, _context): Promise<ToolResult> => {
 		return {
 			success: true,
-			output: "Extension granted. You may continue with the remaining work.",
+			output: "Please allow the user to respond before continuing.",
 		};
 	},
 };
