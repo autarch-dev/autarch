@@ -51,6 +51,62 @@ import type {
 /** Maximum number of tool execution steps before stopping */
 const MAX_TOOL_STEPS = 15;
 
+/** Maximum number of nudges per user message */
+const MAX_NUDGES = 2;
+
+/**
+ * Terminal tools by agent role - these tools signal a valid turn ending.
+ * If an agent completes a turn without calling one of these, it gets nudged.
+ */
+const TERMINAL_TOOLS: Record<string, string[]> = {
+	scoping: ["submit_scope", "ask_questions"],
+	research: ["submit_research", "request_extension", "ask_questions"],
+	planning: ["submit_plan", "ask_questions"],
+	execution: ["complete_pulse", "request_extension"],
+	// discussion and review agents don't require terminal tools
+	discussion: [],
+	review: [],
+	basic: [],
+};
+
+/**
+ * Nudge messages by agent role - sent when agent doesn't use a terminal tool
+ */
+const NUDGE_MESSAGES: Record<string, string> = {
+	scoping: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`submit_scope\` — if you have enough information to define the scope
+- \`ask_questions\` — if you need clarification from the user
+
+Please continue and ensure your next response ends with one of these tools.`,
+
+	research: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`submit_research\` — if you have sufficient understanding to guide implementation
+- \`request_extension\` — if any investigation remains
+- \`ask_questions\` — if user input is required to resolve ambiguity
+
+Please continue and ensure your next response ends with one of these tools.`,
+
+	planning: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`submit_plan\` — if you have a complete implementation plan
+- \`ask_questions\` — if you need clarification from the user
+
+Please continue and ensure your next response ends with one of these tools.`,
+
+	execution: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`complete_pulse\` — if you have completed this pulse's work
+- \`request_extension\` — if additional work remains
+
+Please continue and ensure your next response ends with one of these tools.`,
+};
+
 // =============================================================================
 // AgentRunner
 // =============================================================================
@@ -79,12 +135,21 @@ export class AgentRunner {
 	 * 3. Streams LLM response using AI SDK
 	 * 4. AI SDK handles tool execution automatically via stopWhen
 	 * 5. Persists all data and broadcasts events
+	 * 6. Nudges the agent if it didn't use a terminal tool
+	 *
+	 * @param userMessage - The user's message to the agent
+	 * @param options - Optional callbacks for streaming events
+	 * @param nudgeCount - Internal counter for nudge recursion (do not set manually)
 	 */
-	async run(userMessage: string, options: RunOptions = {}): Promise<void> {
+	async run(
+		userMessage: string,
+		options: RunOptions = {},
+		nudgeCount = 0,
+	): Promise<void> {
 		const agentConfig = getAgentConfig(this.session.agentRole);
 
 		log.agent.info(
-			`Running agent [${this.session.agentRole}] for session ${this.session.id}`,
+			`Running agent [${this.session.agentRole}] for session ${this.session.id}${nudgeCount > 0 ? ` (nudge ${nudgeCount})` : ""}`,
 		);
 		log.agent.debug(
 			`User message: ${userMessage.slice(0, 100)}${userMessage.length > 100 ? "..." : ""}`,
@@ -97,7 +162,9 @@ export class AgentRunner {
 		);
 
 		// Create user turn and add to history
-		const userTurn = await this.createTurn("user");
+		// Nudge turns are hidden from UI
+		const isNudge = nudgeCount > 0;
+		const userTurn = await this.createTurn("user", isNudge);
 		await this.saveMessage(userTurn.id, 0, userMessage);
 		await this.completeTurn(userTurn.id);
 
@@ -126,13 +193,16 @@ export class AgentRunner {
 		};
 		this.conversationHistory.push(userMsg);
 
-		// Create assistant turn
-		const assistantTurn = await this.createTurn("assistant");
+		// Create assistant turn (also hidden if this is a nudge)
+		const assistantTurn = await this.createTurn("assistant", isNudge);
 
 		try {
 			await this.streamLLMResponse(assistantTurn, agentConfig, options);
 			await this.completeTurn(assistantTurn.id);
 			log.agent.success(`Agent turn ${assistantTurn.id} completed`);
+
+			// Check if a terminal tool was called - if not, nudge the agent
+			await this.maybeNudge(assistantTurn.id, options, nudgeCount);
 		} catch (error) {
 			log.agent.error(`Agent turn ${assistantTurn.id} failed:`, error);
 			await this.errorTurn(
@@ -141,6 +211,62 @@ export class AgentRunner {
 			);
 			throw error;
 		}
+	}
+
+	/**
+	 * Check if the turn ended with a terminal tool; if not, nudge the agent
+	 */
+	private async maybeNudge(
+		turnId: string,
+		options: RunOptions,
+		currentNudgeCount: number,
+	): Promise<void> {
+		const role = this.session.agentRole;
+		const terminalTools = TERMINAL_TOOLS[role];
+
+		// Skip nudging for roles that don't require terminal tools
+		if (!terminalTools || terminalTools.length === 0) {
+			return;
+		}
+
+		// Check if we've exceeded max nudges
+		if (currentNudgeCount >= MAX_NUDGES) {
+			log.agent.warn(
+				`Agent [${role}] did not use terminal tool after ${MAX_NUDGES} nudges - giving up`,
+			);
+			return;
+		}
+
+		// Query tools called in this turn
+		const toolsCalled = await this.config.db
+			.selectFrom("turn_tools")
+			.select("tool_name")
+			.where("turn_id", "=", turnId)
+			.execute();
+
+		const toolNames = toolsCalled.map((t) => t.tool_name);
+		const hasTerminalTool = toolNames.some((name) =>
+			terminalTools.includes(name),
+		);
+
+		if (hasTerminalTool) {
+			log.agent.debug(`Turn ended with terminal tool: ${toolNames.join(", ")}`);
+			return;
+		}
+
+		// No terminal tool - nudge the agent
+		const nudgeMessage = NUDGE_MESSAGES[role];
+		if (!nudgeMessage) {
+			log.agent.warn(`No nudge message configured for role: ${role}`);
+			return;
+		}
+
+		log.agent.info(
+			`Agent [${role}] did not use terminal tool (tools called: ${toolNames.join(", ") || "none"}) - nudging`,
+		);
+
+		// Recursively call run with the nudge message
+		await this.run(nudgeMessage, options, currentNudgeCount + 1);
 	}
 
 	// ===========================================================================
@@ -159,7 +285,9 @@ export class AgentRunner {
 	 *
 	 * @returns Context to inject into the current user message
 	 */
-	private async loadConversationHistory(): Promise<{ toolSummaries: string[] }> {
+	private async loadConversationHistory(): Promise<{
+		toolSummaries: string[];
+	}> {
 		// Get all completed turns for this session
 		const turns = await this.config.db
 			.selectFrom("turns")
@@ -217,6 +345,10 @@ export class AgentRunner {
 			allTools.slice(-AgentRunner.RECENT_TOOLS_LIMIT).map((t) => t.id),
 		);
 
+		log.agent.debug(
+			`History: ${allTools.length} total tools, ${recentToolIds.size} recent`,
+		);
+
 		// Build summaries for older tools (grouped by turn for context)
 		const olderTools = allTools.filter((t) => !recentToolIds.has(t.id));
 		const olderToolSummaries = this.buildToolSummaries(olderTools);
@@ -249,60 +381,46 @@ export class AgentRunner {
 					(t) => recentToolIds.has(t.id) && t.outputJson !== null,
 				);
 
-				// Build a map of tool_index -> tool data array (multiple tools can share an index)
-				const recentToolsByIndex = new Map<
-					number,
-					Array<(typeof turnTools)[0]>
-				>();
+				log.agent.debug(
+					`Turn ${turn.turn_index}: ${allTurnTools.length} total tools, ${turnTools.length} recent with output`,
+				);
 				for (const tool of turnTools) {
-					const existing = recentToolsByIndex.get(tool.toolIndex) ?? [];
-					existing.push(tool);
-					recentToolsByIndex.set(tool.toolIndex, existing);
+					log.agent.debug(
+						`  - ${tool.toolName} (id=${tool.id.slice(0, 20)}..., index=${tool.toolIndex}, hasOutput=${tool.outputJson !== null})`,
+					);
 				}
 
-				// Assistant turns may have text segments interleaved with tool calls
-				// Pattern: segment[N] -> all tools with index N -> segment[N+1] -> ...
+				// Build assistant message: all text first, then all tool calls
+				// This matches the structure used for current-turn messages (see streamLLMResponse)
+				// and works better with AI SDK's Anthropic format conversion
 				const assistantParts: AssistantModelMessage["content"] = [];
-
-				// Build interleaved content
-				const maxToolIndex = turnTools.length > 0
-					? Math.max(...turnTools.map((t) => t.toolIndex))
-					: -1;
-				const maxIndex = Math.max(messages.length - 1, maxToolIndex);
-
-				// Collect tool results for the separate tool message
 				const toolResultParts: ToolResultPart[] = [];
 
-				for (let i = 0; i <= maxIndex; i++) {
-					// Add text segment at this index if it exists
-					const segment = messages.find((m) => m.message_index === i);
-					if (segment) {
-						assistantParts.push({ type: "text", text: segment.content });
-					}
+				// Add all text segments first (in order)
+				for (const msg of messages) {
+					assistantParts.push({ type: "text", text: msg.content });
+				}
 
-					// Add tool calls at this index (tools are pre-ordered by started_at)
-					const toolsAtIndex = recentToolsByIndex.get(i) ?? [];
-					for (const tool of toolsAtIndex) {
-						// Add tool call to assistant message
-						assistantParts.push({
-							type: "tool-call",
-							toolCallId: tool.id,
-							toolName: tool.toolName,
-							input: JSON.parse(tool.inputJson),
-						} satisfies ToolCallPart);
+				// Then add all tool calls (turnTools is already filtered to recent with output)
+				for (const tool of turnTools) {
+					assistantParts.push({
+						type: "tool-call",
+						toolCallId: tool.id,
+						toolName: tool.toolName,
+						input: JSON.parse(tool.inputJson),
+					} satisfies ToolCallPart);
 
-						// Collect tool result for separate message
-						const toolOutput = JSON.parse(tool.outputJson as string);
-						toolResultParts.push({
-							type: "tool-result",
-							toolCallId: tool.id,
-							toolName: tool.toolName,
-							output: {
-								type: typeof toolOutput === "object" ? "json" : "text",
-								value: toolOutput,
-							},
-						} satisfies ToolResultPart);
-					}
+					// Collect tool result for separate message
+					const toolOutput = JSON.parse(tool.outputJson as string);
+					toolResultParts.push({
+						type: "tool-result",
+						toolCallId: tool.id,
+						toolName: tool.toolName,
+						output: {
+							type: typeof toolOutput === "object" ? "json" : "text",
+							value: toolOutput,
+						},
+					} satisfies ToolResultPart);
 				}
 
 				if (assistantParts.length > 0) {
@@ -318,11 +436,18 @@ export class AgentRunner {
 					log.agent.debug(
 						`Turn ${turn.turn_index}: ${toolCallCount} tool calls, ${toolResultParts.length} tool results`,
 					);
+					log.agent.debug(`  Tool call IDs: ${toolCallIds.join(", ")}`);
+					log.agent.debug(`  Tool result IDs: ${toolResultIds.join(", ")}`);
 					if (toolCallCount !== toolResultParts.length) {
+						log.agent.error(`MISMATCH in count!`);
+					}
+					const missingResults = toolCallIds.filter(
+						(id) => !toolResultIds.includes(id),
+					);
+					if (missingResults.length > 0) {
 						log.agent.error(
-							`MISMATCH! Tool call IDs: ${toolCallIds.join(", ")}`,
+							`MISSING RESULTS for IDs: ${missingResults.join(", ")}`,
 						);
-						log.agent.error(`Tool result IDs: ${toolResultIds.join(", ")}`);
 					}
 
 					const assistantMsg: AssistantModelMessage = {
@@ -342,6 +467,10 @@ export class AgentRunner {
 				}
 			}
 		}
+
+		log.agent.debug(
+			`loadConversationHistory complete: ${this.conversationHistory.length} messages built`,
+		);
 
 		return { toolSummaries: olderToolSummaries };
 	}
@@ -479,6 +608,34 @@ export class AgentRunner {
 		// Create the abort signal from session + options
 		const signal =
 			options.signal ?? this.session.abortController?.signal ?? undefined;
+
+		// Log conversation history structure before API call
+		log.agent.debug(
+			`Sending ${this.conversationHistory.length} messages to LLM:`,
+		);
+		for (const [i, msg] of this.conversationHistory.entries()) {
+			if (msg.role === "user") {
+				const content =
+					typeof msg.content === "string"
+						? msg.content.slice(0, 50)
+						: "[complex]";
+				log.agent.debug(`  [${i}] user: ${content}...`);
+			} else if (msg.role === "assistant") {
+				const parts = Array.isArray(msg.content) ? msg.content : [msg.content];
+				const textParts = parts.filter(
+					(p) => typeof p === "string" || p.type === "text",
+				).length;
+				const toolParts = parts.filter(
+					(p) => typeof p === "object" && p.type === "tool-call",
+				).length;
+				log.agent.debug(
+					`  [${i}] assistant: ${textParts} text parts, ${toolParts} tool calls`,
+				);
+			} else if (msg.role === "tool") {
+				const parts = Array.isArray(msg.content) ? msg.content : [msg.content];
+				log.agent.debug(`  [${i}] tool: ${parts.length} results`);
+			}
+		}
 
 		// Start streaming with AI SDK
 		const result = streamText({
@@ -712,7 +869,10 @@ export class AgentRunner {
 	// Turn Management
 	// ===========================================================================
 
-	private async createTurn(role: "user" | "assistant"): Promise<Turn> {
+	private async createTurn(
+		role: "user" | "assistant",
+		hidden = false,
+	): Promise<Turn> {
 		const now = Date.now();
 		const turnId = generateTurnId();
 		const index = this.turnIndex++;
@@ -726,6 +886,7 @@ export class AgentRunner {
 				role,
 				status: "streaming",
 				token_count: null,
+				hidden: hidden ? 1 : 0,
 				created_at: now,
 				completed_at: null,
 			})
@@ -737,16 +898,20 @@ export class AgentRunner {
 			turnIndex: index,
 			role,
 			status: "streaming",
+			hidden,
 			createdAt: now,
 		};
 
-		broadcast(
-			createTurnStartedEvent({
-				sessionId: this.session.id,
-				turnId,
-				role,
-			}),
-		);
+		// Don't broadcast turn started for hidden turns
+		if (!hidden) {
+			broadcast(
+				createTurnStartedEvent({
+					sessionId: this.session.id,
+					turnId,
+					role,
+				}),
+			);
+		}
 
 		return turn;
 	}

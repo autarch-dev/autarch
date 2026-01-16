@@ -358,11 +358,12 @@ export const agentRoutes = {
 				const messages: ChannelMessage[] = [];
 
 				for (const session of sessions) {
-					// Get turns for this session
+					// Get turns for this session (excluding hidden turns like nudges)
 					const turns = await db
 						.selectFrom("turns")
 						.selectAll()
 						.where("session_id", "=", session.id)
+						.where("hidden", "=", 0)
 						.orderBy("turn_index", "asc")
 						.execute();
 
@@ -830,11 +831,12 @@ export const agentRoutes = {
 				const messages: ChannelMessage[] = [];
 
 				for (const session of sessions) {
-					// Get turns for this session
+					// Get turns for this session (excluding hidden turns like nudges)
 					const turns = await db
 						.selectFrom("turns")
 						.selectAll()
 						.where("session_id", "=", session.id)
+						.where("hidden", "=", 0)
 						.orderBy("turn_index", "asc")
 						.execute();
 

@@ -63,6 +63,8 @@ export interface Turn {
 	role: TurnRole;
 	status: TurnStatus;
 	tokenCount?: number;
+	/** Whether this turn should be hidden from the UI (e.g., auto-nudge messages) */
+	hidden: boolean;
 	createdAt: number;
 	completedAt?: number;
 }

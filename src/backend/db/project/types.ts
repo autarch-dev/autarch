@@ -173,6 +173,8 @@ export interface TurnsTable {
 	role: TurnRole;
 	status: TurnStatus;
 	token_count: number | null;
+	/** 1 if this turn should be hidden from UI (e.g., auto-nudge messages) */
+	hidden: number;
 	created_at: number;
 	completed_at: number | null;
 }
