@@ -278,6 +278,11 @@ export class WorkflowOrchestrator {
 			throw new Error(`Workflow ${workflowId} is not awaiting approval`);
 		}
 
+		const sessionId = workflow.currentSessionId;
+		if (!sessionId) {
+			throw new Error(`Workflow ${workflowId} has no active session`);
+		}
+
 		const now = Date.now();
 
 		// Clear awaiting approval state
@@ -291,10 +296,40 @@ export class WorkflowOrchestrator {
 			.where("id", "=", workflowId)
 			.execute();
 
-		// TODO: Send feedback to the current agent session as a user message
-		// This will trigger the agent to revise and resubmit
-		// For now, this is stubbed out
-		log.agent.info(`Request changes for workflow ${workflowId}: ${feedback}`);
+		// Get the session and resume with feedback
+		const session = await this.sessionManager.getOrRestoreSession(sessionId);
+		if (!session || session.status !== "active") {
+			log.workflow.error(
+				`Cannot resume session ${sessionId} - not active (status: ${session?.status})`,
+			);
+			return;
+		}
+
+		// Format feedback as a user message
+		const feedbackMessage = `**I've reviewed your scope card and have the following feedback:**\n\n${feedback}\n\nPlease revise the scope card based on this feedback and submit it again.`;
+
+		// Create runner and resume
+		const projectRoot = findRepoRoot(process.cwd());
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			db: this.db,
+		});
+
+		log.workflow.info(
+			`Resuming session ${sessionId} with change request for workflow ${workflowId}`,
+		);
+
+		// Run in background (non-blocking)
+		runner.run(feedbackMessage).catch((error) => {
+			log.workflow.error(
+				`Agent run failed after change request for workflow ${workflowId}:`,
+				error,
+			);
+			this.sessionManager.errorSession(
+				sessionId,
+				error instanceof Error ? error.message : "Unknown error",
+			);
+		});
 	}
 
 	// ===========================================================================

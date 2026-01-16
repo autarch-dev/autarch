@@ -105,14 +105,6 @@ export function WorkflowView({
 						<div ref={messagesEndRef} />
 					</div>
 				</div>
-
-				<div className="shrink-0 p-4 border-t bg-background">
-					<MessageInput
-						placeholder={placeholder}
-						onSend={onSendMessage}
-						disabled={inputDisabled}
-					/>
-				</div>
 			</div>
 		</TooltipProvider>
 	);
