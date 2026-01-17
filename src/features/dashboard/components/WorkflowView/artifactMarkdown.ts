@@ -43,7 +43,8 @@ export function scopeCardToMarkdown(scopeCard: ScopeCard): string {
 
 	lines.push("## Recommended Path");
 	lines.push("");
-	const pathLabel = scopeCard.recommendedPath === "quick" ? "Quick Path" : "Full Path";
+	const pathLabel =
+		scopeCard.recommendedPath === "quick" ? "Quick Path" : "Full Path";
 	if (scopeCard.rationale) {
 		lines.push(`**${pathLabel}**: ${scopeCard.rationale}`);
 	} else {
@@ -86,7 +87,9 @@ export function researchCardToMarkdown(researchCard: ResearchCard): string {
 			lines.push("");
 			lines.push(`> "${pattern.example}"`);
 			lines.push("");
-			lines.push(`Found in: ${pattern.locations.map((l) => `\`${l}\``).join(", ")}`);
+			lines.push(
+				`Found in: ${pattern.locations.map((l) => `\`${l}\``).join(", ")}`,
+			);
 			lines.push("");
 		}
 	}
@@ -106,7 +109,10 @@ export function researchCardToMarkdown(researchCard: ResearchCard): string {
 		}
 	}
 
-	if (researchCard.integrationPoints && researchCard.integrationPoints.length > 0) {
+	if (
+		researchCard.integrationPoints &&
+		researchCard.integrationPoints.length > 0
+	) {
 		lines.push("## Integration Points");
 		lines.push("");
 		for (const point of researchCard.integrationPoints) {
@@ -157,14 +163,16 @@ export function planToMarkdown(plan: Plan): string {
 	for (let i = 0; i < plan.pulses.length; i++) {
 		const pulse = plan.pulses[i];
 		if (!pulse) continue;
-		
+
 		lines.push(`### ${i + 1}. ${pulse.title}`);
 		lines.push("");
 		lines.push(`**Size:** ${pulse.estimatedSize}`);
 		lines.push("");
 		lines.push(pulse.description);
 		lines.push("");
-		lines.push(`**Files:** ${pulse.expectedChanges.map((f) => `\`${f}\``).join(", ")}`);
+		lines.push(
+			`**Files:** ${pulse.expectedChanges.map((f) => `\`${f}\``).join(", ")}`,
+		);
 		if (pulse.dependsOn && pulse.dependsOn.length > 0) {
 			lines.push("");
 			lines.push(`**Depends on:** ${pulse.dependsOn.join(", ")}`);
