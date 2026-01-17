@@ -24,13 +24,6 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { codeToHtml } from "shiki";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Select,
@@ -39,7 +32,15 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+	SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import type { ReviewComment } from "@/shared/schemas/workflow";
 
 // =============================================================================
 // Types
@@ -93,6 +94,8 @@ interface DiffFile {
 interface DiffViewerProps {
 	/** Raw unified diff content */
 	diff: string;
+	/** Review comments to display inline */
+	comments?: ReviewComment[];
 	/** Optional className for the root element */
 	className?: string;
 }
@@ -370,10 +373,7 @@ const DiffLineView = memo(function DiffLineView({
 
 		codeToHtml(line.content, {
 			lang: language,
-			themes: {
-				light: "github-light",
-				dark: "github-dark",
-			},
+			theme: "github-dark",
 		}).then((result) => {
 			if (!cancelled) {
 				// Extract just the code content, stripping wrapper elements
@@ -425,7 +425,9 @@ const DiffLineView = memo(function DiffLineView({
 				)}
 			</span>
 			{/* Code content */}
-			<code className="flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto">
+			<code
+				className="flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto"
+			>
 				{(highlightedHtml ?? cachedHtml) ? (
 					<span
 						// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output
@@ -447,9 +449,15 @@ const DiffLineView = memo(function DiffLineView({
 function DiffHunkView({
 	hunk,
 	language,
+	commentsByLine,
+	newFileLineNumbers,
 }: {
 	hunk: DiffHunk;
 	language: string;
+	/** Pre-computed map of line number -> comments for this line */
+	commentsByLine: Map<number, ReviewComment[]>;
+	/** Set of all line numbers that exist in the new file (additions + context) */
+	newFileLineNumbers: Set<number>;
 }) {
 	return (
 		<div className="border-b last:border-b-0">
@@ -459,13 +467,29 @@ function DiffHunkView({
 			</div>
 			{/* Hunk lines */}
 			<div>
-				{hunk.lines.map((hunkLine, idx) => (
-					<DiffLineView
-						key={`${hunk.oldStart}-${hunk.newStart}-${idx}`}
-						line={hunkLine}
-						language={language}
-					/>
-				))}
+				{hunk.lines.map((hunkLine, idx) => {
+					let comments: ReviewComment[] = [];
+
+					if (hunkLine.type === "del" && hunkLine.oldLineNumber) {
+						// For deletions: only show comment if this line number does NOT exist in new file
+						// (i.e., it's a pure deletion, not a modification)
+						if (!newFileLineNumbers.has(hunkLine.oldLineNumber)) {
+							comments = commentsByLine.get(hunkLine.oldLineNumber) ?? [];
+						}
+					} else if (hunkLine.newLineNumber) {
+						// For additions/context: always show comments
+						comments = commentsByLine.get(hunkLine.newLineNumber) ?? [];
+					}
+
+					return (
+						<div key={`${hunk.oldStart}-${hunk.newStart}-${idx}`}>
+							<DiffLineView line={hunkLine} language={language} />
+							{comments.map((comment) => (
+								<InlineComment key={comment.id} comment={comment} />
+							))}
+						</div>
+					);
+				})}
 			</div>
 		</div>
 	);
@@ -474,9 +498,49 @@ function DiffHunkView({
 /**
  * A single file's diff content
  */
-function DiffFileContent({ file }: { file: DiffFile }) {
+function DiffFileContent({
+	file,
+	comments,
+}: {
+	file: DiffFile;
+	comments?: ReviewComment[];
+}) {
 	const [isExpanded, setIsExpanded] = useState(true);
 	const language = getLanguageFromExtension(file.extension);
+
+	// Separate file-level comments from line comments
+	const fileComments = comments?.filter((c) => c.type === "file") ?? [];
+	const lineComments = comments?.filter((c) => c.type === "line") ?? [];
+	const hasComments = (comments?.length ?? 0) > 0;
+
+	// Pre-compute which line each comment should appear after (its endLine or startLine)
+	// This ensures each comment appears exactly once
+	const commentsByLine = useMemo(() => {
+		const map = new Map<number, ReviewComment[]>();
+		for (const comment of lineComments) {
+			const targetLine = comment.endLine ?? comment.startLine;
+			if (targetLine) {
+				const existing = map.get(targetLine) ?? [];
+				existing.push(comment);
+				map.set(targetLine, existing);
+			}
+		}
+		return map;
+	}, [lineComments]);
+
+	// Collect all line numbers that exist in the new file (additions + context lines)
+	// Used to determine if a deletion is "pure" (line removed) vs "modified" (line changed)
+	const newFileLineNumbers = useMemo(() => {
+		const lineNumbers = new Set<number>();
+		for (const hunk of file.hunks) {
+			for (const line of hunk.lines) {
+				if (line.newLineNumber !== null) {
+					lineNumbers.add(line.newLineNumber);
+				}
+			}
+		}
+		return lineNumbers;
+	}, [file.hunks]);
 
 	const StatusIcon =
 		file.status === "added"
@@ -500,7 +564,12 @@ function DiffFileContent({ file }: { file: DiffFile }) {
 				: "bg-blue-500/10 text-blue-600 border-blue-500/30";
 
 	return (
-		<div className="border rounded-lg overflow-hidden mb-4">
+		<div
+			className={cn(
+				"border rounded-lg overflow-hidden mb-4",
+				hasComments && "ring-2 ring-amber-500/30",
+			)}
+		>
 			{/* File header */}
 			<button
 				type="button"
@@ -516,6 +585,14 @@ function DiffFileContent({ file }: { file: DiffFile }) {
 				<span className="font-mono text-sm truncate flex-1 text-left">
 					{file.path}
 				</span>
+				{hasComments && (
+					<Badge
+						variant="outline"
+						className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/30"
+					>
+						{comments?.length} comment{comments?.length !== 1 ? "s" : ""}
+					</Badge>
+				)}
 				<Badge variant="outline" className={cn("text-xs", statusBadgeClass)}>
 					{file.status}
 				</Badge>
@@ -533,6 +610,15 @@ function DiffFileContent({ file }: { file: DiffFile }) {
 				</div>
 			</button>
 
+			{/* File-level comments */}
+			{isExpanded && fileComments.length > 0 && (
+				<div className="border-b bg-muted/20">
+					{fileComments.map((comment) => (
+						<InlineComment key={comment.id} comment={comment} />
+					))}
+				</div>
+			)}
+
 			{/* File content */}
 			{isExpanded && (
 				<div className="overflow-x-auto">
@@ -541,6 +627,8 @@ function DiffFileContent({ file }: { file: DiffFile }) {
 							key={`${file.path}-hunk-${idx}`}
 							hunk={hunk}
 							language={language}
+							commentsByLine={commentsByLine}
+							newFileLineNumbers={newFileLineNumbers}
 						/>
 					))}
 				</div>
@@ -553,12 +641,67 @@ function DiffFileContent({ file }: { file: DiffFile }) {
 // Main Component
 // =============================================================================
 
+/** Group comments by file path */
+function groupCommentsByFile(comments: ReviewComment[] = []) {
+	const byFile = new Map<string, ReviewComment[]>();
+	for (const comment of comments) {
+		if (comment.filePath) {
+			const existing = byFile.get(comment.filePath) ?? [];
+			existing.push(comment);
+			byFile.set(comment.filePath, existing);
+		}
+	}
+	return byFile;
+}
+
+/** Severity colors for comment badges */
+const SEVERITY_COLORS = {
+	High: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30",
+	Medium:
+		"bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+	Low: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
+} as const;
+
+/** Inline comment bubble for diff view */
+function InlineComment({ comment }: { comment: ReviewComment }) {
+	return (
+		<div
+			className={cn(
+				"mx-4 my-2 p-3 rounded-lg border text-sm",
+				SEVERITY_COLORS[comment.severity],
+			)}
+		>
+			<div className="flex items-center gap-2 mb-1">
+				<Badge variant="outline" className="text-xs">
+					{comment.severity}
+				</Badge>
+				<Badge variant="secondary" className="text-xs">
+					{comment.category}
+				</Badge>
+				{comment.type === "line" && comment.startLine && (
+					<span className="text-xs text-muted-foreground font-mono">
+						Line {comment.startLine}
+						{comment.endLine && comment.endLine !== comment.startLine
+							? `-${comment.endLine}`
+							: ""}
+					</span>
+				)}
+			</div>
+			<p className="text-foreground">{comment.description}</p>
+		</div>
+	);
+}
+
 /**
  * DiffViewer - Renders a unified diff with syntax highlighting
  */
-export function DiffViewer({ diff, className }: DiffViewerProps) {
+export function DiffViewer({ diff, comments, className }: DiffViewerProps) {
 	const files = useMemo(() => parseUnifiedDiff(diff), [diff]);
 	const extensions = useMemo(() => getUniqueExtensions(files), [files]);
+	const commentsByFile = useMemo(
+		() => groupCommentsByFile(comments),
+		[comments],
+	);
 
 	const [selectedFile, setSelectedFile] = useState<string | null>(null);
 	const [filterExtension, setFilterExtension] = useState<string>("all");
@@ -662,7 +805,10 @@ export function DiffViewer({ diff, className }: DiffViewerProps) {
 							key={file.path}
 							id={`diff-file-${file.path.replace(/[^a-zA-Z0-9]/g, "-")}`}
 						>
-							<DiffFileContent file={file} />
+							<DiffFileContent
+								file={file}
+								comments={commentsByFile.get(file.path)}
+							/>
 						</div>
 					))}
 				</div>
@@ -678,6 +824,8 @@ export function DiffViewer({ diff, className }: DiffViewerProps) {
 interface DiffViewerModalProps {
 	/** Raw unified diff content */
 	diff: string;
+	/** Review comments to display inline */
+	comments?: ReviewComment[];
 	/** Trigger element (defaults to a button) */
 	trigger?: React.ReactNode;
 	/** Optional additional className for the dialog content */
@@ -685,42 +833,40 @@ interface DiffViewerModalProps {
 }
 
 /**
- * DiffViewerModal - A modal wrapper for the DiffViewer
- * Used to trigger the diff viewer from ReviewCardApproval
+ * DiffViewerModal - A full-screen sheet for viewing diffs
+ * Uses Sheet component for better full-screen experience
  */
 export function DiffViewerModal({
 	diff,
+	comments,
 	trigger,
 	className,
 }: DiffViewerModalProps) {
 	return (
-		<Dialog>
-			<DialogTrigger asChild>
+		<Sheet>
+			<SheetTrigger asChild>
 				{trigger ?? (
 					<Button variant="outline" size="sm">
 						<GitCompareArrows className="size-4 mr-1" />
 						View Diff
 					</Button>
 				)}
-			</DialogTrigger>
-			<DialogContent
-				className={cn(
-					"max-w-[90vw] w-[90vw] h-[85vh] p-0 flex flex-col",
-					className,
-				)}
-				showCloseButton={true}
+			</SheetTrigger>
+			<SheetContent
+				side="right"
+				className={cn("!w-[100vw] !max-w-[100vw] p-0 flex flex-col", className)}
 			>
-				<DialogHeader className="px-4 py-3 border-b shrink-0">
-					<DialogTitle className="flex items-center gap-2">
+				<SheetHeader className="px-4 py-3 border-b shrink-0">
+					<SheetTitle className="flex items-center gap-2">
 						<GitCompareArrows className="size-5" />
 						Code Changes
-					</DialogTitle>
-				</DialogHeader>
+					</SheetTitle>
+				</SheetHeader>
 				<div className="flex-1 overflow-hidden">
-					<DiffViewer diff={diff} className="h-full" />
+					<DiffViewer diff={diff} comments={comments} className="h-full" />
 				</div>
-			</DialogContent>
-		</Dialog>
+			</SheetContent>
+		</Sheet>
 	);
 }
 

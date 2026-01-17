@@ -15,10 +15,11 @@ import {
 	ClipboardCopy,
 	Eye,
 	FileText,
+	GitCompareArrows,
 	MessageSquare,
 	XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +49,7 @@ import type {
 	ReviewCommentSeverity,
 } from "@/shared/schemas/workflow";
 import { reviewCardToMarkdown } from "./artifactMarkdown";
+import { DiffViewerModal } from "./DiffViewer";
 
 interface ReviewCardApprovalProps {
 	reviewCard: ReviewCard;
@@ -236,6 +238,27 @@ export function ReviewCardApproval({
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [copied, setCopied] = useState(false);
+	const [diff, setDiff] = useState<string | null>(null);
+	const [isDiffLoading, setIsDiffLoading] = useState(false);
+
+	// Fetch diff when component mounts or expands
+	useEffect(() => {
+		if (isExpanded && diff === null && !isDiffLoading) {
+			setIsDiffLoading(true);
+			fetch(`/api/workflows/${reviewCard.workflowId}/diff`)
+				.then((res) => res.json())
+				.then((data) => {
+					setDiff(data.diff ?? "");
+				})
+				.catch((err) => {
+					console.error("Failed to fetch diff:", err);
+					setDiff("");
+				})
+				.finally(() => {
+					setIsDiffLoading(false);
+				});
+		}
+	}, [isExpanded, reviewCard.workflowId, diff, isDiffLoading]);
 
 	const isPending = reviewCard.status === "pending";
 	const canApprove = isPending && onApprove && onDeny;
@@ -321,6 +344,28 @@ export function ReviewCardApproval({
 									{copied ? "Copied!" : "Copy as Markdown"}
 								</TooltipContent>
 							</Tooltip>
+							{diff && diff.trim() !== "" && (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<span>
+											<DiffViewerModal
+												diff={diff}
+												comments={reviewCard.comments}
+												trigger={
+													<Button
+														variant="ghost"
+														size="icon-sm"
+														className="text-muted-foreground hover:text-foreground"
+													>
+														<GitCompareArrows className="size-4" />
+													</Button>
+												}
+											/>
+										</span>
+									</TooltipTrigger>
+									<TooltipContent>View Diff</TooltipContent>
+								</Tooltip>
+							)}
 						</div>
 						{canApprove && (
 							<div className="flex items-center gap-2">

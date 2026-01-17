@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import { getWorkflowOrchestrator } from "../agents/runner";
+import { getDiff } from "../git";
 import { log } from "../logger";
 import { getRepositories } from "../repositories";
 
@@ -354,6 +355,49 @@ export const workflowRoutes = {
 				return Response.json({ success: true });
 			} catch (error) {
 				log.api.error("Failed to rewind workflow:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/workflows/:id/diff": {
+		async GET(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			try {
+				const repos = getRepositories();
+				const workflow = await repos.workflows.getById(params.id);
+
+				if (!workflow) {
+					return Response.json(
+						{ error: "Workflow not found" },
+						{ status: 404 },
+					);
+				}
+
+				if (!workflow.baseBranch) {
+					return Response.json(
+						{ error: "Workflow has no base branch set" },
+						{ status: 400 },
+					);
+				}
+
+				// Construct the workflow branch name (autarch/{workflowId})
+				const workflowBranch = `autarch/${params.id}`;
+				const diffContent = await getDiff(
+					process.cwd(),
+					workflow.baseBranch,
+					workflowBranch,
+				);
+
+				return Response.json({ diff: diffContent ?? "" });
+			} catch (error) {
+				log.api.error("Failed to get diff:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },

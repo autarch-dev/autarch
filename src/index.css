@@ -14,6 +14,19 @@
 	}
 }
 
+/* Shiki dual-theme support - uses CSS variables for light/dark switching */
+.shiki,
+.shiki span {
+	color: var(--shiki-light);
+	background-color: var(--shiki-light-bg);
+}
+
+.dark .shiki,
+.dark .shiki span {
+	color: var(--shiki-dark);
+	background-color: var(--shiki-dark-bg);
+}
+
 /* cool Bun background animation 😎 - only on onboarding pages */
 body:has(.onboarding-page)::before {
 	content: "";
