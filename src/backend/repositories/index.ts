@@ -21,6 +21,7 @@ import { WorkflowRepository } from "./WorkflowRepository";
 export { ArtifactRepository } from "./ArtifactRepository";
 export { ChannelRepository } from "./ChannelRepository";
 export { ConversationRepository } from "./ConversationRepository";
+export type { PreflightSetup, Pulse } from "./PulseRepository";
 export { PulseRepository } from "./PulseRepository";
 export { SessionRepository } from "./SessionRepository";
 // Re-export types

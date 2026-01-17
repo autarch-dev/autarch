@@ -9,6 +9,8 @@ import {
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
+	ClipboardCheck,
+	ClipboardCopy,
 	ClipboardList,
 	XCircle,
 } from "lucide-react";
@@ -25,8 +27,14 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Plan, PulseDefinition } from "@/shared/schemas/workflow";
+import { planToMarkdown } from "./artifactMarkdown";
 
 interface PlanCardApprovalProps {
 	plan: Plan;
@@ -82,9 +90,17 @@ export function PlanCardApproval({
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [copied, setCopied] = useState(false);
 
 	const isPending = plan.status === "pending";
 	const canApprove = isPending && onApprove && onDeny;
+
+	const handleCopyMarkdown = async () => {
+		const markdown = planToMarkdown(plan);
+		await navigator.clipboard.writeText(markdown);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
 
 	const handleApprove = async () => {
 		if (!onApprove) return;
@@ -131,6 +147,25 @@ export function PlanCardApproval({
 								{plan.pulses.length} pulse{plan.pulses.length !== 1 ? "s" : ""}
 							</Badge>
 							{STATUS_BADGES[plan.status]}
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										onClick={handleCopyMarkdown}
+										className="text-muted-foreground hover:text-foreground"
+									>
+										{copied ? (
+											<ClipboardCheck className="size-4 text-green-500" />
+										) : (
+											<ClipboardCopy className="size-4" />
+										)}
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									{copied ? "Copied!" : "Copy as Markdown"}
+								</TooltipContent>
+							</Tooltip>
 						</div>
 						{canApprove && (
 							<div className="flex items-center gap-2">

@@ -42,11 +42,14 @@ export async function getModelForScenario(
 ): Promise<LanguageModel> {
 	// Get user's model preference for this scenario
 	const prefs = await getModelPreferences();
-	const modelName = prefs[scenario];
+
+	// Preflight uses execution's model (no separate preference)
+	const effectiveScenario = scenario === "preflight" ? "execution" : scenario;
+	const modelName = prefs[effectiveScenario];
 
 	if (!modelName) {
 		throw new Error(
-			`No model configured for scenario "${scenario}". Please complete onboarding or set model preferences.`,
+			`No model configured for scenario "${effectiveScenario}". Please complete onboarding or set model preferences.`,
 		);
 	}
 

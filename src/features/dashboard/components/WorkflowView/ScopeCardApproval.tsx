@@ -11,6 +11,8 @@ import {
 	ChevronDown,
 	ChevronRight,
 	CircleDot,
+	ClipboardCheck,
+	ClipboardCopy,
 	ListChecks,
 	ListX,
 	Target,
@@ -29,8 +31,14 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { ScopeCard } from "@/shared/schemas/workflow";
+import { scopeCardToMarkdown } from "./artifactMarkdown";
 
 interface ScopeCardApprovalProps {
 	scopeCard: ScopeCard;
@@ -70,9 +78,17 @@ export function ScopeCardApproval({
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [copied, setCopied] = useState(false);
 
 	const isPending = scopeCard.status === "pending";
 	const canApprove = isPending && onApprove && onDeny;
+
+	const handleCopyMarkdown = async () => {
+		const markdown = scopeCardToMarkdown(scopeCard);
+		await navigator.clipboard.writeText(markdown);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
 
 	const handleApprove = async () => {
 		if (!onApprove) return;
@@ -118,6 +134,25 @@ export function ScopeCardApproval({
 								Scope: {scopeCard.title}
 							</CardTitle>
 							{STATUS_BADGES[scopeCard.status]}
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										onClick={handleCopyMarkdown}
+										className="text-muted-foreground hover:text-foreground"
+									>
+										{copied ? (
+											<ClipboardCheck className="size-4 text-green-500" />
+										) : (
+											<ClipboardCopy className="size-4" />
+										)}
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									{copied ? "Copied!" : "Copy as Markdown"}
+								</TooltipContent>
+							</Tooltip>
 						</div>
 						{canApprove && (
 							<div className="flex items-center gap-2">

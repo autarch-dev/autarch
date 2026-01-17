@@ -13,6 +13,7 @@ export const ModelScenario = z.enum([
 	"scoping",
 	"research",
 	"planning",
+	"preflight",
 	"execution",
 	"review",
 ]);
@@ -91,7 +92,8 @@ export const AI_PROVIDER_LABELS: Record<AIProvider, string> = {
 	xai: "xAI (Grok)",
 };
 
-export const MODEL_SCENARIO_LABELS: Record<ModelScenario, string> = {
+/** Labels for model scenarios shown in settings UI (excludes preflight which uses execution's model) */
+export const MODEL_SCENARIO_LABELS: Record<Exclude<ModelScenario, "preflight">, string> = {
 	basic: "Basic Tasks",
 	discussion: "Discussion Channels",
 	scoping: "Scoping Agent",
@@ -101,7 +103,8 @@ export const MODEL_SCENARIO_LABELS: Record<ModelScenario, string> = {
 	review: "Review Agent",
 };
 
-export const MODEL_SCENARIO_DESCRIPTIONS: Record<ModelScenario, string> = {
+/** Descriptions for model scenarios shown in settings UI (excludes preflight which uses execution's model) */
+export const MODEL_SCENARIO_DESCRIPTIONS: Record<Exclude<ModelScenario, "preflight">, string> = {
 	basic: "Summarization and internal text generation",
 	discussion: "Used for interactive discussion and brainstorming",
 	scoping: "Defines project scope and requirements",

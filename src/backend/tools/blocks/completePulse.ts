@@ -3,6 +3,7 @@
  */
 
 import { z } from "zod";
+import { getWorkflowOrchestrator } from "@/backend/agents/runner";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import { CompletionValidator } from "@/backend/services/pulsing/CompletionValidator";
@@ -100,21 +101,27 @@ orchestration for human review.`,
 				};
 			}
 
-			// Validation passed - mark the pulse as ready for completion
-			// The actual git commit/merge will be handled by the orchestrator
-			// when it processes this tool result
-
+			// Validation passed - trigger the orchestrator to commit and handle next steps
 			log.workflow.info(
 				`Pulse completion validated for ${pulse.id}: ${input.summary}`,
 			);
 
+			// Let orchestrator handle the commit, merge, and next pulse/review transition
+			const orchestrator = getWorkflowOrchestrator();
+			await orchestrator.handlePulseCompletion(
+				context.workflowId,
+				input.summary,
+				hasUnresolvedIssues ?? false,
+			);
+
 			const lines = [
-				"Pulse completion validated. Changes will be committed.",
+				"Pulse completed. Changes committed and merged.",
 				`Commit message: ${input.summary}`,
+				"Wait for the user to respond.",
 			];
 			if (hasUnresolvedIssues) {
 				lines.push(
-					`Warning: ${input.unresolvedIssues?.length} unresolved issue(s) acknowledged.`,
+					`Warning: ${input.unresolvedIssues?.length} unresolved issue(s) acknowledged. Orchestration halted for review.`,
 				);
 			}
 

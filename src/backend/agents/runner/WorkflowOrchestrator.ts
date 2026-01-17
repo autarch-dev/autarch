@@ -14,6 +14,7 @@ import { log } from "@/backend/logger";
 import type {
 	ArtifactRepository,
 	ConversationRepository,
+	Pulse,
 	PulseRepository,
 	WorkflowRepository,
 } from "@/backend/repositories";
@@ -48,7 +49,7 @@ const STAGE_TO_AGENT: Record<WorkflowStatus, ModelScenario> = {
 	scoping: "scoping",
 	researching: "research",
 	planning: "planning",
-	in_progress: "execution",
+	in_progress: "preflight", // Starts with preflight, then execution for each pulse
 	review: "review",
 	done: "basic", // No agent needed for done state
 };
@@ -156,6 +157,7 @@ export class WorkflowOrchestrator {
 	 *
 	 * For approval-required tools: saves artifact, sets awaiting_approval
 	 * For auto-transition tools: transitions immediately
+	 * For complete_preflight: starts execution with first pulse
 	 */
 	async handleToolResult(
 		workflowId: string,
@@ -165,6 +167,12 @@ export class WorkflowOrchestrator {
 		log.workflow.info(
 			`handleToolResult: workflowId=${workflowId}, toolName=${toolName}, artifactId=${artifactId}`,
 		);
+
+		// Handle preflight completion - starts first pulse
+		if (toolName === "complete_preflight") {
+			await this.handlePreflightCompletion(workflowId);
+			return { transitioned: false, awaitingApproval: false };
+		}
 
 		// Check if this is an approval-required tool
 		const approvalTargetStage = APPROVAL_REQUIRED_TOOLS[toolName];
@@ -483,6 +491,79 @@ export class WorkflowOrchestrator {
 	}
 
 	// ===========================================================================
+	// Preflight Handling
+	// ===========================================================================
+
+	/**
+	 * Handle preflight completion
+	 *
+	 * Called when complete_preflight tool succeeds. Creates a new execution
+	 * session and starts the first pulse.
+	 */
+	async handlePreflightCompletion(workflowId: string): Promise<void> {
+		const workflow = await this.workflowRepo.getById(workflowId);
+		if (!workflow) {
+			log.workflow.error(`Workflow not found during preflight completion: ${workflowId}`);
+			return;
+		}
+
+		// Stop preflight session
+		if (workflow.currentSessionId) {
+			await this.sessionManager.stopSession(workflow.currentSessionId);
+		}
+
+		const projectRoot = findRepoRoot(process.cwd());
+		const worktreePath = getWorktreePath(projectRoot, workflowId);
+
+		// Start the first pulse
+		const firstPulse = await this.pulseOrchestrator.startNextPulse(
+			workflowId,
+			worktreePath,
+		);
+
+		if (!firstPulse) {
+			log.workflow.error(`No pulses found for workflow ${workflowId} after preflight`);
+			await this.errorWorkflow(workflowId, "No pulses found after preflight");
+			return;
+		}
+
+		// Create fresh execution session for the first pulse
+		const session = await this.sessionManager.startSession({
+			contextType: "workflow",
+			contextId: workflowId,
+			agentRole: "execution",
+		});
+
+		// Update workflow with new session
+		await this.workflowRepo.setCurrentSession(workflowId, session.id);
+
+		// Build initial message for this pulse
+		const initialMessage = await this.buildPulseInitialMessage(workflowId, firstPulse);
+
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			conversationRepo: this.conversationRepo,
+			worktreePath,
+		});
+
+		log.workflow.info(
+			`Starting execution agent for pulse ${firstPulse.id} in workflow ${workflowId}`,
+		);
+
+		// Run in background (non-blocking)
+		runner.run(initialMessage, { hidden: true }).catch((error) => {
+			log.workflow.error(
+				`Execution agent failed for pulse ${firstPulse.id}:`,
+				error,
+			);
+			this.errorWorkflow(
+				workflowId,
+				error instanceof Error ? error.message : "Unknown error",
+			);
+		});
+	}
+
+	// ===========================================================================
 	// Pulse Handling
 	// ===========================================================================
 
@@ -490,13 +571,19 @@ export class WorkflowOrchestrator {
 	 * Handle pulse completion
 	 *
 	 * Called when complete_pulse tool succeeds. Commits changes and either
-	 * starts the next pulse or transitions to review.
+	 * starts the next pulse (with fresh session) or transitions to review.
 	 */
 	async handlePulseCompletion(
 		workflowId: string,
 		commitMessage: string,
 		hasUnresolvedIssues: boolean,
 	): Promise<void> {
+		const workflow = await this.workflowRepo.getById(workflowId);
+		if (!workflow) {
+			log.workflow.error(`Workflow not found during pulse completion: ${workflowId}`);
+			return;
+		}
+
 		const pulse = await this.pulseOrchestrator.getRunningPulse(workflowId);
 		if (!pulse) {
 			log.workflow.error(
@@ -532,19 +619,55 @@ export class WorkflowOrchestrator {
 
 		// Check if there are more pulses
 		if (result.hasMorePulses) {
-			// Start next pulse
+			// Stop current session to clear context
+			if (workflow.currentSessionId) {
+				await this.sessionManager.stopSession(workflow.currentSessionId);
+			}
+
 			const projectRoot = findRepoRoot(process.cwd());
 			const worktreePath = getWorktreePath(projectRoot, workflowId);
 
+			// Start the next pulse
 			const nextPulse = await this.pulseOrchestrator.startNextPulse(
 				workflowId,
 				worktreePath,
 			);
 
 			if (nextPulse) {
-				log.workflow.info(`Started next pulse: ${nextPulse.id}`);
-				// The agent session continues - it will receive a message about the next pulse
-				// TODO: Send continuation message to agent
+				// Create fresh session for next pulse (empty context)
+				const session = await this.sessionManager.startSession({
+					contextType: "workflow",
+					contextId: workflowId,
+					agentRole: "execution",
+				});
+
+				// Update workflow with new session
+				await this.workflowRepo.setCurrentSession(workflowId, session.id);
+
+				// Build initial message for this pulse
+				const initialMessage = await this.buildPulseInitialMessage(workflowId, nextPulse);
+
+				const runner = new AgentRunner(session, {
+					projectRoot,
+					conversationRepo: this.conversationRepo,
+					worktreePath,
+				});
+
+				log.workflow.info(
+					`Starting execution agent for pulse ${nextPulse.id} in workflow ${workflowId}`,
+				);
+
+				// Run in background (non-blocking)
+				runner.run(initialMessage, { hidden: true }).catch((error) => {
+					log.workflow.error(
+						`Execution agent failed for pulse ${nextPulse.id}:`,
+						error,
+					);
+					this.errorWorkflow(
+						workflowId,
+						error instanceof Error ? error.message : "Unknown error",
+					);
+				});
 			}
 		} else {
 			// All pulses complete - transition to review
@@ -701,7 +824,7 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 			return message;
 		}
 
-		// Planning -> Execution: initialize pulsing and start preflight
+		// Planning -> in_progress: initialize pulsing and start preflight agent
 		if (previousStage === "planning" && newStage === "in_progress") {
 			const plan = await this.artifactRepo.getLatestPlan(workflowId);
 
@@ -728,34 +851,122 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 				plan.pulses,
 			);
 
-			// Build the initial message for the preflight/execution agent
-			let message = `## Approved Execution Plan
-
-The following plan has been approved. You are working in an isolated worktree at: \`${pulsingResult.worktreePath}\`
-
-### Approach
-${plan.approachSummary}
-
-### Pulses`;
-
-			for (const pulse of plan.pulses) {
-				message += `\n\n#### ${pulse.id}: ${pulse.title}
-**Description:** ${pulse.description}
-**Expected Changes:** ${pulse.expectedChanges.map((f) => `\`${f}\``).join(", ")}
-**Estimated Size:** ${pulse.estimatedSize}`;
-				if (pulse.dependsOn && pulse.dependsOn.length > 0) {
-					message += `\n**Depends On:** ${pulse.dependsOn.join(", ")}`;
-				}
+			// Create preflight setup record
+			const workflow = await this.workflowRepo.getById(workflowId);
+			if (workflow?.currentSessionId) {
+				await this.pulseOrchestrator.createPreflightSetup(
+					workflowId,
+					workflow.currentSessionId,
+				);
 			}
 
-			message +=
-				"\n\nExecute each pulse in dependency order. After completing a pulse, call `complete_pulse` or `request_extension` as appropriate.";
+			// Build the initial message for the PREFLIGHT agent
+			const message = `## Preflight Environment Setup
+
+You are preparing the development environment in an isolated worktree before code execution begins.
+
+**Worktree Path:** \`${pulsingResult.worktreePath}\`
+
+### Plan Overview
+
+**Approach:** ${plan.approachSummary}
+
+**Pulses to Execute:** ${plan.pulses.length}
+${plan.pulses.map((p) => `- ${p.id}: ${p.title}`).join("\n")}
+
+### Your Task
+
+1. Initialize the development environment (restore dependencies, build, etc.)
+2. Record any pre-existing build errors/warnings as baselines using \`record_baseline\`
+3. When the environment is ready, call \`complete_preflight\` with a summary
+
+Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
 
 			return message;
 		}
 
 		// For other transitions, return null (no automatic message)
 		return null;
+	}
+
+	/**
+	 * Build the initial message for a pulse execution.
+	 * Provides context without conversation history (fresh session per pulse).
+	 */
+	private async buildPulseInitialMessage(
+		workflowId: string,
+		pulse: Pulse,
+	): Promise<string> {
+		// Get artifacts for context
+		const scopeCard = await this.artifactRepo.getLatestScopeCard(workflowId);
+		const researchCard = await this.artifactRepo.getLatestResearchCard(workflowId);
+		const plan = await this.artifactRepo.getLatestPlan(workflowId);
+
+		// Find the pulse definition from the plan for more details
+		const pulseDef = plan?.pulses.find((p) => p.id === pulse.id);
+
+		let message = `## Current Pulse: ${pulse.id}
+
+${pulse.description}`;
+
+		if (pulseDef) {
+			message += `
+
+**Expected Changes:** ${pulseDef.expectedChanges.map((f) => `\`${f}\``).join(", ")}
+**Estimated Size:** ${pulseDef.estimatedSize}`;
+			if (pulseDef.dependsOn && pulseDef.dependsOn.length > 0) {
+				message += `
+**Depends On:** ${pulseDef.dependsOn.join(", ")} (already completed)`;
+			}
+		}
+
+		message += `
+
+---
+
+## Context (for reference)`;
+
+		// Add scope summary
+		if (scopeCard) {
+			message += `
+
+### Scope: ${scopeCard.title}
+${scopeCard.description}
+
+**In Scope:** ${scopeCard.inScope.slice(0, 3).join("; ")}${scopeCard.inScope.length > 3 ? "..." : ""}`;
+		}
+
+		// Add research recommendations
+		if (researchCard) {
+			message += `
+
+### Research Recommendations
+${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
+
+			if (researchCard.keyFiles.length > 0) {
+				const relevantFiles = researchCard.keyFiles.slice(0, 5);
+				message += `
+
+### Key Files
+${relevantFiles.map((f) => `- \`${f.path}\`: ${f.purpose}`).join("\n")}`;
+			}
+		}
+
+		// Add plan approach
+		if (plan) {
+			message += `
+
+### Plan Approach
+${plan.approachSummary}`;
+		}
+
+		message += `
+
+---
+
+Execute this pulse. When complete, call \`complete_pulse\` with a commit message. If you need more time, use \`request_extension\`.`;
+
+		return message;
 	}
 
 	/**

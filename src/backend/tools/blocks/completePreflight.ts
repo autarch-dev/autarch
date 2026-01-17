@@ -3,6 +3,7 @@
  */
 
 import { z } from "zod";
+import { getWorkflowOrchestrator } from "@/backend/agents/runner";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import type { ToolDefinition, ToolResult } from "../types";
@@ -60,11 +61,19 @@ Provide:
 		try {
 			const { pulses } = getRepositories();
 
-			// Mark preflight as complete
+			// Mark preflight as complete in the database
 			await pulses.completePreflightSetup(context.workflowId);
 
 			log.workflow.info(
 				`Preflight complete for workflow ${context.workflowId}: ${input.summary}`,
+			);
+
+			// Notify orchestrator to start the first pulse
+			const orchestrator = getWorkflowOrchestrator();
+			await orchestrator.handleToolResult(
+				context.workflowId,
+				"complete_preflight",
+				"preflight",
 			);
 
 			return {

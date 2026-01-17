@@ -9,6 +9,7 @@
 
 import {
 	baseTools,
+	preflightTools,
 	pulsingTools,
 	type RegisteredTool,
 	registerTool,
@@ -16,6 +17,7 @@ import {
 } from "../tools";
 import {
 	askQuestionsTool,
+	completePreflightTool,
 	completePulseTool,
 	requestExtensionTool,
 	submitPlanTool,
@@ -54,6 +56,12 @@ const RESEARCH_TOOLS: RegisteredTool[] = [
 const PLANNING_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	registerTool(submitPlanTool),
+];
+
+/** Preflight agent: preflight tools + complete_preflight */
+const PREFLIGHT_TOOLS: RegisteredTool[] = [
+	...preflightTools,
+	registerTool(completePreflightTool),
 ];
 
 /** Execution (Pulsing) agent: base tools + pulsing tools + complete_pulse + request_extension */
@@ -109,6 +117,13 @@ export const agentRegistry = {
 		tools: PLANNING_TOOLS,
 		maxTokens: 8192,
 		temperature: 0.3,
+	},
+	preflight: {
+		role: "preflight",
+		systemPrompt: agentPrompts.preflight,
+		tools: PREFLIGHT_TOOLS,
+		maxTokens: 4096,
+		temperature: 0.2,
 	},
 	execution: {
 		role: "execution",
