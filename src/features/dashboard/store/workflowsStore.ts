@@ -227,11 +227,14 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 
 			set((state) => {
 				const conversations = new Map(state.conversations);
+				const existing = conversations.get(workflowId);
 				conversations.set(workflowId, {
 					sessionId: history.sessionId,
 					sessionStatus: history.sessionStatus,
 					messages: history.messages,
 					isLoading: false,
+					// Preserve streamingMessage if it exists (race with WebSocket events)
+					streamingMessage: existing?.streamingMessage,
 				});
 
 				// Update workflow in list with latest data

@@ -141,10 +141,12 @@ export class CompletionValidator {
 	/**
 	 * Detect tool failures in the session
 	 *
-	 * Looks at recent tool calls to find:
-	 * - Shell commands with non-zero exit codes
-	 * - Edit operations that failed
-	 * - Any tool that returned success: false
+	 * Only checks the MOST RECENT invocation of each tool type.
+	 * This allows agents to fix issues and re-run commands - if the last
+	 * invocation succeeded, earlier failures don't block completion.
+	 *
+	 * For shell commands specifically, we check the last shell command.
+	 * For edit tools, we check the last invocation of each edit tool.
 	 */
 	private async detectToolFailures(sessionId: string): Promise<ToolFailure[]> {
 		const failures: ToolFailure[] = [];
@@ -154,47 +156,64 @@ export class CompletionValidator {
 			const { turns } =
 				await this.conversationRepo.loadSessionContext(sessionId);
 
-			// Look at recent assistant turns (last 5)
+			// Collect all tools from recent assistant turns, preserving order
+			interface ToolRecord {
+				tool_name: string;
+				input_json: string | null;
+				output_json: string | null;
+			}
+			const allTools: Array<{
+				tool: ToolRecord;
+				turnId: string;
+			}> = [];
+
 			const recentTurns = turns.filter((t) => t.role === "assistant").slice(-5);
 
 			for (const turn of recentTurns) {
-				// Get tools for this turn
 				const tools = await this.conversationRepo.getTools(turn.id);
-
 				for (const tool of tools) {
-					if (!FAILURE_TOOLS.includes(tool.tool_name)) {
-						continue;
+					if (FAILURE_TOOLS.includes(tool.tool_name)) {
+						allTools.push({ tool, turnId: turn.id });
 					}
+				}
+			}
 
-					// Check if tool has output and if it indicates failure
-					if (!tool.output_json) {
-						continue;
+			// Find the LAST occurrence of each tool type
+			const lastToolByType = new Map<
+				string,
+				{ tool: ToolRecord; turnId: string }
+			>();
+
+			for (const { tool, turnId } of allTools) {
+				// For shell commands, track as "shell"
+				// For edit tools, track individually since they target different files
+				const key =
+					tool.tool_name === "shell"
+						? "shell"
+						: `${tool.tool_name}:${JSON.parse(tool.input_json || "{}").path || "unknown"}`;
+				lastToolByType.set(key, { tool, turnId });
+			}
+
+			// Check only the last occurrence of each tool
+			for (const [_key, { tool, turnId }] of lastToolByType) {
+				if (!tool.output_json) {
+					continue;
+				}
+
+				try {
+					const output = JSON.parse(tool.output_json);
+
+					// All tools return { success: boolean, output: string }
+					// Shell tool sets success: false when exit code !== 0
+					if (output.success === false) {
+						failures.push({
+							toolName: tool.tool_name,
+							reason: output.output || output.error || "Tool returned failure",
+							turnId,
+						});
 					}
-
-					try {
-						const output = JSON.parse(tool.output_json);
-
-						// Check for explicit failure
-						if (output.success === false) {
-							failures.push({
-								toolName: tool.tool_name,
-								reason: output.error || "Tool returned failure",
-								turnId: turn.id,
-							});
-							continue;
-						}
-
-						// Check shell exit code
-						if (tool.tool_name === "shell" && output.exitCode !== 0) {
-							failures.push({
-								toolName: "shell",
-								reason: `Exit code ${output.exitCode}`,
-								turnId: turn.id,
-							});
-						}
-					} catch {
-						// Couldn't parse output, skip
-					}
+				} catch {
+					// Couldn't parse output, skip
 				}
 			}
 		} catch (error) {

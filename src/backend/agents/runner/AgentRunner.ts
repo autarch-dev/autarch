@@ -207,14 +207,10 @@ export class AgentRunner {
 			content: userMessageContent,
 		};
 		conversationHistory.push(userMsg);
-
-		// Create assistant turn - only hidden for nudge responses, NOT for hidden option
-		// The hidden option is specifically for user turns (transition messages like
-		// "approved artifact" or "Continue.") - we still want to show the agent's response
-		const isAssistantTurnHidden = nudgeCount > 0;
+		
 		const assistantTurn = await this.createTurn(
 			"assistant",
-			isAssistantTurnHidden,
+			false,
 			turnIndex++,
 		);
 
