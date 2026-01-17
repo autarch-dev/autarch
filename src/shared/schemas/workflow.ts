@@ -201,6 +201,8 @@ export const WorkflowSchema = z.object({
 	pendingArtifactType: z
 		.enum(["scope_card", "research", "plan", "review", "review_card"])
 		.optional(),
+	/** The branch the workflow was created from (for diff calculation) */
+	baseBranch: z.string().optional(),
 	createdAt: z.number(),
 	updatedAt: z.number(),
 });

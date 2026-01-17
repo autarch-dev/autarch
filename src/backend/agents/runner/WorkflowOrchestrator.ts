@@ -8,7 +8,7 @@
  * - Spawning appropriate agents for each stage
  */
 
-import { cleanupWorkflow, findRepoRoot } from "@/backend/git";
+import { cleanupWorkflow, findRepoRoot, getCurrentBranch } from "@/backend/git";
 import { getWorktreePath } from "@/backend/git/worktree";
 import { log } from "@/backend/logger";
 import {
@@ -449,6 +449,12 @@ export class WorkflowOrchestrator {
 
 		// Update workflow
 		await this.workflowRepo.transitionStage(workflowId, newStage, session.id);
+
+		// Create review card when entering review stage (so comments can reference it immediately)
+		if (newStage === "review") {
+			await this.artifactRepo.createReviewCard({ workflowId });
+			log.workflow.info(`Created review card for workflow ${workflowId}`);
+		}
 
 		// Broadcast stage change event
 		broadcast(
@@ -987,6 +993,14 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 				return null;
 			}
 
+			// Capture base branch before pulsing initialization
+			const projectRoot = findRepoRoot(process.cwd());
+			const baseBranch = await getCurrentBranch(projectRoot);
+			await this.workflowRepo.setBaseBranch(workflowId, baseBranch);
+			log.workflow.info(
+				`Captured base branch '${baseBranch}' for workflow ${workflowId}`,
+			);
+
 			// Initialize pulsing (create worktree and branch)
 			const pulsingResult =
 				await this.pulseOrchestrator.initializePulsing(workflowId);
@@ -1033,6 +1047,33 @@ ${plan.pulses.map((p) => `- ${p.id}: ${p.title}`).join("\n")}
 3. When the environment is ready, call \`complete_preflight\` with a summary
 
 Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
+
+			return message;
+		}
+
+		// in_progress -> review: send ONLY scope title and description
+		if (previousStage === "in_progress" && newStage === "review") {
+			const scopeCard = await this.artifactRepo.getLatestScopeCard(workflowId);
+
+			if (!scopeCard) {
+				log.workflow.error(
+					`No scope card found for workflow ${workflowId} when transitioning to review`,
+				);
+				return null;
+			}
+
+			const message = `## Scope for Review
+
+### ${scopeCard.title}
+
+${scopeCard.description}
+
+---
+
+Please review the changes made for this scope. Use the available tools to:
+1. Get the diff of all changes using \`get_diff\`
+2. Add comments at the line, file, or review level as needed
+3. Complete your review with a recommendation (approve, deny, or manual_review)`;
 
 			return message;
 		}

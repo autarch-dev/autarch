@@ -51,6 +51,7 @@ export class WorkflowRepository implements Repository {
 			currentSessionId: row.current_session_id ?? undefined,
 			awaitingApproval: row.awaiting_approval === 1,
 			pendingArtifactType: row.pending_artifact_type ?? undefined,
+			baseBranch: row.base_branch ?? undefined,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
 		};
@@ -201,6 +202,20 @@ export class WorkflowRepository implements Repository {
 				current_session_id: sessionId,
 				awaiting_approval: 0,
 				pending_artifact_type: null,
+				updated_at: Date.now(),
+			})
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
+	 * Set the base branch for a workflow (captured when transitioning to in_progress)
+	 */
+	async setBaseBranch(id: string, baseBranch: string): Promise<void> {
+		await this.db
+			.updateTable("workflows")
+			.set({
+				base_branch: baseBranch,
 				updated_at: Date.now(),
 			})
 			.where("id", "=", id)
