@@ -6,6 +6,23 @@
 
 import { spawn } from "node:child_process";
 import { normalize, resolve } from "node:path";
+import type { ToolContext } from "../types";
+
+// =============================================================================
+// Root Path Resolution
+// =============================================================================
+
+/**
+ * Get the effective root path for file operations.
+ * Returns worktreePath if available (for pulsing agent isolation),
+ * otherwise falls back to projectRoot.
+ *
+ * @param context - Tool execution context
+ * @returns The path to use as the root for file operations
+ */
+export function getEffectiveRoot(context: ToolContext): string {
+	return context.worktreePath ?? context.projectRoot;
+}
 
 // =============================================================================
 // Path Validation

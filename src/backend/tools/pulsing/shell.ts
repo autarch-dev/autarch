@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { log } from "@/backend/logger";
+import { getEffectiveRoot } from "../base/utils";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -79,8 +80,8 @@ WARNING: Shell commands can have side effects. Use with caution.
 If you have other tools that can accomplish the same thing, use them instead.`,
 	inputSchema: shellInputSchema,
 	execute: async (input, context): Promise<ToolResult> => {
-		// Determine the working directory (worktree for pulsing, project root otherwise)
-		const cwd = context.worktreePath ?? context.projectRoot;
+		// Use worktree path if available (for pulsing agent isolation)
+		const cwd = getEffectiveRoot(context);
 		const timeout = (input.timeoutSeconds ?? 60) * 1000;
 
 		log.tools.info(`shell: ${input.command} (cwd: ${cwd})`);

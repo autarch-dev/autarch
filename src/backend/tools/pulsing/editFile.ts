@@ -6,6 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, normalize } from "node:path";
 import { z } from "zod";
 import { log } from "@/backend/logger";
+import { getEffectiveRoot } from "../base/utils";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -77,8 +78,8 @@ Failure is final: do not attempt fuzzy matching or retries.
 Note: You are working in an isolated git worktree. Changes are isolated until pulse completion.`,
 	inputSchema: editFileInputSchema,
 	execute: async (input, context): Promise<ToolResult> => {
-		// Determine the root to use
-		const root = context.worktreePath ?? context.projectRoot;
+		// Use worktree path if available (for pulsing agent isolation)
+		const root = getEffectiveRoot(context);
 
 		// Validate path
 		if (isAbsolute(input.path)) {

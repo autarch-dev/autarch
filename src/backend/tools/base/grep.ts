@@ -9,6 +9,7 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
+import { getEffectiveRoot } from "./utils";
 
 // =============================================================================
 // Schema
@@ -93,12 +94,15 @@ Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 		// Add the pattern and path
 		args.push("--", input.pattern, ".");
 
+		// Use worktree path if available (for pulsing agent isolation)
+		const rootPath = getEffectiveRoot(context);
+
 		// Run ripgrep
 		let proc: Bun.Subprocess;
 		try {
 			const rgPath = await getRipgrepPath();
 			proc = Bun.spawn([rgPath, ...args], {
-				cwd: context.projectRoot,
+				cwd: rootPath,
 				stdout: "pipe",
 				stderr: "pipe",
 			});

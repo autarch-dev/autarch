@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, normalize } from "node:path";
 import { z } from "zod";
 import { log } from "@/backend/logger";
+import { getEffectiveRoot } from "../base/utils";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -37,8 +38,8 @@ Parent directories are created automatically.
 Note: You are working in an isolated git worktree. Changes are isolated until pulse completion.`,
 	inputSchema: writeFileInputSchema,
 	execute: async (input, context): Promise<ToolResult> => {
-		// Determine the root to use (worktree for pulsing, project root otherwise)
-		const root = context.worktreePath ?? context.projectRoot;
+		// Use worktree path if available (for pulsing agent isolation)
+		const root = getEffectiveRoot(context);
 
 		// Validate path is not absolute and doesn't escape the root
 		if (isAbsolute(input.path)) {

@@ -11,7 +11,12 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
-import { isExcludedDir, isGitIgnored, resolveSafePath } from "./utils";
+import {
+	getEffectiveRoot,
+	isExcludedDir,
+	isGitIgnored,
+	resolveSafePath,
+} from "./utils";
 
 // =============================================================================
 // Schema
@@ -70,9 +75,12 @@ Returns a newline-separated list of relative paths. Directories have a trailing 
 - optionally, a glob pattern can be used to filter results, e.g. "**/*.cs" for all C# files`,
 	inputSchema: listDirectoryInputSchema,
 	execute: async (input, context): Promise<ToolResult> => {
+		// Use worktree path if available (for pulsing agent isolation)
+		const rootPath = getEffectiveRoot(context);
+
 		// Resolve and validate path
 		const targetPath = input.path || ".";
-		const absolutePath = resolveSafePath(context.projectRoot, targetPath);
+		const absolutePath = resolveSafePath(rootPath, targetPath);
 		if (!absolutePath) {
 			return {
 				success: false,
@@ -116,7 +124,7 @@ Returns a newline-separated list of relative paths. Directories have a trailing 
 
 			for (const entry of entries) {
 				const entryAbsPath = join(currentPath, entry.name);
-				const entryRelPath = relative(context.projectRoot, entryAbsPath);
+				const entryRelPath = relative(rootPath, entryAbsPath);
 
 				// Skip hidden files/directories
 				if (entry.name.startsWith(".")) {
@@ -129,7 +137,7 @@ Returns a newline-separated list of relative paths. Directories have a trailing 
 				}
 
 				// Check gitignore
-				const ignored = await isGitIgnored(context.projectRoot, entryRelPath);
+				const ignored = await isGitIgnored(rootPath, entryRelPath);
 				if (ignored) {
 					continue;
 				}

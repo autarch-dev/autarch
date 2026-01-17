@@ -8,7 +8,7 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
-import { isSensitiveFile, resolveSafePath } from "./utils";
+import { getEffectiveRoot, isSensitiveFile, resolveSafePath } from "./utils";
 
 // =============================================================================
 // Schema
@@ -46,8 +46,11 @@ Can optionally specify a line range to read only a portion of the file.
 Some files may be blocked due to sensitive content policies.`,
 	inputSchema: readFileInputSchema,
 	execute: async (input, context): Promise<ToolResult> => {
+		// Use worktree path if available (for pulsing agent isolation)
+		const rootPath = getEffectiveRoot(context);
+
 		// Resolve and validate path
-		const absolutePath = resolveSafePath(context.projectRoot, input.path);
+		const absolutePath = resolveSafePath(rootPath, input.path);
 		if (!absolutePath) {
 			return {
 				success: false,
