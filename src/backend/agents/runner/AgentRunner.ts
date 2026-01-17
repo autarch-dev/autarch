@@ -736,7 +736,7 @@ export class AgentRunner {
 		// Start streaming with AI SDK
 		const result = streamText({
 			model,
-			system: agentConfig.systemPrompt,
+			system: agentConfig.systemPrompt({ hasWebCodeSearch: hasExaKey }),
 			messages: conversationHistory,
 			tools,
 			stopWhen: stepCountIs(MAX_TOOL_STEPS),
