@@ -1113,6 +1113,15 @@ ${relevantFiles.map((f) => `- \`${f.path}\`: ${f.purpose}`).join("\n")}`;
 ${plan.approachSummary}`;
 		}
 
+		// Add verification instructions if available
+		const preflightSetup = await this.pulseRepo.getPreflightSetup(workflowId);
+		if (preflightSetup?.verificationInstructions) {
+			message += `
+
+### Verification Instructions
+${preflightSetup.verificationInstructions}`;
+		}
+
 		message += `
 
 ---

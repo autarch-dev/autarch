@@ -24,6 +24,7 @@ export async function migrateProjectDb(
 	await createTurnThoughtsTable(db);
 	await createQuestionsTable(db);
 	await addArtifactStatusColumns(db);
+	await addVerificationInstructionsColumn(db);
 }
 
 // =============================================================================
@@ -523,6 +524,24 @@ async function addArtifactStatusColumns(
 		await db.schema
 			.alterTable("plans")
 			.addColumn("status", "text", (col) => col.notNull().defaultTo("pending"))
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+}
+
+// =============================================================================
+// Verification Instructions Migration
+// =============================================================================
+
+async function addVerificationInstructionsColumn(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	// Add verification_instructions column to preflight_setup
+	try {
+		await db.schema
+			.alterTable("preflight_setup")
+			.addColumn("verification_instructions", "text")
 			.execute();
 	} catch {
 		// Column already exists, ignore

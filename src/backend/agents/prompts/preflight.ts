@@ -120,6 +120,34 @@ When environment setup is complete, use the \`complete_preflight\` tool to provi
 1. What setup commands were run
 2. Whether the build succeeded
 3. How many baseline issues were recorded (if any)
+4. Verification instructions for subsequent agents
+
+### Verification Instructions
+
+You MUST include a \`verificationInstructions\` field with concise, README-style commands that subsequent agents can use to verify their changes. Include commands for any of the following that apply to the project:
+
+- **Build**: Command to compile/build the project
+- **Typecheck**: Command to run type checking (if separate from build)
+- **Lint**: Command to run linting
+- **Test**: Command to run tests
+- **Format**: Command to check code formatting
+
+Format these as simple shell commands, one per line. Only include commands that are applicable and working for this project.
+
+Example for a Node.js project:
+\`\`\`
+npm run build
+npm run typecheck
+npm run lint
+npm test
+npm run format:check
+\`\`\`
+
+Example for a .NET project:
+\`\`\`
+dotnet build
+dotnet test
+\`\`\`
 
 Use this format:
 
@@ -128,7 +156,8 @@ Use this format:
     "summary": "Brief description of setup completed",
     "setupCommands": ["command1", "command2"],
     "buildSuccess": true,
-    "baselinesRecorded": 0
+    "baselinesRecorded": 0,
+    "verificationInstructions": "npm run build\\nnpm run typecheck\\nnpm run lint\\nnpm test"
 }
 \`\`\`
 
