@@ -3,9 +3,9 @@
  */
 
 import { z } from "zod";
+import { getWorkflowOrchestrator } from "@/backend/agents/runner";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
-import { getPulseOrchestrator } from "@/backend/services/pulsing";
 import { CompletionValidator } from "@/backend/services/pulsing/CompletionValidator";
 import type { ToolDefinition, ToolResult } from "../types";
 
@@ -109,7 +109,8 @@ orchestration for human review.`,
 			// Commit and merge the pulse changes
 			// Note: Session transition to next pulse is handled by AgentRunner
 			// after this turn completes (via handleTurnCompletion)
-			const pulseOrchestrator = getPulseOrchestrator();
+			const pulseOrchestrator =
+				getWorkflowOrchestrator().getPulseOrchestrator();
 			const result = await pulseOrchestrator.completePulse(
 				pulse.id,
 				input.summary,

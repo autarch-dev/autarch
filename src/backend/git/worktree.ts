@@ -165,7 +165,9 @@ export async function createPulseBranch(
 	workflowBranch: string,
 	pulseId: string,
 ): Promise<string> {
-	const branchName = `${workflowBranch}/${pulseId}`;
+	// Use dash instead of slash to avoid Git ref hierarchy conflict
+	// (Git can't have both 'foo' and 'foo/bar' as branch names)
+	const branchName = `${workflowBranch}-${pulseId}`;
 
 	// Create branch from workflow branch
 	await execGitOrThrow(["branch", branchName, workflowBranch], {

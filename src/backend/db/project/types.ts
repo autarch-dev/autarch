@@ -166,7 +166,7 @@ export interface PulsesTable {
 	status: PulseStatus;
 	/** Description/summary of the pulse work (becomes commit message) */
 	description: string | null;
-	/** The pulse branch name (e.g., "autarch/workflow-x/pulse-y") */
+	/** The pulse branch name (e.g., "autarch/workflow-x-pulse-y") */
 	pulse_branch: string | null;
 	/** Path to the worktree where this pulse executes */
 	worktree_path: string | null;
