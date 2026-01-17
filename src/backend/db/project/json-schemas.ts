@@ -78,6 +78,33 @@ export type PulseJson = z.infer<typeof PulseJsonSchema>;
 export const PulsesJsonSchema = z.array(PulseJsonSchema);
 
 // =============================================================================
+// Review Comments
+// =============================================================================
+
+export const ReviewCommentJsonSchema = z.object({
+	id: z.string(),
+	reviewCardId: z.string(),
+	/** Type of comment: line (attached to lines), file (file-level), review (general) */
+	type: z.enum(["line", "file", "review"]),
+	/** File path - required for line/file comments, undefined for review-level */
+	filePath: z.string().optional(),
+	/** Starting line number - required for line comments */
+	startLine: z.number().optional(),
+	/** Ending line number - optional, for multi-line comments */
+	endLine: z.number().optional(),
+	/** Severity: High, Medium, Low */
+	severity: z.enum(["High", "Medium", "Low"]),
+	/** Category (e.g., security, performance, style, bug, architecture) */
+	category: z.string(),
+	/** The comment description/content */
+	description: z.string(),
+	createdAt: z.number(),
+});
+export type ReviewCommentJson = z.infer<typeof ReviewCommentJsonSchema>;
+
+export const ReviewCommentsJsonSchema = z.array(ReviewCommentJsonSchema);
+
+// =============================================================================
 // Tool Calls
 // =============================================================================
 

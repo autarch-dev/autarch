@@ -199,7 +199,7 @@ export const WorkflowSchema = z.object({
 	currentSessionId: z.string().optional(),
 	awaitingApproval: z.boolean(),
 	pendingArtifactType: z
-		.enum(["scope_card", "research", "plan", "review"])
+		.enum(["scope_card", "research", "plan", "review", "review_card"])
 		.optional(),
 	createdAt: z.number(),
 	updatedAt: z.number(),
@@ -263,6 +263,8 @@ export const WorkflowHistoryResponseSchema = z.object({
 	researchCards: z.array(ResearchCardSchema),
 	/** All plans for this workflow */
 	plans: z.array(PlanSchema),
+	/** All review cards for this workflow */
+	reviewCards: z.array(ReviewCardSchema),
 });
 export type WorkflowHistoryResponse = z.infer<
 	typeof WorkflowHistoryResponseSchema
