@@ -104,7 +104,7 @@ As a reminder, every message MUST end with exactly one of:
 - \`complete_pulse\` — if you have completed this pulse's work
 - \`request_extension\` — if additional work remains
 
-Please continue and ensure your next response ends with one of these tools.`,
+Please continue and ensure your next response ends with one of these tools. If no work remains, call \`complete_pulse\` and yield to the user.`,
 };
 
 // =============================================================================
