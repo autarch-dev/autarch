@@ -220,7 +220,6 @@ You are expected to work methodically:
 2. Read files in full before editing them
 3. Ground edits in exact text from \`read_file\`
 4. Apply edits using \`edit_file\`
-5. Verify correctness by inspection
 
 You may not edit files you have not read.
 You may not "work around" tool failures.
