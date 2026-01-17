@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo, useRef } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ChannelMessage } from "@/shared/schemas/channel";
 import type {
@@ -146,7 +147,7 @@ export function WorkflowView({
 			<div className="flex flex-col h-full">
 				<WorkflowHeader workflow={workflow} />
 
-				<div className="flex-1 overflow-y-auto min-h-0">
+				<ScrollArea className="flex-1 min-h-0">
 					<div className="py-2">
 						{isLoading && !hasAnyContent ? (
 							<div className="flex items-center justify-center py-8">
@@ -167,7 +168,7 @@ export function WorkflowView({
 
 						<div ref={messagesEndRef} />
 					</div>
-				</div>
+				</ScrollArea>
 			</div>
 		</TooltipProvider>
 	);

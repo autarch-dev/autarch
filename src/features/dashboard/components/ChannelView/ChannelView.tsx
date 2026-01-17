@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Channel, ChannelMessage } from "@/shared/schemas/channel";
 import type { StreamingMessage } from "../../store/discussionsStore";
@@ -36,7 +37,7 @@ export function ChannelView({
 			<div className="flex flex-col h-full">
 				<ChannelHeader channel={channel} />
 
-				<div className="flex-1 overflow-y-auto min-h-0">
+				<ScrollArea className="flex-1 min-h-0">
 					<div className="py-2">
 						{isLoading && messages.length === 0 ? (
 							<div className="flex items-center justify-center py-8">
@@ -65,7 +66,7 @@ export function ChannelView({
 						)}
 						<div ref={messagesEndRef} />
 					</div>
-				</div>
+				</ScrollArea>
 
 				<div className="shrink-0 p-4 border-t bg-background">
 					<MessageInput
