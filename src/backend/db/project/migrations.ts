@@ -25,6 +25,9 @@ export async function migrateProjectDb(
 	await createQuestionsTable(db);
 	await addArtifactStatusColumns(db);
 	await addVerificationInstructionsColumn(db);
+	await addBaseBranchColumn(db);
+	await createReviewCardsTable(db);
+	await createReviewCommentsTable(db);
 }
 
 // =============================================================================
@@ -595,5 +598,82 @@ async function createQuestionsTable(
 		.ifNotExists()
 		.on("questions")
 		.column("status")
+		.execute();
+}
+
+// =============================================================================
+// Base Branch Migration
+// =============================================================================
+
+async function addBaseBranchColumn(db: Kysely<ProjectDatabase>): Promise<void> {
+	// Add base_branch column to workflows table
+	try {
+		await db.schema
+			.alterTable("workflows")
+			.addColumn("base_branch", "text")
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+}
+
+// =============================================================================
+// Review Cards
+// =============================================================================
+
+async function createReviewCardsTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("review_cards")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("workflow_id", "text", (col) =>
+			col.notNull().references("workflows.id"),
+		)
+		.addColumn("recommendation", "text") // approve, deny, manual_review - nullable until completeReview
+		.addColumn("summary", "text") // Nullable until completeReview
+		.addColumn("status", "text", (col) => col.notNull().defaultTo("pending"))
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.execute();
+
+	await db.schema
+		.createIndex("idx_review_cards_workflow")
+		.ifNotExists()
+		.on("review_cards")
+		.column("workflow_id")
+		.execute();
+}
+
+// =============================================================================
+// Review Comments
+// =============================================================================
+
+async function createReviewCommentsTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("review_comments")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("review_card_id", "text", (col) =>
+			col.notNull().references("review_cards.id"),
+		)
+		.addColumn("type", "text", (col) => col.notNull()) // line, file, review
+		.addColumn("file_path", "text") // Nullable for review-level comments
+		.addColumn("start_line", "integer") // Nullable for file/review-level comments
+		.addColumn("end_line", "integer") // Nullable (optional even for line comments)
+		.addColumn("severity", "text", (col) => col.notNull()) // High, Medium, Low
+		.addColumn("category", "text", (col) => col.notNull())
+		.addColumn("description", "text", (col) => col.notNull())
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.execute();
+
+	// Index for finding comments by review card
+	await db.schema
+		.createIndex("idx_review_comments_card")
+		.ifNotExists()
+		.on("review_comments")
+		.column("review_card_id")
 		.execute();
 }

@@ -37,4 +37,6 @@ export const ids = {
 	baseline: () => generateId("baseline"),
 	question: () => generateId("question"),
 	note: () => generateId("note"),
+	reviewCard: () => generateId("review"),
+	reviewComment: () => generateId("comment"),
 } as const;

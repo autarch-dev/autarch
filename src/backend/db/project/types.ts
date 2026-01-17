@@ -44,6 +44,8 @@ export interface ProjectDatabase {
 	turn_tools: TurnToolsTable;
 	turn_thoughts: TurnThoughtsTable;
 	questions: QuestionsTable;
+	review_cards: ReviewCardsTable;
+	review_comments: ReviewCommentsTable;
 }
 
 // =============================================================================
@@ -81,6 +83,7 @@ export interface WorkflowsTable {
 	current_session_id: string | null;
 	awaiting_approval: number; // 0 or 1 (SQLite boolean)
 	pending_artifact_type: PendingArtifactType | null;
+	base_branch: string | null; // The branch workflow was created from (for diff calculation)
 	created_at: number;
 	updated_at: number;
 }
@@ -330,4 +333,48 @@ export interface QuestionsTable {
 	status: QuestionStatus;
 	created_at: number;
 	answered_at: number | null;
+}
+
+// =============================================================================
+// Review Cards
+// =============================================================================
+
+export type ReviewRecommendation = "approve" | "deny" | "manual_review";
+
+export interface ReviewCardsTable {
+	id: string;
+	workflow_id: string;
+	/** Recommendation from review agent - nullable until completeReview is called */
+	recommendation: ReviewRecommendation | null;
+	/** Summary from review agent - nullable until completeReview is called */
+	summary: string | null;
+	status: ArtifactStatus;
+	created_at: number;
+}
+
+// =============================================================================
+// Review Comments
+// =============================================================================
+
+export type ReviewCommentType = "line" | "file" | "review";
+export type ReviewCommentSeverity = "High" | "Medium" | "Low";
+
+export interface ReviewCommentsTable {
+	id: string;
+	review_card_id: string;
+	/** Type of comment: line (attached to lines), file (file-level), review (general) */
+	type: ReviewCommentType;
+	/** File path - required for line/file comments, null for review-level */
+	file_path: string | null;
+	/** Starting line number - required for line comments */
+	start_line: number | null;
+	/** Ending line number - optional, for multi-line comments */
+	end_line: number | null;
+	/** Severity: High, Medium, Low */
+	severity: ReviewCommentSeverity;
+	/** Category (e.g., security, performance, style, bug, architecture) */
+	category: string;
+	/** The comment description/content */
+	description: string;
+	created_at: number;
 }

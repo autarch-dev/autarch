@@ -135,6 +135,58 @@ export const PlanSchema = z.object({
 export type Plan = z.infer<typeof PlanSchema>;
 
 // =============================================================================
+// Review Card
+// =============================================================================
+
+export const ReviewRecommendationSchema = z.enum([
+	"approve",
+	"deny",
+	"manual_review",
+]);
+export type ReviewRecommendation = z.infer<typeof ReviewRecommendationSchema>;
+
+export const ReviewCommentTypeSchema = z.enum(["line", "file", "review"]);
+export type ReviewCommentType = z.infer<typeof ReviewCommentTypeSchema>;
+
+export const ReviewCommentSeveritySchema = z.enum(["High", "Medium", "Low"]);
+export type ReviewCommentSeverity = z.infer<typeof ReviewCommentSeveritySchema>;
+
+export const ReviewCommentSchema = z.object({
+	id: z.string(),
+	reviewCardId: z.string(),
+	/** Type of comment: line (attached to lines), file (file-level), review (general) */
+	type: ReviewCommentTypeSchema,
+	/** File path - required for line/file comments, undefined for review-level */
+	filePath: z.string().optional(),
+	/** Starting line number - required for line comments */
+	startLine: z.number().optional(),
+	/** Ending line number - optional, for multi-line comments */
+	endLine: z.number().optional(),
+	/** Severity: High, Medium, Low */
+	severity: ReviewCommentSeveritySchema,
+	/** Category (e.g., security, performance, style, bug, architecture) */
+	category: z.string(),
+	/** The comment description/content */
+	description: z.string(),
+	createdAt: z.number(),
+});
+export type ReviewComment = z.infer<typeof ReviewCommentSchema>;
+
+export const ReviewCardSchema = z.object({
+	id: z.string(),
+	workflowId: z.string(),
+	/** Recommendation from review agent - undefined until completeReview is called */
+	recommendation: ReviewRecommendationSchema.optional(),
+	/** Summary from review agent - undefined until completeReview is called */
+	summary: z.string().optional(),
+	/** Comments added during review */
+	comments: z.array(ReviewCommentSchema),
+	status: ArtifactStatusSchema,
+	createdAt: z.number(),
+});
+export type ReviewCard = z.infer<typeof ReviewCardSchema>;
+
+// =============================================================================
 // Workflow
 // =============================================================================
 
