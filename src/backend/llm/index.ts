@@ -13,6 +13,7 @@ export {
 
 export {
 	type AISDKToolSet,
+	type ConvertToAISDKToolsOptions,
 	convertToAISDKTools,
 	createChannelToolContext,
 	createWorkflowToolContext,

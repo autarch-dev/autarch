@@ -24,22 +24,36 @@ export type AISDKToolSet = Record<string, Tool>;
 // =============================================================================
 
 /**
+ * Options for convertToAISDKTools function.
+ */
+export interface ConvertToAISDKToolsOptions {
+	/**
+	 * Whether an Exa API key is configured.
+	 * When false or undefined, web_code_search tool is excluded.
+	 */
+	hasExaKey?: boolean;
+}
+
+/**
  * Convert an array of RegisteredTools to AI SDK tool format.
  *
  * Filters out tools that require unavailable API keys:
- * - web_code_search requires EXA_API_KEY environment variable
+ * - web_code_search requires an Exa API key to be configured
  *
  * @param tools - Array of registered tools from the agent registry
  * @param context - Tool execution context (project root, workflow/channel IDs, etc.)
+ * @param options - Optional configuration for tool filtering
+ * @param options.hasExaKey - Whether an Exa API key is configured (enables web_code_search)
  * @returns Record of AI SDK tools ready for use with streamText()
  */
 export function convertToAISDKTools(
 	tools: readonly RegisteredTool[],
 	context: ToolContext,
+	options?: ConvertToAISDKToolsOptions,
 ): AISDKToolSet {
 	// Filter out tools that require unavailable API keys
 	const availableTools = tools.filter((t) => {
-		if (t.name === "web_code_search" && !process.env.EXA_API_KEY) {
+		if (t.name === "web_code_search" && !options?.hasExaKey) {
 			return false;
 		}
 		return true;
