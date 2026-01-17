@@ -18,6 +18,9 @@ export const ModelScenario = z.enum([
 ]);
 export type ModelScenario = z.infer<typeof ModelScenario>;
 
+export const IntegrationType = z.enum(["exa"]);
+export type IntegrationType = z.infer<typeof IntegrationType>;
+
 // =============================================================================
 // Onboarding
 // =============================================================================
@@ -62,6 +65,10 @@ export const DeleteApiKeyRequestSchema = z.object({
 });
 export type DeleteApiKeyRequest = z.infer<typeof DeleteApiKeyRequestSchema>;
 
+/** Alias for DeleteApiKeyRequestSchema - used for clearing API keys */
+export const ClearApiKeyRequestSchema = DeleteApiKeyRequestSchema;
+export type ClearApiKeyRequest = DeleteApiKeyRequest;
+
 // =============================================================================
 // Integrations
 // =============================================================================
@@ -76,6 +83,10 @@ export const IntegrationsStatusResponseSchema = z.object({
 export type IntegrationsStatusResponse = z.infer<
 	typeof IntegrationsStatusResponseSchema
 >;
+
+/** Alias for IntegrationsStatusResponseSchema */
+export const IntegrationsResponseSchema = IntegrationsStatusResponseSchema;
+export type IntegrationsResponse = IntegrationsStatusResponse;
 
 /**
  * Request schema for PUT /api/settings/integrations
@@ -144,4 +155,9 @@ export const MODEL_SCENARIO_DESCRIPTIONS: Record<ModelScenario, string> = {
 	planning: "Creates detailed implementation plans",
 	execution: "Executes tasks and writes code",
 	review: "Reviews work and provides feedback",
+};
+
+/** Labels for integrations shown in settings UI */
+export const INTEGRATION_LABELS: Record<IntegrationType, string> = {
+	exa: "Exa",
 };
