@@ -778,6 +778,12 @@ function handleSessionStarted(
 ): void {
 	if (payload.contextType !== "workflow") return;
 
+	console.log("[WS] session:started", {
+		sessionId: payload.sessionId,
+		contextId: payload.contextId,
+		agentRole: payload.agentRole,
+	});
+
 	set((state) => {
 		const conversations = new Map(state.conversations);
 		const existing = conversations.get(payload.contextId);
@@ -852,6 +858,12 @@ function handleTurnStarted(
 	get: GetState,
 ): void {
 	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	console.log("[WS] turn:started", {
+		sessionId: payload.sessionId,
+		turnId: payload.turnId,
+		role: payload.role,
+		foundWorkflowId: workflowId,
+	});
 	if (!workflowId) return;
 
 	// Only create streaming state for assistant turns
@@ -1059,11 +1071,23 @@ function handleToolStarted(
 	get: GetState,
 ): void {
 	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	console.log("[WS] turn:tool_started", {
+		sessionId: payload.sessionId,
+		turnId: payload.turnId,
+		toolName: payload.name,
+		foundWorkflowId: workflowId,
+	});
 	if (!workflowId) return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
 		const existing = conversations.get(workflowId);
+		console.log("[WS] turn:tool_started check streamingMessage", {
+			hasExisting: !!existing,
+			streamingTurnId: existing?.streamingMessage?.turnId,
+			payloadTurnId: payload.turnId,
+			match: existing?.streamingMessage?.turnId === payload.turnId,
+		});
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
 			conversations.set(workflowId, {
 				...existing,
@@ -1255,5 +1279,20 @@ function findWorkflowBySession(
 
 	// Also check workflows for currentSessionId
 	const workflow = workflows.find((w) => w.currentSessionId === sessionId);
+
+	// Debug logging if not found
+	if (!workflow) {
+		console.log("[WS] findWorkflowBySession: NOT FOUND", {
+			lookingFor: sessionId,
+			conversationSessionIds: Array.from(conversations.entries()).map(
+				([wId, c]) => ({ workflowId: wId, sessionId: c.sessionId }),
+			),
+			workflowSessionIds: workflows.map((w) => ({
+				workflowId: w.id,
+				currentSessionId: w.currentSessionId,
+			})),
+		});
+	}
+
 	return workflow?.id;
 }
