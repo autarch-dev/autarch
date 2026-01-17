@@ -4,10 +4,11 @@
  * Uses the Exa Context API which searches billions of GitHub repos, docs pages,
  * and Stack Overflow posts to find token-efficient code context for coding agents.
  *
- * This tool is conditionally available - it's filtered out if EXA_API_KEY is not set.
+ * This tool is conditionally available - it's filtered out if Exa API key is not configured in settings.
  */
 
 import { z } from "zod";
+import { getExaApiKey } from "../../services/globalSettings";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -61,12 +62,12 @@ Use this tool for:
 - Best practices and patterns`,
 	inputSchema: webCodeSearchInputSchema,
 	execute: async (input, _context): Promise<ToolResult> => {
-		// Get API key from environment (tool is filtered if not set, but check anyway)
-		const apiKey = process.env.EXA_API_KEY;
+		// Get API key from database (tool is filtered if not set, but check anyway)
+		const apiKey = await getExaApiKey();
 		if (!apiKey) {
 			return {
 				success: false,
-				output: "Error: EXA_API_KEY environment variable is not set",
+				output: "Error: Exa API key is not configured in settings",
 			};
 		}
 

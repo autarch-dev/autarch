@@ -17,6 +17,7 @@ const SETTING_KEYS = {
 	API_KEY_ANTHROPIC: "api_key_anthropic",
 	API_KEY_GOOGLE: "api_key_google",
 	API_KEY_XAI: "api_key_xai",
+	API_KEY_EXA: "api_key_exa",
 	MODEL_BASIC: "model_basic",
 	MODEL_DISCUSSION: "model_discussion",
 	MODEL_SCOPING: "model_scoping",
@@ -81,6 +82,11 @@ async function setSetting(key: string, value: string): Promise<void> {
 		.execute();
 }
 
+async function deleteSetting(key: string): Promise<void> {
+	const db = await getGlobalDb();
+	await db.deleteFrom("settings").where("key", "=", key).execute();
+}
+
 // =============================================================================
 // Onboarding
 // =============================================================================
@@ -135,6 +141,47 @@ export async function setApiKey(
 export async function getApiKey(provider: AIProvider): Promise<string | null> {
 	const settingKey = PROVIDER_TO_KEY[provider];
 	return getSetting(settingKey);
+}
+
+/**
+ * Clear (delete) an API key for a specific provider.
+ */
+export async function clearApiKey(provider: AIProvider): Promise<void> {
+	const settingKey = PROVIDER_TO_KEY[provider];
+	await deleteSetting(settingKey);
+}
+
+// =============================================================================
+// Exa API Key (Integrations)
+// =============================================================================
+
+/**
+ * Get the Exa API key (for internal use only).
+ */
+export async function getExaApiKey(): Promise<string | null> {
+	return getSetting(SETTING_KEYS.API_KEY_EXA);
+}
+
+/**
+ * Set the Exa API key.
+ */
+export async function setExaApiKey(key: string): Promise<void> {
+	await setSetting(SETTING_KEYS.API_KEY_EXA, key);
+}
+
+/**
+ * Check if Exa API key is configured.
+ */
+export async function isExaKeyConfigured(): Promise<boolean> {
+	const key = await getExaApiKey();
+	return key !== null && key.length > 0;
+}
+
+/**
+ * Clear (delete) the Exa API key.
+ */
+export async function clearExaApiKey(): Promise<void> {
+	await deleteSetting(SETTING_KEYS.API_KEY_EXA);
 }
 
 // =============================================================================

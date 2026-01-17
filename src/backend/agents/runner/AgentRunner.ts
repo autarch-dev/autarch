@@ -24,6 +24,7 @@ import {
 	getModelForScenario,
 } from "@/backend/llm";
 import { log } from "@/backend/logger";
+import { isExaKeyConfigured } from "@/backend/services/globalSettings";
 import type { ToolContext } from "@/backend/tools/types";
 import { broadcast } from "@/backend/ws";
 import {
@@ -685,8 +686,13 @@ export class AgentRunner {
 		// Create tool context based on session type
 		const toolContext = this.createToolContext();
 
+		// Check if Exa API key is configured for web search tools
+		const hasExaKey = await isExaKeyConfigured();
+
 		// Convert our tools to AI SDK format
-		const tools = convertToAISDKTools(agentConfig.tools, toolContext);
+		const tools = convertToAISDKTools(agentConfig.tools, toolContext, {
+			hasExaKey,
+		});
 
 		// Track state during streaming
 		// Segments: text is split into segments separated by tool calls

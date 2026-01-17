@@ -1,12 +1,18 @@
 import {
+	DeleteApiKeyRequestSchema,
 	SetApiKeyRequestSchema,
+	SetIntegrationKeyRequestSchema,
 	SetModelPreferencesRequestSchema,
 } from "@/shared/schemas/settings";
 import {
+	clearApiKey,
+	clearExaApiKey,
 	getApiKeysStatus,
 	getModelPreferences,
+	isExaKeyConfigured,
 	isOnboardingComplete,
 	setApiKey,
+	setExaApiKey,
 	setModelPreferences,
 	setOnboardingComplete,
 } from "../services/globalSettings";
@@ -80,6 +86,52 @@ export const settingsRoutes = {
 			}
 
 			await setApiKey(parsed.data.provider, parsed.data.key);
+			return Response.json({ success: true });
+		},
+
+		async DELETE(req: Request) {
+			const body = await req.json();
+			const parsed = DeleteApiKeyRequestSchema.safeParse(body);
+
+			if (!parsed.success) {
+				return Response.json(
+					{ error: "Invalid request", details: parsed.error.flatten() },
+					{ status: 400 },
+				);
+			}
+
+			await clearApiKey(parsed.data.provider);
+			return Response.json({ success: true });
+		},
+	},
+
+	// =========================================================================
+	// Integrations (Exa)
+	// =========================================================================
+
+	"/api/settings/integrations": {
+		async GET() {
+			const exa = await isExaKeyConfigured();
+			return Response.json({ exa });
+		},
+
+		async PUT(req: Request) {
+			const body = await req.json();
+			const parsed = SetIntegrationKeyRequestSchema.safeParse(body);
+
+			if (!parsed.success) {
+				return Response.json(
+					{ error: "Invalid request", details: parsed.error.flatten() },
+					{ status: 400 },
+				);
+			}
+
+			await setExaApiKey(parsed.data.key);
+			return Response.json({ success: true });
+		},
+
+		async DELETE() {
+			await clearExaApiKey();
 			return Response.json({ success: true });
 		},
 	},

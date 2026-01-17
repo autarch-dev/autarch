@@ -226,10 +226,7 @@ export class SessionRepository implements Repository {
 			.execute();
 
 		// Delete the session itself
-		await this.db
-			.deleteFrom("sessions")
-			.where("id", "=", sessionId)
-			.execute();
+		await this.db.deleteFrom("sessions").where("id", "=", sessionId).execute();
 	}
 
 	/**
