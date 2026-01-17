@@ -54,6 +54,39 @@ export const SetApiKeyRequestSchema = z.object({
 });
 export type SetApiKeyRequest = z.infer<typeof SetApiKeyRequestSchema>;
 
+/**
+ * Request schema for DELETE /api/settings/api-keys
+ */
+export const DeleteApiKeyRequestSchema = z.object({
+	provider: AIProvider,
+});
+export type DeleteApiKeyRequest = z.infer<typeof DeleteApiKeyRequestSchema>;
+
+// =============================================================================
+// Integrations
+// =============================================================================
+
+/**
+ * Response schema for GET /api/settings/integrations
+ * Returns boolean flags indicating which integrations are configured
+ */
+export const IntegrationsStatusResponseSchema = z.object({
+	exa: z.boolean(),
+});
+export type IntegrationsStatusResponse = z.infer<
+	typeof IntegrationsStatusResponseSchema
+>;
+
+/**
+ * Request schema for PUT /api/settings/integrations
+ */
+export const SetIntegrationKeyRequestSchema = z.object({
+	key: z.string().min(1, "API key is required"),
+});
+export type SetIntegrationKeyRequest = z.infer<
+	typeof SetIntegrationKeyRequestSchema
+>;
+
 // =============================================================================
 // Model Preferences
 // =============================================================================
