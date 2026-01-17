@@ -1,8 +1,13 @@
 /**
  * complete_review - Complete the review with a recommendation and summary
+ *
+ * Finalizes the review card with the agent's recommendation and summary.
+ * Triggers the approval workflow for user review before workflow completion.
  */
 
 import { z } from "zod";
+import { getWorkflowOrchestrator } from "@/backend/agents/runner";
+import { getRepositories } from "@/backend/repositories";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -16,8 +21,8 @@ import {
 export const completeReviewInputSchema = z.object({
 	reason: z.string().describe(REASON_DESCRIPTION),
 	recommendation: z
-		.enum(["approve", "reject", "manual_review"])
-		.describe("The recommendation: approve, reject, or manual_review"),
+		.enum(["approve", "deny", "manual_review"])
+		.describe("The recommendation: approve, deny, or manual_review"),
 	summary: z
 		.string()
 		.min(1)
@@ -34,12 +39,57 @@ export const completeReviewTool: ToolDefinition<CompleteReviewInput> = {
 	name: "complete_review",
 	description: `Complete the review with a recommendation and summary.
 Call this tool once after adding all comments to finalize the review.
-The recommendation must be one of: approve, reject, or manual_review.`,
+The recommendation must be one of: approve, deny, or manual_review.`,
 	inputSchema: completeReviewInputSchema,
-	execute: async (_input, _context): Promise<ToolResult> => {
-		return {
-			success: false,
-			output: "Error: Review card not found",
-		};
+	execute: async (input, context): Promise<ToolResult> => {
+		// Workflow ID is required for review operations
+		if (!context.workflowId) {
+			return {
+				success: false,
+				output:
+					"Error: No workflow context - complete_review can only be used in workflow sessions",
+			};
+		}
+
+		try {
+			const { artifacts } = getRepositories();
+
+			// Get the current review card for this workflow
+			const reviewCard = await artifacts.getLatestReviewCard(
+				context.workflowId,
+			);
+			if (!reviewCard) {
+				return {
+					success: false,
+					output: "Error: No review card found for this workflow",
+				};
+			}
+
+			// Update the review card with recommendation and summary
+			await artifacts.updateReviewCardCompletion(
+				reviewCard.id,
+				input.recommendation,
+				input.summary,
+			);
+
+			// Notify the workflow orchestrator about the tool result
+			// This will set the workflow to awaiting_approval state and broadcast the event
+			const orchestrator = getWorkflowOrchestrator();
+			await orchestrator.handleToolResult(
+				context.workflowId,
+				"complete_review",
+				reviewCard.id,
+			);
+
+			return {
+				success: true,
+				output: `Review completed successfully.\nRecommendation: ${input.recommendation}\nSummary: ${input.summary}\n\nWait for the user to approve the review.`,
+			};
+		} catch (error) {
+			return {
+				success: false,
+				output: `Error: Failed to complete review: ${error instanceof Error ? error.message : "unknown error"}`,
+			};
+		}
 	},
 };

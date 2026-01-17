@@ -34,6 +34,9 @@ export const agentPrompts = {
 } as const satisfies Record<AgentRole, (options: AgentPromptOptions) => string>;
 
 /** Get the system prompt for an agent role */
-export function getPromptForRole(role: AgentRole, options: AgentPromptOptions): string {
+export function getPromptForRole(
+	role: AgentRole,
+	options: AgentPromptOptions,
+): string {
 	return agentPrompts[role](options);
 }

@@ -5,7 +5,12 @@
  * for easy copying and sharing.
  */
 
-import type { Plan, ResearchCard, ScopeCard } from "@/shared/schemas/workflow";
+import type {
+	Plan,
+	ResearchCard,
+	ReviewCard,
+	ScopeCard,
+} from "@/shared/schemas/workflow";
 
 /**
  * Convert a scope card to markdown
@@ -178,6 +183,92 @@ export function planToMarkdown(plan: Plan): string {
 			lines.push(`**Depends on:** ${pulse.dependsOn.join(", ")}`);
 		}
 		lines.push("");
+	}
+
+	return lines.join("\n");
+}
+
+/**
+ * Convert a review card to markdown
+ */
+export function reviewCardToMarkdown(reviewCard: ReviewCard): string {
+	const lines: string[] = [];
+
+	lines.push("# Code Review");
+	lines.push("");
+
+	// Recommendation
+	if (reviewCard.recommendation) {
+		const recommendationLabel = {
+			approve: "✅ Approve",
+			deny: "❌ Deny",
+			manual_review: "⚠️ Manual Review Required",
+		}[reviewCard.recommendation];
+		lines.push(`**Recommendation:** ${recommendationLabel}`);
+		lines.push("");
+	}
+
+	// Summary
+	if (reviewCard.summary) {
+		lines.push("## Summary");
+		lines.push("");
+		lines.push(reviewCard.summary);
+		lines.push("");
+	}
+
+	// Group comments by type
+	const lineComments = reviewCard.comments.filter((c) => c.type === "line");
+	const fileComments = reviewCard.comments.filter((c) => c.type === "file");
+	const reviewComments = reviewCard.comments.filter((c) => c.type === "review");
+
+	// Line Comments
+	if (lineComments.length > 0) {
+		lines.push("## Line Comments");
+		lines.push("");
+		for (const comment of lineComments) {
+			const location = comment.filePath
+				? `\`${comment.filePath}:${comment.startLine}${comment.endLine && comment.endLine !== comment.startLine ? `-${comment.endLine}` : ""}\``
+				: "";
+			lines.push(`### ${location}`);
+			lines.push("");
+			lines.push(
+				`**Severity:** ${comment.severity} | **Category:** ${comment.category}`,
+			);
+			lines.push("");
+			lines.push(comment.description);
+			lines.push("");
+		}
+	}
+
+	// File Comments
+	if (fileComments.length > 0) {
+		lines.push("## File Comments");
+		lines.push("");
+		for (const comment of fileComments) {
+			const location = comment.filePath ? `\`${comment.filePath}\`` : "";
+			lines.push(`### ${location}`);
+			lines.push("");
+			lines.push(
+				`**Severity:** ${comment.severity} | **Category:** ${comment.category}`,
+			);
+			lines.push("");
+			lines.push(comment.description);
+			lines.push("");
+		}
+	}
+
+	// Review Comments
+	if (reviewComments.length > 0) {
+		lines.push("## Review Comments");
+		lines.push("");
+		for (const comment of reviewComments) {
+			lines.push(`### ${comment.category}`);
+			lines.push("");
+			lines.push(`**Severity:** ${comment.severity}`);
+			lines.push("");
+			lines.push(comment.description);
+			lines.push("");
+		}
 	}
 
 	return lines.join("\n");

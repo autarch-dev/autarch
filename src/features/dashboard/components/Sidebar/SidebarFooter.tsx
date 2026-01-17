@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { Settings } from "lucide-react";
+import { useState } from "react";
 import {
 	SidebarFooter as BaseSidebarFooter,
 	SidebarMenu,

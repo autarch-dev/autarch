@@ -7,7 +7,9 @@
 
 import type { AgentPromptOptions } from "../types";
 
-export const getResearchPrompt = (options: AgentPromptOptions) => `## System Role Definition
+export const getResearchPrompt = (
+	options: AgentPromptOptions,
+) => `## System Role Definition
 
 You are an AI assistant operating in the **Research phase** of a coding workflow.
 
@@ -166,7 +168,9 @@ Code defines reality.
 
 ---
 
-${options.hasWebCodeSearch ? `
+${
+	options.hasWebCodeSearch
+		? `
 ## External Code Context (\`web_code_search\`)
 
 You have access to an external **code context search tool** (\`web_code_search\`) that retrieves 
@@ -217,7 +221,9 @@ If the codebase is ambiguous or silent, \`web_code_search\` may be used to reduc
 
 ---
 
-` : ''}
+`
+		: ""
+}
 ## Taking Notes (Persistence Guarantee)
 
 Use \`take_note\` continuously.

@@ -32,6 +32,7 @@ export function Dashboard() {
 		scopeCards,
 		researchCards,
 		plans,
+		reviewCards,
 		fetchWorkflows,
 		createWorkflow,
 		selectWorkflow,
@@ -175,6 +176,12 @@ export function Dashboard() {
 		return plans.get(selectedId) ?? [];
 	}, [selectedView, selectedId, plans]);
 
+	// Get review cards for selected workflow
+	const selectedReviewCards = useMemo(() => {
+		if (selectedView !== "workflow" || !selectedId) return [];
+		return reviewCards.get(selectedId) ?? [];
+	}, [selectedView, selectedId, reviewCards]);
+
 	return (
 		<SidebarProvider>
 			<AppSidebar
@@ -209,6 +216,7 @@ export function Dashboard() {
 						scopeCards={selectedScopeCards}
 						researchCards={selectedResearchCards}
 						plans={selectedPlans}
+						reviewCards={selectedReviewCards}
 						onApprove={handleApproveScope}
 						onRequestChanges={handleRequestChanges}
 						onRewind={handleRewindWorkflow}
