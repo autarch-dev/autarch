@@ -29,6 +29,7 @@ import type {
 import { ids } from "@/backend/utils";
 import type { PendingArtifactType } from "@/shared/schemas/events";
 import type {
+	ArtifactStatus as ArtifactStatusType,
 	Challenge,
 	Dependency,
 	IntegrationPoint,
@@ -112,6 +113,7 @@ export class ArtifactRepository implements Repository {
 			),
 			recommendedPath: row.recommended_path,
 			rationale: row.rationale ?? undefined,
+			status: row.status,
 			createdAt: row.created_at,
 		};
 	}
@@ -161,6 +163,7 @@ export class ArtifactRepository implements Repository {
 				),
 				recommended_path: data.recommendedPath,
 				rationale: data.rationale ?? null,
+				status: "pending",
 				created_at: now,
 			})
 			.execute();
@@ -228,6 +231,7 @@ export class ArtifactRepository implements Repository {
 				RecommendationsJsonSchema,
 				"research_card.recommendations_json",
 			),
+			status: row.status,
 			createdAt: row.created_at,
 		};
 	}
@@ -293,6 +297,7 @@ export class ArtifactRepository implements Repository {
 					RecommendationsJsonSchema,
 					"research_card.recommendations_json",
 				),
+				status: "pending",
 				created_at: now,
 			})
 			.execute();
@@ -331,6 +336,7 @@ export class ArtifactRepository implements Repository {
 			workflowId: row.workflow_id,
 			approachSummary: row.approach_summary,
 			pulses: parseJson(row.pulses_json, PulsesJsonSchema, "plan.pulses_json"),
+			status: row.status,
 			createdAt: row.created_at,
 		};
 	}
@@ -367,6 +373,7 @@ export class ArtifactRepository implements Repository {
 					PulsesJsonSchema,
 					"plan.pulses_json",
 				),
+				status: "pending",
 				created_at: now,
 			})
 			.execute();
@@ -417,5 +424,97 @@ export class ArtifactRepository implements Repository {
 			default:
 				return null;
 		}
+	}
+
+	// ===========================================================================
+	// Status Update Methods
+	// ===========================================================================
+
+	/**
+	 * Update the status of a scope card
+	 */
+	async updateScopeCardStatus(
+		id: string,
+		status: ArtifactStatusType,
+	): Promise<void> {
+		await this.db
+			.updateTable("scope_cards")
+			.set({ status })
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
+	 * Update the status of a research card
+	 */
+	async updateResearchCardStatus(
+		id: string,
+		status: ArtifactStatusType,
+	): Promise<void> {
+		await this.db
+			.updateTable("research_cards")
+			.set({ status })
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
+	 * Update the status of a plan
+	 */
+	async updatePlanStatus(
+		id: string,
+		status: ArtifactStatusType,
+	): Promise<void> {
+		await this.db
+			.updateTable("plans")
+			.set({ status })
+			.where("id", "=", id)
+			.execute();
+	}
+
+	// ===========================================================================
+	// Get All Artifacts Methods (for history display)
+	// ===========================================================================
+
+	/**
+	 * Get all scope cards for a workflow, ordered by creation date (oldest first)
+	 */
+	async getAllScopeCards(workflowId: string): Promise<ScopeCard[]> {
+		const rows = await this.db
+			.selectFrom("scope_cards")
+			.selectAll()
+			.where("workflow_id", "=", workflowId)
+			.orderBy("created_at", "asc")
+			.execute();
+
+		return rows.map((row) => this.toScopeCard(row));
+	}
+
+	/**
+	 * Get all research cards for a workflow, ordered by creation date (oldest first)
+	 */
+	async getAllResearchCards(workflowId: string): Promise<ResearchCard[]> {
+		const rows = await this.db
+			.selectFrom("research_cards")
+			.selectAll()
+			.where("workflow_id", "=", workflowId)
+			.orderBy("created_at", "asc")
+			.execute();
+
+		return rows.map((row) => this.toResearchCard(row));
+	}
+
+	/**
+	 * Get all plans for a workflow, ordered by creation date (oldest first)
+	 */
+	async getAllPlans(workflowId: string): Promise<Plan[]> {
+		const rows = await this.db
+			.selectFrom("plans")
+			.selectAll()
+			.where("workflow_id", "=", workflowId)
+			.orderBy("created_at", "asc")
+			.execute();
+
+		return rows.map((row) => this.toPlan(row));
 	}
 }

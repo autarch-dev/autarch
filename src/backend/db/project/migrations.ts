@@ -23,6 +23,7 @@ export async function migrateProjectDb(
 	await createTurnToolsTable(db);
 	await createTurnThoughtsTable(db);
 	await createQuestionsTable(db);
+	await addArtifactStatusColumns(db);
 }
 
 // =============================================================================
@@ -488,6 +489,44 @@ async function createTurnThoughtsTable(
 		.on("turn_thoughts")
 		.column("turn_id")
 		.execute();
+}
+
+// =============================================================================
+// Artifact Status Migrations
+// =============================================================================
+
+async function addArtifactStatusColumns(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	// Add status column to scope_cards
+	try {
+		await db.schema
+			.alterTable("scope_cards")
+			.addColumn("status", "text", (col) => col.notNull().defaultTo("pending"))
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+
+	// Add status column to research_cards
+	try {
+		await db.schema
+			.alterTable("research_cards")
+			.addColumn("status", "text", (col) => col.notNull().defaultTo("pending"))
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+
+	// Add status column to plans
+	try {
+		await db.schema
+			.alterTable("plans")
+			.addColumn("status", "text", (col) => col.notNull().defaultTo("pending"))
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
 }
 
 // =============================================================================

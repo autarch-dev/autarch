@@ -68,6 +68,7 @@ After submitting, the workflow will await user approval before transitioning to 
 					workflow_id: context.workflowId,
 					approach_summary: input.approachSummary,
 					pulses_json: JSON.stringify(input.pulses),
+					status: "pending",
 					created_at: now,
 				})
 				.execute();

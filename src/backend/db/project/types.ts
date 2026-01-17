@@ -86,6 +86,12 @@ export interface WorkflowsTable {
 }
 
 // =============================================================================
+// Artifact Status (shared across scope cards, research cards, plans)
+// =============================================================================
+
+export type ArtifactStatus = "pending" | "approved" | "denied";
+
+// =============================================================================
 // Scope Cards
 // =============================================================================
 
@@ -106,6 +112,7 @@ export interface ScopeCardsTable {
 	constraints_json: string | null; // JSON array of strings
 	recommended_path: RecommendedPath;
 	rationale: string | null;
+	status: ArtifactStatus;
 	created_at: number;
 }
 
@@ -123,6 +130,7 @@ export interface ResearchCardsTable {
 	integration_points_json: string | null; // JSON array of integration points
 	challenges_json: string | null; // JSON array of challenges
 	recommendations_json: string; // JSON array of strings
+	status: ArtifactStatus;
 	created_at: number;
 }
 
@@ -135,6 +143,7 @@ export interface PlansTable {
 	workflow_id: string;
 	approach_summary: string;
 	pulses_json: string; // JSON array of pulse definitions
+	status: ArtifactStatus;
 	created_at: number;
 }
 

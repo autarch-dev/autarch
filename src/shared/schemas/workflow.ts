@@ -25,6 +25,13 @@ export const WorkflowPrioritySchema = z.enum([
 export type WorkflowPriority = z.infer<typeof WorkflowPrioritySchema>;
 
 // =============================================================================
+// Artifact Status (shared across scope cards, research cards, plans)
+// =============================================================================
+
+export const ArtifactStatusSchema = z.enum(["pending", "approved", "denied"]);
+export type ArtifactStatus = z.infer<typeof ArtifactStatusSchema>;
+
+// =============================================================================
 // Scope Card
 // =============================================================================
 
@@ -41,6 +48,7 @@ export const ScopeCardSchema = z.object({
 	constraints: z.array(z.string()).optional(),
 	recommendedPath: RecommendedPathSchema,
 	rationale: z.string().optional(),
+	status: ArtifactStatusSchema,
 	createdAt: z.number(),
 });
 export type ScopeCard = z.infer<typeof ScopeCardSchema>;
@@ -94,6 +102,7 @@ export const ResearchCardSchema = z.object({
 	integrationPoints: z.array(IntegrationPointSchema).optional(),
 	challenges: z.array(ChallengeSchema).optional(),
 	recommendations: z.array(z.string()),
+	status: ArtifactStatusSchema,
 	createdAt: z.number(),
 });
 export type ResearchCard = z.infer<typeof ResearchCardSchema>;
@@ -120,6 +129,7 @@ export const PlanSchema = z.object({
 	workflowId: z.string(),
 	approachSummary: z.string(),
 	pulses: z.array(PulseDefinitionSchema),
+	status: ArtifactStatusSchema,
 	createdAt: z.number(),
 });
 export type Plan = z.infer<typeof PlanSchema>;
@@ -195,12 +205,12 @@ export const WorkflowHistoryResponseSchema = z.object({
 	sessionStatus: z.enum(["active", "completed", "error"]).optional(),
 	/** Messages in the workflow conversation */
 	messages: z.array(ChannelMessageSchema),
-	/** Pending scope card awaiting approval */
-	pendingScopeCard: ScopeCardSchema.optional(),
-	/** Pending research card awaiting approval */
-	pendingResearchCard: ResearchCardSchema.optional(),
-	/** Pending plan awaiting approval */
-	pendingPlanCard: PlanSchema.optional(),
+	/** All scope cards for this workflow (includes pending, approved, denied) */
+	scopeCards: z.array(ScopeCardSchema),
+	/** All research cards for this workflow */
+	researchCards: z.array(ResearchCardSchema),
+	/** All plans for this workflow */
+	plans: z.array(PlanSchema),
 });
 export type WorkflowHistoryResponse = z.infer<
 	typeof WorkflowHistoryResponseSchema

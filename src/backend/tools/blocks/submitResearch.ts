@@ -121,6 +121,7 @@ After submitting, the workflow will await user approval before transitioning to 
 						? JSON.stringify(input.challenges)
 						: null,
 					recommendations_json: JSON.stringify(input.recommendations),
+					status: "pending",
 					created_at: now,
 				})
 				.execute();

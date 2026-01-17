@@ -1,9 +1,19 @@
 /**
- * PlanCardApproval - Display and approve/deny a pending execution plan
+ * PlanCardApproval - Display an execution plan with status-based styling
+ *
+ * Shows pending plans with approval buttons, and approved/denied plans
+ * in a collapsed read-only state with status badges.
  */
 
-import { CheckCircle, ChevronDown, ChevronRight, XCircle } from "lucide-react";
+import {
+	CheckCircle,
+	ChevronDown,
+	ChevronRight,
+	ClipboardList,
+	XCircle,
+} from "lucide-react";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -20,9 +30,31 @@ import type { Plan, PulseDefinition } from "@/shared/schemas/workflow";
 
 interface PlanCardApprovalProps {
 	plan: Plan;
-	onApprove: () => Promise<void>;
-	onDeny: (feedback: string) => Promise<void>;
+	onApprove?: () => Promise<void>;
+	onDeny?: (feedback: string) => Promise<void>;
 }
+
+const STATUS_STYLES = {
+	pending: "border-primary/50 bg-primary/5",
+	approved: "border-green-500/30 bg-green-500/5",
+	denied: "border-red-500/30 bg-red-500/5",
+} as const;
+
+const STATUS_BADGES = {
+	pending: null,
+	approved: (
+		<Badge variant="outline" className="text-green-600 border-green-500/50">
+			<CheckCircle className="size-3 mr-1" />
+			Approved
+		</Badge>
+	),
+	denied: (
+		<Badge variant="outline" className="text-red-600 border-red-500/50">
+			<XCircle className="size-3 mr-1" />
+			Denied
+		</Badge>
+	),
+} as const;
 
 /**
  * Get the style classes for a pulse size badge
@@ -30,11 +62,11 @@ interface PlanCardApprovalProps {
 function getSizeBadgeClasses(size: PulseDefinition["estimatedSize"]): string {
 	switch (size) {
 		case "small":
-			return "bg-green-500/10 text-green-700 dark:text-green-400";
+			return "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30";
 		case "medium":
-			return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400";
+			return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30";
 		case "large":
-			return "bg-red-500/10 text-red-700 dark:text-red-400";
+			return "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30";
 		default:
 			return "bg-muted text-muted-foreground";
 	}
@@ -45,12 +77,17 @@ export function PlanCardApproval({
 	onApprove,
 	onDeny,
 }: PlanCardApprovalProps) {
-	const [isExpanded, setIsExpanded] = useState(true);
+	// Non-pending cards start collapsed
+	const [isExpanded, setIsExpanded] = useState(plan.status === "pending");
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
+	const isPending = plan.status === "pending";
+	const canApprove = isPending && onApprove && onDeny;
+
 	const handleApprove = async () => {
+		if (!onApprove) return;
 		setIsSubmitting(true);
 		try {
 			await onApprove();
@@ -60,7 +97,7 @@ export function PlanCardApproval({
 	};
 
 	const handleDeny = async () => {
-		if (!feedback.trim()) return;
+		if (!feedback.trim() || !onDeny) return;
 		setIsSubmitting(true);
 		try {
 			await onDeny(feedback.trim());
@@ -73,8 +110,8 @@ export function PlanCardApproval({
 
 	return (
 		<>
-			<Card className="mx-4 my-4 border-primary/50 bg-primary/5">
-				<CardHeader>
+			<Card className={cn("mx-4 my-4", STATUS_STYLES[plan.status])}>
+				<CardHeader className="pb-3">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<Button
@@ -88,107 +125,109 @@ export function PlanCardApproval({
 									<ChevronRight className="size-4" />
 								)}
 							</Button>
+							<ClipboardList className="size-5 text-primary" />
 							<CardTitle className="text-lg">Execution Plan</CardTitle>
-							<span className="text-sm text-muted-foreground">
-								({plan.pulses.length} pulse{plan.pulses.length !== 1 ? "s" : ""}
-								)
-							</span>
+							<Badge variant="secondary" className="text-xs">
+								{plan.pulses.length} pulse{plan.pulses.length !== 1 ? "s" : ""}
+							</Badge>
+							{STATUS_BADGES[plan.status]}
 						</div>
-						<div className="flex items-center gap-2">
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setDenyDialogOpen(true)}
-								disabled={isSubmitting}
-								className="text-destructive hover:text-destructive"
-							>
-								<XCircle className="size-4 mr-1" />
-								Request Changes
-							</Button>
-							<Button size="sm" onClick={handleApprove} disabled={isSubmitting}>
-								<CheckCircle className="size-4 mr-1" />
-								Approve
-							</Button>
-						</div>
+						{canApprove && (
+							<div className="flex items-center gap-2">
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => setDenyDialogOpen(true)}
+									disabled={isSubmitting}
+									className="text-destructive hover:text-destructive"
+								>
+									<XCircle className="size-4 mr-1" />
+									Request Changes
+								</Button>
+								<Button
+									size="sm"
+									onClick={handleApprove}
+									disabled={isSubmitting}
+								>
+									<CheckCircle className="size-4 mr-1" />
+									Approve
+								</Button>
+							</div>
+						)}
 					</div>
 				</CardHeader>
 
 				{isExpanded && (
-					<CardContent className="space-y-6">
+					<CardContent className="space-y-4 pt-0">
 						{/* Approach Summary */}
-						<div>
-							<h4 className="text-sm font-medium text-muted-foreground mb-1">
-								Approach
-							</h4>
+						<div className="bg-muted/30 rounded-lg p-3 border">
 							<p className="text-sm">{plan.approachSummary}</p>
 						</div>
 
 						{/* Pulses */}
-						<div>
-							<h4 className="text-sm font-medium text-muted-foreground mb-3">
-								Execution Pulses
-							</h4>
-							<div className="space-y-3">
-								{plan.pulses.map((pulse, idx) => (
-									<div
-										key={pulse.id}
-										className="border rounded-md p-3 bg-muted/30"
-									>
-										<div className="flex items-start justify-between gap-2 mb-2">
-											<div className="flex items-center gap-2">
-												<span className="flex items-center justify-center size-6 rounded-full bg-primary/10 text-primary text-xs font-medium">
-													{idx + 1}
-												</span>
-												<span className="font-medium text-sm">
-													{pulse.title}
-												</span>
-											</div>
-											<span
-												className={cn(
-													"px-2 py-0.5 rounded text-xs font-medium shrink-0",
-													getSizeBadgeClasses(pulse.estimatedSize),
-												)}
-											>
-												{pulse.estimatedSize}
+						<div className="space-y-3">
+							{plan.pulses.map((pulse, idx) => (
+								<div
+									key={pulse.id}
+									className="border rounded-lg p-3 bg-background"
+								>
+									<div className="flex items-start justify-between gap-2 mb-2">
+										<div className="flex items-center gap-2">
+											<span className="flex items-center justify-center size-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+												{idx + 1}
 											</span>
+											<span className="font-medium text-sm">{pulse.title}</span>
 										</div>
+										<Badge
+											variant="outline"
+											className={cn(
+												"text-xs shrink-0",
+												getSizeBadgeClasses(pulse.estimatedSize),
+											)}
+										>
+											{pulse.estimatedSize}
+										</Badge>
+									</div>
 
-										<p className="text-sm text-muted-foreground mb-2">
-											{pulse.description}
-										</p>
+									<p className="text-sm text-muted-foreground mb-3 pl-8">
+										{pulse.description}
+									</p>
 
-										{/* Expected Changes */}
-										<div className="text-xs">
-											<span className="text-muted-foreground">Files: </span>
-											{pulse.expectedChanges.map((file, i) => (
-												<span key={file}>
-													<code className="font-mono text-primary bg-primary/5 px-1 rounded">
-														{file}
+									{/* Expected Changes */}
+									<div className="pl-8 text-xs">
+										<span className="text-muted-foreground font-medium">
+											Files:{" "}
+										</span>
+										<span className="flex flex-wrap gap-1.5 mt-1">
+											{pulse.expectedChanges.map((file) => (
+												<code
+													key={file}
+													className="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded"
+												>
+													{file}
+												</code>
+											))}
+										</span>
+									</div>
+
+									{/* Dependencies */}
+									{pulse.dependsOn && pulse.dependsOn.length > 0 && (
+										<div className="pl-8 text-xs mt-2">
+											<span className="text-muted-foreground font-medium">
+												Depends on:{" "}
+											</span>
+											{pulse.dependsOn.map((dep, i) => (
+												<span key={dep}>
+													<code className="font-mono text-amber-600 dark:text-amber-400">
+														{dep}
 													</code>
-													{i < pulse.expectedChanges.length - 1 && ", "}
+													{i < (pulse.dependsOn?.length ?? 0) - 1 && ", "}
 												</span>
 											))}
 										</div>
-
-										{/* Dependencies */}
-										{pulse.dependsOn && pulse.dependsOn.length > 0 && (
-											<div className="text-xs mt-1">
-												<span className="text-muted-foreground">
-													Depends on:{" "}
-												</span>
-												{pulse.dependsOn.map((dep, i) => (
-													<span key={dep}>
-														<code className="font-mono text-amber-600 dark:text-amber-400">
-															{dep}
-														</code>
-														{i < (pulse.dependsOn?.length ?? 0) - 1 && ", "}
-													</span>
-												))}
-											</div>
-										)}
-									</div>
-								))}
-							</div>
+									)}
+								</div>
+							))}
 						</div>
 					</CardContent>
 				)}

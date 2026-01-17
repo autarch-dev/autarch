@@ -81,6 +81,7 @@ After submitting, the workflow will await user approval before transitioning to 
 						: null,
 					recommended_path: input.recommended_path,
 					rationale: input.rationale ?? null,
+					status: "pending",
 					created_at: now,
 				})
 				.execute();

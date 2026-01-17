@@ -99,14 +99,10 @@ interface WorkflowsState {
 	// Selected workflow
 	selectedWorkflowId: string | null;
 
-	// Pending scope cards (for approval UI)
-	pendingScopeCards: Map<string, ScopeCard>;
-
-	// Pending research cards (for approval UI)
-	pendingResearchCards: Map<string, ResearchCard>;
-
-	// Pending plans (for approval UI)
-	pendingPlans: Map<string, Plan>;
+	// Artifact arrays per workflow (includes pending, approved, denied)
+	scopeCards: Map<string, ScopeCard[]>;
+	researchCards: Map<string, ResearchCard[]>;
+	plans: Map<string, Plan[]>;
 
 	// Actions - Workflow CRUD
 	fetchWorkflows: () => Promise<void>;
@@ -130,9 +126,9 @@ interface WorkflowsState {
 		workflowId: string,
 	) => WorkflowConversationState | undefined;
 	getSelectedConversation: () => WorkflowConversationState | undefined;
-	getPendingScopeCard: (workflowId: string) => ScopeCard | undefined;
-	getPendingResearchCard: (workflowId: string) => ResearchCard | undefined;
-	getPendingPlan: (workflowId: string) => Plan | undefined;
+	getScopeCards: (workflowId: string) => ScopeCard[];
+	getResearchCards: (workflowId: string) => ResearchCard[];
+	getPlans: (workflowId: string) => Plan[];
 }
 
 // =============================================================================
@@ -146,9 +142,9 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	workflowsError: null,
 	conversations: new Map(),
 	selectedWorkflowId: null,
-	pendingScopeCards: new Map(),
-	pendingResearchCards: new Map(),
-	pendingPlans: new Map(),
+	scopeCards: new Map(),
+	researchCards: new Map(),
+	plans: new Map(),
 
 	// ===========================================================================
 	// Workflow CRUD
@@ -242,30 +238,22 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 					w.id === workflowId ? history.workflow : w,
 				);
 
-				// Store pending scope card if present
-				const pendingScopeCards = new Map(state.pendingScopeCards);
-				if (history.pendingScopeCard) {
-					pendingScopeCards.set(workflowId, history.pendingScopeCard);
-				}
+				// Store all artifacts for the workflow
+				const scopeCards = new Map(state.scopeCards);
+				scopeCards.set(workflowId, history.scopeCards);
 
-				// Store pending research card if present
-				const pendingResearchCards = new Map(state.pendingResearchCards);
-				if (history.pendingResearchCard) {
-					pendingResearchCards.set(workflowId, history.pendingResearchCard);
-				}
+				const researchCards = new Map(state.researchCards);
+				researchCards.set(workflowId, history.researchCards);
 
-				// Store pending plan if present
-				const pendingPlans = new Map(state.pendingPlans);
-				if (history.pendingPlanCard) {
-					pendingPlans.set(workflowId, history.pendingPlanCard);
-				}
+				const plans = new Map(state.plans);
+				plans.set(workflowId, history.plans);
 
 				return {
 					conversations,
 					workflows,
-					pendingScopeCards,
-					pendingResearchCards,
-					pendingPlans,
+					scopeCards,
+					researchCards,
+					plans,
 				};
 			});
 		} catch (error) {
@@ -339,6 +327,10 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	// ===========================================================================
 
 	approveArtifact: async (workflowId: string) => {
+		// Capture artifact type BEFORE the API call - WebSocket events might clear it during await
+		const workflow = get().workflows.find((w) => w.id === workflowId);
+		const artifactType = workflow?.pendingArtifactType;
+
 		const response = await fetch(`/api/workflows/${workflowId}/approve`, {
 			method: "POST",
 		});
@@ -348,15 +340,17 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 			throw new Error(error.error ?? "Failed to approve artifact");
 		}
 
-		// Clear pending scope card
-		set((state) => {
-			const pendingScopeCards = new Map(state.pendingScopeCards);
-			pendingScopeCards.delete(workflowId);
-			return { pendingScopeCards };
-		});
+		// Update artifact status in local state to "approved"
+		set((state) =>
+			updateArtifactStatusInState(state, workflowId, artifactType, "approved"),
+		);
 	},
 
 	requestChanges: async (workflowId: string, feedback: string) => {
+		// Capture artifact type BEFORE the API call - WebSocket events might clear it during await
+		const workflow = get().workflows.find((w) => w.id === workflowId);
+		const artifactType = workflow?.pendingArtifactType;
+
 		const response = await fetch(
 			`/api/workflows/${workflowId}/request-changes`,
 			{
@@ -371,16 +365,22 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 			throw new Error(error.error ?? "Failed to request changes");
 		}
 
-		// Update workflow to clear awaiting approval
+		// Update workflow to clear awaiting approval and mark artifact as denied
 		set((state) => {
 			const workflows = state.workflows.map((w) =>
 				w.id === workflowId
 					? { ...w, awaitingApproval: false, pendingArtifactType: undefined }
 					: w,
 			);
-			const pendingScopeCards = new Map(state.pendingScopeCards);
-			pendingScopeCards.delete(workflowId);
-			return { workflows, pendingScopeCards };
+
+			const artifactUpdates = updateArtifactStatusInState(
+				state,
+				workflowId,
+				artifactType,
+				"denied",
+			);
+
+			return { workflows, ...artifactUpdates };
 		});
 	},
 
@@ -478,18 +478,73 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 		return conversations.get(selectedWorkflowId);
 	},
 
-	getPendingScopeCard: (workflowId: string) => {
-		return get().pendingScopeCards.get(workflowId);
+	getScopeCards: (workflowId: string) => {
+		return get().scopeCards.get(workflowId) ?? [];
 	},
 
-	getPendingResearchCard: (workflowId: string) => {
-		return get().pendingResearchCards.get(workflowId);
+	getResearchCards: (workflowId: string) => {
+		return get().researchCards.get(workflowId) ?? [];
 	},
 
-	getPendingPlan: (workflowId: string) => {
-		return get().pendingPlans.get(workflowId);
+	getPlans: (workflowId: string) => {
+		return get().plans.get(workflowId) ?? [];
 	},
 }));
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Update the status of the latest artifact (most recent) for a given type
+ */
+function updateArtifactStatusInState(
+	state: WorkflowsState,
+	workflowId: string,
+	artifactType: Workflow["pendingArtifactType"],
+	newStatus: "approved" | "denied",
+): Partial<WorkflowsState> {
+	if (!artifactType) return {};
+
+	switch (artifactType) {
+		case "scope_card": {
+			const scopeCards = new Map(state.scopeCards);
+			const cards = scopeCards.get(workflowId) ?? [];
+			// Find the pending card (should be the last one)
+			const updatedCards = cards.map((card, i) =>
+				i === cards.length - 1 && card.status === "pending"
+					? { ...card, status: newStatus }
+					: card,
+			);
+			scopeCards.set(workflowId, updatedCards);
+			return { scopeCards };
+		}
+		case "research": {
+			const researchCards = new Map(state.researchCards);
+			const cards = researchCards.get(workflowId) ?? [];
+			const updatedCards = cards.map((card, i) =>
+				i === cards.length - 1 && card.status === "pending"
+					? { ...card, status: newStatus }
+					: card,
+			);
+			researchCards.set(workflowId, updatedCards);
+			return { researchCards };
+		}
+		case "plan": {
+			const plans = new Map(state.plans);
+			const cards = plans.get(workflowId) ?? [];
+			const updatedCards = cards.map((card, i) =>
+				i === cards.length - 1 && card.status === "pending"
+					? { ...card, status: newStatus }
+					: card,
+			);
+			plans.set(workflowId, updatedCards);
+			return { plans };
+		}
+		default:
+			return {};
+	}
+}
 
 // =============================================================================
 // Event Handlers
@@ -584,20 +639,18 @@ function handleWorkflowApprovalNeeded(
 		return { workflows };
 	});
 
-	// Fetch the scope card if it's a scope_card approval
+	// Fetch the appropriate artifact based on type
 	if (payload.artifactType === "scope_card") {
-		fetchScopeCard(payload.workflowId, payload.artifactId, set);
-	}
-
-	// Fetch the research card if it's a research approval
-	if (payload.artifactType === "research") {
-		fetchResearchCard(payload.workflowId, payload.artifactId, set);
+		fetchScopeCard(payload.workflowId, set);
+	} else if (payload.artifactType === "research") {
+		fetchResearchCard(payload.workflowId, set);
+	} else if (payload.artifactType === "plan") {
+		fetchPlan(payload.workflowId, set);
 	}
 }
 
 async function fetchScopeCard(
 	workflowId: string,
-	_scopeCardId: string,
 	set: SetState,
 ): Promise<void> {
 	try {
@@ -605,19 +658,22 @@ async function fetchScopeCard(
 		if (response.ok) {
 			const scopeCard: ScopeCard = await response.json();
 			set((state) => {
-				const pendingScopeCards = new Map(state.pendingScopeCards);
-				pendingScopeCards.set(workflowId, scopeCard);
-				return { pendingScopeCards };
+				const scopeCards = new Map(state.scopeCards);
+				const existing = scopeCards.get(workflowId) ?? [];
+				// Add to array if not already present
+				if (!existing.some((c) => c.id === scopeCard.id)) {
+					scopeCards.set(workflowId, [...existing, scopeCard]);
+				}
+				return { scopeCards };
 			});
 		}
 	} catch {
-		// Ignore fetch errors - scope card will be fetched with history
+		// Ignore fetch errors - will be fetched with history
 	}
 }
 
 async function fetchResearchCard(
 	workflowId: string,
-	_researchCardId: string,
 	set: SetState,
 ): Promise<void> {
 	try {
@@ -625,13 +681,35 @@ async function fetchResearchCard(
 		if (response.ok) {
 			const researchCard: ResearchCard = await response.json();
 			set((state) => {
-				const pendingResearchCards = new Map(state.pendingResearchCards);
-				pendingResearchCards.set(workflowId, researchCard);
-				return { pendingResearchCards };
+				const researchCards = new Map(state.researchCards);
+				const existing = researchCards.get(workflowId) ?? [];
+				if (!existing.some((c) => c.id === researchCard.id)) {
+					researchCards.set(workflowId, [...existing, researchCard]);
+				}
+				return { researchCards };
 			});
 		}
 	} catch {
-		// Ignore fetch errors - research card will be fetched with history
+		// Ignore fetch errors - will be fetched with history
+	}
+}
+
+async function fetchPlan(workflowId: string, set: SetState): Promise<void> {
+	try {
+		const response = await fetch(`/api/workflows/${workflowId}/plan`);
+		if (response.ok) {
+			const plan: Plan = await response.json();
+			set((state) => {
+				const plans = new Map(state.plans);
+				const existing = plans.get(workflowId) ?? [];
+				if (!existing.some((c) => c.id === plan.id)) {
+					plans.set(workflowId, [...existing, plan]);
+				}
+				return { plans };
+			});
+		}
+	} catch {
+		// Ignore fetch errors - will be fetched with history
 	}
 }
 

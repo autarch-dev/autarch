@@ -29,9 +29,9 @@ export function Dashboard() {
 		workflows,
 		workflowsLoading,
 		conversations: workflowConversations,
-		pendingScopeCards,
-		pendingResearchCards,
-		pendingPlans,
+		scopeCards,
+		researchCards,
+		plans,
 		fetchWorkflows,
 		createWorkflow,
 		selectWorkflow,
@@ -150,23 +150,23 @@ export function Dashboard() {
 		return workflowConversations.get(selectedId);
 	}, [selectedView, selectedId, workflowConversations]);
 
-	// Get pending scope card for selected workflow
-	const selectedPendingScopeCard = useMemo(() => {
-		if (selectedView !== "workflow" || !selectedId) return undefined;
-		return pendingScopeCards.get(selectedId);
-	}, [selectedView, selectedId, pendingScopeCards]);
+	// Get scope cards for selected workflow
+	const selectedScopeCards = useMemo(() => {
+		if (selectedView !== "workflow" || !selectedId) return [];
+		return scopeCards.get(selectedId) ?? [];
+	}, [selectedView, selectedId, scopeCards]);
 
-	// Get pending research card for selected workflow
-	const selectedPendingResearchCard = useMemo(() => {
-		if (selectedView !== "workflow" || !selectedId) return undefined;
-		return pendingResearchCards.get(selectedId);
-	}, [selectedView, selectedId, pendingResearchCards]);
+	// Get research cards for selected workflow
+	const selectedResearchCards = useMemo(() => {
+		if (selectedView !== "workflow" || !selectedId) return [];
+		return researchCards.get(selectedId) ?? [];
+	}, [selectedView, selectedId, researchCards]);
 
-	// Get pending plan for selected workflow
-	const selectedPendingPlanCard = useMemo(() => {
-		if (selectedView !== "workflow" || !selectedId) return undefined;
-		return pendingPlans.get(selectedId);
-	}, [selectedView, selectedId, pendingPlans]);
+	// Get plans for selected workflow
+	const selectedPlans = useMemo(() => {
+		if (selectedView !== "workflow" || !selectedId) return [];
+		return plans.get(selectedId) ?? [];
+	}, [selectedView, selectedId, plans]);
 
 	return (
 		<SidebarProvider>
@@ -199,9 +199,9 @@ export function Dashboard() {
 						isLoading={
 							selectedWorkflowConversation?.isLoading ?? workflowsLoading
 						}
-						pendingScopeCard={selectedPendingScopeCard}
-						pendingResearchCard={selectedPendingResearchCard}
-						pendingPlanCard={selectedPendingPlanCard}
+						scopeCards={selectedScopeCards}
+						researchCards={selectedResearchCards}
+						plans={selectedPlans}
 						onApprove={handleApproveScope}
 						onRequestChanges={handleRequestChanges}
 					/>

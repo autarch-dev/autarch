@@ -46,13 +46,15 @@ export function QuestionBlock({
 	onAnswer,
 	disabled,
 }: QuestionBlockProps) {
+	// Block is submitted if NO questions are pending (all are "answered" or "skipped")
+	// This happens after any submission, even if all questions were skipped
+	const hasBeenSubmitted = questions.every((q) => q.status !== "pending");
+
 	const [answers, setAnswers] = useState<Map<string, unknown>>(new Map());
 	const [comment, setComment] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [isExpanded, setIsExpanded] = useState(true);
-
-	// Check if all questions are answered (from server)
-	const allAnsweredFromServer = questions.every((q) => q.status === "answered");
+	// Auto-collapse if already submitted
+	const [isExpanded, setIsExpanded] = useState(!hasBeenSubmitted);
 
 	// Check if user has provided at least one answer
 	const hasAnyAnswer = questions.some((q) => {
@@ -138,8 +140,22 @@ export function QuestionBlock({
 		);
 	};
 
-	// If all answered, show collapsed view
-	if (allAnsweredFromServer) {
+	// If submitted (no pending questions), show collapsed read-only view
+	if (hasBeenSubmitted) {
+		const answeredCount = questions.filter(
+			(q) => q.status === "answered",
+		).length;
+		const skippedCount = questions.filter((q) => q.status === "skipped").length;
+
+		let statusText = "";
+		if (answeredCount > 0 && skippedCount > 0) {
+			statusText = `${answeredCount} answered, ${skippedCount} skipped`;
+		} else if (answeredCount > 0) {
+			statusText = `${answeredCount} question${answeredCount !== 1 ? "s" : ""} answered`;
+		} else {
+			statusText = `${skippedCount} question${skippedCount !== 1 ? "s" : ""} skipped`;
+		}
+
 		return (
 			<Collapsible
 				open={isExpanded}
@@ -157,8 +173,7 @@ export function QuestionBlock({
 							) : (
 								<ChevronRight className="size-4" />
 							)}
-							{questions.length} question{questions.length !== 1 ? "s" : ""}{" "}
-							answered
+							{statusText}
 						</Button>
 					</CollapsibleTrigger>
 					<CollapsibleContent>

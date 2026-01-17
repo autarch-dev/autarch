@@ -239,6 +239,13 @@ export class WorkflowOrchestrator {
 			throw new Error(`Workflow ${workflowId} is not awaiting approval`);
 		}
 
+		// Update the artifact status to approved
+		await this.updateLatestArtifactStatus(
+			workflowId,
+			workflow.pendingArtifactType,
+			"approved",
+		);
+
 		// Get next stage
 		const nextStage = STAGE_TRANSITIONS[workflow.status];
 		if (!nextStage) {
@@ -266,6 +273,13 @@ export class WorkflowOrchestrator {
 		if (!sessionId) {
 			throw new Error(`Workflow ${workflowId} has no active session`);
 		}
+
+		// Update the artifact status to denied
+		await this.updateLatestArtifactStatus(
+			workflowId,
+			workflow.pendingArtifactType,
+			"denied",
+		);
 
 		// Clear awaiting approval state
 		await this.workflowRepo.clearAwaitingApproval(workflowId);
@@ -304,6 +318,46 @@ export class WorkflowOrchestrator {
 				error instanceof Error ? error.message : "Unknown error",
 			);
 		});
+	}
+
+	/**
+	 * Update the status of the latest artifact of a given type
+	 */
+	private async updateLatestArtifactStatus(
+		workflowId: string,
+		artifactType: Workflow["pendingArtifactType"],
+		status: "approved" | "denied",
+	): Promise<void> {
+		if (!artifactType) return;
+
+		switch (artifactType) {
+			case "scope_card": {
+				const scopeCard =
+					await this.artifactRepo.getLatestScopeCard(workflowId);
+				if (scopeCard) {
+					await this.artifactRepo.updateScopeCardStatus(scopeCard.id, status);
+				}
+				break;
+			}
+			case "research": {
+				const researchCard =
+					await this.artifactRepo.getLatestResearchCard(workflowId);
+				if (researchCard) {
+					await this.artifactRepo.updateResearchCardStatus(
+						researchCard.id,
+						status,
+					);
+				}
+				break;
+			}
+			case "plan": {
+				const plan = await this.artifactRepo.getLatestPlan(workflowId);
+				if (plan) {
+					await this.artifactRepo.updatePlanStatus(plan.id, status);
+				}
+				break;
+			}
+		}
 	}
 
 	// ===========================================================================

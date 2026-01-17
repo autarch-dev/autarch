@@ -203,32 +203,20 @@ export const workflowRoutes = {
 				const { messages, activeSessionId, activeSessionStatus } =
 					await repos.conversations.getHistory("workflow", workflowId);
 
-				// Get pending artifacts if awaiting approval
-				const pendingScopeCard =
-					workflow.awaitingApproval &&
-					workflow.pendingArtifactType === "scope_card"
-						? await repos.artifacts.getLatestScopeCard(workflowId)
-						: undefined;
-
-				const pendingResearchCard =
-					workflow.awaitingApproval &&
-					workflow.pendingArtifactType === "research"
-						? await repos.artifacts.getLatestResearchCard(workflowId)
-						: undefined;
-
-				const pendingPlanCard =
-					workflow.awaitingApproval && workflow.pendingArtifactType === "plan"
-						? await repos.artifacts.getLatestPlan(workflowId)
-						: undefined;
+				// Get all artifacts for the workflow (includes pending, approved, denied)
+				const scopeCards = await repos.artifacts.getAllScopeCards(workflowId);
+				const researchCards =
+					await repos.artifacts.getAllResearchCards(workflowId);
+				const plans = await repos.artifacts.getAllPlans(workflowId);
 
 				const response = {
 					workflow,
 					sessionId: activeSessionId,
 					sessionStatus: activeSessionStatus,
 					messages,
-					pendingScopeCard,
-					pendingResearchCard,
-					pendingPlanCard,
+					scopeCards,
+					researchCards,
+					plans,
 				};
 
 				return Response.json(response);

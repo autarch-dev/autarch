@@ -1,9 +1,23 @@
 /**
- * ScopeCardApproval - Display and approve/deny a pending scope card
+ * ScopeCardApproval - Display a scope card with status-based styling
+ *
+ * Shows pending cards with approval buttons, and approved/denied cards
+ * in a collapsed read-only state with status badges.
  */
 
-import { CheckCircle, ChevronDown, ChevronRight, XCircle } from "lucide-react";
+import {
+	AlertTriangle,
+	CheckCircle,
+	ChevronDown,
+	ChevronRight,
+	CircleDot,
+	ListChecks,
+	ListX,
+	Target,
+	XCircle,
+} from "lucide-react";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -20,21 +34,48 @@ import type { ScopeCard } from "@/shared/schemas/workflow";
 
 interface ScopeCardApprovalProps {
 	scopeCard: ScopeCard;
-	onApprove: () => Promise<void>;
-	onDeny: (feedback: string) => Promise<void>;
+	onApprove?: () => Promise<void>;
+	onDeny?: (feedback: string) => Promise<void>;
 }
+
+const STATUS_STYLES = {
+	pending: "border-primary/50 bg-primary/5",
+	approved: "border-green-500/30 bg-green-500/5",
+	denied: "border-red-500/30 bg-red-500/5",
+} as const;
+
+const STATUS_BADGES = {
+	pending: null,
+	approved: (
+		<Badge variant="outline" className="text-green-600 border-green-500/50">
+			<CheckCircle className="size-3 mr-1" />
+			Approved
+		</Badge>
+	),
+	denied: (
+		<Badge variant="outline" className="text-red-600 border-red-500/50">
+			<XCircle className="size-3 mr-1" />
+			Denied
+		</Badge>
+	),
+} as const;
 
 export function ScopeCardApproval({
 	scopeCard,
 	onApprove,
 	onDeny,
 }: ScopeCardApprovalProps) {
-	const [isExpanded, setIsExpanded] = useState(true);
+	// Non-pending cards start collapsed
+	const [isExpanded, setIsExpanded] = useState(scopeCard.status === "pending");
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
+	const isPending = scopeCard.status === "pending";
+	const canApprove = isPending && onApprove && onDeny;
+
 	const handleApprove = async () => {
+		if (!onApprove) return;
 		setIsSubmitting(true);
 		try {
 			await onApprove();
@@ -44,7 +85,7 @@ export function ScopeCardApproval({
 	};
 
 	const handleDeny = async () => {
-		if (!feedback.trim()) return;
+		if (!feedback.trim() || !onDeny) return;
 		setIsSubmitting(true);
 		try {
 			await onDeny(feedback.trim());
@@ -57,8 +98,8 @@ export function ScopeCardApproval({
 
 	return (
 		<>
-			<Card className="mx-4 my-4 border-primary/50 bg-primary/5">
-				<CardHeader>
+			<Card className={cn("mx-4 my-4", STATUS_STYLES[scopeCard.status])}>
+				<CardHeader className="pb-3">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
 							<Button
@@ -72,62 +113,79 @@ export function ScopeCardApproval({
 									<ChevronRight className="size-4" />
 								)}
 							</Button>
+							<Target className="size-5 text-primary" />
 							<CardTitle className="text-lg">
-								Scope Card: {scopeCard.title}
+								Scope: {scopeCard.title}
 							</CardTitle>
+							{STATUS_BADGES[scopeCard.status]}
 						</div>
-						<div className="flex items-center gap-2">
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setDenyDialogOpen(true)}
-								disabled={isSubmitting}
-								className="text-destructive hover:text-destructive"
-							>
-								<XCircle className="size-4 mr-1" />
-								Request Changes
-							</Button>
-							<Button size="sm" onClick={handleApprove} disabled={isSubmitting}>
-								<CheckCircle className="size-4 mr-1" />
-								Approve
-							</Button>
-						</div>
+						{canApprove && (
+							<div className="flex items-center gap-2">
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => setDenyDialogOpen(true)}
+									disabled={isSubmitting}
+									className="text-destructive hover:text-destructive"
+								>
+									<XCircle className="size-4 mr-1" />
+									Request Changes
+								</Button>
+								<Button
+									size="sm"
+									onClick={handleApprove}
+									disabled={isSubmitting}
+								>
+									<CheckCircle className="size-4 mr-1" />
+									Approve
+								</Button>
+							</div>
+						)}
 					</div>
 				</CardHeader>
 
 				{isExpanded && (
-					<CardContent className="space-y-4">
+					<CardContent className="space-y-5 pt-0">
 						{/* Description */}
 						<div>
-							<h4 className="text-sm font-medium text-muted-foreground mb-1">
-								Description
-							</h4>
-							<p className="text-sm">{scopeCard.description}</p>
+							<p className="text-sm text-muted-foreground">
+								{scopeCard.description}
+							</p>
 						</div>
 
 						{/* In Scope */}
-						<div>
-							<h4 className="text-sm font-medium text-muted-foreground mb-1">
+						<div className="space-y-2">
+							<div className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400">
+								<ListChecks className="size-4" />
 								In Scope
-							</h4>
-							<ul className="list-disc list-inside text-sm space-y-1">
+							</div>
+							<ul className="space-y-1.5 pl-6">
 								{scopeCard.inScope.map((item) => (
-									<li key={`in-${item}`} className="text-foreground">
-										{item}
+									<li
+										key={`in-${item}`}
+										className="text-sm flex items-start gap-2"
+									>
+										<CheckCircle className="size-3.5 text-green-500 mt-0.5 shrink-0" />
+										<span>{item}</span>
 									</li>
 								))}
 							</ul>
 						</div>
 
 						{/* Out of Scope */}
-						<div>
-							<h4 className="text-sm font-medium text-muted-foreground mb-1">
+						<div className="space-y-2">
+							<div className="flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400">
+								<ListX className="size-4" />
 								Out of Scope
-							</h4>
-							<ul className="list-disc list-inside text-sm space-y-1">
+							</div>
+							<ul className="space-y-1.5 pl-6">
 								{scopeCard.outOfScope.map((item) => (
-									<li key={`out-${item}`} className="text-foreground">
-										{item}
+									<li
+										key={`out-${item}`}
+										className="text-sm flex items-start gap-2"
+									>
+										<XCircle className="size-3.5 text-red-500 mt-0.5 shrink-0" />
+										<span className="text-muted-foreground">{item}</span>
 									</li>
 								))}
 							</ul>
@@ -135,14 +193,19 @@ export function ScopeCardApproval({
 
 						{/* Constraints */}
 						{scopeCard.constraints && scopeCard.constraints.length > 0 && (
-							<div>
-								<h4 className="text-sm font-medium text-muted-foreground mb-1">
+							<div className="space-y-2">
+								<div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+									<AlertTriangle className="size-4" />
 									Constraints
-								</h4>
-								<ul className="list-disc list-inside text-sm space-y-1">
+								</div>
+								<ul className="space-y-1.5 pl-6">
 									{scopeCard.constraints.map((item) => (
-										<li key={`const-${item}`} className="text-foreground">
-											{item}
+										<li
+											key={`const-${item}`}
+											className="text-sm flex items-start gap-2"
+										>
+											<CircleDot className="size-3.5 text-amber-500 mt-0.5 shrink-0" />
+											<span>{item}</span>
 										</li>
 									))}
 								</ul>
@@ -150,24 +213,22 @@ export function ScopeCardApproval({
 						)}
 
 						{/* Recommended Path */}
-						<div className="space-y-1">
-							<div className="flex items-center gap-2">
-								<h4 className="text-sm font-medium text-muted-foreground">
-									Recommended Path:
-								</h4>
-								<span
-									className={cn(
-										"px-2 py-0.5 rounded text-xs font-medium w-fit flex-shrink-0",
-										scopeCard.recommendedPath === "quick"
-											? "bg-green-500/10 text-green-700 dark:text-green-400"
-											: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
-									)}
-								>
-									{scopeCard.recommendedPath === "quick"
-										? "Quick Path"
-										: "Full Path"}
-								</span>
-							</div>
+						<div className="flex items-center gap-3 pt-2 border-t">
+							<span className="text-sm font-medium text-muted-foreground">
+								Recommended Path:
+							</span>
+							<Badge
+								variant="outline"
+								className={cn(
+									scopeCard.recommendedPath === "quick"
+										? "text-green-600 border-green-500/50 bg-green-500/10"
+										: "text-blue-600 border-blue-500/50 bg-blue-500/10",
+								)}
+							>
+								{scopeCard.recommendedPath === "quick"
+									? "Quick Path"
+									: "Full Path"}
+							</Badge>
 							{scopeCard.rationale && (
 								<span className="text-sm text-muted-foreground">
 									{scopeCard.rationale}
