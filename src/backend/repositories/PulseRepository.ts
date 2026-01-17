@@ -556,4 +556,38 @@ export class PulseRepository implements Repository {
 
 		return result?.count ?? 0;
 	}
+
+	// ===========================================================================
+	// Cleanup Operations (for rewind)
+	// ===========================================================================
+
+	/**
+	 * Delete all pulses for a workflow
+	 */
+	async deleteByWorkflow(workflowId: string): Promise<void> {
+		await this.db
+			.deleteFrom("pulses")
+			.where("workflow_id", "=", workflowId)
+			.execute();
+	}
+
+	/**
+	 * Delete preflight setup for a workflow
+	 */
+	async deletePreflightSetup(workflowId: string): Promise<void> {
+		await this.db
+			.deleteFrom("preflight_setup")
+			.where("workflow_id", "=", workflowId)
+			.execute();
+	}
+
+	/**
+	 * Delete all baselines for a workflow
+	 */
+	async deleteBaselines(workflowId: string): Promise<void> {
+		await this.db
+			.deleteFrom("preflight_baselines")
+			.where("workflow_id", "=", workflowId)
+			.execute();
+	}
 }

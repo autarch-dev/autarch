@@ -36,6 +36,7 @@ interface WorkflowViewProps {
 	plans: Plan[];
 	onApprove?: () => Promise<void>;
 	onRequestChanges?: (feedback: string) => Promise<void>;
+	onRewind?: () => Promise<void>;
 }
 
 /** Timeline item types for rendering */
@@ -55,6 +56,7 @@ export function WorkflowView({
 	plans,
 	onApprove,
 	onRequestChanges,
+	onRewind,
 }: WorkflowViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -136,6 +138,9 @@ export function WorkflowView({
 						}
 						onDeny={
 							item.data.status === "pending" ? onRequestChanges : undefined
+						}
+						onRewind={
+							item.data.status === "approved" ? onRewind : undefined
 						}
 					/>
 				);

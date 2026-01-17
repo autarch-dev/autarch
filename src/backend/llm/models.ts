@@ -11,7 +11,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
 import type { LanguageModel } from "ai";
 import { ALL_MODELS } from "@/features/onboarding/components/Wizard/models";
-import type { AIProvider, ModelScenario } from "@/shared/schemas/settings";
+import type { AIProvider } from "@/shared/schemas/settings";
+import type { AgentRole } from "../agents/types";
 import { getApiKey, getModelPreferences } from "../services/globalSettings";
 
 // =============================================================================
@@ -31,20 +32,20 @@ const MODEL_TO_PROVIDER = Object.fromEntries(
 // =============================================================================
 
 /**
- * Get the AI SDK model instance for a given scenario.
+ * Get the AI SDK model instance for a given agent role.
  *
- * @param scenario - The agent scenario (e.g., "discussion", "scoping")
+ * @param role - The agent role (e.g., "discussion", "scoping", "preflight")
  * @returns AI SDK LanguageModelV1 instance
  * @throws Error if no model is configured, model is unknown, or no API key
  */
 export async function getModelForScenario(
-	scenario: ModelScenario,
+	role: AgentRole,
 ): Promise<LanguageModel> {
 	// Get user's model preference for this scenario
 	const prefs = await getModelPreferences();
 
 	// Preflight uses execution's model (no separate preference)
-	const effectiveScenario = scenario === "preflight" ? "execution" : scenario;
+	const effectiveScenario = role === "preflight" ? "execution" : role;
 	const modelName = prefs[effectiveScenario];
 
 	if (!modelName) {

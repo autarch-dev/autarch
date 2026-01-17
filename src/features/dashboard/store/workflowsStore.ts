@@ -116,6 +116,7 @@ interface WorkflowsState {
 	// Actions - Approval
 	approveArtifact: (workflowId: string) => Promise<void>;
 	requestChanges: (workflowId: string, feedback: string) => Promise<void>;
+	rewindWorkflow: (workflowId: string) => Promise<void>;
 
 	// Actions - WebSocket event handling
 	handleWebSocketEvent: (event: WebSocketEvent) => void;
@@ -382,6 +383,21 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 
 			return { workflows, ...artifactUpdates };
 		});
+	},
+
+	rewindWorkflow: async (workflowId: string) => {
+		const response = await fetch(`/api/workflows/${workflowId}/rewind`, {
+			method: "POST",
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error ?? "Failed to rewind workflow");
+		}
+
+		// The WebSocket events will update the state appropriately
+		// but we can also refresh the history to get clean state
+		get().fetchHistory(workflowId);
 	},
 
 	// ===========================================================================

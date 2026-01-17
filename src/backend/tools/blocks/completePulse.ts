@@ -3,9 +3,9 @@
  */
 
 import { z } from "zod";
-import { getWorkflowOrchestrator } from "@/backend/agents/runner";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
+import { getPulseOrchestrator } from "@/backend/services/pulsing";
 import { CompletionValidator } from "@/backend/services/pulsing/CompletionValidator";
 import type { ToolDefinition, ToolResult } from "../types";
 
@@ -101,18 +101,27 @@ orchestration for human review.`,
 				};
 			}
 
-			// Validation passed - trigger the orchestrator to commit and handle next steps
+			// Validation passed - commit and merge the changes
 			log.workflow.info(
 				`Pulse completion validated for ${pulse.id}: ${input.summary}`,
 			);
 
-			// Let orchestrator handle the commit, merge, and next pulse/review transition
-			const orchestrator = getWorkflowOrchestrator();
-			await orchestrator.handlePulseCompletion(
-				context.workflowId,
+			// Commit and merge the pulse changes
+			// Note: Session transition to next pulse is handled by AgentRunner
+			// after this turn completes (via handleTurnCompletion)
+			const pulseOrchestrator = getPulseOrchestrator();
+			const result = await pulseOrchestrator.completePulse(
+				pulse.id,
 				input.summary,
 				hasUnresolvedIssues ?? false,
 			);
+
+			if (!result.success) {
+				return {
+					success: false,
+					output: `Error: ${result.error ?? "Failed to complete pulse"}`,
+				};
+			}
 
 			const lines = [
 				"Pulse completed. Changes committed and merged.",

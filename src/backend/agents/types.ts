@@ -6,10 +6,11 @@ import type { RegisteredTool } from "../tools/types";
 // =============================================================================
 
 /**
- * Agent role is derived directly from ModelScenario
- * Each scenario maps 1:1 to an agent with specific capabilities
+ * Agent role includes all model scenarios plus "preflight"
+ * Preflight is an internal role that uses the execution model,
+ * so it's not exposed in user-facing model preferences
  */
-export type AgentRole = ModelScenario;
+export type AgentRole = ModelScenario | "preflight";
 
 /**
  * Configuration for an agent role

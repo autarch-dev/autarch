@@ -43,6 +43,7 @@ import type {
 	ToolCall,
 	Turn,
 } from "./types";
+import { getWorkflowOrchestrator } from "./WorkflowOrchestrator";
 
 // =============================================================================
 // Constants
@@ -158,17 +159,26 @@ export class AgentRunner {
 		);
 
 		// Load existing conversation history for this session
-		const { messages: conversationHistory, toolSummaries, nextTurnIndex } =
-			await this.loadConversationHistory();
+		const {
+			messages: conversationHistory,
+			toolSummaries,
+			nextTurnIndex,
+		} = await this.loadConversationHistory();
 		let turnIndex = nextTurnIndex;
-		log.agent.debug(`Loaded ${conversationHistory.length} messages from history`);
+		log.agent.debug(
+			`Loaded ${conversationHistory.length} messages from history`,
+		);
 
 		// Create user turn and add to history
 		// Nudge turns and explicitly hidden user turns are hidden from UI
 		// The hidden option is for transition messages (approved artifacts) - we want
 		// to hide those but still show the agent's response
 		const isUserTurnHidden = nudgeCount > 0 || options.hidden === true;
-		const userTurn = await this.createTurn("user", isUserTurnHidden, turnIndex++);
+		const userTurn = await this.createTurn(
+			"user",
+			isUserTurnHidden,
+			turnIndex++,
+		);
 		await this.saveMessage(userTurn.id, 0, userMessage);
 		await this.completeTurn(userTurn.id);
 
@@ -201,7 +211,11 @@ export class AgentRunner {
 		// The hidden option is specifically for user turns (transition messages like
 		// "approved artifact" or "Continue.") - we still want to show the agent's response
 		const isAssistantTurnHidden = nudgeCount > 0;
-		const assistantTurn = await this.createTurn("assistant", isAssistantTurnHidden, turnIndex++);
+		const assistantTurn = await this.createTurn(
+			"assistant",
+			isAssistantTurnHidden,
+			turnIndex++,
+		);
 
 		try {
 			await this.streamLLMResponse(
@@ -218,6 +232,10 @@ export class AgentRunner {
 
 			// Check if request_extension was called - if so, auto-continue
 			await this.maybeContinue(assistantTurn.id, options);
+
+			// Check if auto-transition tools were called (complete_preflight, complete_pulse)
+			// These transitions are deferred to here so the session isn't aborted mid-stream
+			await this.maybeAutoTransition(assistantTurn.id);
 		} catch (error) {
 			log.agent.error(`Agent turn ${assistantTurn.id} failed:`, error);
 			await this.errorTurn(
@@ -317,6 +335,44 @@ export class AgentRunner {
 		// Continue with a simple prompt (reset nudge count for fresh allowance)
 		// Hide the continuation message from UI
 		await this.run("Continue.", { ...options, hidden: true }, 0);
+	}
+
+	/**
+	 * Check if auto-transition tools were called and trigger deferred transitions
+	 *
+	 * For complete_preflight and complete_pulse, the actual transition (starting
+	 * the next session) is deferred to here so we don't abort the stream mid-turn.
+	 */
+	private async maybeAutoTransition(turnId: string): Promise<void> {
+		// Only workflow sessions can have auto-transitions
+		if (this.session.contextType !== "workflow") {
+			return;
+		}
+
+		const toolNames = await this.config.conversationRepo.getToolNames(turnId);
+
+		// Check if any auto-transition tools were called
+		const hasPreflightComplete = toolNames.includes("complete_preflight");
+		const hasPulseComplete = toolNames.includes("complete_pulse");
+
+		if (!hasPreflightComplete && !hasPulseComplete) {
+			return;
+		}
+
+		// Trigger the deferred transition via orchestrator
+		try {
+			const orchestrator = getWorkflowOrchestrator();
+			await orchestrator.handleTurnCompletion(
+				this.session.contextId, // workflowId
+				toolNames,
+			);
+		} catch (error) {
+			log.agent.error(
+				`Failed to handle auto-transition for workflow ${this.session.contextId}:`,
+				error,
+			);
+			// Don't re-throw - the turn already completed successfully
+		}
 	}
 
 	// ===========================================================================
@@ -646,9 +702,7 @@ export class AgentRunner {
 			options.signal ?? this.session.abortController?.signal ?? undefined;
 
 		// Log conversation history structure before API call
-		log.agent.debug(
-			`Sending ${conversationHistory.length} messages to LLM:`,
-		);
+		log.agent.debug(`Sending ${conversationHistory.length} messages to LLM:`);
 		for (const [i, msg] of conversationHistory.entries()) {
 			if (msg.role === "user") {
 				const content =

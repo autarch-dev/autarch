@@ -175,4 +175,85 @@ export class SessionRepository implements Repository {
 			.where("id", "=", id)
 			.execute();
 	}
+
+	// ===========================================================================
+	// Delete Operations
+	// ===========================================================================
+
+	/**
+	 * Delete a session and all its associated data (turns, messages, tools, etc.)
+	 */
+	async deleteSession(sessionId: string): Promise<void> {
+		// Get all turn IDs for this session
+		const turns = await this.db
+			.selectFrom("turns")
+			.select("id")
+			.where("session_id", "=", sessionId)
+			.execute();
+
+		const turnIds = turns.map((t) => t.id);
+
+		if (turnIds.length > 0) {
+			// Delete turn-related data
+			await this.db
+				.deleteFrom("turn_messages")
+				.where("turn_id", "in", turnIds)
+				.execute();
+			await this.db
+				.deleteFrom("turn_tools")
+				.where("turn_id", "in", turnIds)
+				.execute();
+			await this.db
+				.deleteFrom("turn_thoughts")
+				.where("turn_id", "in", turnIds)
+				.execute();
+			await this.db
+				.deleteFrom("questions")
+				.where("turn_id", "in", turnIds)
+				.execute();
+
+			// Delete turns
+			await this.db
+				.deleteFrom("turns")
+				.where("session_id", "=", sessionId)
+				.execute();
+		}
+
+		// Delete session notes
+		await this.db
+			.deleteFrom("session_notes")
+			.where("session_id", "=", sessionId)
+			.execute();
+
+		// Delete the session itself
+		await this.db
+			.deleteFrom("sessions")
+			.where("id", "=", sessionId)
+			.execute();
+	}
+
+	/**
+	 * Delete all sessions for a context with specific agent roles
+	 */
+	async deleteByContextAndRoles(
+		contextType: SessionContextType,
+		contextId: string,
+		roles: string[],
+	): Promise<number> {
+		// Get sessions matching criteria
+		const sessions = await this.db
+			.selectFrom("sessions")
+			.select("id")
+			.where("context_type", "=", contextType)
+			.where("context_id", "=", contextId)
+			.where("agent_role", "in", roles)
+			.execute();
+
+		// Delete each session with its data
+		for (const session of sessions) {
+			await this.deleteSession(session.id);
+		}
+
+		return sessions.length;
+	}
 }

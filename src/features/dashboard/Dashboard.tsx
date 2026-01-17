@@ -38,6 +38,7 @@ export function Dashboard() {
 		fetchHistory: fetchWorkflowHistory,
 		approveArtifact,
 		requestChanges,
+		rewindWorkflow,
 	} = useWorkflowsStore();
 
 	// Fetch channels and workflows on mount
@@ -128,6 +129,12 @@ export function Dashboard() {
 		[selectedId, requestChanges],
 	);
 
+	const handleRewindWorkflow = useCallback(async () => {
+		if (selectedId) {
+			await rewindWorkflow(selectedId);
+		}
+	}, [selectedId, rewindWorkflow]);
+
 	const selectedChannel = useMemo((): Channel | null => {
 		if (selectedView !== "channel" || !selectedId) return null;
 		return channels.find((c) => c.id === selectedId) ?? null;
@@ -204,6 +211,7 @@ export function Dashboard() {
 						plans={selectedPlans}
 						onApprove={handleApproveScope}
 						onRequestChanges={handleRequestChanges}
+						onRewind={handleRewindWorkflow}
 					/>
 				) : (
 					<div className="flex items-center justify-center h-full">

@@ -8,15 +8,16 @@
  * - Spawning appropriate agents for each stage
  */
 
-import { findRepoRoot } from "@/backend/git";
+import { cleanupWorkflow, findRepoRoot } from "@/backend/git";
 import { getWorktreePath } from "@/backend/git/worktree";
 import { log } from "@/backend/logger";
-import type {
-	ArtifactRepository,
-	ConversationRepository,
-	Pulse,
-	PulseRepository,
-	WorkflowRepository,
+import {
+	type ArtifactRepository,
+	type ConversationRepository,
+	getRepositories,
+	type Pulse,
+	type PulseRepository,
+	type WorkflowRepository,
 } from "@/backend/repositories";
 import { PulseOrchestrator } from "@/backend/services/pulsing";
 import { broadcast } from "@/backend/ws";
@@ -27,7 +28,6 @@ import {
 	createWorkflowErrorEvent,
 	createWorkflowStageChangedEvent,
 } from "@/shared/schemas/events";
-import type { ModelScenario } from "@/shared/schemas/settings";
 import type { WorkflowStatus } from "@/shared/schemas/workflow";
 import {
 	APPROVAL_REQUIRED_TOOLS,
@@ -37,14 +37,14 @@ import {
 } from "@/shared/schemas/workflow";
 import { AgentRunner } from "./AgentRunner";
 import type { SessionManager } from "./SessionManager";
-import type { ArtifactType, StageTransitionResult } from "./types";
+import type { AgentRole, ArtifactType, StageTransitionResult } from "./types";
 
 // =============================================================================
 // Constants
 // =============================================================================
 
 /** Maps workflow status to agent role */
-const STAGE_TO_AGENT: Record<WorkflowStatus, ModelScenario> = {
+const STAGE_TO_AGENT: Record<WorkflowStatus, AgentRole> = {
 	backlog: "scoping", // When moved from backlog, starts with scoping
 	scoping: "scoping",
 	researching: "research",
@@ -157,7 +157,11 @@ export class WorkflowOrchestrator {
 	 *
 	 * For approval-required tools: saves artifact, sets awaiting_approval
 	 * For auto-transition tools: transitions immediately
-	 * For complete_preflight: starts execution with first pulse
+	 *
+	 * NOTE: complete_preflight and complete_pulse are NOT handled here.
+	 * Those transitions are deferred to handleTurnCompletion() which is called
+	 * after the agent turn finishes, avoiding abort errors from killing the session
+	 * mid-stream.
 	 */
 	async handleToolResult(
 		workflowId: string,
@@ -168,11 +172,9 @@ export class WorkflowOrchestrator {
 			`handleToolResult: workflowId=${workflowId}, toolName=${toolName}, artifactId=${artifactId}`,
 		);
 
-		// Handle preflight completion - starts first pulse
-		if (toolName === "complete_preflight") {
-			await this.handlePreflightCompletion(workflowId);
-			return { transitioned: false, awaitingApproval: false };
-		}
+		// NOTE: complete_preflight and complete_pulse are intentionally NOT handled here.
+		// They are handled in handleTurnCompletion() after the turn finishes to avoid
+		// aborting the stream mid-execution.
 
 		// Check if this is an approval-required tool
 		const approvalTargetStage = APPROVAL_REQUIRED_TOOLS[toolName];
@@ -199,6 +201,39 @@ export class WorkflowOrchestrator {
 			transitioned: false,
 			awaitingApproval: false,
 		};
+	}
+
+	/**
+	 * Handle turn completion - check for deferred auto-transitions
+	 *
+	 * Called by AgentRunner after a turn completes successfully.
+	 * This handles transitions that need to happen AFTER the turn ends
+	 * (like complete_preflight and complete_pulse) to avoid aborting mid-stream.
+	 */
+	async handleTurnCompletion(
+		workflowId: string,
+		toolNames: string[],
+	): Promise<void> {
+		// Check if complete_preflight was called
+		if (toolNames.includes("complete_preflight")) {
+			log.workflow.info(
+				`Turn completed with complete_preflight - starting first pulse for workflow ${workflowId}`,
+			);
+			await this.handlePreflightCompletion(workflowId);
+			return;
+		}
+
+		// Check if complete_pulse was called
+		// Note: complete_pulse stores its data in the tool execution,
+		// but we need to check the DB for the pending pulse completion
+		if (toolNames.includes("complete_pulse")) {
+			log.workflow.info(
+				`Turn completed with complete_pulse - handling pulse transition for workflow ${workflowId}`,
+			);
+			// The pulse completion data (commit message, unresolved issues) was already
+			// saved by the tool. We just need to trigger the next pulse or review transition.
+			await this.handleDeferredPulseCompletion(workflowId);
+		}
 	}
 
 	/**
@@ -497,17 +532,19 @@ export class WorkflowOrchestrator {
 	/**
 	 * Handle preflight completion
 	 *
-	 * Called when complete_preflight tool succeeds. Creates a new execution
-	 * session and starts the first pulse.
+	 * Called AFTER the turn completes (via handleTurnCompletion).
+	 * Creates a new execution session and starts the first pulse.
 	 */
 	async handlePreflightCompletion(workflowId: string): Promise<void> {
 		const workflow = await this.workflowRepo.getById(workflowId);
 		if (!workflow) {
-			log.workflow.error(`Workflow not found during preflight completion: ${workflowId}`);
+			log.workflow.error(
+				`Workflow not found during preflight completion: ${workflowId}`,
+			);
 			return;
 		}
 
-		// Stop preflight session
+		// Stop the preflight session - safe now since the turn is complete
 		if (workflow.currentSessionId) {
 			await this.sessionManager.stopSession(workflow.currentSessionId);
 		}
@@ -522,7 +559,9 @@ export class WorkflowOrchestrator {
 		);
 
 		if (!firstPulse) {
-			log.workflow.error(`No pulses found for workflow ${workflowId} after preflight`);
+			log.workflow.error(
+				`No pulses found for workflow ${workflowId} after preflight`,
+			);
 			await this.errorWorkflow(workflowId, "No pulses found after preflight");
 			return;
 		}
@@ -538,7 +577,10 @@ export class WorkflowOrchestrator {
 		await this.workflowRepo.setCurrentSession(workflowId, session.id);
 
 		// Build initial message for this pulse
-		const initialMessage = await this.buildPulseInitialMessage(workflowId, firstPulse);
+		const initialMessage = await this.buildPulseInitialMessage(
+			workflowId,
+			firstPulse,
+		);
 
 		const runner = new AgentRunner(session, {
 			projectRoot,
@@ -580,7 +622,9 @@ export class WorkflowOrchestrator {
 	): Promise<void> {
 		const workflow = await this.workflowRepo.getById(workflowId);
 		if (!workflow) {
-			log.workflow.error(`Workflow not found during pulse completion: ${workflowId}`);
+			log.workflow.error(
+				`Workflow not found during pulse completion: ${workflowId}`,
+			);
 			return;
 		}
 
@@ -619,7 +663,7 @@ export class WorkflowOrchestrator {
 
 		// Check if there are more pulses
 		if (result.hasMorePulses) {
-			// Stop current session to clear context
+			// Stop current session - safe now since the turn is complete
 			if (workflow.currentSessionId) {
 				await this.sessionManager.stopSession(workflow.currentSessionId);
 			}
@@ -645,7 +689,10 @@ export class WorkflowOrchestrator {
 				await this.workflowRepo.setCurrentSession(workflowId, session.id);
 
 				// Build initial message for this pulse
-				const initialMessage = await this.buildPulseInitialMessage(workflowId, nextPulse);
+				const initialMessage = await this.buildPulseInitialMessage(
+					workflowId,
+					nextPulse,
+				);
 
 				const runner = new AgentRunner(session, {
 					projectRoot,
@@ -687,6 +734,111 @@ export class WorkflowOrchestrator {
 			await this.pulseOrchestrator.failPulse(pulse.id, reason);
 		}
 		// Don't transition - wait for human intervention
+	}
+
+	/**
+	 * Handle deferred pulse completion (session transition only)
+	 *
+	 * Called AFTER the turn completes (via handleTurnCompletion).
+	 * The git commit/merge was already done by the complete_pulse tool.
+	 * This just handles the session transition to the next pulse or review.
+	 */
+	private async handleDeferredPulseCompletion(
+		workflowId: string,
+	): Promise<void> {
+		const workflow = await this.workflowRepo.getById(workflowId);
+		if (!workflow) {
+			log.workflow.error(
+				`Workflow not found during deferred pulse completion: ${workflowId}`,
+			);
+			return;
+		}
+
+		// Get all pulses to determine state
+		const pulses = await this.pulseRepo.getPulsesForWorkflow(workflowId);
+
+		// Find the most recently completed pulse
+		const completedPulse = pulses
+			.filter((p) => p.status === "succeeded")
+			.sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0))[0];
+
+		if (!completedPulse) {
+			log.workflow.error(`No completed pulse found for workflow ${workflowId}`);
+			return;
+		}
+
+		// If pulse had unresolved issues, halt for human review
+		if (completedPulse.hasUnresolvedIssues) {
+			log.workflow.info(
+				`Pulse ${completedPulse.id} completed with unresolved issues - halting orchestration`,
+			);
+			return;
+		}
+
+		// Check if there are more pulses (any proposed pulses remaining)
+		const hasMorePulses = pulses.some((p) => p.status === "proposed");
+
+		if (hasMorePulses) {
+			// Stop current session - safe now since the turn is complete
+			if (workflow.currentSessionId) {
+				await this.sessionManager.stopSession(workflow.currentSessionId);
+			}
+
+			const projectRoot = findRepoRoot(process.cwd());
+			const worktreePath = getWorktreePath(projectRoot, workflowId);
+
+			// Start the next pulse
+			const nextPulse = await this.pulseOrchestrator.startNextPulse(
+				workflowId,
+				worktreePath,
+			);
+
+			if (nextPulse) {
+				// Create fresh session for next pulse (empty context)
+				const session = await this.sessionManager.startSession({
+					contextType: "workflow",
+					contextId: workflowId,
+					agentRole: "execution",
+				});
+
+				// Update workflow with new session
+				await this.workflowRepo.setCurrentSession(workflowId, session.id);
+
+				// Build initial message for this pulse
+				const initialMessage = await this.buildPulseInitialMessage(
+					workflowId,
+					nextPulse,
+				);
+
+				const runner = new AgentRunner(session, {
+					projectRoot,
+					conversationRepo: this.conversationRepo,
+					worktreePath,
+				});
+
+				log.workflow.info(
+					`Starting execution agent for pulse ${nextPulse.id} in workflow ${workflowId}`,
+				);
+
+				// Run in background (non-blocking)
+				runner.run(initialMessage, { hidden: true }).catch((error) => {
+					log.workflow.error(
+						`Execution agent failed for pulse ${nextPulse.id}:`,
+						error,
+					);
+					this.errorWorkflow(
+						workflowId,
+						error instanceof Error ? error.message : "Unknown error",
+					);
+				});
+			}
+		} else {
+			// All pulses complete - transition to review
+			log.workflow.info(
+				`All pulses complete for workflow ${workflowId} - transitioning to review`,
+			);
+			await this.transitionStage(workflowId, "review");
+		}
 	}
 
 	/**
@@ -899,7 +1051,8 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 	): Promise<string> {
 		// Get artifacts for context
 		const scopeCard = await this.artifactRepo.getLatestScopeCard(workflowId);
-		const researchCard = await this.artifactRepo.getLatestResearchCard(workflowId);
+		const researchCard =
+			await this.artifactRepo.getLatestResearchCard(workflowId);
 		const plan = await this.artifactRepo.getLatestPlan(workflowId);
 
 		// Find the pulse definition from the plan for more details
@@ -972,7 +1125,7 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 	/**
 	 * Get agent role for a workflow stage
 	 */
-	private getAgentForStage(stage: WorkflowStatus): ModelScenario {
+	private getAgentForStage(stage: WorkflowStatus): AgentRole {
 		return STAGE_TO_AGENT[stage];
 	}
 
@@ -981,6 +1134,148 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 	 */
 	async getWorkflow(workflowId: string): Promise<Workflow | null> {
 		return this.workflowRepo.getById(workflowId);
+	}
+
+	// ===========================================================================
+	// Rewind Operations
+	// ===========================================================================
+
+	/**
+	 * Rewind a workflow to restart execution from the beginning
+	 *
+	 * This cleans up all pulse/preflight state and restarts from preflight.
+	 * Used when user wants to re-execute the same plan from scratch.
+	 */
+	async rewindToExecution(workflowId: string): Promise<void> {
+		const workflow = await this.workflowRepo.getById(workflowId);
+		if (!workflow) {
+			throw new Error(`Workflow not found: ${workflowId}`);
+		}
+
+		// Only allow rewind from in_progress status
+		if (workflow.status !== "in_progress") {
+			throw new Error(
+				`Cannot rewind workflow in ${workflow.status} status. Must be in_progress.`,
+			);
+		}
+
+		log.workflow.info(`Rewinding workflow ${workflowId} to restart execution`);
+
+		// 1. Stop current session if active
+		if (workflow.currentSessionId) {
+			await this.sessionManager.stopSession(workflow.currentSessionId);
+		}
+
+		// 2. Cleanup git worktree and branch
+		const projectRoot = findRepoRoot(process.cwd());
+		try {
+			await cleanupWorkflow(projectRoot, workflowId, { deleteBranch: true });
+		} catch (error) {
+			log.workflow.warn(
+				`Git cleanup failed (may not exist yet): ${error instanceof Error ? error.message : "unknown"}`,
+			);
+		}
+
+		// 3. Delete all pulse-related data
+		await this.pulseRepo.deleteBaselines(workflowId);
+		await this.pulseRepo.deletePreflightSetup(workflowId);
+		await this.pulseRepo.deleteByWorkflow(workflowId);
+
+		// 4. Delete all preflight and execution sessions (and their messages)
+		const repos = getRepositories();
+		const deletedCount = await repos.sessions.deleteByContextAndRoles(
+			"workflow",
+			workflowId,
+			["preflight", "execution"],
+		);
+		log.workflow.info(
+			`Deleted ${deletedCount} execution-phase sessions for workflow ${workflowId}`,
+		);
+
+		// 5. Re-initialize pulsing (creates new worktree and branch)
+		const pulsingResult =
+			await this.pulseOrchestrator.initializePulsing(workflowId);
+		if (!pulsingResult.success) {
+			throw new Error(`Failed to initialize pulsing: ${pulsingResult.error}`);
+		}
+
+		// 5. Recreate pulses from the approved plan
+		const plan = await this.artifactRepo.getLatestPlan(workflowId);
+		if (!plan) {
+			throw new Error(`No approved plan found for workflow ${workflowId}`);
+		}
+
+		await this.pulseOrchestrator.createPulsesFromPlan(workflowId, plan.pulses);
+
+		// 6. Create new session for preflight agent
+		const session = await this.sessionManager.startSession({
+			contextType: "workflow",
+			contextId: workflowId,
+			agentRole: "preflight",
+		});
+
+		// 7. Update workflow with new session
+		await this.workflowRepo.setCurrentSession(workflowId, session.id);
+
+		// 8. Create preflight setup record
+		await this.pulseOrchestrator.createPreflightSetup(workflowId, session.id);
+
+		// 9. Build initial message for preflight agent
+		// Note: We build this directly instead of calling buildInitialMessage()
+		// because that method would try to re-initialize pulsing (which we already did)
+		const worktreePath = pulsingResult.worktreePath;
+		const initialMessage = `## Preflight Environment Setup
+
+You are preparing the development environment in an isolated worktree before code execution begins.
+
+**Worktree Path:** \`${worktreePath}\`
+
+### Plan Overview
+
+**Approach:** ${plan.approachSummary}
+
+**Pulses to Execute:** ${plan.pulses.length}
+${plan.pulses.map((p) => `- ${p.id}: ${p.title}`).join("\n")}
+
+### Your Task
+
+1. Initialize the development environment (restore dependencies, build, etc.)
+2. Record any pre-existing build errors/warnings as baselines using \`record_baseline\`
+3. When the environment is ready, call \`complete_preflight\` with a summary
+
+Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
+
+		// 11. Start the preflight agent
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			conversationRepo: this.conversationRepo,
+			worktreePath,
+		});
+
+		log.workflow.info(`Restarting preflight agent for workflow ${workflowId}`);
+
+		// Broadcast stage changed event with new session ID
+		// This triggers the UI to update and listen to the new session
+		broadcast(
+			createWorkflowStageChangedEvent({
+				workflowId,
+				previousStage: "in_progress",
+				newStage: "in_progress",
+				sessionId: session.id,
+			}),
+		);
+
+		// Run in background (non-blocking)
+		runner.run(initialMessage, { hidden: true }).catch((error) => {
+			log.workflow.error(
+				`Preflight agent failed after rewind for workflow ${workflowId}:`,
+				error,
+			);
+			this.errorWorkflow(
+				workflowId,
+				error instanceof Error ? error.message : "Unknown error",
+			);
+		});
 	}
 }
 

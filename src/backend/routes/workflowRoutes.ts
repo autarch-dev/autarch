@@ -309,4 +309,25 @@ export const workflowRoutes = {
 			}
 		},
 	},
+
+	"/api/workflows/:id/rewind": {
+		async POST(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			try {
+				const orchestrator = getWorkflowOrchestrator();
+				await orchestrator.rewindToExecution(params.id);
+				log.api.success(`Rewound workflow: ${params.id}`);
+				return Response.json({ success: true });
+			} catch (error) {
+				log.api.error("Failed to rewind workflow:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
 };

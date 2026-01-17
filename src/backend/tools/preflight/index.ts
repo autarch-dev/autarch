@@ -2,6 +2,7 @@
  * Preflight tools - Environment setup tools for the preflight agent
  */
 
+import { listDirectoryTool, readFileTool } from "../base";
 import { shellTool } from "../pulsing/shell";
 
 // Re-export shell tool (same implementation, different context)
@@ -17,6 +18,8 @@ import { registerTool } from "../types";
 import { recordBaselineTool } from "./recordBaseline";
 
 export const preflightTools = [
+	registerTool(listDirectoryTool),
+	registerTool(readFileTool),
 	registerTool(shellTool),
 	registerTool(recordBaselineTool),
 ];

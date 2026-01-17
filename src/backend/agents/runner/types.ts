@@ -14,8 +14,11 @@ import type {
 	TurnRole,
 	TurnStatus,
 } from "@/shared/schemas/session";
-import type { ModelScenario } from "@/shared/schemas/settings";
 import type { WorkflowStatus } from "@/shared/schemas/workflow";
+import type { AgentRole as _AgentRole } from "../types";
+
+// Re-export AgentRole for convenience
+export type { AgentRole } from "../types";
 
 /**
  * Artifact types that can be submitted for approval
@@ -32,7 +35,7 @@ export type ArtifactType = PendingArtifactType;
 export interface SessionContext {
 	contextType: SessionContextType;
 	contextId: string;
-	agentRole: ModelScenario;
+	agentRole: _AgentRole;
 }
 
 /**
@@ -42,7 +45,7 @@ export interface ActiveSession {
 	id: string;
 	contextType: SessionContextType;
 	contextId: string;
-	agentRole: ModelScenario;
+	agentRole: _AgentRole;
 	status: SessionStatus;
 	abortController: AbortController;
 	createdAt: number;

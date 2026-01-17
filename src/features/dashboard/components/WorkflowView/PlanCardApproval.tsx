@@ -12,6 +12,7 @@ import {
 	ClipboardCheck,
 	ClipboardCopy,
 	ClipboardList,
+	RotateCcw,
 	XCircle,
 } from "lucide-react";
 import { useState } from "react";
@@ -40,6 +41,7 @@ interface PlanCardApprovalProps {
 	plan: Plan;
 	onApprove?: () => Promise<void>;
 	onDeny?: (feedback: string) => Promise<void>;
+	onRewind?: () => Promise<void>;
 }
 
 const STATUS_STYLES = {
@@ -84,16 +86,20 @@ export function PlanCardApproval({
 	plan,
 	onApprove,
 	onDeny,
+	onRewind,
 }: PlanCardApprovalProps) {
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(plan.status === "pending");
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
+	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [copied, setCopied] = useState(false);
 
 	const isPending = plan.status === "pending";
+	const isApproved = plan.status === "approved";
 	const canApprove = isPending && onApprove && onDeny;
+	const canRewind = isApproved && onRewind;
 
 	const handleCopyMarkdown = async () => {
 		const markdown = planToMarkdown(plan);
@@ -119,6 +125,17 @@ export function PlanCardApproval({
 			await onDeny(feedback.trim());
 			setDenyDialogOpen(false);
 			setFeedback("");
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleRewind = async () => {
+		if (!onRewind) return;
+		setIsSubmitting(true);
+		try {
+			await onRewind();
+			setRewindDialogOpen(false);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -166,6 +183,21 @@ export function PlanCardApproval({
 									{copied ? "Copied!" : "Copy as Markdown"}
 								</TooltipContent>
 							</Tooltip>
+							{canRewind && (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant="ghost"
+											size="icon-sm"
+											onClick={() => setRewindDialogOpen(true)}
+											className="text-muted-foreground hover:text-foreground"
+										>
+											<RotateCcw className="size-4" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Rewind Execution</TooltipContent>
+								</Tooltip>
+							)}
 						</div>
 						{canApprove && (
 							<div className="flex items-center gap-2">
@@ -301,6 +333,37 @@ export function PlanCardApproval({
 							disabled={isSubmitting || !feedback.trim()}
 						>
 							Submit Feedback
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Rewind Confirmation Dialog */}
+			<Dialog open={rewindDialogOpen} onOpenChange={setRewindDialogOpen}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Rewind Execution</DialogTitle>
+						<DialogDescription>
+							This will discard all current progress and restart execution from
+							the beginning. All completed pulses and changes will be lost.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setRewindDialogOpen(false)}
+							disabled={isSubmitting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleRewind}
+							disabled={isSubmitting}
+						>
+							<RotateCcw className="size-4 mr-1" />
+							Rewind
 						</Button>
 					</DialogFooter>
 				</DialogContent>
