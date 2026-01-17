@@ -24,6 +24,11 @@ import {
 import type {
 	PlansTable,
 	ResearchCardsTable,
+	ReviewCardsTable,
+	ReviewCommentSeverity,
+	ReviewCommentsTable,
+	ReviewCommentType,
+	ReviewRecommendation,
 	ScopeCardsTable,
 } from "@/backend/db/project/types";
 import { ids } from "@/backend/utils";
@@ -39,6 +44,8 @@ import type {
 	PulseDefinition,
 	RecommendedPath,
 	ResearchCard,
+	ReviewCard,
+	ReviewComment,
 	ScopeCard,
 } from "@/shared/schemas/workflow";
 import type { ProjectDb, Repository } from "./types";
@@ -73,6 +80,21 @@ export interface CreatePlanData {
 	workflowId: string;
 	approachSummary: string;
 	pulses: PulseDefinition[];
+}
+
+export interface CreateReviewCardData {
+	workflowId: string;
+}
+
+export interface CreateReviewCommentData {
+	reviewCardId: string;
+	type: ReviewCommentType;
+	filePath?: string;
+	startLine?: number;
+	endLine?: number;
+	severity: ReviewCommentSeverity;
+	category: string;
+	description: string;
 }
 
 // =============================================================================
@@ -399,6 +421,226 @@ export class ArtifactRepository implements Repository {
 	}
 
 	// ===========================================================================
+	// Review Card
+	// ===========================================================================
+
+	/**
+	 * Convert a database row to a domain ReviewComment object.
+	 */
+	private toReviewComment(row: ReviewCommentsTable): ReviewComment {
+		return {
+			id: row.id,
+			reviewCardId: row.review_card_id,
+			type: row.type,
+			filePath: row.file_path ?? undefined,
+			startLine: row.start_line ?? undefined,
+			endLine: row.end_line ?? undefined,
+			severity: row.severity,
+			category: row.category,
+			description: row.description,
+			createdAt: row.created_at,
+		};
+	}
+
+	/**
+	 * Convert a database row to a domain ReviewCard object.
+	 * Fetches associated comments from review_comments table.
+	 */
+	private async toReviewCard(
+		row: ReviewCardsTable,
+		comments: ReviewComment[],
+	): Promise<ReviewCard> {
+		return {
+			id: row.id,
+			workflowId: row.workflow_id,
+			recommendation: row.recommendation ?? undefined,
+			summary: row.summary ?? undefined,
+			comments,
+			status: row.status,
+			createdAt: row.created_at,
+		};
+	}
+
+	/**
+	 * Get the latest review card for a workflow
+	 */
+	async getLatestReviewCard(workflowId: string): Promise<ReviewCard | null> {
+		const row = await this.db
+			.selectFrom("review_cards")
+			.selectAll()
+			.where("workflow_id", "=", workflowId)
+			.orderBy("created_at", "desc")
+			.executeTakeFirst();
+
+		if (!row) {
+			return null;
+		}
+
+		const comments = await this.getCommentsByReviewCard(row.id);
+		return this.toReviewCard(row, comments);
+	}
+
+	/**
+	 * Get all review cards for a workflow, ordered by creation date (oldest first)
+	 */
+	async getAllReviewCards(workflowId: string): Promise<ReviewCard[]> {
+		const rows = await this.db
+			.selectFrom("review_cards")
+			.selectAll()
+			.where("workflow_id", "=", workflowId)
+			.orderBy("created_at", "asc")
+			.execute();
+
+		const reviewCards: ReviewCard[] = [];
+		for (const row of rows) {
+			const comments = await this.getCommentsByReviewCard(row.id);
+			reviewCards.push(await this.toReviewCard(row, comments));
+		}
+		return reviewCards;
+	}
+
+	/**
+	 * Create a new review card.
+	 * Initially created with no recommendation/summary - those are set by completeReview.
+	 */
+	async createReviewCard(data: CreateReviewCardData): Promise<ReviewCard> {
+		const now = Date.now();
+		const reviewCardId = ids.reviewCard();
+
+		await this.db
+			.insertInto("review_cards")
+			.values({
+				id: reviewCardId,
+				workflow_id: data.workflowId,
+				recommendation: null,
+				summary: null,
+				status: "pending",
+				created_at: now,
+			})
+			.execute();
+
+		const reviewCard = await this.getReviewCardById(reviewCardId);
+		if (!reviewCard) {
+			throw new Error(`Failed to create review card: ${reviewCardId}`);
+		}
+		return reviewCard;
+	}
+
+	/**
+	 * Get a review card by ID
+	 */
+	private async getReviewCardById(id: string): Promise<ReviewCard | null> {
+		const row = await this.db
+			.selectFrom("review_cards")
+			.selectAll()
+			.where("id", "=", id)
+			.executeTakeFirst();
+
+		if (!row) {
+			return null;
+		}
+
+		const comments = await this.getCommentsByReviewCard(row.id);
+		return this.toReviewCard(row, comments);
+	}
+
+	/**
+	 * Update the status of a review card
+	 */
+	async updateReviewCardStatus(
+		id: string,
+		status: ArtifactStatusType,
+	): Promise<void> {
+		await this.db
+			.updateTable("review_cards")
+			.set({ status })
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
+	 * Update a review card with recommendation and summary (called by completeReview tool)
+	 */
+	async updateReviewCardCompletion(
+		id: string,
+		recommendation: ReviewRecommendation,
+		summary: string,
+	): Promise<void> {
+		await this.db
+			.updateTable("review_cards")
+			.set({ recommendation, summary })
+			.where("id", "=", id)
+			.execute();
+	}
+
+	// ===========================================================================
+	// Review Comments
+	// ===========================================================================
+
+	/**
+	 * Create a new review comment
+	 */
+	async createReviewComment(
+		data: CreateReviewCommentData,
+	): Promise<ReviewComment> {
+		const now = Date.now();
+		const commentId = ids.reviewComment();
+
+		await this.db
+			.insertInto("review_comments")
+			.values({
+				id: commentId,
+				review_card_id: data.reviewCardId,
+				type: data.type,
+				file_path: data.filePath ?? null,
+				start_line: data.startLine ?? null,
+				end_line: data.endLine ?? null,
+				severity: data.severity,
+				category: data.category,
+				description: data.description,
+				created_at: now,
+			})
+			.execute();
+
+		const comment = await this.getReviewCommentById(commentId);
+		if (!comment) {
+			throw new Error(`Failed to create review comment: ${commentId}`);
+		}
+		return comment;
+	}
+
+	/**
+	 * Get a review comment by ID
+	 */
+	private async getReviewCommentById(
+		id: string,
+	): Promise<ReviewComment | null> {
+		const row = await this.db
+			.selectFrom("review_comments")
+			.selectAll()
+			.where("id", "=", id)
+			.executeTakeFirst();
+
+		return row ? this.toReviewComment(row) : null;
+	}
+
+	/**
+	 * Get all comments for a review card, ordered by creation date (oldest first)
+	 */
+	async getCommentsByReviewCard(
+		reviewCardId: string,
+	): Promise<ReviewComment[]> {
+		const rows = await this.db
+			.selectFrom("review_comments")
+			.selectAll()
+			.where("review_card_id", "=", reviewCardId)
+			.orderBy("created_at", "asc")
+			.execute();
+
+		return rows.map((row) => this.toReviewComment(row));
+	}
+
+	// ===========================================================================
 	// Generic Artifact Access
 	// ===========================================================================
 
@@ -409,7 +651,7 @@ export class ArtifactRepository implements Repository {
 	async getPendingArtifact(
 		workflowId: string,
 		artifactType: PendingArtifactType | null | undefined,
-	): Promise<ScopeCard | ResearchCard | Plan | null> {
+	): Promise<ScopeCard | ResearchCard | Plan | ReviewCard | null> {
 		if (!artifactType) {
 			return null;
 		}
@@ -421,6 +663,8 @@ export class ArtifactRepository implements Repository {
 				return this.getLatestResearchCard(workflowId);
 			case "plan":
 				return this.getLatestPlan(workflowId);
+			case "review_card":
+				return this.getLatestReviewCard(workflowId);
 			default:
 				return null;
 		}
