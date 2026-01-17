@@ -3,6 +3,7 @@
  */
 
 import { z } from "zod";
+import { getRepositories } from "@/backend/repositories";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -51,10 +52,63 @@ export const addLineCommentTool: ToolDefinition<AddLineCommentInput> = {
 	description: `Add a comment attached to specific line(s) in a file.
 Use this to provide feedback on specific code changes in the diff.`,
 	inputSchema: addLineCommentInputSchema,
-	execute: async (_input, _context): Promise<ToolResult> => {
-		return {
-			success: false,
-			output: "Error: Review card not found",
-		};
+	execute: async (input, context): Promise<ToolResult> => {
+		// Validate we have required context
+		if (!context.workflowId) {
+			return {
+				success: false,
+				output: "Error: add_line_comment requires a workflow context",
+			};
+		}
+
+		// Validate end_line if provided
+		if (input.end_line !== undefined && input.end_line < input.start_line) {
+			return {
+				success: false,
+				output: `Error: end_line (${input.end_line}) must be >= start_line (${input.start_line})`,
+			};
+		}
+
+		try {
+			const { artifacts } = getRepositories();
+
+			// Get the current review card for this workflow
+			const reviewCard = await artifacts.getLatestReviewCard(
+				context.workflowId,
+			);
+			if (!reviewCard) {
+				return {
+					success: false,
+					output: "Error: No review card found for this workflow",
+				};
+			}
+
+			// Insert the comment into the database immediately
+			const comment = await artifacts.createReviewComment({
+				reviewCardId: reviewCard.id,
+				type: "line",
+				filePath: input.file_path,
+				startLine: input.start_line,
+				endLine: input.end_line,
+				severity: input.severity,
+				category: input.category,
+				description: input.description,
+			});
+
+			const lineRange =
+				input.end_line && input.end_line !== input.start_line
+					? `lines ${input.start_line}-${input.end_line}`
+					: `line ${input.start_line}`;
+
+			return {
+				success: true,
+				output: `Comment added: ${comment.id}\nFile: ${input.file_path} (${lineRange})\nSeverity: ${input.severity}\nCategory: ${input.category}`,
+			};
+		} catch (error) {
+			return {
+				success: false,
+				output: `Error: ${error instanceof Error ? error.message : "Failed to add line comment"}`,
+			};
+		}
 	},
 };
