@@ -1,0 +1,126 @@
+import {
+	type AIProvider,
+	type ApiKeysResponse,
+	ApiKeysResponseSchema,
+	type IntegrationsStatusResponse,
+	IntegrationsStatusResponseSchema,
+	type ModelPreferences,
+	ModelPreferencesSchema,
+} from "@/shared/schemas/settings";
+
+// =============================================================================
+// API Keys
+// =============================================================================
+
+/**
+ * Get API key configuration status (which providers are configured).
+ */
+export async function fetchApiKeysStatus(): Promise<ApiKeysResponse> {
+	const response = await fetch("/api/settings/api-keys");
+	const data = await response.json();
+	return ApiKeysResponseSchema.parse(data);
+}
+
+/**
+ * Set an API key for a provider.
+ */
+export async function setApiKey(
+	provider: AIProvider,
+	key: string,
+): Promise<void> {
+	const response = await fetch("/api/settings/api-keys", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ provider, key }),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to set API key");
+	}
+}
+
+/**
+ * Clear an API key for a provider.
+ */
+export async function clearApiKey(provider: AIProvider): Promise<void> {
+	const response = await fetch("/api/settings/api-keys", {
+		method: "DELETE",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ provider }),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to clear API key");
+	}
+}
+
+// =============================================================================
+// Integrations
+// =============================================================================
+
+/**
+ * Get integrations configuration status (which integrations are configured).
+ */
+export async function fetchIntegrationsStatus(): Promise<IntegrationsStatusResponse> {
+	const response = await fetch("/api/settings/integrations");
+	const data = await response.json();
+	return IntegrationsStatusResponseSchema.parse(data);
+}
+
+/**
+ * Set an integration API key (e.g., Exa).
+ */
+export async function setIntegrationKey(key: string): Promise<void> {
+	const response = await fetch("/api/settings/integrations", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ key }),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to set integration key");
+	}
+}
+
+/**
+ * Clear the integration API key (e.g., Exa).
+ */
+export async function clearIntegrationKey(): Promise<void> {
+	const response = await fetch("/api/settings/integrations", {
+		method: "DELETE",
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to clear integration key");
+	}
+}
+
+// =============================================================================
+// Model Preferences
+// =============================================================================
+
+/**
+ * Get current model preferences.
+ */
+export async function fetchModelPreferences(): Promise<ModelPreferences> {
+	const response = await fetch("/api/settings/models");
+	const data = await response.json();
+	return ModelPreferencesSchema.parse(data);
+}
+
+/**
+ * Update model preferences.
+ */
+export async function updateModelPreferences(
+	preferences: ModelPreferences,
+): Promise<void> {
+	const response = await fetch("/api/settings/models", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(preferences),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to update model preferences");
+	}
+}
