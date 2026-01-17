@@ -478,8 +478,8 @@ export async function mergePulseBranch(
 	// Fast-forward merge the pulse branch
 	await fastForwardMerge(worktreePath, pulseBranch);
 
-	// Delete the pulse branch (it's now merged)
-	await deleteBranch(repoRoot, pulseBranch);
+	// Delete the pulse branch (force since we verified the merge succeeded)
+	await deleteBranch(repoRoot, pulseBranch, true);
 
 	log.git.info(`Merged pulse branch ${pulseBranch} into ${workflowBranch}`);
 }
