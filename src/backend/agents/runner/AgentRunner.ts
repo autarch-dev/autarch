@@ -164,9 +164,11 @@ export class AgentRunner {
 		log.agent.debug(`Loaded ${conversationHistory.length} messages from history`);
 
 		// Create user turn and add to history
-		// Nudge turns and explicitly hidden turns are hidden from UI
-		const isHidden = nudgeCount > 0 || options.hidden === true;
-		const userTurn = await this.createTurn("user", isHidden, turnIndex++);
+		// Nudge turns and explicitly hidden user turns are hidden from UI
+		// The hidden option is for transition messages (approved artifacts) - we want
+		// to hide those but still show the agent's response
+		const isUserTurnHidden = nudgeCount > 0 || options.hidden === true;
+		const userTurn = await this.createTurn("user", isUserTurnHidden, turnIndex++);
 		await this.saveMessage(userTurn.id, 0, userMessage);
 		await this.completeTurn(userTurn.id);
 
@@ -195,8 +197,11 @@ export class AgentRunner {
 		};
 		conversationHistory.push(userMsg);
 
-		// Create assistant turn (also hidden if the user turn is hidden)
-		const assistantTurn = await this.createTurn("assistant", isHidden, turnIndex++);
+		// Create assistant turn - only hidden for nudge responses, NOT for hidden option
+		// The hidden option is specifically for user turns (transition messages like
+		// "approved artifact" or "Continue.") - we still want to show the agent's response
+		const isAssistantTurnHidden = nudgeCount > 0;
+		const assistantTurn = await this.createTurn("assistant", isAssistantTurnHidden, turnIndex++);
 
 		try {
 			await this.streamLLMResponse(
@@ -285,6 +290,25 @@ export class AgentRunner {
 
 		// Check if request_extension was called
 		if (!toolNames.includes("request_extension")) {
+			return;
+		}
+
+		// Check if a "completion" terminal tool was also called - those take precedence
+		// over request_extension. This handles the case where the agent mistakenly
+		// calls both (e.g., submit_research AND request_extension in the same turn)
+		const role = this.session.agentRole;
+		const terminalTools = TERMINAL_TOOLS[role] ?? [];
+		const completionTools = terminalTools.filter(
+			(t) => t !== "request_extension",
+		);
+		const hasCompletionTool = toolNames.some((name) =>
+			completionTools.includes(name),
+		);
+
+		if (hasCompletionTool) {
+			log.agent.warn(
+				`Agent called both request_extension and a completion tool (${toolNames.join(", ")}) - ignoring extension`,
+			);
 			return;
 		}
 
