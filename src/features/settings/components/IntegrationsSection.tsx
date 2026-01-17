@@ -1,5 +1,13 @@
+import { Puzzle } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSettings } from "../hooks/useSettings";
@@ -90,22 +98,25 @@ export function IntegrationsSection() {
 	} = useSettings();
 
 	return (
-		<div className="space-y-4">
-			<div>
-				<h3 className="text-lg font-semibold">Integrations</h3>
-				<p className="text-sm text-muted-foreground">
+		<Card>
+			<CardHeader>
+				<CardTitle className="flex items-center gap-2 text-xl">
+					<Puzzle className="h-5 w-5" />
+					Integrations
+				</CardTitle>
+				<CardDescription>
 					Configure API keys for third-party integrations. Exa enables web code
 					search capabilities.
-				</p>
-			</div>
-			<div className="space-y-4">
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-4">
 				<IntegrationKeyInput
 					isConfigured={integrationsStatus?.exa ?? false}
 					onSave={saveIntegrationKey}
 					onClear={clearIntegrationKey}
 					isSaving={isLoading}
 				/>
-			</div>
-		</div>
+			</CardContent>
+		</Card>
 	);
 }
