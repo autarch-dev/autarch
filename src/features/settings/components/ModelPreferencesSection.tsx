@@ -1,4 +1,12 @@
+import { SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo } from "react";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -52,15 +60,18 @@ export function ModelPreferencesSection() {
 	};
 
 	return (
-		<div className="space-y-4">
-			<div>
-				<h3 className="text-lg font-semibold">Model Preferences</h3>
-				<p className="text-sm text-muted-foreground">
+		<Card>
+			<CardHeader>
+				<CardTitle className="flex items-center gap-2 text-xl">
+					<SlidersHorizontal className="h-5 w-5" />
+					Model Preferences
+				</CardTitle>
+				<CardDescription>
 					Choose which AI model to use for each agent. Changes are saved
 					automatically.
-				</p>
-			</div>
-			<div className="space-y-4">
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-4">
 				{SCENARIOS.map((scenario) => (
 					<div key={scenario} className="space-y-2">
 						<Label htmlFor={`model-${scenario}`}>
@@ -87,12 +98,12 @@ export function ModelPreferencesSection() {
 						</Select>
 					</div>
 				))}
-			</div>
-			{availableModels.length === 0 && !isLoading && (
-				<p className="text-sm text-amber-600 dark:text-amber-400">
-					No models available. Configure at least one API key above.
-				</p>
-			)}
-		</div>
+				{availableModels.length === 0 && !isLoading && (
+					<p className="text-sm text-amber-600 dark:text-amber-400">
+						No models available. Configure at least one API key above.
+					</p>
+				)}
+			</CardContent>
+		</Card>
 	);
 }
