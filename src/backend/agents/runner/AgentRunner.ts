@@ -79,7 +79,8 @@ As a reminder, every message MUST end with exactly one of:
 - \`submit_scope\` — if you have enough information to define the scope
 - \`ask_questions\` — if you need clarification from the user
 
-Please continue and ensure your next response ends with one of these tools.`,
+Please continue and ensure your next response ends with one of these tools.
+If no work remains, call \`submit_scope\` and yield to the user.`,
 
 	research: `You did not end your turn with a required tool call.
 
@@ -88,7 +89,8 @@ As a reminder, every message MUST end with exactly one of:
 - \`request_extension\` — if any investigation remains
 - \`ask_questions\` — if user input is required to resolve ambiguity
 
-Please continue and ensure your next response ends with one of these tools.`,
+Please continue and ensure your next response ends with one of these tools.
+If no work remains, call \`submit_research\` and yield to the user.`,
 
 	planning: `You did not end your turn with a required tool call.
 
@@ -96,7 +98,8 @@ As a reminder, every message MUST end with exactly one of:
 - \`submit_plan\` — if you have a complete implementation plan
 - \`ask_questions\` — if you need clarification from the user
 
-Please continue and ensure your next response ends with one of these tools.`,
+Please continue and ensure your next response ends with one of these tools.
+If no work remains, call \`submit_plan\` and yield to the user.`,
 
 	execution: `You did not end your turn with a required tool call.
 
@@ -104,7 +107,8 @@ As a reminder, every message MUST end with exactly one of:
 - \`complete_pulse\` — if you have completed this pulse's work
 - \`request_extension\` — if additional work remains
 
-Please continue and ensure your next response ends with one of these tools. If no work remains, call \`complete_pulse\` and yield to the user.`,
+Please continue and ensure your next response ends with one of these tools.
+If no work remains, call \`complete_pulse\` and yield to the user.`,
 };
 
 // =============================================================================
