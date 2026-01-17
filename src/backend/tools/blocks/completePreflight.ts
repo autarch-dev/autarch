@@ -18,6 +18,12 @@ export const completePreflightInputSchema = z.object({
 		.describe("List of commands that were executed"),
 	buildSuccess: z.boolean().describe("Whether the project builds successfully"),
 	baselinesRecorded: z.number().describe("Count of baseline issues recorded"),
+	verificationInstructions: z
+		.string()
+		.optional()
+		.describe(
+			"Concise verification instructions with commands for build, typecheck, lint, test, and format check",
+		),
 });
 
 export type CompletePreflightInput = z.infer<
@@ -63,7 +69,10 @@ Provide:
 			// Mark preflight as complete in the database
 			// Note: Session transition to first pulse is handled by AgentRunner
 			// after this turn completes (via handleTurnCompletion)
-			await pulses.completePreflightSetup(context.workflowId);
+			await pulses.completePreflightSetup(
+				context.workflowId,
+				input.verificationInstructions,
+			);
 
 			log.workflow.info(
 				`Preflight complete for workflow ${context.workflowId}: ${input.summary}`,

@@ -362,7 +362,9 @@ export function ResearchCardApproval({
 												</p>
 												<p className="text-xs text-muted-foreground/70 mt-1">
 													See:{" "}
-													<code className="font-mono">{point.existingCode}</code>
+													<code className="font-mono">
+														{point.existingCode}
+													</code>
 												</p>
 											</div>
 										))}

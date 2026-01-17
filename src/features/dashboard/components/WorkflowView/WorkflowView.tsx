@@ -66,17 +66,29 @@ export function WorkflowView({
 
 		// Add messages
 		for (const message of messages) {
-			items.push({ type: "message", data: message, timestamp: message.timestamp });
+			items.push({
+				type: "message",
+				data: message,
+				timestamp: message.timestamp,
+			});
 		}
 
 		// Add scope cards
 		for (const scopeCard of scopeCards) {
-			items.push({ type: "scope_card", data: scopeCard, timestamp: scopeCard.createdAt });
+			items.push({
+				type: "scope_card",
+				data: scopeCard,
+				timestamp: scopeCard.createdAt,
+			});
 		}
 
 		// Add research cards
 		for (const researchCard of researchCards) {
-			items.push({ type: "research_card", data: researchCard, timestamp: researchCard.createdAt });
+			items.push({
+				type: "research_card",
+				data: researchCard,
+				timestamp: researchCard.createdAt,
+			});
 		}
 
 		// Add plans
@@ -99,17 +111,13 @@ export function WorkflowView({
 	const renderTimelineItem = (item: TimelineItem) => {
 		switch (item.type) {
 			case "message":
-				return (
-					<ChannelMessageBubble key={item.data.id} message={item.data} />
-				);
+				return <ChannelMessageBubble key={item.data.id} message={item.data} />;
 			case "scope_card":
 				return (
 					<ScopeCardApproval
 						key={item.data.id}
 						scopeCard={item.data}
-						onApprove={
-							item.data.status === "pending" ? onApprove : undefined
-						}
+						onApprove={item.data.status === "pending" ? onApprove : undefined}
 						onDeny={
 							item.data.status === "pending" ? onRequestChanges : undefined
 						}
@@ -120,9 +128,7 @@ export function WorkflowView({
 					<ResearchCardApproval
 						key={item.data.id}
 						researchCard={item.data}
-						onApprove={
-							item.data.status === "pending" ? onApprove : undefined
-						}
+						onApprove={item.data.status === "pending" ? onApprove : undefined}
 						onDeny={
 							item.data.status === "pending" ? onRequestChanges : undefined
 						}
@@ -133,15 +139,11 @@ export function WorkflowView({
 					<PlanCardApproval
 						key={item.data.id}
 						plan={item.data}
-						onApprove={
-							item.data.status === "pending" ? onApprove : undefined
-						}
+						onApprove={item.data.status === "pending" ? onApprove : undefined}
 						onDeny={
 							item.data.status === "pending" ? onRequestChanges : undefined
 						}
-						onRewind={
-							item.data.status === "approved" ? onRewind : undefined
-						}
+						onRewind={item.data.status === "approved" ? onRewind : undefined}
 					/>
 				);
 		}
