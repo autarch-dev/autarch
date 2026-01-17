@@ -1,5 +1,13 @@
+import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AI_PROVIDER_LABELS, AIProvider } from "@/shared/schemas/settings";
@@ -102,14 +110,17 @@ export function ApiProviderKeysSection() {
 	};
 
 	return (
-		<div className="space-y-4">
-			<div>
-				<h3 className="text-lg font-semibold">AI Provider API Keys</h3>
-				<p className="text-sm text-muted-foreground">
+		<Card>
+			<CardHeader>
+				<CardTitle className="flex items-center gap-2 text-xl">
+					<KeyRound className="h-5 w-5" />
+					AI Provider API Keys
+				</CardTitle>
+				<CardDescription>
 					Configure API keys for AI providers. At least one key is required.
-				</p>
-			</div>
-			<div className="space-y-4">
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-4">
 				{PROVIDERS.map((provider) => (
 					<ApiKeyInput
 						key={provider}
@@ -120,7 +131,7 @@ export function ApiProviderKeysSection() {
 						isSaving={isLoading}
 					/>
 				))}
-			</div>
-		</div>
+			</CardContent>
+		</Card>
 	);
 }
