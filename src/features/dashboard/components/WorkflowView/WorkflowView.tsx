@@ -12,6 +12,7 @@ import type { ChannelMessage } from "@/shared/schemas/channel";
 import type {
 	Plan,
 	ResearchCard,
+	ReviewCard,
 	ScopeCard,
 	Workflow,
 } from "@/shared/schemas/workflow";
@@ -22,6 +23,7 @@ import {
 } from "../ChannelView/MessageBubble";
 import { PlanCardApproval } from "./PlanCardApproval";
 import { ResearchCardApproval } from "./ResearchCardApproval";
+import { ReviewCardApproval } from "./ReviewCardApproval";
 import { ScopeCardApproval } from "./ScopeCardApproval";
 import { WorkflowEmptyState } from "./WorkflowEmptyState";
 import { WorkflowHeader } from "./WorkflowHeader";
@@ -34,6 +36,7 @@ interface WorkflowViewProps {
 	scopeCards: ScopeCard[];
 	researchCards: ResearchCard[];
 	plans: Plan[];
+	reviewCards: ReviewCard[];
 	onApprove?: () => Promise<void>;
 	onRequestChanges?: (feedback: string) => Promise<void>;
 	onRewind?: () => Promise<void>;
@@ -44,7 +47,8 @@ type TimelineItem =
 	| { type: "message"; data: ChannelMessage; timestamp: number }
 	| { type: "scope_card"; data: ScopeCard; timestamp: number }
 	| { type: "research_card"; data: ResearchCard; timestamp: number }
-	| { type: "plan"; data: Plan; timestamp: number };
+	| { type: "plan"; data: Plan; timestamp: number }
+	| { type: "review_card"; data: ReviewCard; timestamp: number };
 
 export function WorkflowView({
 	workflow,
@@ -54,6 +58,7 @@ export function WorkflowView({
 	scopeCards,
 	researchCards,
 	plans,
+	reviewCards,
 	onApprove,
 	onRequestChanges,
 	onRewind,
@@ -96,9 +101,18 @@ export function WorkflowView({
 			items.push({ type: "plan", data: plan, timestamp: plan.createdAt });
 		}
 
+		// Add review cards
+		for (const reviewCard of reviewCards) {
+			items.push({
+				type: "review_card",
+				data: reviewCard,
+				timestamp: reviewCard.createdAt,
+			});
+		}
+
 		// Sort by timestamp (oldest first)
 		return items.sort((a, b) => a.timestamp - b.timestamp);
-	}, [messages, scopeCards, researchCards, plans]);
+	}, [messages, scopeCards, researchCards, plans, reviewCards]);
 
 	// Auto-scroll to bottom when new content arrives
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll to bottom when new content arrives
@@ -144,6 +158,17 @@ export function WorkflowView({
 							item.data.status === "pending" ? onRequestChanges : undefined
 						}
 						onRewind={item.data.status === "approved" ? onRewind : undefined}
+					/>
+				);
+			case "review_card":
+				return (
+					<ReviewCardApproval
+						key={item.data.id}
+						reviewCard={item.data}
+						onApprove={item.data.status === "pending" ? onApprove : undefined}
+						onDeny={
+							item.data.status === "pending" ? onRequestChanges : undefined
+						}
 					/>
 				);
 		}
