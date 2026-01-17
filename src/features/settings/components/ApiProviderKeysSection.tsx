@@ -58,7 +58,7 @@ function ApiKeyInput({
 	const isDisabled = isSaving || localSaving || localClearing;
 
 	return (
-		<div className="space-y-2">
+		<div className="py-4 first:pt-0 last:pb-0 hover:bg-muted/50 transition-colors rounded-lg px-3 -mx-3 space-y-2">
 			<Label htmlFor={provider}>
 				{label}
 				{isConfigured && (
@@ -120,7 +120,7 @@ export function ApiProviderKeysSection() {
 					Configure API keys for AI providers. At least one key is required.
 				</CardDescription>
 			</CardHeader>
-			<CardContent className="space-y-4">
+			<CardContent className="divide-y divide-border">
 				{PROVIDERS.map((provider) => (
 					<ApiKeyInput
 						key={provider}
