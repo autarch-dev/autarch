@@ -124,4 +124,6 @@ export interface RunOptions {
 	onThoughtDelta?: (delta: string) => void;
 	onToolStarted?: (toolCall: ToolCall) => void;
 	onToolCompleted?: (toolCall: ToolCall) => void;
+	/** Hide this turn from the UI (e.g., for transition messages with approved artifacts) */
+	hidden?: boolean;
 }

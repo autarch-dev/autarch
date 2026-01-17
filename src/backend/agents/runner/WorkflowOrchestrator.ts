@@ -444,7 +444,8 @@ export class WorkflowOrchestrator {
 			);
 
 			// Run in background (non-blocking)
-			runner.run(initialMessage).catch((error) => {
+			// Mark as hidden so the transition message (with approved artifact) isn't shown in UI
+			runner.run(initialMessage, { hidden: true }).catch((error) => {
 				log.workflow.error(
 					`Agent run failed for ${agentRole} in workflow ${workflowId}:`,
 					error,

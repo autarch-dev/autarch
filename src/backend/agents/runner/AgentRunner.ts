@@ -160,9 +160,9 @@ export class AgentRunner {
 		log.agent.debug(`Loaded ${conversationHistory.length} messages from history`);
 
 		// Create user turn and add to history
-		// Nudge turns are hidden from UI
-		const isNudge = nudgeCount > 0;
-		const userTurn = await this.createTurn("user", isNudge, turnIndex++);
+		// Nudge turns and explicitly hidden turns are hidden from UI
+		const isHidden = nudgeCount > 0 || options.hidden === true;
+		const userTurn = await this.createTurn("user", isHidden, turnIndex++);
 		await this.saveMessage(userTurn.id, 0, userMessage);
 		await this.completeTurn(userTurn.id);
 
@@ -191,8 +191,8 @@ export class AgentRunner {
 		};
 		conversationHistory.push(userMsg);
 
-		// Create assistant turn (also hidden if this is a nudge)
-		const assistantTurn = await this.createTurn("assistant", isNudge, turnIndex++);
+		// Create assistant turn (also hidden if the user turn is hidden)
+		const assistantTurn = await this.createTurn("assistant", isHidden, turnIndex++);
 
 		try {
 			await this.streamLLMResponse(
@@ -287,7 +287,8 @@ export class AgentRunner {
 		log.agent.info(`Agent requested extension - auto-continuing`);
 
 		// Continue with a simple prompt (reset nudge count for fresh allowance)
-		await this.run("Continue.", options, 0);
+		// Hide the continuation message from UI
+		await this.run("Continue.", { ...options, hidden: true }, 0);
 	}
 
 	// ===========================================================================
