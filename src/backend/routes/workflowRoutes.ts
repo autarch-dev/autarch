@@ -209,6 +209,9 @@ export const workflowRoutes = {
 					await repos.artifacts.getAllResearchCards(workflowId);
 				const plans = await repos.artifacts.getAllPlans(workflowId);
 
+				// Get all review cards
+				const reviewCards = await repos.artifacts.getAllReviewCards(workflowId);
+
 				const response = {
 					workflow,
 					sessionId: activeSessionId,
@@ -217,6 +220,7 @@ export const workflowRoutes = {
 					scopeCards,
 					researchCards,
 					plans,
+					reviewCards,
 				};
 
 				return Response.json(response);
@@ -302,6 +306,33 @@ export const workflowRoutes = {
 				return Response.json(plan);
 			} catch (error) {
 				log.api.error("Failed to get plan:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/workflows/:id/review-card": {
+		async GET(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			try {
+				const repos = getRepositories();
+				const reviewCard = await repos.artifacts.getLatestReviewCard(params.id);
+
+				if (!reviewCard) {
+					return Response.json(
+						{ error: "Review card not found" },
+						{ status: 404 },
+					);
+				}
+				return Response.json(reviewCard);
+			} catch (error) {
+				log.api.error("Failed to get review card:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },

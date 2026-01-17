@@ -27,6 +27,7 @@ import type {
 import type {
 	Plan,
 	ResearchCard,
+	ReviewCard,
 	ScopeCard,
 	Workflow,
 	WorkflowHistoryResponse,
@@ -103,6 +104,7 @@ interface WorkflowsState {
 	scopeCards: Map<string, ScopeCard[]>;
 	researchCards: Map<string, ResearchCard[]>;
 	plans: Map<string, Plan[]>;
+	reviewCards: Map<string, ReviewCard[]>;
 
 	// Actions - Workflow CRUD
 	fetchWorkflows: () => Promise<void>;
@@ -130,6 +132,7 @@ interface WorkflowsState {
 	getScopeCards: (workflowId: string) => ScopeCard[];
 	getResearchCards: (workflowId: string) => ResearchCard[];
 	getPlans: (workflowId: string) => Plan[];
+	getReviewCards: (workflowId: string) => ReviewCard[];
 }
 
 // =============================================================================
@@ -146,6 +149,7 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	scopeCards: new Map(),
 	researchCards: new Map(),
 	plans: new Map(),
+	reviewCards: new Map(),
 
 	// ===========================================================================
 	// Workflow CRUD
@@ -249,12 +253,16 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				const plans = new Map(state.plans);
 				plans.set(workflowId, history.plans);
 
+				const reviewCards = new Map(state.reviewCards);
+				reviewCards.set(workflowId, history.reviewCards);
+
 				return {
 					conversations,
 					workflows,
 					scopeCards,
 					researchCards,
 					plans,
+					reviewCards,
 				};
 			});
 		} catch (error) {
@@ -505,6 +513,10 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	getPlans: (workflowId: string) => {
 		return get().plans.get(workflowId) ?? [];
 	},
+
+	getReviewCards: (workflowId: string) => {
+		return get().reviewCards.get(workflowId) ?? [];
+	},
 }));
 
 // =============================================================================
@@ -556,6 +568,17 @@ function updateArtifactStatusInState(
 			);
 			plans.set(workflowId, updatedCards);
 			return { plans };
+		}
+		case "review_card": {
+			const reviewCards = new Map(state.reviewCards);
+			const cards = reviewCards.get(workflowId) ?? [];
+			const updatedCards = cards.map((card, i) =>
+				i === cards.length - 1 && card.status === "pending"
+					? { ...card, status: newStatus }
+					: card,
+			);
+			reviewCards.set(workflowId, updatedCards);
+			return { reviewCards };
 		}
 		default:
 			return {};
@@ -662,6 +685,8 @@ function handleWorkflowApprovalNeeded(
 		fetchResearchCard(payload.workflowId, set);
 	} else if (payload.artifactType === "plan") {
 		fetchPlan(payload.workflowId, set);
+	} else if (payload.artifactType === "review_card") {
+		fetchReviewCard(payload.workflowId, set);
 	}
 }
 
@@ -722,6 +747,28 @@ async function fetchPlan(workflowId: string, set: SetState): Promise<void> {
 					plans.set(workflowId, [...existing, plan]);
 				}
 				return { plans };
+			});
+		}
+	} catch {
+		// Ignore fetch errors - will be fetched with history
+	}
+}
+
+async function fetchReviewCard(
+	workflowId: string,
+	set: SetState,
+): Promise<void> {
+	try {
+		const response = await fetch(`/api/workflows/${workflowId}/review-card`);
+		if (response.ok) {
+			const reviewCard: ReviewCard = await response.json();
+			set((state) => {
+				const reviewCards = new Map(state.reviewCards);
+				const existing = reviewCards.get(workflowId) ?? [];
+				if (!existing.some((c) => c.id === reviewCard.id)) {
+					reviewCards.set(workflowId, [...existing, reviewCard]);
+				}
+				return { reviewCards };
 			});
 		}
 	} catch {
