@@ -22,7 +22,7 @@ import {
 	Search,
 	XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,6 +130,13 @@ export function ResearchCardApproval({
 		researchCard.status === "pending",
 	);
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
+
+	// Collapse when status changes from pending
+	useEffect(() => {
+		if (researchCard.status !== "pending") {
+			setIsExpanded(false);
+		}
+	}, [researchCard.status]);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [copied, setCopied] = useState(false);
