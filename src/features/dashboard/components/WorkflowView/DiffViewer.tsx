@@ -17,6 +17,7 @@ import {
 	FilePlus,
 	Filter,
 	GitCompareArrows,
+	MessageSquarePlus,
 	Minus,
 	Plus,
 } from "lucide-react";
@@ -39,6 +40,7 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "@/components/ui/sheet";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { ReviewComment } from "@/shared/schemas/workflow";
 
@@ -91,11 +93,21 @@ interface DiffFile {
 	deletions: number;
 }
 
+/** Payload for adding a new comment */
+interface AddCommentPayload {
+	type: "line" | "file";
+	filePath: string;
+	startLine?: number;
+	description: string;
+}
+
 interface DiffViewerProps {
 	/** Raw unified diff content */
 	diff: string;
 	/** Review comments to display inline */
 	comments?: ReviewComment[];
+	/** Callback when user adds a comment */
+	onAddComment?: (payload: AddCommentPayload) => void;
 	/** Optional className for the root element */
 	className?: string;
 }
@@ -344,14 +356,59 @@ function FileTreeItem({
 const diffHighlightCache = new Map<string, string>();
 
 /**
+ * Inline form for adding a comment
+ */
+function AddCommentForm({
+	onSubmit,
+	onCancel,
+}: {
+	onSubmit: (description: string) => void;
+	onCancel: () => void;
+}) {
+	const [description, setDescription] = useState("");
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (description.trim()) {
+			onSubmit(description.trim());
+		}
+	};
+
+	return (
+		<div className="mx-4 my-2 p-3 rounded-lg border bg-violet-500/5 border-violet-500/30">
+			<form onSubmit={handleSubmit} className="space-y-2">
+				<Textarea
+					value={description}
+					onChange={(e) => setDescription(e.target.value)}
+					placeholder="Add your comment..."
+					rows={2}
+					autoFocus
+					className="bg-background"
+				/>
+				<div className="flex justify-end gap-2">
+					<Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+						Cancel
+					</Button>
+					<Button type="submit" size="sm" disabled={!description.trim()}>
+						Add Comment
+					</Button>
+				</div>
+			</form>
+		</div>
+	);
+}
+
+/**
  * A single diff line with syntax highlighting
  */
 const DiffLineView = memo(function DiffLineView({
 	line,
 	language,
+	onLineClick,
 }: {
 	line: DiffLine;
 	language: string;
+	onLineClick?: (lineNumber: number) => void;
 }) {
 	const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
 
@@ -405,8 +462,39 @@ const DiffLineView = memo(function DiffLineView({
 
 	const lineNumberClass = "text-muted-foreground text-xs w-10 text-right px-2";
 
+	const handleClick = () => {
+		// Only allow clicking on lines that have a new line number (additions or context)
+		if (onLineClick && line.newLineNumber !== null) {
+			onLineClick(line.newLineNumber);
+		}
+	};
+
+	const isClickable = onLineClick && line.newLineNumber !== null;
+
+	const interactiveProps = isClickable
+		? {
+				onClick: handleClick,
+				onKeyDown: (e: React.KeyboardEvent) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						handleClick();
+					}
+				},
+				role: "button" as const,
+				tabIndex: 0,
+			}
+		: {};
+
 	return (
-		<div className={cn("flex items-stretch border-l-2", bgColor, borderColor)}>
+		<div
+			className={cn(
+				"flex items-stretch border-l-2 group",
+				bgColor,
+				borderColor,
+				isClickable && "cursor-pointer hover:bg-muted/30",
+			)}
+			{...interactiveProps}
+		>
 			{/* Old line number */}
 			<span className={lineNumberClass}>
 				{line.oldLineNumber !== null ? line.oldLineNumber : ""}
@@ -415,8 +503,19 @@ const DiffLineView = memo(function DiffLineView({
 			<span className={cn(lineNumberClass, "border-r border-border")}>
 				{line.newLineNumber !== null ? line.newLineNumber : ""}
 			</span>
+			{/* Add comment indicator */}
+			{isClickable && (
+				<span className="w-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+					<MessageSquarePlus className="size-3 text-violet-500" />
+				</span>
+			)}
 			{/* Change indicator */}
-			<span className="w-5 text-center shrink-0 select-none">
+			<span
+				className={cn(
+					"w-5 text-center shrink-0 select-none",
+					isClickable && "group-hover:hidden",
+				)}
+			>
 				{line.type === "add" && (
 					<Plus className="size-3 inline text-green-600 dark:text-green-400" />
 				)}
@@ -441,6 +540,12 @@ const DiffLineView = memo(function DiffLineView({
 	);
 });
 
+/** State for tracking active comment form */
+interface CommentFormState {
+	isOpen: boolean;
+	lineNumber: number | null;
+}
+
 /**
  * A single diff hunk
  */
@@ -449,6 +554,10 @@ function DiffHunkView({
 	language,
 	commentsByLine,
 	newFileLineNumbers,
+	onLineClick,
+	activeCommentLine,
+	onCommentSubmit,
+	onCommentCancel,
 }: {
 	hunk: DiffHunk;
 	language: string;
@@ -456,6 +565,14 @@ function DiffHunkView({
 	commentsByLine: Map<number, ReviewComment[]>;
 	/** Set of all line numbers that exist in the new file (additions + context) */
 	newFileLineNumbers: Set<number>;
+	/** Callback when a line is clicked */
+	onLineClick?: (lineNumber: number) => void;
+	/** Currently active line for comment form */
+	activeCommentLine: number | null;
+	/** Callback when comment is submitted */
+	onCommentSubmit?: (description: string) => void;
+	/** Callback when comment form is cancelled */
+	onCommentCancel?: () => void;
 }) {
 	return (
 		<div className="border-b last:border-b-0">
@@ -479,9 +596,21 @@ function DiffHunkView({
 						comments = commentsByLine.get(hunkLine.newLineNumber) ?? [];
 					}
 
+					const showCommentForm = activeCommentLine === hunkLine.newLineNumber;
+
 					return (
 						<div key={`${hunk.oldStart}-${hunk.newStart}-${idx}`}>
-							<DiffLineView line={hunkLine} language={language} />
+							<DiffLineView
+								line={hunkLine}
+								language={language}
+								onLineClick={onLineClick}
+							/>
+							{showCommentForm && onCommentSubmit && onCommentCancel && (
+								<AddCommentForm
+									onSubmit={onCommentSubmit}
+									onCancel={onCommentCancel}
+								/>
+							)}
 							{comments.map((comment) => (
 								<InlineComment key={comment.id} comment={comment} />
 							))}
@@ -499,12 +628,51 @@ function DiffHunkView({
 function DiffFileContent({
 	file,
 	comments,
+	onAddComment,
 }: {
 	file: DiffFile;
 	comments?: ReviewComment[];
+	onAddComment?: (payload: AddCommentPayload) => void;
 }) {
 	const [isExpanded, setIsExpanded] = useState(true);
+	const [commentForm, setCommentForm] = useState<CommentFormState>({
+		isOpen: false,
+		lineNumber: null,
+	});
+	const [showFileCommentForm, setShowFileCommentForm] = useState(false);
 	const language = getLanguageFromExtension(file.extension);
+
+	const handleLineClick = (lineNumber: number) => {
+		if (!onAddComment) return;
+		setCommentForm({ isOpen: true, lineNumber });
+	};
+
+	const handleLineCommentSubmit = (description: string) => {
+		if (onAddComment && commentForm.lineNumber !== null) {
+			onAddComment({
+				type: "line",
+				filePath: file.path,
+				startLine: commentForm.lineNumber,
+				description,
+			});
+		}
+		setCommentForm({ isOpen: false, lineNumber: null });
+	};
+
+	const handleLineCommentCancel = () => {
+		setCommentForm({ isOpen: false, lineNumber: null });
+	};
+
+	const handleFileCommentSubmit = (description: string) => {
+		if (onAddComment) {
+			onAddComment({
+				type: "file",
+				filePath: file.path,
+				description,
+			});
+		}
+		setShowFileCommentForm(false);
+	};
 
 	// Separate file-level comments from line comments
 	const fileComments = comments?.filter((c) => c.type === "file") ?? [];
@@ -591,6 +759,21 @@ function DiffFileContent({
 						{comments?.length} comment{comments?.length !== 1 ? "s" : ""}
 					</Badge>
 				)}
+				{onAddComment && (
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-6 px-2 text-xs"
+						onClick={(e) => {
+							e.stopPropagation();
+							setShowFileCommentForm(true);
+							setIsExpanded(true);
+						}}
+					>
+						<MessageSquarePlus className="size-3 mr-1" />
+						Add comment
+					</Button>
+				)}
 				<Badge variant="outline" className={cn("text-xs", statusBadgeClass)}>
 					{file.status}
 				</Badge>
@@ -609,8 +792,14 @@ function DiffFileContent({
 			</button>
 
 			{/* File-level comments */}
-			{isExpanded && fileComments.length > 0 && (
+			{isExpanded && (fileComments.length > 0 || showFileCommentForm) && (
 				<div className="border-b bg-muted/20">
+					{showFileCommentForm && (
+						<AddCommentForm
+							onSubmit={handleFileCommentSubmit}
+							onCancel={() => setShowFileCommentForm(false)}
+						/>
+					)}
 					{fileComments.map((comment) => (
 						<InlineComment key={comment.id} comment={comment} />
 					))}
@@ -627,6 +816,12 @@ function DiffFileContent({
 							language={language}
 							commentsByLine={commentsByLine}
 							newFileLineNumbers={newFileLineNumbers}
+							onLineClick={onAddComment ? handleLineClick : undefined}
+							activeCommentLine={
+								commentForm.isOpen ? commentForm.lineNumber : null
+							}
+							onCommentSubmit={handleLineCommentSubmit}
+							onCommentCancel={handleLineCommentCancel}
 						/>
 					))}
 				</div>
@@ -713,7 +908,12 @@ function InlineComment({ comment }: { comment: ReviewComment }) {
 /**
  * DiffViewer - Renders a unified diff with syntax highlighting
  */
-export function DiffViewer({ diff, comments, className }: DiffViewerProps) {
+export function DiffViewer({
+	diff,
+	comments,
+	onAddComment,
+	className,
+}: DiffViewerProps) {
 	const files = useMemo(() => parseUnifiedDiff(diff), [diff]);
 	const extensions = useMemo(() => getUniqueExtensions(files), [files]);
 	const commentsByFile = useMemo(
@@ -826,6 +1026,7 @@ export function DiffViewer({ diff, comments, className }: DiffViewerProps) {
 							<DiffFileContent
 								file={file}
 								comments={commentsByFile.get(file.path)}
+								onAddComment={onAddComment}
 							/>
 						</div>
 					))}
@@ -844,6 +1045,8 @@ interface DiffViewerModalProps {
 	diff: string;
 	/** Review comments to display inline */
 	comments?: ReviewComment[];
+	/** Callback when user adds a comment */
+	onAddComment?: (payload: AddCommentPayload) => void;
 	/** Trigger element (defaults to a button) */
 	trigger?: React.ReactNode;
 	/** Optional additional className for the dialog content */
@@ -857,6 +1060,7 @@ interface DiffViewerModalProps {
 export function DiffViewerModal({
 	diff,
 	comments,
+	onAddComment,
 	trigger,
 	className,
 }: DiffViewerModalProps) {
@@ -881,7 +1085,12 @@ export function DiffViewerModal({
 					</SheetTitle>
 				</SheetHeader>
 				<div className="flex-1 overflow-hidden">
-					<DiffViewer diff={diff} comments={comments} className="h-full" />
+					<DiffViewer
+						diff={diff}
+						comments={comments}
+						onAddComment={onAddComment}
+						className="h-full"
+					/>
 				</div>
 			</SheetContent>
 		</Sheet>
@@ -889,4 +1098,4 @@ export function DiffViewerModal({
 }
 
 // Export types for external use
-export type { DiffFile, DiffHunk, DiffLine };
+export type { AddCommentPayload, DiffFile, DiffHunk, DiffLine };
