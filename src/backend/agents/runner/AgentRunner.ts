@@ -741,6 +741,9 @@ export class AgentRunner {
 			// Note: maxTokens and temperature are passed via providerOptions or model config
 		});
 
+		let totalInputTokens = 0;
+		let totalOutputTokens = 0;
+
 		// Process the stream
 		for await (const part of result.fullStream) {
 			// Check for abort
@@ -859,6 +862,8 @@ export class AgentRunner {
 				case "finish-step": {
 					// A step completed (may include tool calls)
 					// We can track token usage here if needed
+					totalInputTokens += part.usage.inputTokens ?? 0;
+					totalOutputTokens += part.usage.outputTokens ?? 0;
 					break;
 				}
 
@@ -877,9 +882,6 @@ export class AgentRunner {
 				}
 			}
 		}
-
-		// Get final usage stats
-		const usage = await result.usage;
 
 		// Save any remaining text as the final segment
 		if (currentSegmentBuffer.length > 0) {
@@ -901,9 +903,9 @@ export class AgentRunner {
 
 		// Complete the turn with token usage data
 		await this.completeTurn(turn.id, {
-			tokenCount: usage?.totalTokens,
-			promptTokens: usage?.inputTokens,
-			completionTokens: usage?.outputTokens,
+			tokenCount: totalInputTokens + totalOutputTokens,
+			promptTokens: totalInputTokens,
+			completionTokens: totalOutputTokens,
 			modelId,
 		});
 	}
