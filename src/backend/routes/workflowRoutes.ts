@@ -16,8 +16,7 @@ import { getRepositories } from "../repositories";
 // =============================================================================
 
 const CreateWorkflowRequestSchema = z.object({
-	title: z.string().min(1),
-	description: z.string().optional(),
+	prompt: z.string().min(1),
 	priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
 });
 
@@ -85,8 +84,7 @@ export const workflowRoutes = {
 
 				const orchestrator = getWorkflowOrchestrator();
 				const workflow = await orchestrator.createWorkflow(
-					parsed.data.title,
-					parsed.data.description,
+					parsed.data.prompt,
 					parsed.data.priority ?? "medium",
 				);
 

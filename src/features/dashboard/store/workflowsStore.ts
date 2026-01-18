@@ -108,7 +108,7 @@ interface WorkflowsState {
 
 	// Actions - Workflow CRUD
 	fetchWorkflows: () => Promise<void>;
-	createWorkflow: (title: string, description?: string) => Promise<Workflow>;
+	createWorkflow: (prompt: string) => Promise<Workflow>;
 	selectWorkflow: (workflowId: string | null) => void;
 
 	// Actions - Conversation
@@ -173,11 +173,11 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 		}
 	},
 
-	createWorkflow: async (title: string, description?: string) => {
+	createWorkflow: async (prompt: string) => {
 		const response = await fetch("/api/workflows", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ title, description }),
+			body: JSON.stringify({ prompt }),
 		});
 
 		if (!response.ok) {

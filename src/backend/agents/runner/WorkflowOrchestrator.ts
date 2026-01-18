@@ -91,13 +91,19 @@ export class WorkflowOrchestrator {
 
 	/**
 	 * Create a new workflow and start the scoping agent
+	 *
+	 * @param prompt - The user's initial message describing the task
+	 * @param priority - Workflow priority level
 	 */
 	async createWorkflow(
-		title: string,
-		description?: string,
+		prompt: string,
 		priority: "low" | "medium" | "high" | "urgent" = "medium",
 	): Promise<Workflow> {
-		// Create workflow using repository
+		// Generate title and description from the user's prompt using LLM
+		const { title, description } =
+			await this.generateTitleAndDescription(prompt);
+
+		// Create workflow using repository with generated metadata
 		const workflow = await this.workflowRepo.create({
 			title,
 			description,
@@ -124,8 +130,8 @@ export class WorkflowOrchestrator {
 		// Update workflow with session ID
 		await this.workflowRepo.setCurrentSession(workflow.id, session.id);
 
-		// Build the initial prompt from title and description
-		const initialPrompt = description ? `${title}\n\n${description}` : title;
+		// Use the raw prompt as the initial prompt for the scoping agent
+		const initialPrompt = prompt;
 
 		// Run the scoping agent with the initial prompt (non-blocking)
 		const projectRoot = findRepoRoot(process.cwd());
