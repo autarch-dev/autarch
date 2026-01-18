@@ -29,6 +29,7 @@ import type {
 	Plan,
 	ResearchCard,
 	ReviewCard,
+	ReviewCommentType,
 	RewindTarget,
 	ScopeCard,
 	Workflow,
@@ -125,6 +126,23 @@ interface WorkflowsState {
 	rewindWorkflow: (
 		workflowId: string,
 		targetStage: RewindTarget,
+	) => Promise<void>;
+
+	// Actions - Review Comments
+	createReviewComment: (
+		workflowId: string,
+		comment: {
+			type: ReviewCommentType;
+			filePath?: string;
+			startLine?: number;
+			endLine?: number;
+			description: string;
+		},
+	) => Promise<void>;
+	requestFixes: (
+		workflowId: string,
+		commentIds: string[],
+		summary?: string,
 	) => Promise<void>;
 
 	// Actions - WebSocket event handling
@@ -441,6 +459,52 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 
 		// Refresh the history to get clean state
 		get().fetchHistory(workflowId);
+	},
+
+	// ===========================================================================
+	// Review Comment Actions
+	// ===========================================================================
+
+	createReviewComment: async (workflowId, comment) => {
+		const response = await fetch(
+			`/api/workflows/${workflowId}/review-comments`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(comment),
+			},
+		);
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error ?? "Failed to create comment");
+		}
+
+		// Refresh history to get the updated review card with new comment
+		get().fetchHistory(workflowId);
+	},
+
+	requestFixes: async (workflowId, commentIds, summary) => {
+		const response = await fetch(`/api/workflows/${workflowId}/request-fixes`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ commentIds, summary }),
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error ?? "Failed to request fixes");
+		}
+
+		// Update workflow state to clear awaitingApproval
+		set((state) => {
+			const workflows = state.workflows.map((w) =>
+				w.id === workflowId
+					? { ...w, awaitingApproval: false, pendingArtifactType: undefined }
+					: w,
+			);
+			return { workflows };
+		});
 	},
 
 	// ===========================================================================
