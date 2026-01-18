@@ -40,6 +40,7 @@ interface WorkflowViewProps {
 	reviewCards: ReviewCard[];
 	onApprove?: () => Promise<void>;
 	onRequestChanges?: (feedback: string) => Promise<void>;
+	onRequestFixes?: (commentIds: string[], summary?: string) => Promise<void>;
 	onRewind?: (targetStage: RewindTarget) => Promise<void>;
 }
 
@@ -61,6 +62,7 @@ export function WorkflowView({
 	reviewCards,
 	onApprove,
 	onRequestChanges,
+	onRequestFixes,
 	onRewind,
 }: WorkflowViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -175,6 +177,9 @@ export function WorkflowView({
 						}
 						onDeny={
 							artifact.data.status === "pending" ? onRequestChanges : undefined
+						}
+						onRequestFixes={
+							artifact.data.status === "pending" ? onRequestFixes : undefined
 						}
 					/>
 				);

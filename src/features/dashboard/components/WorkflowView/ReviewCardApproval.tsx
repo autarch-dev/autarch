@@ -57,6 +57,7 @@ interface ReviewCardApprovalProps {
 	reviewCard: ReviewCard;
 	onApprove?: () => Promise<void>;
 	onDeny?: (feedback: string) => Promise<void>;
+	onRequestFixes?: (commentIds: string[], summary?: string) => Promise<void>;
 }
 
 const STATUS_STYLES = {
@@ -284,13 +285,16 @@ export function ReviewCardApproval({
 	reviewCard,
 	onApprove,
 	onDeny,
+	onRequestFixes,
 }: ReviewCardApprovalProps) {
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(reviewCard.status === "pending");
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
+	const [requestFixesDialogOpen, setRequestFixesDialogOpen] = useState(false);
 	const [selectedCommentIds, setSelectedCommentIds] = useState<Set<string>>(
 		new Set(),
 	);
+	const [fixesSummary, setFixesSummary] = useState("");
 
 	// Collapse when status changes from pending
 	useEffect(() => {
@@ -369,6 +373,22 @@ export function ReviewCardApproval({
 			await onDeny(feedback.trim());
 			setDenyDialogOpen(false);
 			setFeedback("");
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleRequestFixes = async () => {
+		if (selectedCommentIds.size === 0 || !onRequestFixes) return;
+		setIsSubmitting(true);
+		try {
+			await onRequestFixes(
+				Array.from(selectedCommentIds),
+				fixesSummary.trim() || undefined,
+			);
+			setRequestFixesDialogOpen(false);
+			setFixesSummary("");
+			setSelectedCommentIds(new Set());
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -455,6 +475,20 @@ export function ReviewCardApproval({
 						</div>
 						{canApprove && (
 							<div className="flex items-center gap-2">
+								{onRequestFixes && (
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => setRequestFixesDialogOpen(true)}
+										disabled={isSubmitting || selectedCount === 0}
+										className="text-amber-600 hover:text-amber-600"
+									>
+										<AlertTriangle className="size-4 mr-1" />
+										{selectedCount > 0
+											? `Request Fixes (${selectedCount})`
+											: "Request Fixes"}
+									</Button>
+								)}
 								<Button
 									variant="outline"
 									size="sm"
@@ -559,6 +593,44 @@ export function ReviewCardApproval({
 							disabled={isSubmitting || !feedback.trim()}
 						>
 							Submit Feedback
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Request Fixes Dialog */}
+			<Dialog
+				open={requestFixesDialogOpen}
+				onOpenChange={setRequestFixesDialogOpen}
+			>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Request Fixes</DialogTitle>
+						<DialogDescription>
+							{selectedCount} comment{selectedCount !== 1 ? "s" : ""} selected
+							to be addressed.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="py-4">
+						<Textarea
+							value={fixesSummary}
+							onChange={(e) => setFixesSummary(e.target.value)}
+							placeholder="Optional: Add any additional context or instructions..."
+							rows={4}
+							autoFocus
+						/>
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setRequestFixesDialogOpen(false)}
+							disabled={isSubmitting}
+						>
+							Cancel
+						</Button>
+						<Button onClick={handleRequestFixes} disabled={isSubmitting}>
+							Submit
 						</Button>
 					</DialogFooter>
 				</DialogContent>

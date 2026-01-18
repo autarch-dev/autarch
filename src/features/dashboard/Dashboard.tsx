@@ -39,6 +39,7 @@ export function Dashboard() {
 		fetchHistory: fetchWorkflowHistory,
 		approveArtifact,
 		requestChanges,
+		requestFixes,
 		rewindWorkflow,
 	} = useWorkflowsStore();
 
@@ -139,6 +140,15 @@ export function Dashboard() {
 		[selectedId, rewindWorkflow],
 	);
 
+	const handleRequestFixes = useCallback(
+		async (commentIds: string[], summary?: string) => {
+			if (selectedId) {
+				await requestFixes(selectedId, commentIds, summary);
+			}
+		},
+		[selectedId, requestFixes],
+	);
+
 	const selectedChannel = useMemo((): Channel | null => {
 		if (selectedView !== "channel" || !selectedId) return null;
 		return channels.find((c) => c.id === selectedId) ?? null;
@@ -222,6 +232,7 @@ export function Dashboard() {
 						reviewCards={selectedReviewCards}
 						onApprove={handleApproveScope}
 						onRequestChanges={handleRequestChanges}
+						onRequestFixes={handleRequestFixes}
 						onRewind={handleRewindWorkflow}
 					/>
 				) : (
