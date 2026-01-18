@@ -395,6 +395,12 @@ export class WorkflowOrchestrator {
 			);
 		}
 
+		if (!workflow.awaitingApproval) {
+			throw new Error(
+				`Workflow ${workflowId} is not awaiting approval - review may not be complete`,
+			);
+		}
+
 		// Fetch the selected comments
 		const comments = await this.artifactRepo.getCommentsByIds(commentIds);
 		if (comments.length === 0) {
