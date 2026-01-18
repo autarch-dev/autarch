@@ -211,6 +211,9 @@ You should prefer:
 Each pulse should answer:
 > "What concrete change will exist after this is done?"
 
+**And the description should answer:**
+> "How exactly should this be implemented, including conditionals and error cases?"
+
 You should be able to stop after any pulse and:
 - Run the build successfully
 - Run tests (if applicable)
@@ -225,6 +228,114 @@ You should be able to stop after any pulse and:
 | **large** | > 200 lines | Refactor widely-used utility + all call sites, migrate architectural layer | Requires justification in description |
 
 **Prefer smaller pulses when possible.** Better to have 3 small pulses with clear boundaries than 1 large pulse doing multiple things.
+
+## Writing Clear Pulse Descriptions
+
+Pulse descriptions are **instructions for execution**. Ambiguity here becomes bugs there.
+
+### Description Quality Standards
+
+A good pulse description:
+- States the change clearly and completely
+- Makes conditional logic explicit ("if X, then Y")
+- Specifies error handling
+- Includes rationale when behavior might be surprising
+
+### Pulse Schema Reference
+
+\`\`\`typescript
+{
+  id: string,              // Unique identifier (pulse-1, pulse-2, etc.)
+  title: string,           // Short, action-oriented (< 60 chars)
+  description: string,     // Detailed implementation guidance
+  expectedChanges: string[], // File paths that will be modified/created
+  estimatedSize: "small" | "medium" | "large",
+  dependsOn?: string[]     // IDs of pulses that must complete first
+}
+\`\`\`
+
+### Examples: Conditional Logic
+
+**Bad - Ambiguous:**
+\`\`\`json
+{
+  "title": "Update API route for merge options",
+  "description": "Modify POST /api/workflows/:id/approve to accept mergeStrategy and commitMessage in request body. Add Zod validation schema. Pass options to orchestrator.approveArtifact()."
+}
+\`\`\`
+
+**Problems:**
+- Doesn't specify if body is required or optional
+- Doesn't say when to validate
+- Execution will assume body is always present
+
+**Good - Explicit:**
+\`\`\`json
+{
+  "title": "Update API route for optional merge options",
+  "description": "Modify POST /api/workflows/:id/approve to conditionally accept merge options. Check Content-Type header for application/json. If present: parse body and validate against ApproveRequestSchema (mergeStrategy + commitMessage). If validation fails: return 400 with error details. Pass parsed options to orchestrator.approveArtifact(), or undefined if no body present. Rationale: Review stage sends merge options, but scope/research/plan stages call this endpoint without a body."
+}
+\`\`\`
+
+**Why it's better:**
+- Conditional flow is explicit ("if present, then...")
+- Error cases are specified
+- Rationale explains why it's optional
+
+### Examples: Error Handling
+
+**Bad - Implicit:**
+\`\`\`json
+{
+  "title": "Add user authentication",
+  "description": "Add authenticate() method to UserService. Check credentials against database. Return user object."
+}
+\`\`\`
+
+**Good - Explicit:**
+\`\`\`json
+{
+  "title": "Add user authentication with error handling",
+  "description": "Add authenticate(email, password) method to UserService. Query database for user by email. If not found: throw AuthenticationError with message 'User not found'. If found: compare password hash using bcrypt. If mismatch: throw AuthenticationError with message 'Invalid password'. If match: return User object. All errors should propagate to caller (no swallowing)."
+}
+\`\`\`
+
+### Examples: State Mutations
+
+**Bad - Assumes clean state:**
+\`\`\`json
+{
+  "title": "Merge feature branch",
+  "description": "Run git merge feature-branch. On conflict, reset to origin/main."
+}
+\`\`\`
+
+**Good - Captures state:**
+\`\`\`json
+{
+  "title": "Merge feature branch with recovery",
+  "description": "Capture current HEAD SHA before merge. Run git merge feature-branch. On success: continue. On conflict or error: run git merge --abort, then git reset --hard to captured SHA. If reset fails: log the captured SHA and throw error with recovery instructions."
+}
+\`\`\`
+
+### Red Flags in Your Own Descriptions
+
+If you write a pulse description that:
+- Uses words like "handle" without specifying how
+- Says "validate" without specifying what happens on validation failure
+- Mentions multiple code paths but doesn't distinguish them
+- Assumes something will always be present/true
+- Doesn't explain surprising choices
+
+**Stop and make it more explicit.**
+
+### The Execution Test
+
+Before finalizing a pulse, ask:
+> "If I handed this description to another engineer with no other context, would they implement it correctly?"
+
+If the answer is "probably" or "maybe" → the description needs work.
+If the answer is "definitely" → it's ready.
 
 ### Test Coverage
 
