@@ -67,6 +67,9 @@ export interface TurnWithDetails {
 	role: "user" | "assistant";
 	status: TurnStatus;
 	tokenCount: number | null;
+	promptTokens: number | null;
+	completionTokens: number | null;
+	modelId: string | null;
 	createdAt: number;
 	completedAt: number | null;
 }
@@ -313,6 +316,9 @@ export class ConversationRepository implements Repository {
 				role: data.role,
 				status: "streaming",
 				token_count: null,
+				prompt_tokens: null,
+				completion_tokens: null,
+				model_id: null,
 				hidden: data.hidden ? 1 : 0,
 				created_at: now,
 				completed_at: null,
@@ -326,20 +332,34 @@ export class ConversationRepository implements Repository {
 			role: data.role,
 			status: "streaming",
 			tokenCount: null,
+			promptTokens: null,
+			completionTokens: null,
+			modelId: null,
 			createdAt: now,
 			completedAt: null,
 		};
 	}
 
 	/**
-	 * Mark a turn as completed
+	 * Mark a turn as completed with token usage data
 	 */
-	async completeTurn(turnId: string, tokenCount?: number): Promise<void> {
+	async completeTurn(
+		turnId: string,
+		usage?: {
+			tokenCount?: number;
+			promptTokens?: number;
+			completionTokens?: number;
+			modelId?: string;
+		},
+	): Promise<void> {
 		await this.db
 			.updateTable("turns")
 			.set({
 				status: "completed",
-				token_count: tokenCount ?? null,
+				token_count: usage?.tokenCount ?? null,
+				prompt_tokens: usage?.promptTokens ?? null,
+				completion_tokens: usage?.completionTokens ?? null,
+				model_id: usage?.modelId ?? null,
 				completed_at: Date.now(),
 			})
 			.where("id", "=", turnId)

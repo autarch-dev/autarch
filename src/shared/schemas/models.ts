@@ -1,4 +1,5 @@
-import { type AIProvider, ModelScenario } from "@/shared/schemas/settings";
+import { z } from "zod";
+import { type AIProvider, ModelScenario } from "./settings";
 
 export const SCENARIOS = ModelScenario.options;
 
@@ -183,3 +184,8 @@ export const ALL_MODELS = [
 	{ value: "grok-2-vision-1212", label: "Grok 2 Vision 1212", provider: "xai" },
 	{ value: "grok-beta", label: "Grok Beta", provider: "xai" },
 ] as const satisfies { value: string; label: string; provider: AIProvider }[];
+
+export const ModelNameSchema = z.union(
+	ALL_MODELS.map((m) => z.literal(m.value)),
+);
+export type ModelName = z.infer<typeof ModelNameSchema>;

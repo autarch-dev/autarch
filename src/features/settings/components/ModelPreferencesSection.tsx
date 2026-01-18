@@ -6,12 +6,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { ALL_MODELS } from "@/features/onboarding/components/Wizard/models";
 import {
+	ALL_MODELS,
 	MODEL_SCENARIO_DESCRIPTIONS,
 	MODEL_SCENARIO_LABELS,
 	type ModelScenario,
-} from "@/shared/schemas/settings";
+} from "@/shared/schemas";
 import { useSettings } from "../hooks/useSettings";
 
 export function ModelPreferencesSection() {

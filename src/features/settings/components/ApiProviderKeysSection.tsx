@@ -154,10 +154,9 @@ export function ApiProviderKeysSection() {
 		await clearApiKey(provider);
 	};
 
-	const configuredCount =
-		apiKeysStatus ?
-			Object.values(apiKeysStatus).filter(Boolean).length
-		:	0;
+	const configuredCount = apiKeysStatus
+		? Object.values(apiKeysStatus).filter(Boolean).length
+		: 0;
 
 	return (
 		<section>

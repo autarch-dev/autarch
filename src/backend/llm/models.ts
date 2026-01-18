@@ -10,8 +10,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
 import type { LanguageModel } from "ai";
-import { ALL_MODELS } from "@/features/onboarding/components/Wizard/models";
-import type { AIProvider } from "@/shared/schemas/settings";
+import { type AIProvider, ALL_MODELS } from "@/shared/schemas";
 import type { AgentRole } from "../agents/types";
 import { getApiKey, getModelPreferences } from "../services/globalSettings";
 
@@ -31,34 +30,39 @@ const MODEL_TO_PROVIDER = Object.fromEntries(
 // Model Factory
 // =============================================================================
 
+export interface ModelWithId {
+	model: LanguageModel;
+	modelId: string;
+}
+
 /**
  * Get the AI SDK model instance for a given agent role.
  *
  * @param role - The agent role (e.g., "discussion", "scoping", "preflight")
- * @returns AI SDK LanguageModelV1 instance
+ * @returns AI SDK LanguageModelV1 instance and its model ID
  * @throws Error if no model is configured, model is unknown, or no API key
  */
 export async function getModelForScenario(
 	role: AgentRole,
-): Promise<LanguageModel> {
+): Promise<ModelWithId> {
 	// Get user's model preference for this scenario
 	const prefs = await getModelPreferences();
 
 	// Preflight uses execution's model (no separate preference)
 	const effectiveScenario = role === "preflight" ? "execution" : role;
-	const modelName = prefs[effectiveScenario];
+	const modelId = prefs[effectiveScenario];
 
-	if (!modelName) {
+	if (!modelId) {
 		throw new Error(
 			`No model configured for scenario "${effectiveScenario}". Please complete onboarding or set model preferences.`,
 		);
 	}
 
 	// Look up the provider for this model
-	const provider = MODEL_TO_PROVIDER[modelName];
+	const provider = MODEL_TO_PROVIDER[modelId];
 	if (!provider) {
 		throw new Error(
-			`Unknown model "${modelName}". It may have been removed from the available models list.`,
+			`Unknown model "${modelId}". It may have been removed from the available models list.`,
 		);
 	}
 
@@ -70,8 +74,11 @@ export async function getModelForScenario(
 		);
 	}
 
-	// Create and return the appropriate AI SDK model
-	return createModel(provider, modelName, apiKey);
+	// Create and return the appropriate AI SDK model with its ID
+	return {
+		model: createModel(provider, modelId, apiKey),
+		modelId,
+	};
 }
 
 /**

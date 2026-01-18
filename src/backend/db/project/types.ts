@@ -276,6 +276,9 @@ export interface TurnsTable {
 	role: TurnRole;
 	status: TurnStatus;
 	token_count: number | null;
+	prompt_tokens: number | null;
+	completion_tokens: number | null;
+	model_id: string | null;
 	/** 1 if this turn should be hidden from UI (e.g., auto-nudge messages) */
 	hidden: number;
 	created_at: number;

@@ -75,7 +75,10 @@ export function WorkflowView({
 		}
 		for (const researchCard of researchCards) {
 			if (researchCard.turnId) {
-				map.set(researchCard.turnId, { type: "research_card", data: researchCard });
+				map.set(researchCard.turnId, {
+					type: "research_card",
+					data: researchCard,
+				});
 			}
 		}
 		for (const plan of plans) {
@@ -107,8 +110,12 @@ export function WorkflowView({
 					<ScopeCardApproval
 						key={artifact.data.id}
 						scopeCard={artifact.data}
-						onApprove={artifact.data.status === "pending" ? onApprove : undefined}
-						onDeny={artifact.data.status === "pending" ? onRequestChanges : undefined}
+						onApprove={
+							artifact.data.status === "pending" ? onApprove : undefined
+						}
+						onDeny={
+							artifact.data.status === "pending" ? onRequestChanges : undefined
+						}
 					/>
 				);
 			case "research_card":
@@ -116,8 +123,12 @@ export function WorkflowView({
 					<ResearchCardApproval
 						key={artifact.data.id}
 						researchCard={artifact.data}
-						onApprove={artifact.data.status === "pending" ? onApprove : undefined}
-						onDeny={artifact.data.status === "pending" ? onRequestChanges : undefined}
+						onApprove={
+							artifact.data.status === "pending" ? onApprove : undefined
+						}
+						onDeny={
+							artifact.data.status === "pending" ? onRequestChanges : undefined
+						}
 					/>
 				);
 			case "plan":
@@ -125,9 +136,15 @@ export function WorkflowView({
 					<PlanCardApproval
 						key={artifact.data.id}
 						plan={artifact.data}
-						onApprove={artifact.data.status === "pending" ? onApprove : undefined}
-						onDeny={artifact.data.status === "pending" ? onRequestChanges : undefined}
-						onRewind={artifact.data.status === "approved" ? onRewind : undefined}
+						onApprove={
+							artifact.data.status === "pending" ? onApprove : undefined
+						}
+						onDeny={
+							artifact.data.status === "pending" ? onRequestChanges : undefined
+						}
+						onRewind={
+							artifact.data.status === "approved" ? onRewind : undefined
+						}
 					/>
 				);
 			case "review_card":
@@ -135,8 +152,12 @@ export function WorkflowView({
 					<ReviewCardApproval
 						key={artifact.data.id}
 						reviewCard={artifact.data}
-						onApprove={artifact.data.status === "pending" ? onApprove : undefined}
-						onDeny={artifact.data.status === "pending" ? onRequestChanges : undefined}
+						onApprove={
+							artifact.data.status === "pending" ? onApprove : undefined
+						}
+						onDeny={
+							artifact.data.status === "pending" ? onRequestChanges : undefined
+						}
 					/>
 				);
 		}

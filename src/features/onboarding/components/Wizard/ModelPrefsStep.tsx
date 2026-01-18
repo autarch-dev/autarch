@@ -17,12 +17,14 @@ import {
 } from "@/components/ui/select";
 import {
 	type AIProvider,
+	ALL_MODELS,
 	MODEL_SCENARIO_DESCRIPTIONS,
 	MODEL_SCENARIO_LABELS,
 	type ModelPreferences,
-} from "@/shared/schemas/settings";
+	RECOMMENDED_MODELS,
+	SCENARIOS,
+} from "@/shared/schemas";
 import { useOnboarding } from "../../hooks/useOnboarding";
-import { ALL_MODELS, RECOMMENDED_MODELS, SCENARIOS } from "./models";
 import { WizardCard } from "./WizardCard";
 
 export function ModelPrefsStep() {

@@ -207,7 +207,7 @@ export class AgentRunner {
 			content: userMessageContent,
 		};
 		conversationHistory.push(userMsg);
-		
+
 		const assistantTurn = await this.createTurn(
 			"assistant",
 			false,
@@ -215,13 +215,13 @@ export class AgentRunner {
 		);
 
 		try {
+			// streamLLMResponse handles turn completion with token usage data
 			await this.streamLLMResponse(
 				assistantTurn,
 				agentConfig,
 				options,
 				conversationHistory,
 			);
-			await this.completeTurn(assistantTurn.id);
 			log.agent.success(`Agent turn ${assistantTurn.id} completed`);
 
 			// Check if a terminal tool was called - if not, nudge the agent
@@ -677,7 +677,7 @@ export class AgentRunner {
 		conversationHistory: ModelMessage[],
 	): Promise<void> {
 		// Get the model for this agent's scenario
-		const model = await getModelForScenario(agentConfig.role);
+		const { model, modelId } = await getModelForScenario(agentConfig.role);
 
 		// Create tool context based on session type (include turnId for artifact tracking)
 		const toolContext = this.createToolContext(turn.id);
@@ -879,7 +879,6 @@ export class AgentRunner {
 
 		// Get final usage stats
 		const usage = await result.usage;
-		const tokenCount = usage?.totalTokens;
 
 		// Save any remaining text as the final segment
 		if (currentSegmentBuffer.length > 0) {
@@ -899,8 +898,13 @@ export class AgentRunner {
 			await this.saveThought(turn.id, 0, thoughtBuffer);
 		}
 
-		// Complete the turn with token count
-		await this.completeTurn(turn.id, tokenCount);
+		// Complete the turn with token usage data
+		await this.completeTurn(turn.id, {
+			tokenCount: usage?.totalTokens,
+			promptTokens: usage?.inputTokens,
+			completionTokens: usage?.outputTokens,
+			modelId,
+		});
 	}
 
 	// ===========================================================================
@@ -972,16 +976,21 @@ export class AgentRunner {
 
 	private async completeTurn(
 		turnId: string,
-		tokenCount?: number,
+		usage?: {
+			tokenCount?: number;
+			promptTokens?: number;
+			completionTokens?: number;
+			modelId?: string;
+		},
 	): Promise<void> {
 		// Use repository for DB operation
-		await this.config.conversationRepo.completeTurn(turnId, tokenCount);
+		await this.config.conversationRepo.completeTurn(turnId, usage);
 
 		broadcast(
 			createTurnCompletedEvent({
 				sessionId: this.session.id,
 				turnId,
-				tokenCount,
+				tokenCount: usage?.tokenCount,
 			}),
 		);
 	}
