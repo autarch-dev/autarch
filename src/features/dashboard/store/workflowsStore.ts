@@ -511,6 +511,9 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 			);
 			return { workflows };
 		});
+
+		// Refresh history to get updated workflow state after fix pulse starts
+		get().fetchHistory(workflowId);
 	},
 
 	// ===========================================================================

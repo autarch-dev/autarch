@@ -597,7 +597,9 @@ function DiffHunkView({
 						comments = commentsByLine.get(hunkLine.newLineNumber) ?? [];
 					}
 
-					const showCommentForm = activeCommentLine === hunkLine.newLineNumber;
+					const showCommentForm =
+						activeCommentLine !== null &&
+						activeCommentLine === hunkLine.newLineNumber;
 
 					return (
 						<div key={`${hunk.oldStart}-${hunk.newStart}-${idx}`}>
@@ -737,11 +739,20 @@ function DiffFileContent({
 				hasComments && "ring-2 ring-amber-500/30",
 			)}
 		>
-			{/* File header */}
-			<button
-				type="button"
+			{/* File header - using div with role="button" instead of <button> to avoid
+			 nested button issue (the "Add comment" Button inside would cause hydration errors) */}
+			{/* biome-ignore lint/a11y/useSemanticElements: div required to avoid nested button hydration error */}
+			<div
+				role="button"
+				tabIndex={0}
 				onClick={() => setIsExpanded(!isExpanded)}
-				className="w-full flex items-center gap-2 px-3 py-2 bg-muted/30 border-b hover:bg-muted/50 transition-colors"
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						setIsExpanded(!isExpanded);
+					}
+				}}
+				className="w-full flex items-center gap-2 px-3 py-2 bg-muted/30 border-b hover:bg-muted/50 transition-colors cursor-pointer"
 			>
 				{isExpanded ? (
 					<ChevronDown className="size-4 shrink-0" />
@@ -790,7 +801,7 @@ function DiffFileContent({
 						</span>
 					)}
 				</div>
-			</button>
+			</div>
 
 			{/* File-level comments */}
 			{isExpanded && (fileComments.length > 0 || showFileCommentForm) && (

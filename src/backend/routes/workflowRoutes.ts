@@ -29,13 +29,27 @@ const RewindRequestSchema = z.object({
 	targetStage: RewindTargetSchema,
 });
 
-const CreateUserCommentSchema = z.object({
-	type: z.enum(["line", "file", "review"]),
-	filePath: z.string().optional(),
-	startLine: z.number().optional(),
-	endLine: z.number().optional(),
-	description: z.string().min(1),
-});
+const CreateUserCommentSchema = z.discriminatedUnion("type", [
+	// Line comment: requires filePath and startLine
+	z.object({
+		type: z.literal("line"),
+		filePath: z.string().min(1),
+		startLine: z.number(),
+		endLine: z.number().optional(),
+		description: z.string().min(1),
+	}),
+	// File comment: requires filePath, no line numbers
+	z.object({
+		type: z.literal("file"),
+		filePath: z.string().min(1),
+		description: z.string().min(1),
+	}),
+	// Review comment: general comment, no file or line required
+	z.object({
+		type: z.literal("review"),
+		description: z.string().min(1),
+	}),
+]);
 
 const RequestFixesSchema = z.object({
 	commentIds: z.array(z.string().min(1)).min(1),
@@ -467,15 +481,16 @@ export const workflowRoutes = {
 				}
 
 				// Create the user comment with author='user' and null severity/category
+				const data = parsed.data;
 				const comment = await repos.artifacts.createReviewComment({
 					reviewCardId: reviewCard.id,
-					type: parsed.data.type,
-					filePath: parsed.data.filePath,
-					startLine: parsed.data.startLine,
-					endLine: parsed.data.endLine,
+					type: data.type,
+					filePath: "filePath" in data ? data.filePath : undefined,
+					startLine: "startLine" in data ? data.startLine : undefined,
+					endLine: "endLine" in data ? data.endLine : undefined,
 					severity: undefined,
 					category: undefined,
-					description: parsed.data.description,
+					description: data.description,
 					author: "user",
 				});
 

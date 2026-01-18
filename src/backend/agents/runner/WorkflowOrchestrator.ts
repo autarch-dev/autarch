@@ -454,10 +454,8 @@ export class WorkflowOrchestrator {
 			`Created fix pulse ${fixPulse.id} for workflow ${workflowId} with ${comments.length} comments`,
 		);
 
-		// Transition back to in_progress stage
-		await this.workflowRepo.transitionStage(workflowId, "in_progress", null);
-
-		// Start the fix pulse
+		// Start the fix pulse first, before transitioning stage
+		// This ensures we don't leave the workflow in an inconsistent state if pulse creation fails
 		const projectRoot = findRepoRoot(process.cwd());
 		const worktreePath = getWorktreePath(projectRoot, workflowId);
 
@@ -472,6 +470,9 @@ export class WorkflowOrchestrator {
 			);
 			throw new Error("Failed to start fix pulse");
 		}
+
+		// Transition to in_progress stage after confirming pulse started
+		await this.workflowRepo.transitionStage(workflowId, "in_progress", null);
 
 		// Create fresh execution session for the fix pulse
 		const session = await this.sessionManager.startSession({
