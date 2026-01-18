@@ -39,7 +39,6 @@ export const PendingArtifactTypeSchema = z.enum([
 	"scope_card",
 	"research",
 	"plan",
-	"review",
 	"review_card",
 ]);
 export type PendingArtifactType = z.infer<typeof PendingArtifactTypeSchema>;

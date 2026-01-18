@@ -62,7 +62,7 @@ const TOOL_TO_ARTIFACT_TYPE: Record<string, ArtifactType> = {
 	submit_scope: "scope_card",
 	submit_research: "research",
 	submit_plan: "plan",
-	complete_review: "review",
+	complete_review: "review_card",
 };
 
 // =============================================================================
@@ -406,6 +406,14 @@ export class WorkflowOrchestrator {
 				const plan = await this.artifactRepo.getLatestPlan(workflowId);
 				if (plan) {
 					await this.artifactRepo.updatePlanStatus(plan.id, status);
+				}
+				break;
+			}
+			case "review_card": {
+				const reviewCard =
+					await this.artifactRepo.getLatestReviewCard(workflowId);
+				if (reviewCard) {
+					await this.artifactRepo.updateReviewCardStatus(reviewCard.id, status);
 				}
 				break;
 			}
