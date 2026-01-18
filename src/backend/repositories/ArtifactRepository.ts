@@ -672,6 +672,24 @@ export class ArtifactRepository implements Repository {
 		return rows.map((row) => this.toReviewComment(row));
 	}
 
+	/**
+	 * Get comments by their IDs (for fetching selected comments for fix requests)
+	 */
+	async getCommentsByIds(ids: string[]): Promise<ReviewComment[]> {
+		if (ids.length === 0) {
+			return [];
+		}
+
+		const rows = await this.db
+			.selectFrom("review_comments")
+			.selectAll()
+			.where("id", "in", ids)
+			.orderBy("created_at", "asc")
+			.execute();
+
+		return rows.map((row) => this.toReviewComment(row));
+	}
+
 	// ===========================================================================
 	// Generic Artifact Access
 	// ===========================================================================
