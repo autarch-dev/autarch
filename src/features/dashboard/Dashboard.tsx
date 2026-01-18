@@ -98,8 +98,8 @@ export function Dashboard() {
 	);
 
 	const handleCreateWorkflow = useCallback(
-		async (title: string) => {
-			const workflow = await createWorkflow(title);
+		async (prompt: string) => {
+			const workflow = await createWorkflow(prompt);
 			// Auto-select the new workflow
 			handleSelectWorkflow(workflow.id);
 		},
