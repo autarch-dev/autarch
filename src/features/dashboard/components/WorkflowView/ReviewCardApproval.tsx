@@ -9,6 +9,7 @@
 import {
 	AlertTriangle,
 	CheckCircle,
+	CheckSquare,
 	ChevronDown,
 	ChevronRight,
 	ClipboardCheck,
@@ -18,6 +19,7 @@ import {
 	GitCompareArrows,
 	MessageSquare,
 	RotateCcw,
+	Square,
 	XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -57,6 +59,7 @@ interface ReviewCardApprovalProps {
 	onApprove?: () => Promise<void>;
 	onDeny?: (feedback: string) => Promise<void>;
 	onRewind?: () => Promise<void>;
+	onRequestFixes?: (commentIds: string[], summary?: string) => Promise<void>;
 }
 
 const STATUS_STYLES = {
@@ -146,7 +149,15 @@ function groupCommentsByType(comments: ReviewComment[]) {
 /**
  * Render a single comment item
  */
-function CommentItem({ comment }: { comment: ReviewComment }) {
+function CommentItem({
+	comment,
+	isSelected,
+	onToggle,
+}: {
+	comment: ReviewComment;
+	isSelected?: boolean;
+	onToggle?: () => void;
+}) {
 	const locationInfo =
 		comment.type === "line" && comment.filePath
 			? `${comment.filePath}:${comment.startLine}${comment.endLine && comment.endLine !== comment.startLine ? `-${comment.endLine}` : ""}`
@@ -154,19 +165,51 @@ function CommentItem({ comment }: { comment: ReviewComment }) {
 				? comment.filePath
 				: null;
 
+	// User comments (no severity) get a different display
+	const isUserComment = comment.author === "user" || !comment.severity;
+
 	return (
-		<div className="border rounded-lg p-3 bg-background">
+		<div
+			className={cn(
+				"border rounded-lg p-3 bg-background transition-colors",
+				isSelected && "bg-primary/10 border-primary/50",
+			)}
+		>
 			<div className="flex items-start justify-between gap-2 mb-2">
 				<div className="flex items-center gap-2 flex-wrap">
-					<Badge
-						variant="outline"
-						className={cn("text-xs", SEVERITY_STYLES[comment.severity])}
-					>
-						{comment.severity}
-					</Badge>
-					<Badge variant="secondary" className="text-xs">
-						{comment.category}
-					</Badge>
+					{onToggle && (
+						<button
+							type="button"
+							onClick={onToggle}
+							className="text-muted-foreground hover:text-foreground transition-colors"
+							aria-label={isSelected ? "Deselect comment" : "Select comment"}
+						>
+							{isSelected ? (
+								<CheckSquare className="size-4 text-primary" />
+							) : (
+								<Square className="size-4" />
+							)}
+						</button>
+					)}
+					{isUserComment ? (
+						<Badge variant="outline" className="text-xs">
+							You
+						</Badge>
+					) : comment.severity ? (
+						<>
+							<Badge
+								variant="outline"
+								className={cn("text-xs", SEVERITY_STYLES[comment.severity])}
+							>
+								{comment.severity}
+							</Badge>
+							{comment.category && (
+								<Badge variant="secondary" className="text-xs">
+									{comment.category}
+								</Badge>
+							)}
+						</>
+					) : null}
 				</div>
 			</div>
 
@@ -191,11 +234,15 @@ function CommentSection({
 	icon: Icon,
 	comments,
 	defaultOpen = true,
+	selectedCommentIds,
+	onToggleComment,
 }: {
 	title: string;
 	icon: React.ElementType;
 	comments: ReviewComment[];
 	defaultOpen?: boolean;
+	selectedCommentIds?: Set<string>;
+	onToggleComment?: (commentId: string) => void;
 }) {
 	const [isOpen, setIsOpen] = useState(defaultOpen);
 
@@ -222,7 +269,14 @@ function CommentSection({
 			</CollapsibleTrigger>
 			<CollapsibleContent className="space-y-2 pl-6 pt-2">
 				{comments.map((comment) => (
-					<CommentItem key={comment.id} comment={comment} />
+					<CommentItem
+						key={comment.id}
+						comment={comment}
+						isSelected={selectedCommentIds?.has(comment.id)}
+						onToggle={
+							onToggleComment ? () => onToggleComment(comment.id) : undefined
+						}
+					/>
 				))}
 			</CollapsibleContent>
 		</Collapsible>
@@ -234,11 +288,17 @@ export function ReviewCardApproval({
 	onApprove,
 	onDeny,
 	onRewind,
+	onRequestFixes,
 }: ReviewCardApprovalProps) {
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(reviewCard.status === "pending");
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
 	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
+	const [requestFixesDialogOpen, setRequestFixesDialogOpen] = useState(false);
+	const [selectedCommentIds, setSelectedCommentIds] = useState<Set<string>>(
+		new Set(),
+	);
+	const [fixesSummary, setFixesSummary] = useState("");
 
 	// Collapse when status changes from pending
 	useEffect(() => {
@@ -280,6 +340,19 @@ export function ReviewCardApproval({
 	);
 
 	const totalComments = reviewCard.comments.length;
+	const selectedCount = selectedCommentIds.size;
+
+	const handleToggleComment = (commentId: string) => {
+		setSelectedCommentIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(commentId)) {
+				next.delete(commentId);
+			} else {
+				next.add(commentId);
+			}
+			return next;
+		});
+	};
 
 	const handleCopyMarkdown = async () => {
 		const markdown = reviewCardToMarkdown(reviewCard);
@@ -321,6 +394,22 @@ export function ReviewCardApproval({
 		}
 	};
 
+	const handleRequestFixes = async () => {
+		if (selectedCommentIds.size === 0 || !onRequestFixes) return;
+		setIsSubmitting(true);
+		try {
+			await onRequestFixes(
+				Array.from(selectedCommentIds),
+				fixesSummary.trim() || undefined,
+			);
+			setRequestFixesDialogOpen(false);
+			setFixesSummary("");
+			setSelectedCommentIds(new Set());
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
 	return (
 		<>
 			<Card className={cn("mx-4 my-4", STATUS_STYLES[reviewCard.status])}>
@@ -343,6 +432,15 @@ export function ReviewCardApproval({
 							{totalComments > 0 && (
 								<Badge variant="secondary" className="text-xs">
 									{totalComments} comment{totalComments !== 1 ? "s" : ""}
+								</Badge>
+							)}
+							{selectedCount > 0 && (
+								<Badge
+									variant="outline"
+									className="text-xs text-primary border-primary/50 bg-primary/10"
+								>
+									<CheckSquare className="size-3 mr-1" />
+									{selectedCount} selected
 								</Badge>
 							)}
 							{reviewCard.recommendation &&
@@ -374,6 +472,7 @@ export function ReviewCardApproval({
 											<DiffViewerModal
 												diff={diff}
 												comments={reviewCard.comments}
+												workflowId={reviewCard.workflowId}
 												trigger={
 													<Button
 														variant="ghost"
@@ -407,6 +506,20 @@ export function ReviewCardApproval({
 						</div>
 						{canApprove && (
 							<div className="flex items-center gap-2">
+								{onRequestFixes && (
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => setRequestFixesDialogOpen(true)}
+										disabled={isSubmitting || selectedCount === 0}
+										className="text-amber-600 hover:text-amber-600"
+									>
+										<AlertTriangle className="size-4 mr-1" />
+										{selectedCount > 0
+											? `Request Fixes (${selectedCount})`
+											: "Request Fixes"}
+									</Button>
+								)}
 								<Button
 									variant="outline"
 									size="sm"
@@ -446,16 +559,28 @@ export function ReviewCardApproval({
 									title="Line Comments"
 									icon={MessageSquare}
 									comments={lineComments}
+									selectedCommentIds={
+										canApprove ? selectedCommentIds : undefined
+									}
+									onToggleComment={canApprove ? handleToggleComment : undefined}
 								/>
 								<CommentSection
 									title="File Comments"
 									icon={FileText}
 									comments={fileComments}
+									selectedCommentIds={
+										canApprove ? selectedCommentIds : undefined
+									}
+									onToggleComment={canApprove ? handleToggleComment : undefined}
 								/>
 								<CommentSection
 									title="Review Comments"
 									icon={Eye}
 									comments={reviewComments}
+									selectedCommentIds={
+										canApprove ? selectedCommentIds : undefined
+									}
+									onToggleComment={canApprove ? handleToggleComment : undefined}
 								/>
 							</div>
 						) : (
@@ -530,6 +655,44 @@ export function ReviewCardApproval({
 						>
 							<RotateCcw className="size-4 mr-1" />
 							Rerun Review
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Request Fixes Dialog */}
+			<Dialog
+				open={requestFixesDialogOpen}
+				onOpenChange={setRequestFixesDialogOpen}
+			>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Request Fixes</DialogTitle>
+						<DialogDescription>
+							{selectedCount} comment{selectedCount !== 1 ? "s" : ""} selected
+							to be addressed.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="py-4">
+						<Textarea
+							value={fixesSummary}
+							onChange={(e) => setFixesSummary(e.target.value)}
+							placeholder="Optional: Add any additional context or instructions..."
+							rows={4}
+							autoFocus
+						/>
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setRequestFixesDialogOpen(false)}
+							disabled={isSubmitting}
+						>
+							Cancel
+						</Button>
+						<Button onClick={handleRequestFixes} disabled={isSubmitting}>
+							Submit
 						</Button>
 					</DialogFooter>
 				</DialogContent>

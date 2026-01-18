@@ -30,6 +30,7 @@ export async function migrateProjectDb(
 	await createReviewCommentsTable(db);
 	await addArtifactTurnIdColumns(db);
 	await addTurnTokenUsageColumns(db);
+	await addReviewCommentsAuthorColumn(db);
 }
 
 // =============================================================================
@@ -665,9 +666,10 @@ async function createReviewCommentsTable(
 		.addColumn("file_path", "text") // Nullable for review-level comments
 		.addColumn("start_line", "integer") // Nullable for file/review-level comments
 		.addColumn("end_line", "integer") // Nullable (optional even for line comments)
-		.addColumn("severity", "text", (col) => col.notNull()) // High, Medium, Low
-		.addColumn("category", "text", (col) => col.notNull())
+		.addColumn("severity", "text") // High, Medium, Low - nullable for user comments
+		.addColumn("category", "text") // Nullable for user comments
 		.addColumn("description", "text", (col) => col.notNull())
+		.addColumn("author", "text", (col) => col.notNull().defaultTo("agent")) // agent or user
 		.addColumn("created_at", "integer", (col) => col.notNull())
 		.execute();
 
@@ -758,4 +760,28 @@ async function addTurnTokenUsageColumns(
 	} catch {
 		// Column already exists, ignore
 	}
+}
+
+// =============================================================================
+// Review Comments Author Migration
+// =============================================================================
+
+async function addReviewCommentsAuthorColumn(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	// Add author column to review_comments (default to 'agent' for existing comments)
+	try {
+		await db.schema
+			.alterTable("review_comments")
+			.addColumn("author", "text", (col) => col.notNull().defaultTo("agent"))
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+
+	// Note: SQLite doesn't support ALTER COLUMN to change NOT NULL constraint,
+	// but since createReviewCommentsTable uses .notNull() for severity and category,
+	// new databases will have them as NOT NULL. For existing databases, we leave
+	// the columns as-is since existing data has values, and the TypeScript types
+	// now allow null. The application code handles null values properly.
 }

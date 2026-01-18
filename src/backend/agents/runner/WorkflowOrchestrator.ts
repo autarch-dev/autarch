@@ -373,6 +373,156 @@ export class WorkflowOrchestrator {
 	}
 
 	/**
+	 * User requests fixes for selected review comments → creates fix pulse and restarts execution
+	 *
+	 * @param workflowId - The workflow to request fixes for
+	 * @param commentIds - IDs of comments to address in the fix pulse
+	 * @param summary - Optional summary from user describing the fixes
+	 */
+	async requestFixes(
+		workflowId: string,
+		commentIds: string[],
+		summary?: string,
+	): Promise<void> {
+		const workflow = await this.workflowRepo.getById(workflowId);
+		if (!workflow) {
+			throw new Error(`Workflow not found: ${workflowId}`);
+		}
+
+		if (workflow.status !== "review") {
+			throw new Error(
+				`Workflow ${workflowId} is not in review stage (current: ${workflow.status})`,
+			);
+		}
+
+		if (!workflow.awaitingApproval) {
+			throw new Error(
+				`Workflow ${workflowId} is not awaiting approval - review may not be complete`,
+			);
+		}
+
+		// Fetch the selected comments
+		const comments = await this.artifactRepo.getCommentsByIds(commentIds);
+		if (comments.length === 0) {
+			throw new Error("No valid comments found for the provided IDs");
+		}
+
+		// Format the fix description from comments
+		let fixDescription = "## Fix Request\n\n";
+
+		if (summary) {
+			fixDescription += `### Summary\n${summary}\n\n`;
+		}
+
+		fixDescription += "### Comments to Address\n\n";
+
+		for (const comment of comments) {
+			fixDescription += `#### ${comment.type === "line" ? `Line Comment` : comment.type === "file" ? `File Comment` : `Review Comment`}`;
+			if (comment.filePath) {
+				fixDescription += ` - \`${comment.filePath}\``;
+				if (comment.startLine) {
+					fixDescription += `:${comment.startLine}`;
+					if (comment.endLine && comment.endLine !== comment.startLine) {
+						fixDescription += `-${comment.endLine}`;
+					}
+				}
+			}
+			fixDescription += "\n";
+
+			if (comment.severity) {
+				fixDescription += `**Severity:** ${comment.severity}\n`;
+			}
+			if (comment.category) {
+				fixDescription += `**Category:** ${comment.category}\n`;
+			}
+			fixDescription += `**Author:** ${comment.author}\n`;
+			fixDescription += `\n${comment.description}\n\n`;
+		}
+
+		// Stop current session if any
+		if (workflow.currentSessionId) {
+			await this.sessionManager.stopSession(workflow.currentSessionId);
+		}
+
+		// Create an ad-hoc fix pulse (no plannedPulseId)
+		const fixPulse = await this.pulseRepo.createPulse({
+			workflowId,
+			description: fixDescription,
+		});
+
+		log.workflow.info(
+			`Created fix pulse ${fixPulse.id} for workflow ${workflowId} with ${comments.length} comments`,
+		);
+
+		// Transition back to in_progress stage
+		await this.workflowRepo.transitionStage(workflowId, "in_progress", null);
+
+		// Start the fix pulse
+		const projectRoot = findRepoRoot(process.cwd());
+		const worktreePath = getWorktreePath(projectRoot, workflowId);
+
+		const startedPulse = await this.pulseOrchestrator.startNextPulse(
+			workflowId,
+			worktreePath,
+		);
+
+		if (!startedPulse) {
+			log.workflow.error(
+				`Failed to start fix pulse for workflow ${workflowId}`,
+			);
+			throw new Error("Failed to start fix pulse");
+		}
+
+		// Create fresh execution session for the fix pulse
+		const session = await this.sessionManager.startSession({
+			contextType: "workflow",
+			contextId: workflowId,
+			agentRole: "execution",
+		});
+
+		// Update workflow with new session
+		await this.workflowRepo.setCurrentSession(workflowId, session.id);
+
+		// Build initial message for the fix pulse
+		const initialMessage = await this.buildPulseInitialMessage(
+			workflowId,
+			startedPulse,
+		);
+
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			conversationRepo: this.conversationRepo,
+			worktreePath,
+		});
+
+		log.workflow.info(
+			`Starting execution agent for fix pulse ${startedPulse.id} in workflow ${workflowId}`,
+		);
+
+		// Broadcast stage change event
+		broadcast(
+			createWorkflowStageChangedEvent({
+				workflowId,
+				previousStage: "review",
+				newStage: "in_progress",
+				sessionId: session.id,
+			}),
+		);
+
+		// Run in background (non-blocking)
+		runner.run(initialMessage, { hidden: true }).catch((error) => {
+			log.workflow.error(
+				`Execution agent failed for fix pulse ${startedPulse.id}:`,
+				error,
+			);
+			this.errorWorkflow(
+				workflowId,
+				error instanceof Error ? error.message : "Unknown error",
+			);
+		});
+	}
+
+	/**
 	 * Update the status of the latest artifact of a given type
 	 */
 	private async updateLatestArtifactStatus(

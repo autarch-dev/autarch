@@ -29,6 +29,19 @@ const RewindRequestSchema = z.object({
 	targetStage: RewindTargetSchema,
 });
 
+const CreateUserCommentSchema = z.object({
+	type: z.enum(["line", "file", "review"]),
+	filePath: z.string().optional(),
+	startLine: z.number().optional(),
+	endLine: z.number().optional(),
+	description: z.string().min(1),
+});
+
+const RequestFixesSchema = z.object({
+	commentIds: z.array(z.string().min(1)).min(1),
+	summary: z.string().optional(),
+});
+
 const IdParamSchema = z.object({
 	id: z.string().min(1),
 });
@@ -415,6 +428,103 @@ export const workflowRoutes = {
 				return Response.json({ diff: diffContent ?? "" });
 			} catch (error) {
 				log.api.error("Failed to get diff:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/workflows/:id/review-comments": {
+		async POST(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			try {
+				const body = await req.json();
+				const parsed = CreateUserCommentSchema.safeParse(body);
+				if (!parsed.success) {
+					return Response.json(
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
+						{ status: 400 },
+					);
+				}
+
+				const repos = getRepositories();
+
+				// Get the latest review card for this workflow
+				const reviewCard = await repos.artifacts.getLatestReviewCard(params.id);
+				if (!reviewCard) {
+					return Response.json(
+						{ error: "No review card found for this workflow" },
+						{ status: 404 },
+					);
+				}
+
+				// Create the user comment with author='user' and null severity/category
+				const comment = await repos.artifacts.createReviewComment({
+					reviewCardId: reviewCard.id,
+					type: parsed.data.type,
+					filePath: parsed.data.filePath,
+					startLine: parsed.data.startLine,
+					endLine: parsed.data.endLine,
+					severity: undefined,
+					category: undefined,
+					description: parsed.data.description,
+					author: "user",
+				});
+
+				log.api.success(
+					`Created user comment ${comment.id} for workflow ${params.id}`,
+				);
+				return Response.json(comment, { status: 201 });
+			} catch (error) {
+				log.api.error("Failed to create user comment:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/workflows/:id/request-fixes": {
+		async POST(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			try {
+				const body = await req.json();
+				const parsed = RequestFixesSchema.safeParse(body);
+				if (!parsed.success) {
+					return Response.json(
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
+						{ status: 400 },
+					);
+				}
+
+				const orchestrator = getWorkflowOrchestrator();
+				await orchestrator.requestFixes(
+					params.id,
+					parsed.data.commentIds,
+					parsed.data.summary,
+				);
+
+				log.api.success(
+					`Requested fixes for workflow ${params.id} with ${parsed.data.commentIds.length} comments`,
+				);
+				return Response.json({ success: true });
+			} catch (error) {
+				log.api.error("Failed to request fixes:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },

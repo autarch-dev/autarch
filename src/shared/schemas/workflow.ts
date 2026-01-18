@@ -35,7 +35,11 @@ export type ArtifactStatus = z.infer<typeof ArtifactStatusSchema>;
 // Rewind Target
 // =============================================================================
 
-export const RewindTargetSchema = z.enum(["researching", "planning", "in_progress", "review"]);
+export const RewindTargetSchema = z.enum([
+	"researching",
+	"planning",
+	"in_progress", "review",
+]);
 export type RewindTarget = z.infer<typeof RewindTargetSchema>;
 
 // =============================================================================
@@ -164,6 +168,9 @@ export type ReviewCommentType = z.infer<typeof ReviewCommentTypeSchema>;
 export const ReviewCommentSeveritySchema = z.enum(["High", "Medium", "Low"]);
 export type ReviewCommentSeverity = z.infer<typeof ReviewCommentSeveritySchema>;
 
+export const ReviewCommentAuthorSchema = z.enum(["agent", "user"]);
+export type ReviewCommentAuthor = z.infer<typeof ReviewCommentAuthorSchema>;
+
 export const ReviewCommentSchema = z.object({
 	id: z.string(),
 	reviewCardId: z.string(),
@@ -175,12 +182,14 @@ export const ReviewCommentSchema = z.object({
 	startLine: z.number().optional(),
 	/** Ending line number - optional, for multi-line comments */
 	endLine: z.number().optional(),
-	/** Severity: High, Medium, Low */
-	severity: ReviewCommentSeveritySchema,
-	/** Category (e.g., security, performance, style, bug, architecture) */
-	category: z.string(),
+	/** Severity: High, Medium, Low - optional for user comments */
+	severity: z.optional(ReviewCommentSeveritySchema),
+	/** Category (e.g., security, performance, style, bug, architecture) - optional for user comments */
+	category: z.optional(z.string()),
 	/** The comment description/content */
 	description: z.string(),
+	/** Author of the comment: agent or user */
+	author: ReviewCommentAuthorSchema.default("agent"),
 	createdAt: z.number(),
 });
 export type ReviewComment = z.infer<typeof ReviewCommentSchema>;

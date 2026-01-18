@@ -100,9 +100,10 @@ export interface CreateReviewCommentData {
 	filePath?: string;
 	startLine?: number;
 	endLine?: number;
-	severity: ReviewCommentSeverity;
-	category: string;
+	severity?: ReviewCommentSeverity;
+	category?: string;
 	description: string;
+	author?: "agent" | "user";
 }
 
 // =============================================================================
@@ -449,9 +450,10 @@ export class ArtifactRepository implements Repository {
 			filePath: row.file_path ?? undefined,
 			startLine: row.start_line ?? undefined,
 			endLine: row.end_line ?? undefined,
-			severity: row.severity,
-			category: row.category,
+			severity: row.severity ?? undefined,
+			category: row.category ?? undefined,
 			description: row.description,
+			author: (row.author as "agent" | "user") ?? "agent",
 			createdAt: row.created_at,
 		};
 	}
@@ -639,9 +641,10 @@ export class ArtifactRepository implements Repository {
 				file_path: data.filePath ?? null,
 				start_line: data.startLine ?? null,
 				end_line: data.endLine ?? null,
-				severity: data.severity,
-				category: data.category,
+				severity: data.severity ?? null,
+				category: data.category ?? null,
 				description: data.description,
+				author: data.author ?? "agent",
 				created_at: now,
 			})
 			.execute();
@@ -707,6 +710,24 @@ export class ArtifactRepository implements Repository {
 			})
 			.where("id", "=", reviewCardId)
 			.execute();
+	}
+
+	/**
+	 * Get comments by their IDs (for fetching selected comments for fix requests)
+	 */
+	async getCommentsByIds(ids: string[]): Promise<ReviewComment[]> {
+		if (ids.length === 0) {
+			return [];
+		}
+
+		const rows = await this.db
+			.selectFrom("review_comments")
+			.selectAll()
+			.where("id", "in", ids)
+			.orderBy("created_at", "asc")
+			.execute();
+
+		return rows.map((row) => this.toReviewComment(row));
 	}
 
 	// ===========================================================================
