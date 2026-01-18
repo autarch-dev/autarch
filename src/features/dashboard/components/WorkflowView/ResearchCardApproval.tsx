@@ -19,6 +19,7 @@ import {
 	Layers,
 	Lightbulb,
 	Package,
+	RotateCcw,
 	Search,
 	XCircle,
 } from "lucide-react";
@@ -53,6 +54,7 @@ interface ResearchCardApprovalProps {
 	researchCard: ResearchCard;
 	onApprove?: () => Promise<void>;
 	onDeny?: (feedback: string) => Promise<void>;
+	onRewind?: () => Promise<void>;
 }
 
 const STATUS_STYLES = {
@@ -124,6 +126,7 @@ export function ResearchCardApproval({
 	researchCard,
 	onApprove,
 	onDeny,
+	onRewind,
 }: ResearchCardApprovalProps) {
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(
@@ -137,12 +140,15 @@ export function ResearchCardApproval({
 			setIsExpanded(false);
 		}
 	}, [researchCard.status]);
+	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [copied, setCopied] = useState(false);
 
 	const isPending = researchCard.status === "pending";
+	const isApproved = researchCard.status === "approved";
 	const canApprove = isPending && onApprove && onDeny;
+	const canRewind = isApproved && onRewind;
 
 	const handleCopyMarkdown = async () => {
 		const markdown = researchCardToMarkdown(researchCard);
@@ -168,6 +174,17 @@ export function ResearchCardApproval({
 			await onDeny(feedback.trim());
 			setDenyDialogOpen(false);
 			setFeedback("");
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleRewind = async () => {
+		if (!onRewind) return;
+		setIsSubmitting(true);
+		try {
+			await onRewind();
+			setRewindDialogOpen(false);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -212,6 +229,21 @@ export function ResearchCardApproval({
 									{copied ? "Copied!" : "Copy as Markdown"}
 								</TooltipContent>
 							</Tooltip>
+							{canRewind && (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant="ghost"
+											size="icon-sm"
+											onClick={() => setRewindDialogOpen(true)}
+											className="text-muted-foreground hover:text-foreground"
+										>
+											<RotateCcw className="size-4" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Rewind to Planning</TooltipContent>
+								</Tooltip>
+							)}
 						</div>
 						{canApprove && (
 							<div className="flex items-center gap-2">
@@ -461,6 +493,37 @@ export function ResearchCardApproval({
 							disabled={isSubmitting || !feedback.trim()}
 						>
 							Submit Feedback
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Rewind Confirmation Dialog */}
+			<Dialog open={rewindDialogOpen} onOpenChange={setRewindDialogOpen}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Rewind to Planning</DialogTitle>
+						<DialogDescription>
+							This will discard all plans and execution progress. The workflow
+							will restart from the planning phase using this research.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setRewindDialogOpen(false)}
+							disabled={isSubmitting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleRewind}
+							disabled={isSubmitting}
+						>
+							<RotateCcw className="size-4 mr-1" />
+							Rewind
 						</Button>
 					</DialogFooter>
 				</DialogContent>

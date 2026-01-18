@@ -140,6 +140,11 @@ export function WorkflowView({
 						onDeny={
 							artifact.data.status === "pending" ? onRequestChanges : undefined
 						}
+						onRewind={
+							artifact.data.status === "approved" && onRewind
+								? () => onRewind("planning")
+								: undefined
+						}
 					/>
 				);
 			case "plan":

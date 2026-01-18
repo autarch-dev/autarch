@@ -1298,6 +1298,8 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 		// Route to appropriate rewind handler
 		if (targetStage === "researching") {
 			await this.rewindToResearchingImpl(workflowId, projectRoot);
+		} else if (targetStage === "planning") {
+			await this.rewindToPlanningImpl(workflowId, projectRoot);
 		} else if (targetStage === "in_progress") {
 			await this.rewindToExecutionImpl(workflowId, projectRoot);
 		}
@@ -1387,6 +1389,130 @@ When ready, submit your research findings using the \`submit_research\` tool.`;
 		runner.run(initialMessage, { hidden: true }).catch((error) => {
 			log.workflow.error(
 				`Research agent failed after rewind for workflow ${workflowId}:`,
+				error,
+			);
+			this.errorWorkflow(
+				workflowId,
+				error instanceof Error ? error.message : "Unknown error",
+			);
+		});
+	}
+
+	/**
+	 * Implementation for rewinding to planning stage
+	 */
+	private async rewindToPlanningImpl(
+		workflowId: string,
+		projectRoot: string,
+	): Promise<void> {
+		const repos = getRepositories();
+
+		// Delete all artifacts after research: plans, review cards
+		// Keep scope cards and research cards
+		await this.artifactRepo.deletePlansByWorkflow(workflowId);
+		await this.artifactRepo.deleteReviewCardsByWorkflow(workflowId);
+
+		// Delete all sessions after research
+		const deletedCount = await repos.sessions.deleteByContextAndRoles(
+			"workflow",
+			workflowId,
+			["planning", "preflight", "execution", "review"],
+		);
+		log.workflow.info(
+			`Deleted ${deletedCount} post-research sessions for workflow ${workflowId}`,
+		);
+
+		// Update workflow status to planning
+		await this.workflowRepo.transitionStage(workflowId, "planning", null);
+
+		// Start the planning agent
+		const session = await this.sessionManager.startSession({
+			contextType: "workflow",
+			contextId: workflowId,
+			agentRole: "planning",
+		});
+
+		await this.workflowRepo.setCurrentSession(workflowId, session.id);
+
+		// Build initial message for planning agent (needs both scope and research)
+		const scopeCard = await this.artifactRepo.getLatestScopeCard(workflowId);
+		const researchCard =
+			await this.artifactRepo.getLatestResearchCard(workflowId);
+
+		if (!scopeCard) {
+			throw new Error(`No scope card found for workflow ${workflowId}`);
+		}
+
+		if (!researchCard) {
+			throw new Error(`No research card found for workflow ${workflowId}`);
+		}
+
+		// Build message with BOTH scope and research context
+		let initialMessage = `## Planning Phase (Restarted)
+
+The workflow has been rewound to restart planning from the approved research.
+
+## Approved Scope
+
+### Title
+${scopeCard.title}
+
+### Description
+${scopeCard.description}
+
+### In Scope
+${scopeCard.inScope.map((item) => `- ${item}`).join("\n")}
+
+### Out of Scope
+${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
+
+		if (scopeCard.constraints && scopeCard.constraints.length > 0) {
+			initialMessage += `\n\n### Constraints\n${scopeCard.constraints.map((item) => `- ${item}`).join("\n")}`;
+		}
+
+		initialMessage += `\n\n---\n\n## Approved Research Findings
+
+### Summary
+${researchCard.summary}
+
+### Key Files
+${researchCard.keyFiles.map((f) => `- \`${f.path}\`: ${f.purpose}`).join("\n")}
+
+### Recommendations
+${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
+
+		if (researchCard.patterns && researchCard.patterns.length > 0) {
+			initialMessage += `\n\n### Patterns\n${researchCard.patterns.map((p) => `- **${p.category}**: ${p.description}`).join("\n")}`;
+		}
+
+		if (researchCard.challenges && researchCard.challenges.length > 0) {
+			initialMessage += `\n\n### Challenges\n${researchCard.challenges.map((c) => `- **${c.issue}**: ${c.mitigation}`).join("\n")}`;
+		}
+
+		initialMessage += `\n\n---\n\n### Your Task
+
+Create a detailed execution plan that breaks the implementation into discrete pulses.
+When ready, submit your plan using the \`submit_plan\` tool.`;
+
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			conversationRepo: this.conversationRepo,
+		});
+
+		log.workflow.info(`Starting planning agent for workflow ${workflowId}`);
+
+		broadcast(
+			createWorkflowStageChangedEvent({
+				workflowId,
+				previousStage: "researching",
+				newStage: "planning",
+				sessionId: session.id,
+			}),
+		);
+
+		runner.run(initialMessage, { hidden: true }).catch((error) => {
+			log.workflow.error(
+				`Planning agent failed after rewind for workflow ${workflowId}:`,
 				error,
 			);
 			this.errorWorkflow(
