@@ -8,8 +8,11 @@
  * - Spawning appropriate agents for each stage
  */
 
+import { generateObject } from "ai";
+import { z } from "zod";
 import { cleanupWorkflow, findRepoRoot, getCurrentBranch } from "@/backend/git";
 import { getWorktreePath } from "@/backend/git/worktree";
+import { getModelForScenario } from "@/backend/llm/models";
 import { log } from "@/backend/logger";
 import {
 	type ArtifactRepository,
@@ -1177,6 +1180,52 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 	 */
 	private getAgentForStage(stage: WorkflowStatus): AgentRole {
 		return STAGE_TO_AGENT[stage];
+	}
+
+	/**
+	 * Generate a title and description from a user prompt using LLM.
+	 *
+	 * @param prompt - The user's initial message/prompt
+	 * @returns Generated title (lowercase-hyphenated slug) and description
+	 * @throws Error with user-friendly message if generation fails
+	 */
+	private async generateTitleAndDescription(
+		prompt: string,
+	): Promise<{ title: string; description: string }> {
+		try {
+			const { model } = await getModelForScenario("basic");
+
+			const { object } = await generateObject({
+				model,
+				schema: z.object({
+					title: z
+						.string()
+						.describe(
+							"A lowercase hyphenated slug title like 'add-user-auth-oauth' or 'fix-navbar-alignment'. Should be concise (2-5 words).",
+						),
+					description: z
+						.string()
+						.describe(
+							"A brief one-sentence description of the task that captures the main objective.",
+						),
+				}),
+				system:
+					"You are a helpful assistant that generates concise workflow titles and descriptions from user prompts. " +
+					"The title should be a lowercase hyphenated slug suitable for use as an identifier (e.g., 'add-user-auth-oauth', 'fix-navbar-alignment', 'update-api-endpoints'). " +
+					"The description should be a single sentence that clearly explains what the task aims to accomplish.",
+				prompt: `Generate a title and description for the following task:\n\n${prompt}`,
+			});
+
+			return object;
+		} catch (error) {
+			log.workflow.error(
+				"Failed to generate workflow title and description:",
+				error,
+			);
+			throw new Error(
+				"Failed to generate workflow title. Please check your API key configuration and try again.",
+			);
+		}
 	}
 
 	/**
