@@ -1,13 +1,4 @@
-import { SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo } from "react";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -15,10 +6,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import {
-	ALL_MODELS,
-	SCENARIOS,
-} from "@/features/onboarding/components/Wizard/models";
+import { ALL_MODELS } from "@/features/onboarding/components/Wizard/models";
 import {
 	MODEL_SCENARIO_DESCRIPTIONS,
 	MODEL_SCENARIO_LABELS,
@@ -59,51 +47,131 @@ export function ModelPreferencesSection() {
 		await saveModelPreferences(updatedPrefs);
 	};
 
-	return (
-		<Card>
-			<CardHeader>
-				<CardTitle className="flex items-center gap-2 text-xl">
-					<SlidersHorizontal className="h-5 w-5" />
+	if (availableModels.length === 0 && !isLoading) {
+		return (
+			<section>
+				<h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-500 mb-4">
 					Model Preferences
-				</CardTitle>
-				<CardDescription>
-					Choose which AI model to use for each agent. Changes are saved
-					automatically.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="space-y-4">
-				{SCENARIOS.map((scenario) => (
-					<div key={scenario} className="space-y-2">
-						<Label htmlFor={`model-${scenario}`}>
-							{MODEL_SCENARIO_LABELS[scenario]}
-						</Label>
-						<p className="text-xs text-muted-foreground">
-							{MODEL_SCENARIO_DESCRIPTIONS[scenario]}
-						</p>
-						<Select
-							value={modelPreferences?.[scenario] ?? ""}
-							onValueChange={(value) => handleChange(scenario, value)}
-							disabled={isLoading || availableModels.length === 0}
-						>
-							<SelectTrigger id={`model-${scenario}`} className="w-full">
-								<SelectValue placeholder="Select a model" />
-							</SelectTrigger>
-							<SelectContent>
-								{availableModels.map((model) => (
-									<SelectItem key={model.value} value={model.value}>
-										{model.label}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
-				))}
-				{availableModels.length === 0 && !isLoading && (
-					<p className="text-sm text-amber-600 dark:text-amber-400">
-						No models available. Configure at least one API key above.
+				</h3>
+				<div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-4">
+					<p className="text-sm text-amber-400">
+						Configure at least one API key to select models.
 					</p>
-				)}
-			</CardContent>
-		</Card>
+				</div>
+			</section>
+		);
+	}
+
+	const workflowScenarios: ModelScenario[] = [
+		"scoping",
+		"research",
+		"planning",
+		"execution",
+		"review",
+	];
+
+	return (
+		<section>
+			<div className="mb-6">
+				<h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+					Model Preferences
+				</h3>
+				<p className="text-xs text-zinc-600">
+					Choose which model to use for each agent type
+				</p>
+			</div>
+
+			<div className="space-y-6">
+				{/* Basic Tasks */}
+				<ModelRow
+					scenario="basic"
+					value={modelPreferences?.basic}
+					availableModels={availableModels}
+					onChange={(value) => handleChange("basic", value)}
+					disabled={isLoading}
+				/>
+
+				<div className="border-t border-zinc-800/50" />
+
+				{/* Discussion Channels */}
+				<ModelRow
+					scenario="discussion"
+					value={modelPreferences?.discussion}
+					availableModels={availableModels}
+					onChange={(value) => handleChange("discussion", value)}
+					disabled={isLoading}
+				/>
+
+				<div className="border-t border-zinc-800/50" />
+
+				{/* Workflow Agents */}
+				<div className="space-y-4">
+					<p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+						Workflow Agents
+					</p>
+					{workflowScenarios.map((scenario) => (
+						<ModelRow
+							key={scenario}
+							scenario={scenario}
+							value={modelPreferences?.[scenario]}
+							availableModels={availableModels}
+							onChange={(value) => handleChange(scenario, value)}
+							disabled={isLoading}
+						/>
+					))}
+				</div>
+			</div>
+		</section>
+	);
+}
+
+interface ModelRowProps {
+	scenario: ModelScenario;
+	value?: string;
+	availableModels: { value: string; label: string }[];
+	onChange: (value: string) => void;
+	disabled: boolean;
+}
+
+function ModelRow({
+	scenario,
+	value,
+	availableModels,
+	onChange,
+	disabled,
+}: ModelRowProps) {
+	return (
+		<div className="group">
+			<div className="flex items-center justify-between gap-4">
+				<div className="min-w-0 flex-1">
+					<div className="text-sm font-medium text-zinc-200">
+						{MODEL_SCENARIO_LABELS[scenario]}
+					</div>
+					<div className="text-xs text-zinc-500">
+						{MODEL_SCENARIO_DESCRIPTIONS[scenario]}
+					</div>
+				</div>
+				<Select
+					value={value ?? ""}
+					onValueChange={onChange}
+					disabled={disabled || availableModels.length === 0}
+				>
+					<SelectTrigger className="w-[180px] h-8 text-xs bg-zinc-900 border-zinc-700 text-zinc-200 focus:border-zinc-500 [&>span]:truncate">
+						<SelectValue placeholder="Select model" />
+					</SelectTrigger>
+					<SelectContent className="bg-zinc-900 border-zinc-700">
+						{availableModels.map((model) => (
+							<SelectItem
+								key={model.value}
+								value={model.value}
+								className="text-xs text-zinc-200 focus:bg-zinc-800 focus:text-zinc-100"
+							>
+								{model.label}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</div>
+		</div>
 	);
 }

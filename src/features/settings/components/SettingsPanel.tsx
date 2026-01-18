@@ -5,6 +5,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSettings } from "../hooks/useSettings";
 import { ApiProviderKeysSection } from "./ApiProviderKeysSection";
 import { IntegrationsSection } from "./IntegrationsSection";
@@ -30,15 +31,35 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="overflow-y-auto sm:max-w-xl">
-				<SheetHeader>
-					<SheetTitle>Settings</SheetTitle>
+			<SheetContent
+				side="right"
+				className="w-full overflow-y-auto sm:max-w-lg border-l-0 bg-zinc-950 p-6"
+			>
+				<SheetHeader className="pb-2">
+					<SheetTitle className="text-xl font-medium tracking-tight text-zinc-100">
+						Settings
+					</SheetTitle>
 				</SheetHeader>
-				<div className="flex flex-col gap-6 py-4">
-					<ApiProviderKeysSection />
-					<ModelPreferencesSection />
-					<IntegrationsSection />
-				</div>
+
+				<Tabs defaultValue="keys" className="w-full">
+					<TabsList className="w-full bg-zinc-900/50">
+						<TabsTrigger value="keys" className="flex-1">
+							API Keys
+						</TabsTrigger>
+						<TabsTrigger value="models" className="flex-1">
+							Models
+						</TabsTrigger>
+					</TabsList>
+
+					<TabsContent value="keys" className="mt-6 space-y-6">
+						<ApiProviderKeysSection />
+						<IntegrationsSection />
+					</TabsContent>
+
+					<TabsContent value="models" className="mt-6">
+						<ModelPreferencesSection />
+					</TabsContent>
+				</Tabs>
 			</SheetContent>
 		</Sheet>
 	);
