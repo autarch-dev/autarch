@@ -21,6 +21,8 @@ export interface ToolContext {
 	workflowId?: string;
 	/** Current session ID */
 	sessionId?: string;
+	/** Current turn ID (for artifact timeline ordering) */
+	turnId?: string;
 	/** Path to isolated worktree (for pulsing agent) */
 	worktreePath?: string;
 	/** Current channel ID (if in a channel context) */

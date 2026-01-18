@@ -28,6 +28,7 @@ export async function migrateProjectDb(
 	await addBaseBranchColumn(db);
 	await createReviewCardsTable(db);
 	await createReviewCommentsTable(db);
+	await addArtifactTurnIdColumns(db);
 }
 
 // =============================================================================
@@ -676,4 +677,52 @@ async function createReviewCommentsTable(
 		.on("review_comments")
 		.column("review_card_id")
 		.execute();
+}
+
+// =============================================================================
+// Artifact Turn ID Migration
+// =============================================================================
+
+async function addArtifactTurnIdColumns(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	// Add turn_id column to scope_cards
+	try {
+		await db.schema
+			.alterTable("scope_cards")
+			.addColumn("turn_id", "text")
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+
+	// Add turn_id column to research_cards
+	try {
+		await db.schema
+			.alterTable("research_cards")
+			.addColumn("turn_id", "text")
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+
+	// Add turn_id column to plans
+	try {
+		await db.schema
+			.alterTable("plans")
+			.addColumn("turn_id", "text")
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+
+	// Add turn_id column to review_cards
+	try {
+		await db.schema
+			.alterTable("review_cards")
+			.addColumn("turn_id", "text")
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
 }

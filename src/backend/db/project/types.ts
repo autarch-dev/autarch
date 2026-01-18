@@ -108,6 +108,8 @@ export type ScopeComplexity =
 export interface ScopeCardsTable {
 	id: string;
 	workflow_id: string;
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turn_id: string | null;
 	title: string;
 	description: string;
 	in_scope_json: string; // JSON array of strings
@@ -126,6 +128,8 @@ export interface ScopeCardsTable {
 export interface ResearchCardsTable {
 	id: string;
 	workflow_id: string;
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turn_id: string | null;
 	summary: string;
 	key_files_json: string; // JSON array of { path, purpose, lineRanges? }
 	patterns_json: string | null; // JSON array of patterns
@@ -144,6 +148,8 @@ export interface ResearchCardsTable {
 export interface PlansTable {
 	id: string;
 	workflow_id: string;
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turn_id: string | null;
 	approach_summary: string;
 	pulses_json: string; // JSON array of pulse definitions
 	status: ArtifactStatus;
@@ -344,6 +350,8 @@ export type ReviewRecommendation = "approve" | "deny" | "manual_review";
 export interface ReviewCardsTable {
 	id: string;
 	workflow_id: string;
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turn_id: string | null;
 	/** Recommendation from review agent - nullable until completeReview is called */
 	recommendation: ReviewRecommendation | null;
 	/** Summary from review agent - nullable until completeReview is called */

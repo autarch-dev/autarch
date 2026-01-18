@@ -42,13 +42,12 @@ interface WorkflowViewProps {
 	onRewind?: () => Promise<void>;
 }
 
-/** Timeline item types for rendering */
-type TimelineItem =
-	| { type: "message"; data: ChannelMessage; timestamp: number }
-	| { type: "scope_card"; data: ScopeCard; timestamp: number }
-	| { type: "research_card"; data: ResearchCard; timestamp: number }
-	| { type: "plan"; data: Plan; timestamp: number }
-	| { type: "review_card"; data: ReviewCard; timestamp: number };
+/** Artifact for a turn (only one per turn) */
+type TurnArtifact =
+	| { type: "scope_card"; data: ScopeCard }
+	| { type: "research_card"; data: ResearchCard }
+	| { type: "plan"; data: Plan }
+	| { type: "review_card"; data: ReviewCard };
 
 export function WorkflowView({
 	workflow,
@@ -65,110 +64,79 @@ export function WorkflowView({
 }: WorkflowViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
-	// Build a unified timeline sorted by timestamp
-	const timeline = useMemo((): TimelineItem[] => {
-		const items: TimelineItem[] = [];
+	// Build a map of turnId -> artifact (one artifact per turn max)
+	const artifactsByTurn = useMemo(() => {
+		const map = new Map<string, TurnArtifact>();
 
-		// Add messages
-		for (const message of messages) {
-			items.push({
-				type: "message",
-				data: message,
-				timestamp: message.timestamp,
-			});
-		}
-
-		// Add scope cards
 		for (const scopeCard of scopeCards) {
-			items.push({
-				type: "scope_card",
-				data: scopeCard,
-				timestamp: scopeCard.createdAt,
-			});
+			if (scopeCard.turnId) {
+				map.set(scopeCard.turnId, { type: "scope_card", data: scopeCard });
+			}
 		}
-
-		// Add research cards
 		for (const researchCard of researchCards) {
-			items.push({
-				type: "research_card",
-				data: researchCard,
-				timestamp: researchCard.createdAt,
-			});
+			if (researchCard.turnId) {
+				map.set(researchCard.turnId, { type: "research_card", data: researchCard });
+			}
 		}
-
-		// Add plans
 		for (const plan of plans) {
-			items.push({ type: "plan", data: plan, timestamp: plan.createdAt });
+			if (plan.turnId) {
+				map.set(plan.turnId, { type: "plan", data: plan });
+			}
 		}
-
-		// Add review cards
 		for (const reviewCard of reviewCards) {
-			items.push({
-				type: "review_card",
-				data: reviewCard,
-				timestamp: reviewCard.createdAt,
-			});
+			if (reviewCard.turnId) {
+				map.set(reviewCard.turnId, { type: "review_card", data: reviewCard });
+			}
 		}
 
-		// Sort by timestamp (oldest first)
-		return items.sort((a, b) => a.timestamp - b.timestamp);
-	}, [messages, scopeCards, researchCards, plans, reviewCards]);
+		return map;
+	}, [scopeCards, researchCards, plans, reviewCards]);
 
 	// Auto-scroll to bottom when new content arrives
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll to bottom when new content arrives
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [timeline, streamingMessage?.segments]);
+	}, [messages, streamingMessage?.segments]);
 
-	const hasAnyContent = timeline.length > 0 || streamingMessage;
+	const hasAnyContent = messages.length > 0 || streamingMessage;
 
-	const renderTimelineItem = (item: TimelineItem) => {
-		switch (item.type) {
-			case "message":
-				return <ChannelMessageBubble key={item.data.id} message={item.data} />;
+	const renderArtifact = (artifact: TurnArtifact) => {
+		switch (artifact.type) {
 			case "scope_card":
 				return (
 					<ScopeCardApproval
-						key={item.data.id}
-						scopeCard={item.data}
-						onApprove={item.data.status === "pending" ? onApprove : undefined}
-						onDeny={
-							item.data.status === "pending" ? onRequestChanges : undefined
-						}
+						key={artifact.data.id}
+						scopeCard={artifact.data}
+						onApprove={artifact.data.status === "pending" ? onApprove : undefined}
+						onDeny={artifact.data.status === "pending" ? onRequestChanges : undefined}
 					/>
 				);
 			case "research_card":
 				return (
 					<ResearchCardApproval
-						key={item.data.id}
-						researchCard={item.data}
-						onApprove={item.data.status === "pending" ? onApprove : undefined}
-						onDeny={
-							item.data.status === "pending" ? onRequestChanges : undefined
-						}
+						key={artifact.data.id}
+						researchCard={artifact.data}
+						onApprove={artifact.data.status === "pending" ? onApprove : undefined}
+						onDeny={artifact.data.status === "pending" ? onRequestChanges : undefined}
 					/>
 				);
 			case "plan":
 				return (
 					<PlanCardApproval
-						key={item.data.id}
-						plan={item.data}
-						onApprove={item.data.status === "pending" ? onApprove : undefined}
-						onDeny={
-							item.data.status === "pending" ? onRequestChanges : undefined
-						}
-						onRewind={item.data.status === "approved" ? onRewind : undefined}
+						key={artifact.data.id}
+						plan={artifact.data}
+						onApprove={artifact.data.status === "pending" ? onApprove : undefined}
+						onDeny={artifact.data.status === "pending" ? onRequestChanges : undefined}
+						onRewind={artifact.data.status === "approved" ? onRewind : undefined}
 					/>
 				);
 			case "review_card":
 				return (
 					<ReviewCardApproval
-						key={item.data.id}
-						reviewCard={item.data}
-						onApprove={item.data.status === "pending" ? onApprove : undefined}
-						onDeny={
-							item.data.status === "pending" ? onRequestChanges : undefined
-						}
+						key={artifact.data.id}
+						reviewCard={artifact.data}
+						onApprove={artifact.data.status === "pending" ? onApprove : undefined}
+						onDeny={artifact.data.status === "pending" ? onRequestChanges : undefined}
 					/>
 				);
 		}
@@ -191,7 +159,15 @@ export function WorkflowView({
 							<WorkflowEmptyState />
 						) : (
 							<>
-								{timeline.map(renderTimelineItem)}
+								{messages.map((message) => {
+									const artifact = artifactsByTurn.get(message.turnId);
+									return (
+										<div key={message.id}>
+											<ChannelMessageBubble message={message} />
+											{artifact && renderArtifact(artifact)}
+										</div>
+									);
+								})}
 								{streamingMessage && (
 									<StreamingMessageBubble message={streamingMessage} />
 								)}

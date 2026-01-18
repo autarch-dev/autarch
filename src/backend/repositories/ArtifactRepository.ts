@@ -56,6 +56,8 @@ import type { ProjectDb, Repository } from "./types";
 
 export interface CreateScopeCardData {
 	workflowId: string;
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turnId?: string;
 	title: string;
 	description: string;
 	inScope: string[];
@@ -67,6 +69,8 @@ export interface CreateScopeCardData {
 
 export interface CreateResearchCardData {
 	workflowId: string;
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turnId?: string;
 	summary: string;
 	keyFiles: KeyFile[];
 	patterns?: Pattern[];
@@ -78,12 +82,16 @@ export interface CreateResearchCardData {
 
 export interface CreatePlanData {
 	workflowId: string;
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turnId?: string;
 	approachSummary: string;
 	pulses: PulseDefinition[];
 }
 
 export interface CreateReviewCardData {
 	workflowId: string;
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turnId?: string;
 }
 
 export interface CreateReviewCommentData {
@@ -116,6 +124,7 @@ export class ArtifactRepository implements Repository {
 		return {
 			id: row.id,
 			workflowId: row.workflow_id,
+			turnId: row.turn_id ?? undefined,
 			title: row.title,
 			description: row.description,
 			inScope: parseJson(
@@ -166,6 +175,7 @@ export class ArtifactRepository implements Repository {
 			.values({
 				id: scopeCardId,
 				workflow_id: data.workflowId,
+				turn_id: data.turnId ?? null,
 				title: data.title,
 				description: data.description,
 				in_scope_json: stringifyJson(
@@ -222,6 +232,7 @@ export class ArtifactRepository implements Repository {
 		return {
 			id: row.id,
 			workflowId: row.workflow_id,
+			turnId: row.turn_id ?? undefined,
 			summary: row.summary,
 			keyFiles: parseJson(
 				row.key_files_json,
@@ -288,6 +299,7 @@ export class ArtifactRepository implements Repository {
 			.values({
 				id: researchCardId,
 				workflow_id: data.workflowId,
+				turn_id: data.turnId ?? null,
 				summary: data.summary,
 				key_files_json: stringifyJson(
 					data.keyFiles,
@@ -356,6 +368,7 @@ export class ArtifactRepository implements Repository {
 		return {
 			id: row.id,
 			workflowId: row.workflow_id,
+			turnId: row.turn_id ?? undefined,
 			approachSummary: row.approach_summary,
 			pulses: parseJson(row.pulses_json, PulsesJsonSchema, "plan.pulses_json"),
 			status: row.status,
@@ -389,6 +402,7 @@ export class ArtifactRepository implements Repository {
 			.values({
 				id: planId,
 				workflow_id: data.workflowId,
+				turn_id: data.turnId ?? null,
 				approach_summary: data.approachSummary,
 				pulses_json: stringifyJson(
 					data.pulses,
@@ -453,6 +467,7 @@ export class ArtifactRepository implements Repository {
 		return {
 			id: row.id,
 			workflowId: row.workflow_id,
+			turnId: row.turn_id ?? undefined,
 			recommendation: row.recommendation ?? undefined,
 			summary: row.summary ?? undefined,
 			comments,
@@ -512,6 +527,7 @@ export class ArtifactRepository implements Repository {
 			.values({
 				id: reviewCardId,
 				workflow_id: data.workflowId,
+				turn_id: data.turnId ?? null,
 				recommendation: null,
 				summary: null,
 				status: "pending",

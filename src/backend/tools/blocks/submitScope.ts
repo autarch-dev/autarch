@@ -72,6 +72,7 @@ After submitting, the workflow will await user approval before transitioning to 
 				.values({
 					id: scopeCardId,
 					workflow_id: context.workflowId,
+					turn_id: context.turnId ?? null,
 					title: input.title,
 					description: input.description,
 					in_scope_json: JSON.stringify(input.in_scope),

@@ -41,6 +41,8 @@ export type RecommendedPath = z.infer<typeof RecommendedPathSchema>;
 export const ScopeCardSchema = z.object({
 	id: z.string(),
 	workflowId: z.string(),
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turnId: z.string().optional(),
 	title: z.string(),
 	description: z.string(),
 	inScope: z.array(z.string()),
@@ -95,6 +97,8 @@ export type Challenge = z.infer<typeof ChallengeSchema>;
 export const ResearchCardSchema = z.object({
 	id: z.string(),
 	workflowId: z.string(),
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turnId: z.string().optional(),
 	summary: z.string(),
 	keyFiles: z.array(KeyFileSchema),
 	patterns: z.array(PatternSchema).optional(),
@@ -127,6 +131,8 @@ export type PulseDefinition = z.infer<typeof PulseDefinitionSchema>;
 export const PlanSchema = z.object({
 	id: z.string(),
 	workflowId: z.string(),
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turnId: z.string().optional(),
 	approachSummary: z.string(),
 	pulses: z.array(PulseDefinitionSchema),
 	status: ArtifactStatusSchema,
@@ -175,6 +181,8 @@ export type ReviewComment = z.infer<typeof ReviewCommentSchema>;
 export const ReviewCardSchema = z.object({
 	id: z.string(),
 	workflowId: z.string(),
+	/** Turn ID this artifact was created in (for timeline ordering) */
+	turnId: z.string().optional(),
 	/** Recommendation from review agent - undefined until completeReview is called */
 	recommendation: ReviewRecommendationSchema.optional(),
 	/** Summary from review agent - undefined until completeReview is called */

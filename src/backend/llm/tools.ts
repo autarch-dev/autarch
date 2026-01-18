@@ -107,12 +107,14 @@ export function createWorkflowToolContext(
 	projectRoot: string,
 	workflowId: string,
 	sessionId: string,
+	turnId?: string,
 	worktreePath?: string,
 ): ToolContext {
 	return {
 		projectRoot,
 		workflowId,
 		sessionId,
+		turnId,
 		worktreePath,
 	};
 }

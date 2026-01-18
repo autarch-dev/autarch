@@ -108,6 +108,7 @@ After submitting, the workflow will await user approval before transitioning to 
 				.values({
 					id: researchCardId,
 					workflow_id: context.workflowId,
+					turn_id: context.turnId ?? null,
 					summary: input.summary,
 					key_files_json: JSON.stringify(input.keyFiles),
 					patterns_json: input.patterns ? JSON.stringify(input.patterns) : null,

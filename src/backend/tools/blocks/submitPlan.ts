@@ -66,6 +66,7 @@ After submitting, the workflow will await user approval before transitioning to 
 				.values({
 					id: planId,
 					workflow_id: context.workflowId,
+					turn_id: context.turnId ?? null,
 					approach_summary: input.approachSummary,
 					pulses_json: JSON.stringify(input.pulses),
 					status: "pending",
