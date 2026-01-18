@@ -790,4 +790,55 @@ export class ArtifactRepository implements Repository {
 
 		return rows.map((row) => this.toPlan(row));
 	}
+
+	// ===========================================================================
+	// Deletion Methods (for rewind operations)
+	// ===========================================================================
+
+	/**
+	 * Delete all research cards for a workflow
+	 */
+	async deleteResearchCardsByWorkflow(workflowId: string): Promise<void> {
+		await this.db
+			.deleteFrom("research_cards")
+			.where("workflow_id", "=", workflowId)
+			.execute();
+	}
+
+	/**
+	 * Delete all plans for a workflow
+	 */
+	async deletePlansByWorkflow(workflowId: string): Promise<void> {
+		await this.db
+			.deleteFrom("plans")
+			.where("workflow_id", "=", workflowId)
+			.execute();
+	}
+
+	/**
+	 * Delete all review cards and their comments for a workflow
+	 */
+	async deleteReviewCardsByWorkflow(workflowId: string): Promise<void> {
+		// First get review card IDs to delete their comments
+		const reviewCards = await this.db
+			.selectFrom("review_cards")
+			.select("id")
+			.where("workflow_id", "=", workflowId)
+			.execute();
+
+		// Delete comments for all review cards
+		if (reviewCards.length > 0) {
+			const reviewCardIds = reviewCards.map((r) => r.id);
+			await this.db
+				.deleteFrom("review_comments")
+				.where("review_card_id", "in", reviewCardIds)
+				.execute();
+		}
+
+		// Delete review cards
+		await this.db
+			.deleteFrom("review_cards")
+			.where("workflow_id", "=", workflowId)
+			.execute();
+	}
 }

@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { RewindTargetSchema } from "@/shared/schemas/workflow";
 import { getWorkflowOrchestrator } from "../agents/runner";
 import { getDiff } from "../git";
 import { log } from "../logger";
@@ -22,6 +23,10 @@ const CreateWorkflowRequestSchema = z.object({
 
 const RequestChangesSchema = z.object({
 	feedback: z.string().min(1),
+});
+
+const RewindRequestSchema = z.object({
+	targetStage: RewindTargetSchema,
 });
 
 const IdParamSchema = z.object({
@@ -347,9 +352,23 @@ export const workflowRoutes = {
 				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
 			}
 			try {
+				const body = await req.json();
+				const parsed = RewindRequestSchema.safeParse(body);
+				if (!parsed.success) {
+					return Response.json(
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
+						{ status: 400 },
+					);
+				}
+
 				const orchestrator = getWorkflowOrchestrator();
-				await orchestrator.rewindToExecution(params.id);
-				log.api.success(`Rewound workflow: ${params.id}`);
+				await orchestrator.rewindToStage(params.id, parsed.data.targetStage);
+				log.api.success(
+					`Rewound workflow ${params.id} to ${parsed.data.targetStage}`,
+				);
 				return Response.json({ success: true });
 			} catch (error) {
 				log.api.error("Failed to rewind workflow:", error);

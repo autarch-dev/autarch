@@ -13,6 +13,7 @@ import type {
 	Plan,
 	ResearchCard,
 	ReviewCard,
+	RewindTarget,
 	ScopeCard,
 	Workflow,
 } from "@/shared/schemas/workflow";
@@ -39,7 +40,7 @@ interface WorkflowViewProps {
 	reviewCards: ReviewCard[];
 	onApprove?: () => Promise<void>;
 	onRequestChanges?: (feedback: string) => Promise<void>;
-	onRewind?: () => Promise<void>;
+	onRewind?: (targetStage: RewindTarget) => Promise<void>;
 }
 
 /** Artifact for a turn (only one per turn) */
@@ -116,6 +117,11 @@ export function WorkflowView({
 						onDeny={
 							artifact.data.status === "pending" ? onRequestChanges : undefined
 						}
+						onRewind={
+							artifact.data.status === "approved" && onRewind
+								? () => onRewind("researching")
+								: undefined
+						}
 					/>
 				);
 			case "research_card":
@@ -143,7 +149,9 @@ export function WorkflowView({
 							artifact.data.status === "pending" ? onRequestChanges : undefined
 						}
 						onRewind={
-							artifact.data.status === "approved" ? onRewind : undefined
+							artifact.data.status === "approved" && onRewind
+								? () => onRewind("in_progress")
+								: undefined
 						}
 					/>
 				);

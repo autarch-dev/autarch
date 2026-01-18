@@ -15,7 +15,7 @@ import {
 	RotateCcw,
 	XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -91,6 +91,13 @@ export function PlanCardApproval({
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(plan.status === "pending");
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
+
+	// Collapse when status changes from pending
+	useEffect(() => {
+		if (plan.status !== "pending") {
+			setIsExpanded(false);
+		}
+	}, [plan.status]);
 	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);

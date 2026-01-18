@@ -32,6 +32,13 @@ export const ArtifactStatusSchema = z.enum(["pending", "approved", "denied"]);
 export type ArtifactStatus = z.infer<typeof ArtifactStatusSchema>;
 
 // =============================================================================
+// Rewind Target
+// =============================================================================
+
+export const RewindTargetSchema = z.enum(["researching", "in_progress"]);
+export type RewindTarget = z.infer<typeof RewindTargetSchema>;
+
+// =============================================================================
 // Scope Card
 // =============================================================================
 

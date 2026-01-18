@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { Channel } from "@/shared/schemas/channel";
-import type { Workflow } from "@/shared/schemas/workflow";
+import type { RewindTarget, Workflow } from "@/shared/schemas/workflow";
 import { ChannelView } from "./components/ChannelView";
 import { AppSidebar } from "./components/Sidebar";
 import { WorkflowView } from "./components/WorkflowView";
@@ -130,11 +130,14 @@ export function Dashboard() {
 		[selectedId, requestChanges],
 	);
 
-	const handleRewindWorkflow = useCallback(async () => {
-		if (selectedId) {
-			await rewindWorkflow(selectedId);
-		}
-	}, [selectedId, rewindWorkflow]);
+	const handleRewindWorkflow = useCallback(
+		async (targetStage: RewindTarget) => {
+			if (selectedId) {
+				await rewindWorkflow(selectedId, targetStage);
+			}
+		},
+		[selectedId, rewindWorkflow],
+	);
 
 	const selectedChannel = useMemo((): Channel | null => {
 		if (selectedView !== "channel" || !selectedId) return null;

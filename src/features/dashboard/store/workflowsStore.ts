@@ -29,6 +29,7 @@ import type {
 	Plan,
 	ResearchCard,
 	ReviewCard,
+	RewindTarget,
 	ScopeCard,
 	Workflow,
 	WorkflowHistoryResponse,
@@ -121,7 +122,10 @@ interface WorkflowsState {
 	// Actions - Approval
 	approveArtifact: (workflowId: string) => Promise<void>;
 	requestChanges: (workflowId: string, feedback: string) => Promise<void>;
-	rewindWorkflow: (workflowId: string) => Promise<void>;
+	rewindWorkflow: (
+		workflowId: string,
+		targetStage: RewindTarget,
+	) => Promise<void>;
 
 	// Actions - WebSocket event handling
 	handleWebSocketEvent: (event: WebSocketEvent) => void;
@@ -399,9 +403,11 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 		});
 	},
 
-	rewindWorkflow: async (workflowId: string) => {
+	rewindWorkflow: async (workflowId: string, targetStage: RewindTarget) => {
 		const response = await fetch(`/api/workflows/${workflowId}/rewind`, {
 			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ targetStage }),
 		});
 
 		if (!response.ok) {
@@ -409,8 +415,23 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 			throw new Error(error.error ?? "Failed to rewind workflow");
 		}
 
-		// The WebSocket events will update the state appropriately
-		// but we can also refresh the history to get clean state
+		// Clear local artifacts based on target stage
+		set((state) => {
+			if (targetStage === "researching") {
+				// Clear research cards, plans, and review cards
+				const researchCards = new Map(state.researchCards);
+				const plans = new Map(state.plans);
+				const reviewCards = new Map(state.reviewCards);
+				researchCards.delete(workflowId);
+				plans.delete(workflowId);
+				reviewCards.delete(workflowId);
+				return { researchCards, plans, reviewCards };
+			}
+			// For in_progress, the WebSocket events handle state updates
+			return {};
+		});
+
+		// Refresh the history to get clean state
 		get().fetchHistory(workflowId);
 	},
 

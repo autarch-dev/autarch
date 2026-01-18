@@ -235,6 +235,13 @@ export function ReviewCardApproval({
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(reviewCard.status === "pending");
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
+
+	// Collapse when status changes from pending
+	useEffect(() => {
+		if (reviewCard.status !== "pending") {
+			setIsExpanded(false);
+		}
+	}, [reviewCard.status]);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [copied, setCopied] = useState(false);

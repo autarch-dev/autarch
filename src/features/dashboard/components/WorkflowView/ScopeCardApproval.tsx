@@ -15,10 +15,11 @@ import {
 	ClipboardCopy,
 	ListChecks,
 	ListX,
+	RotateCcw,
 	Target,
 	XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +45,7 @@ interface ScopeCardApprovalProps {
 	scopeCard: ScopeCard;
 	onApprove?: () => Promise<void>;
 	onDeny?: (feedback: string) => Promise<void>;
+	onRewind?: () => Promise<void>;
 }
 
 const STATUS_STYLES = {
@@ -72,16 +74,27 @@ export function ScopeCardApproval({
 	scopeCard,
 	onApprove,
 	onDeny,
+	onRewind,
 }: ScopeCardApprovalProps) {
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(scopeCard.status === "pending");
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
+
+	// Collapse when status changes from pending
+	useEffect(() => {
+		if (scopeCard.status !== "pending") {
+			setIsExpanded(false);
+		}
+	}, [scopeCard.status]);
+	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [copied, setCopied] = useState(false);
 
 	const isPending = scopeCard.status === "pending";
+	const isApproved = scopeCard.status === "approved";
 	const canApprove = isPending && onApprove && onDeny;
+	const canRewind = isApproved && onRewind;
 
 	const handleCopyMarkdown = async () => {
 		const markdown = scopeCardToMarkdown(scopeCard);
@@ -107,6 +120,17 @@ export function ScopeCardApproval({
 			await onDeny(feedback.trim());
 			setDenyDialogOpen(false);
 			setFeedback("");
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleRewind = async () => {
+		if (!onRewind) return;
+		setIsSubmitting(true);
+		try {
+			await onRewind();
+			setRewindDialogOpen(false);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -153,6 +177,21 @@ export function ScopeCardApproval({
 									{copied ? "Copied!" : "Copy as Markdown"}
 								</TooltipContent>
 							</Tooltip>
+							{canRewind && (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant="ghost"
+											size="icon-sm"
+											onClick={() => setRewindDialogOpen(true)}
+											className="text-muted-foreground hover:text-foreground"
+										>
+											<RotateCcw className="size-4" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Rewind to Research</TooltipContent>
+								</Tooltip>
+							)}
 						</div>
 						{canApprove && (
 							<div className="flex items-center gap-2">
@@ -306,6 +345,38 @@ export function ScopeCardApproval({
 							disabled={isSubmitting || !feedback.trim()}
 						>
 							Submit Feedback
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Rewind Confirmation Dialog */}
+			<Dialog open={rewindDialogOpen} onOpenChange={setRewindDialogOpen}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Rewind to Research</DialogTitle>
+						<DialogDescription>
+							This will discard all research findings, plans, and execution
+							progress. The workflow will restart from the research phase using
+							this scope.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setRewindDialogOpen(false)}
+							disabled={isSubmitting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleRewind}
+							disabled={isSubmitting}
+						>
+							<RotateCcw className="size-4 mr-1" />
+							Rewind
 						</Button>
 					</DialogFooter>
 				</DialogContent>

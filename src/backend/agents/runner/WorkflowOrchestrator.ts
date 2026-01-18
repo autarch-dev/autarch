@@ -31,7 +31,7 @@ import {
 	createWorkflowErrorEvent,
 	createWorkflowStageChangedEvent,
 } from "@/shared/schemas/events";
-import type { WorkflowStatus } from "@/shared/schemas/workflow";
+import type { RewindTarget, WorkflowStatus } from "@/shared/schemas/workflow";
 import {
 	APPROVAL_REQUIRED_TOOLS,
 	AUTO_TRANSITION_TOOLS,
@@ -1246,32 +1246,33 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 	// ===========================================================================
 
 	/**
-	 * Rewind a workflow to restart execution from the beginning
+	 * Rewind a workflow to a specific stage
 	 *
-	 * This cleans up all pulse/preflight state and restarts from preflight.
-	 * Used when user wants to re-execute the same plan from scratch.
+	 * Cleans up all artifacts and state from stages after the target,
+	 * then restarts the workflow at the target stage.
+	 *
+	 * @param workflowId - The workflow to rewind
+	 * @param targetStage - The stage to rewind to
 	 */
-	async rewindToExecution(workflowId: string): Promise<void> {
+	async rewindToStage(
+		workflowId: string,
+		targetStage: RewindTarget,
+	): Promise<void> {
 		const workflow = await this.workflowRepo.getById(workflowId);
 		if (!workflow) {
 			throw new Error(`Workflow not found: ${workflowId}`);
 		}
 
-		// Only allow rewind from in_progress status
-		if (workflow.status !== "in_progress") {
-			throw new Error(
-				`Cannot rewind workflow in ${workflow.status} status. Must be in_progress.`,
-			);
-		}
-
-		log.workflow.info(`Rewinding workflow ${workflowId} to restart execution`);
+		log.workflow.info(
+			`Rewinding workflow ${workflowId} to ${targetStage} stage`,
+		);
 
 		// 1. Stop current session if active
 		if (workflow.currentSessionId) {
 			await this.sessionManager.stopSession(workflow.currentSessionId);
 		}
 
-		// 2. Cleanup git worktree and branch
+		// 2. Cleanup git worktree and branch (always needed for any rewind)
 		const projectRoot = findRepoRoot(process.cwd());
 		try {
 			await cleanupWorkflow(projectRoot, workflowId, { deleteBranch: true });
@@ -1281,13 +1282,122 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 			);
 		}
 
-		// 3. Delete all pulse-related data
+		// 3. Delete pulse-related data (always needed for any rewind)
 		await this.pulseRepo.deleteBaselines(workflowId);
 		await this.pulseRepo.deletePreflightSetup(workflowId);
 		await this.pulseRepo.deleteByWorkflow(workflowId);
 
-		// 4. Delete all preflight and execution sessions (and their messages)
+		// Route to appropriate rewind handler
+		if (targetStage === "researching") {
+			await this.rewindToResearchingImpl(workflowId, projectRoot);
+		} else if (targetStage === "in_progress") {
+			await this.rewindToExecutionImpl(workflowId, projectRoot);
+		}
+	}
+
+	/**
+	 * Implementation for rewinding to researching stage
+	 */
+	private async rewindToResearchingImpl(
+		workflowId: string,
+		projectRoot: string,
+	): Promise<void> {
 		const repos = getRepositories();
+
+		// Delete all artifacts after scope: research cards, plans, review cards
+		await this.artifactRepo.deleteResearchCardsByWorkflow(workflowId);
+		await this.artifactRepo.deletePlansByWorkflow(workflowId);
+		await this.artifactRepo.deleteReviewCardsByWorkflow(workflowId);
+
+		// Delete all sessions after scoping
+		const deletedCount = await repos.sessions.deleteByContextAndRoles(
+			"workflow",
+			workflowId,
+			["research", "planning", "preflight", "execution", "review"],
+		);
+		log.workflow.info(
+			`Deleted ${deletedCount} post-scoping sessions for workflow ${workflowId}`,
+		);
+
+		// Update workflow status to researching
+		await this.workflowRepo.transitionStage(workflowId, "researching", null);
+
+		// Start the research agent
+		const session = await this.sessionManager.startSession({
+			contextType: "workflow",
+			contextId: workflowId,
+			agentRole: "research",
+		});
+
+		await this.workflowRepo.setCurrentSession(workflowId, session.id);
+
+		// Build initial message for research agent
+		const scopeCard = await this.artifactRepo.getLatestScopeCard(workflowId);
+		if (!scopeCard) {
+			throw new Error(`No scope card found for workflow ${workflowId}`);
+		}
+
+		const initialMessage = `## Research Phase (Restarted)
+
+The workflow has been rewound to restart research from the approved scope.
+
+### Approved Scope
+
+**${scopeCard.title}**
+
+${scopeCard.description}
+
+**In Scope:**
+${scopeCard.inScope.map((item) => `- ${item}`).join("\n")}
+
+**Out of Scope:**
+${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}
+
+${scopeCard.constraints?.length ? `**Constraints:**\n${scopeCard.constraints.map((item) => `- ${item}`).join("\n")}` : ""}
+
+### Your Task
+
+Investigate the codebase to understand how to implement this scope.
+When ready, submit your research findings using the \`submit_research\` tool.`;
+
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			conversationRepo: this.conversationRepo,
+		});
+
+		log.workflow.info(`Starting research agent for workflow ${workflowId}`);
+
+		broadcast(
+			createWorkflowStageChangedEvent({
+				workflowId,
+				previousStage: "scoping",
+				newStage: "researching",
+				sessionId: session.id,
+			}),
+		);
+
+		runner.run(initialMessage, { hidden: true }).catch((error) => {
+			log.workflow.error(
+				`Research agent failed after rewind for workflow ${workflowId}:`,
+				error,
+			);
+			this.errorWorkflow(
+				workflowId,
+				error instanceof Error ? error.message : "Unknown error",
+			);
+		});
+	}
+
+	/**
+	 * Implementation for rewinding to in_progress (execution) stage
+	 */
+	private async rewindToExecutionImpl(
+		workflowId: string,
+		projectRoot: string,
+	): Promise<void> {
+		const repos = getRepositories();
+
+		// Delete all preflight and execution sessions (and their messages)
 		const deletedCount = await repos.sessions.deleteByContextAndRoles(
 			"workflow",
 			workflowId,
@@ -1297,14 +1407,14 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 			`Deleted ${deletedCount} execution-phase sessions for workflow ${workflowId}`,
 		);
 
-		// 5. Re-initialize pulsing (creates new worktree and branch)
+		// Re-initialize pulsing (creates new worktree and branch)
 		const pulsingResult =
 			await this.pulseOrchestrator.initializePulsing(workflowId);
 		if (!pulsingResult.success) {
 			throw new Error(`Failed to initialize pulsing: ${pulsingResult.error}`);
 		}
 
-		// 5. Recreate pulses from the approved plan
+		// Recreate pulses from the approved plan
 		const plan = await this.artifactRepo.getLatestPlan(workflowId);
 		if (!plan) {
 			throw new Error(`No approved plan found for workflow ${workflowId}`);
@@ -1312,22 +1422,20 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 
 		await this.pulseOrchestrator.createPulsesFromPlan(workflowId, plan.pulses);
 
-		// 6. Create new session for preflight agent
+		// Create new session for preflight agent
 		const session = await this.sessionManager.startSession({
 			contextType: "workflow",
 			contextId: workflowId,
 			agentRole: "preflight",
 		});
 
-		// 7. Update workflow with new session
+		// Update workflow with new session
 		await this.workflowRepo.setCurrentSession(workflowId, session.id);
 
-		// 8. Create preflight setup record
+		// Create preflight setup record
 		await this.pulseOrchestrator.createPreflightSetup(workflowId, session.id);
 
-		// 9. Build initial message for preflight agent
-		// Note: We build this directly instead of calling buildInitialMessage()
-		// because that method would try to re-initialize pulsing (which we already did)
+		// Build initial message for preflight agent
 		const worktreePath = pulsingResult.worktreePath;
 		const initialMessage = `## Preflight Environment Setup
 
@@ -1350,7 +1458,7 @@ ${plan.pulses.map((p) => `- ${p.id}: ${p.title}`).join("\n")}
 
 Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
 
-		// 11. Start the preflight agent
+		// Start the preflight agent
 		const runner = new AgentRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
@@ -1360,7 +1468,6 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 		log.workflow.info(`Restarting preflight agent for workflow ${workflowId}`);
 
 		// Broadcast stage changed event with new session ID
-		// This triggers the UI to update and listen to the new session
 		broadcast(
 			createWorkflowStageChangedEvent({
 				workflowId,
