@@ -371,6 +371,7 @@ export function ReviewCardApproval({
 											<DiffViewerModal
 												diff={diff}
 												comments={reviewCard.comments}
+												workflowId={reviewCard.workflowId}
 												trigger={
 													<Button
 														variant="ghost"

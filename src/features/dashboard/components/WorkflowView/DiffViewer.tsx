@@ -41,6 +41,7 @@ import {
 	SheetTrigger,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { useWorkflowsStore } from "@/features/dashboard/store/workflowsStore";
 import { cn } from "@/lib/utils";
 import type { ReviewComment } from "@/shared/schemas/workflow";
 
@@ -1045,7 +1046,9 @@ interface DiffViewerModalProps {
 	diff: string;
 	/** Review comments to display inline */
 	comments?: ReviewComment[];
-	/** Callback when user adds a comment */
+	/** Workflow ID for creating comments via store */
+	workflowId?: string;
+	/** Callback when user adds a comment (alternative to workflowId) */
 	onAddComment?: (payload: AddCommentPayload) => void;
 	/** Trigger element (defaults to a button) */
 	trigger?: React.ReactNode;
@@ -1060,10 +1063,32 @@ interface DiffViewerModalProps {
 export function DiffViewerModal({
 	diff,
 	comments,
+	workflowId,
 	onAddComment,
 	trigger,
 	className,
 }: DiffViewerModalProps) {
+	const createReviewComment = useWorkflowsStore(
+		(state) => state.createReviewComment,
+	);
+
+	// Use store-based comment creation when workflowId is provided
+	const handleAddComment = async (payload: AddCommentPayload) => {
+		if (workflowId) {
+			await createReviewComment(workflowId, {
+				type: payload.type,
+				filePath: payload.filePath,
+				startLine: payload.startLine,
+				description: payload.description,
+			});
+		} else if (onAddComment) {
+			onAddComment(payload);
+		}
+	};
+
+	// Enable comment creation if workflowId or onAddComment is provided
+	const canAddComments = workflowId || onAddComment;
+
 	return (
 		<Sheet>
 			<SheetTrigger asChild>
@@ -1088,7 +1113,7 @@ export function DiffViewerModal({
 					<DiffViewer
 						diff={diff}
 						comments={comments}
-						onAddComment={onAddComment}
+						onAddComment={canAddComments ? handleAddComment : undefined}
 						className="h-full"
 					/>
 				</div>
