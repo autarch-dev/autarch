@@ -275,33 +275,63 @@ export function MessageBubble(props: MessageBubbleProps) {
 					)}
 				</div>
 
-				{/* Interleaved segments and tools */}
-				{interleavedContent.map((item) => {
-					if (item.type === "segment") {
-						const isActiveSegment = item.segment.index === activeSegmentIndex;
-						const showCursor =
-							isStreaming && isActiveSegment && !item.segment.isComplete;
+				{/* Content: streaming shows interleaved tools, completed collapses them */}
+				{isStreaming ? (
+					// Streaming: interleaved tools and segments
+					interleavedContent.map((item) => {
+						if (item.type === "segment") {
+							const isActiveSegment = item.segment.index === activeSegmentIndex;
+							const showCursor =
+								isStreaming && isActiveSegment && !item.segment.isComplete;
 
-						return item.segment.content ? (
-							<div key={`segment-${item.segment.index}`} className="text-sm">
-								<Markdown>{item.segment.content}</Markdown>
-								{showCursor && (
-									<span className="inline-block w-2 h-4 bg-primary/50 animate-pulse" />
-								)}
+							return item.segment.content ? (
+								<div key={`segment-${item.segment.index}`} className="text-sm">
+									<Markdown>{item.segment.content}</Markdown>
+									{showCursor && (
+										<span className="inline-block w-2 h-4 bg-primary/50 animate-pulse" />
+									)}
+								</div>
+							) : showCursor ? (
+								<span
+									key={`segment-${item.segment.index}`}
+									className="inline-block w-2 h-4 bg-primary/50 animate-pulse"
+								/>
+							) : null;
+						}
+						return (
+							<div key={`tool-${item.tool.id}`} className="my-2">
+								<ToolCallDisplay tool={item.tool} />
 							</div>
-						) : showCursor ? (
-							<span
-								key={`segment-${item.segment.index}`}
-								className="inline-block w-2 h-4 bg-primary/50 animate-pulse"
-							/>
-						) : null;
-					}
-					return (
-						<div key={`tool-${item.tool.id}`} className="my-2">
-							<ToolCallDisplay tool={item.tool} />
-						</div>
-					);
-				})}
+						);
+					})
+				) : (
+					<>
+						{/* Completed: segments only */}
+						{segments.map((segment) =>
+							segment.content ? (
+								<div key={`segment-${segment.index}`} className="text-sm">
+									<Markdown>{segment.content}</Markdown>
+								</div>
+							) : null,
+						)}
+						{/* Collapsed tools summary */}
+						{tools.length > 0 && (
+							<details className="my-2 text-xs">
+								<summary className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-muted/50 transition-colors list-none">
+									<Wrench className="size-3 text-muted-foreground" />
+									<span className="text-muted-foreground">
+										{tools.length} tool{tools.length !== 1 ? "s" : ""} used
+									</span>
+								</summary>
+								<div className="pl-2 border-l-2 border-muted mt-1">
+									{tools.map((tool) => (
+										<ToolCallDisplay key={tool.id} tool={tool} />
+									))}
+								</div>
+							</details>
+						)}
+					</>
+				)}
 
 				{/* Show cursor when no content yet (streaming only) */}
 				{isStreaming && !hasAnyContent && (
