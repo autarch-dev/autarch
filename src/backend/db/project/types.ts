@@ -369,6 +369,7 @@ export interface ReviewCardsTable {
 
 export type ReviewCommentType = "line" | "file" | "review";
 export type ReviewCommentSeverity = "High" | "Medium" | "Low";
+export type ReviewCommentAuthor = "agent" | "user";
 
 export interface ReviewCommentsTable {
 	id: string;
@@ -381,11 +382,13 @@ export interface ReviewCommentsTable {
 	start_line: number | null;
 	/** Ending line number - optional, for multi-line comments */
 	end_line: number | null;
-	/** Severity: High, Medium, Low */
-	severity: ReviewCommentSeverity;
-	/** Category (e.g., security, performance, style, bug, architecture) */
-	category: string;
+	/** Severity: High, Medium, Low - null for user comments */
+	severity: ReviewCommentSeverity | null;
+	/** Category (e.g., security, performance, style, bug, architecture) - null for user comments */
+	category: string | null;
 	/** The comment description/content */
 	description: string;
+	/** Author of the comment: agent or user */
+	author: ReviewCommentAuthor;
 	created_at: number;
 }

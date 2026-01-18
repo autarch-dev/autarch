@@ -662,20 +662,31 @@ const SEVERITY_COLORS = {
 
 /** Inline comment bubble for diff view */
 function InlineComment({ comment }: { comment: ReviewComment }) {
+	// User comments (no severity) get a neutral style
+	const isUserComment = comment.author === "user" || !comment.severity;
+	const colorClass = comment.severity
+		? SEVERITY_COLORS[comment.severity]
+		: "bg-muted/50 text-foreground border-border";
+
 	return (
-		<div
-			className={cn(
-				"mx-4 my-2 p-3 rounded-lg border text-sm",
-				SEVERITY_COLORS[comment.severity],
-			)}
-		>
+		<div className={cn("mx-4 my-2 p-3 rounded-lg border text-sm", colorClass)}>
 			<div className="flex items-center gap-2 mb-1">
-				<Badge variant="outline" className="text-xs">
-					{comment.severity}
-				</Badge>
-				<Badge variant="secondary" className="text-xs">
-					{comment.category}
-				</Badge>
+				{isUserComment ? (
+					<Badge variant="outline" className="text-xs">
+						You
+					</Badge>
+				) : (
+					<>
+						<Badge variant="outline" className="text-xs">
+							{comment.severity}
+						</Badge>
+						{comment.category && (
+							<Badge variant="secondary" className="text-xs">
+								{comment.category}
+							</Badge>
+						)}
+					</>
+				)}
 				{comment.type === "line" && comment.startLine && (
 					<span className="text-xs text-muted-foreground font-mono">
 						Line {comment.startLine}

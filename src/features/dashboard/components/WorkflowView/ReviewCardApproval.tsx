@@ -152,19 +152,32 @@ function CommentItem({ comment }: { comment: ReviewComment }) {
 				? comment.filePath
 				: null;
 
+	// User comments (no severity) get a different display
+	const isUserComment = comment.author === "user" || !comment.severity;
+
 	return (
 		<div className="border rounded-lg p-3 bg-background">
 			<div className="flex items-start justify-between gap-2 mb-2">
 				<div className="flex items-center gap-2 flex-wrap">
-					<Badge
-						variant="outline"
-						className={cn("text-xs", SEVERITY_STYLES[comment.severity])}
-					>
-						{comment.severity}
-					</Badge>
-					<Badge variant="secondary" className="text-xs">
-						{comment.category}
-					</Badge>
+					{isUserComment ? (
+						<Badge variant="outline" className="text-xs">
+							You
+						</Badge>
+					) : comment.severity ? (
+						<>
+							<Badge
+								variant="outline"
+								className={cn("text-xs", SEVERITY_STYLES[comment.severity])}
+							>
+								{comment.severity}
+							</Badge>
+							{comment.category && (
+								<Badge variant="secondary" className="text-xs">
+									{comment.category}
+								</Badge>
+							)}
+						</>
+					) : null}
 				</div>
 			</div>
 
