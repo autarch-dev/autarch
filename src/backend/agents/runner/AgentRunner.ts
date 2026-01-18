@@ -862,7 +862,11 @@ export class AgentRunner {
 				case "finish-step": {
 					// A step completed (may include tool calls)
 					// We can track token usage here if needed
-					console.log("finish-step", part.usage.inputTokens, part.usage.outputTokens);
+					console.log(
+						"finish-step",
+						part.usage.inputTokens,
+						part.usage.outputTokens,
+					);
 					totalInputTokens += part.usage.inputTokens ?? 0;
 					totalOutputTokens += part.usage.outputTokens ?? 0;
 					break;
@@ -870,7 +874,11 @@ export class AgentRunner {
 
 				case "finish": {
 					// Stream completed
-					console.log("finish", part.totalUsage.inputTokens, part.totalUsage.outputTokens);
+					console.log(
+						"finish",
+						part.totalUsage.inputTokens,
+						part.totalUsage.outputTokens,
+					);
 					break;
 				}
 

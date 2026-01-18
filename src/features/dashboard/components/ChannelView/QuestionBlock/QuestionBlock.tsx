@@ -10,7 +10,14 @@
  * Collapsed when answered, expanded when pending.
  */
 
-import { CheckCircle, ChevronDown, ChevronRight, Loader2, MessageSquare, Send } from "lucide-react";
+import {
+	CheckCircle,
+	ChevronDown,
+	ChevronRight,
+	Loader2,
+	MessageSquare,
+	Send,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -163,10 +170,12 @@ export function QuestionBlock({
 				onOpenChange={setIsExpanded}
 				className="my-3"
 			>
-				<div className={cn(
-					"rounded-lg border",
-					"border-green-500/30 bg-green-500/5"
-				)}>
+				<div
+					className={cn(
+						"rounded-lg border",
+						"border-green-500/30 bg-green-500/5",
+					)}
+				>
 					<CollapsibleTrigger asChild>
 						<Button
 							variant="ghost"
@@ -190,8 +199,12 @@ export function QuestionBlock({
 									<div className="flex items-start gap-2 text-sm">
 										<MessageSquare className="size-4 text-green-600 mt-0.5 shrink-0" />
 										<div>
-											<span className="font-medium text-green-600">Your comment:</span>
-											<p className="text-muted-foreground mt-1">{questionsComment}</p>
+											<span className="font-medium text-green-600">
+												Your comment:
+											</span>
+											<p className="text-muted-foreground mt-1">
+												{questionsComment}
+											</p>
 										</div>
 									</div>
 								</div>

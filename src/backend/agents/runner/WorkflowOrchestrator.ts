@@ -487,7 +487,7 @@ export class WorkflowOrchestrator {
 
 			// For execution stage, include worktree path
 			const worktreePath =
-				newStage === "in_progress"
+				newStage === "in_progress" || newStage === "review"
 					? getWorktreePath(projectRoot, workflowId)
 					: undefined;
 
