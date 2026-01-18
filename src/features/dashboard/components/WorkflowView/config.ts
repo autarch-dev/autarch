@@ -54,13 +54,6 @@ export const statusConfig = {
 	},
 } as const;
 
-export const priorityConfig = {
-	low: { label: "Low", color: "text-muted-foreground", bg: "bg-muted" },
-	medium: { label: "Medium", color: "text-blue-500", bg: "bg-blue-500/10" },
-	high: { label: "High", color: "text-orange-500", bg: "bg-orange-500/10" },
-	urgent: { label: "Urgent", color: "text-red-500", bg: "bg-red-500/10" },
-} as const;
-
 export const workflowPhases: WorkflowStatus[] = [
 	"scoping",
 	"researching",

@@ -990,6 +990,7 @@ function handleTurnCompleted(
 					existing.streamingMessage.questions.length > 0
 						? existing.streamingMessage.questions
 						: undefined,
+				cost: payload.cost,
 			};
 
 			conversations.set(workflowId, {

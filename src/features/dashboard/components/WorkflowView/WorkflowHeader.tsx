@@ -5,16 +5,16 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import type { Workflow } from "@/shared/schemas/workflow";
-import { priorityConfig, statusConfig } from "./config";
+import { statusConfig } from "./config";
 import { PhaseIndicator } from "./PhaseIndicator";
 
 interface WorkflowHeaderProps {
 	workflow: Workflow;
+	totalCost: number;
 }
 
-export function WorkflowHeader({ workflow }: WorkflowHeaderProps) {
+export function WorkflowHeader({ workflow, totalCost }: WorkflowHeaderProps) {
 	const status = statusConfig[workflow.status];
-	const priority = priorityConfig[workflow.priority];
 	const StatusIcon = status.icon;
 
 	return (
@@ -37,11 +37,8 @@ export function WorkflowHeader({ workflow }: WorkflowHeaderProps) {
 					<Badge variant="secondary" className={cn(status.bg, status.color)}>
 						{status.label}
 					</Badge>
-					<Badge
-						variant="secondary"
-						className={cn(priority.bg, priority.color)}
-					>
-						{priority.label}
+					<Badge variant="secondary" className="bg-muted">
+						~${totalCost.toFixed(2)}
 					</Badge>
 					<Button variant="ghost" size="icon-sm">
 						<MoreHorizontal className="size-4" />

@@ -230,6 +230,8 @@ export const TurnCompletedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	tokenCount: z.number().optional(),
+	/** Calculated cost for this turn (if available) */
+	cost: z.number().optional(),
 });
 export type TurnCompletedPayload = z.infer<typeof TurnCompletedPayloadSchema>;
 

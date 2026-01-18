@@ -96,6 +96,11 @@ export function WorkflowView({
 		return map;
 	}, [scopeCards, researchCards, plans, reviewCards]);
 
+	// Calculate total cost from all messages
+	const totalCost = useMemo(() => {
+		return messages.reduce((sum, m) => sum + (m.cost ?? 0), 0);
+	}, [messages]);
+
 	// Auto-scroll to bottom when new content arrives
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll to bottom when new content arrives
 	useEffect(() => {
@@ -174,7 +179,7 @@ export function WorkflowView({
 	return (
 		<TooltipProvider>
 			<div className="flex flex-col h-full">
-				<WorkflowHeader workflow={workflow} />
+				<WorkflowHeader workflow={workflow} totalCost={totalCost} />
 
 				<ScrollArea className="flex-1 min-h-0">
 					<div className="py-2">

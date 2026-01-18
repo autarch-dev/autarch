@@ -108,6 +108,8 @@ export const ChannelMessageSchema = z.object({
 	questions: z.array(MessageQuestionSchema).optional(),
 	/** User comment/feedback provided when submitting question answers */
 	questionsComment: z.string().optional(),
+	/** Calculated cost for this message (assistant turns only) */
+	cost: z.number().optional(),
 });
 export type ChannelMessage = z.infer<typeof ChannelMessageSchema>;
 

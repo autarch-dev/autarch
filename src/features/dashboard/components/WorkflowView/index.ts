@@ -1,4 +1,4 @@
-export { priorityConfig, statusConfig, workflowPhases } from "./config";
+export { statusConfig, workflowPhases } from "./config";
 export type { DiffFile, DiffHunk, DiffLine } from "./DiffViewer";
 export { DiffViewer, DiffViewerModal } from "./DiffViewer";
 export { PlanCardApproval } from "./PlanCardApproval";
