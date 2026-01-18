@@ -589,6 +589,19 @@ export class ArtifactRepository implements Repository {
 			.execute();
 	}
 
+	/**
+	 * Set the turn_id for review cards that don't have one yet.
+	 * Called when a review agent's first turn starts.
+	 */
+	async setReviewCardTurnId(workflowId: string, turnId: string): Promise<void> {
+		await this.db
+			.updateTable("review_cards")
+			.set({ turn_id: turnId })
+			.where("workflow_id", "=", workflowId)
+			.where("turn_id", "is", null)
+			.execute();
+	}
+
 	// ===========================================================================
 	// Review Comments
 	// ===========================================================================

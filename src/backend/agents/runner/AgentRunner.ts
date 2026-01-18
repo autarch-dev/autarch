@@ -24,6 +24,7 @@ import {
 	getModelForScenario,
 } from "@/backend/llm";
 import { log } from "@/backend/logger";
+import { getRepositories } from "@/backend/repositories";
 import { isExaKeyConfigured } from "@/backend/services/globalSettings";
 import type { ToolContext } from "@/backend/tools/types";
 import { broadcast } from "@/backend/ws";
@@ -959,6 +960,16 @@ export class AgentRunner {
 			hidden,
 			createdAt: turnData.createdAt,
 		};
+
+		// For review agent assistant turns, associate orphaned review cards with this turn
+		if (
+			role === "assistant" &&
+			this.session.contextType === "workflow" &&
+			this.session.agentRole === "review"
+		) {
+			const { artifacts } = getRepositories();
+			await artifacts.setReviewCardTurnId(this.session.contextId, turn.id);
+		}
 
 		// Don't broadcast turn started for hidden turns
 		if (!hidden) {
