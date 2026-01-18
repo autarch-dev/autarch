@@ -359,9 +359,8 @@ When calling \`complete_review\`, you must provide:
 
 \`\`\`typescript
 {
-  "recommendation": "approve" | "request_changes" | "needs_discussion",
-  "summary": "Brief summary of review findings",
-  "blockers": ["Critical issues that must be fixed"] // optional, only for request_changes
+  "recommendation": "approve" | "deny" | "manual_review",
+  "summary": "Brief summary of review findings"
 }
 \`\`\`
 
@@ -396,23 +395,18 @@ When calling \`complete_review\`, you must provide:
 }
 \`\`\`
 
-**Request Changes:**
+**AI Denied:**
 \`\`\`json
 {
-  "recommendation": "request_changes",
-  "summary": "Critical issues found: unhandled null pointer at UserService.ts:45, missing validation for edge case, test coverage incomplete.",
-  "blockers": [
-    "UserService.authenticate() doesn't handle null user case",
-    "No tests for invalid email format",
-    "Error thrown on line 67 is not caught by caller"
-  ]
+  "recommendation": "deny",
+  "summary": "Critical issues found: unhandled null pointer at UserService.ts:45, missing validation for edge case, test coverage incomplete."
 }
 \`\`\`
 
-**Needs Discussion:**
+**Manual Review:**
 \`\`\`json
 {
-  "recommendation": "needs_discussion",
+  "recommendation": "manual_review",
   "summary": "Changes introduce new validation pattern inconsistent with existing code. May be justified by scope/research not visible to review. Needs confirmation."
 }
 \`\`\`
@@ -458,12 +452,8 @@ add_file_comment({
 
 [Agent completes review]
 complete_review({
-  recommendation: "request_changes",
+  recommendation: "deny",
   "summary": "Found critical null handling issue and missing test coverage. Must fix before merge.",
-  "blockers": [
-    "UserService.authenticate() null case unhandled",
-    "No tests for validation edge cases"
-  ]
 })
 
 [Agent stops]

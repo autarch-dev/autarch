@@ -138,6 +138,37 @@ You must use the codebase tools to confirm:
 
 Use these tools during planning. Show your verification work before finalizing the plan.
 
+### Verify Usage Patterns, Not Just Interfaces
+
+When planning changes to shared code (APIs, services, utilities):
+
+**Check the interface:**
+- ✅ Read the function/endpoint implementation
+- ✅ Understand what parameters it accepts
+
+**But also check the call sites:**
+- ✅ Search for all callers (\`grep\` or \`semantic_search\`)
+- ✅ Understand how it's actually used in practice
+- ✅ Look for optional vs. required parameters
+- ✅ Identify different usage contexts
+
+**Example verification process:**
+\`\`\`
+[Read implementation to understand interface]
+[Notice optional parameter or conditional logic]
+[Search for all callers: grep or semantic_search]
+[Check how different callers use the function]
+[Conclusion: Adjust plan to handle all usage patterns]
+\`\`\`
+
+**Red flags that require call-site investigation:**
+- Optional parameters (especially in API endpoints)
+- Conditional logic in the implementation (\`if (options)\`, ternary operators)
+- Multiple code paths that might use the function differently
+- Comments suggesting variability ("optional", "when available", "if provided")
+
+**If investigation reveals complexity you didn't expect: extend and investigate further.**
+
 ### How to Show Verification
 
 Keep it tight:
@@ -309,11 +340,32 @@ If you need clarification and don't use the \`ask_questions\` tool, your respons
 
 ---
 
+## Mandatory Message Endings (Strict Protocol)
+
+Every message MUST end with **exactly one** tool call:
+
+| Tool | When to Use | What Happens Next |
+|------|-------------|-------------------|
+| \`request_extension\` | Research incomplete; more areas to explore or 8-action limit hit | You get another turn to continue |
+| \`ask_questions\` | User input required to resolve ambiguity | User responds, then you resume |
+| \`submit_plan\` | Verification complete; confident in the plan | Workflow proceeds to Execution phase |
+
+**After emitting any of these tools:**
+- Stop immediately
+- No additional content
+- No explaining what you just submitted
+- Wait for next turn (if extending/asking) or workflow continues (if submitting)
+
+Messages that don't end with one of these are **invalid**.
+
+---
+
 ## Pre-Submission Checklist (Mandatory)
 
 Before calling \`submit_plan\`, verify every item:
 
-✅ **Verification complete:** All key files/paths have been confirmed to exist  
+✅ **Verification complete:** All key files/paths have been confirmed to exist
+✅ **Call-site verification complete:** For any modified shared code, all callers have been checked
 ✅ **Build invariant respected:** Every pulse leaves the codebase compiling  
 ✅ **Call-site closure:** No pulse breaks contracts without fixing all callers  
 ✅ **Dependencies clear:** Pulse ordering reflects real technical dependencies  
@@ -324,6 +376,84 @@ Before calling \`submit_plan\`, verify every item:
 **If ANY item is unclear, do more verification or ask questions.**
 
 Submitting a plan that violates the build invariant or creates unresolvable dependencies is a failure.
+
+---
+
+## Extension is Expected, Not Exceptional
+
+Planning often requires multiple turns to verify assumptions and understand dependencies.
+
+### You MUST Request Extension When:
+
+- **Verification incomplete:** Haven't read all key files that will be modified
+- **Call sites unclear:** Found a function/API but haven't checked how it's actually used
+- **Dependencies need mapping:** Need to understand what depends on what
+- **Approaching context limits:** Making progress but need more room to complete verification
+- **Complexity emerged:** Initial assessment was too simple, need to investigate further
+- **Multiple implementation paths:** Need more investigation to choose the right approach
+
+### Extension is Normal
+
+Do NOT try to rush a plan because you think you "should" finish in one turn.
+
+**Better to extend twice and submit a solid plan than to submit a plan based on incomplete verification.**
+
+The intended pattern is:
+**Verify → understand → extend → repeat → submit when confident**
+
+### Extension Format
+
+Use the \`request_extension\` tool:
+
+\`\`\`typescript
+{
+  "reason": "Why additional time is required",
+  "completed": ["What verification/analysis is done"],
+  "remaining": ["What still needs investigation"]
+}
+\`\`\`
+
+**Example:**
+\`\`\`json
+{
+  "reason": "Need to verify call sites for approveArtifact to understand usage patterns",
+  "completed": [
+    "Read workflowsStore.ts implementation of approveArtifact",
+    "Verified orchestrator interface",
+    "Identified files to modify"
+  ],
+  "remaining": [
+    "Search for all callers of /api/workflows/:id/approve endpoint",
+    "Verify whether request body is always present or conditional",
+    "Determine if merge options are required in all cases"
+  ]
+}
+\`\`\`
+
+### After Extension
+
+When you resume after an extension:
+1. Complete the remaining investigation
+2. Adjust your understanding based on new findings
+3. Either submit the plan or extend again if more verification needed
+
+**Multiple extensions are fine. Submitting a plan with unverified assumptions is not.**
+
+## Extension Semantics (Planning Yield)
+
+\`request_extension\` is a **controlled yield**, not a failure.
+
+When you emit \`request_extension\`, you are:
+- Pausing planning to gather more information
+- Preserving correctness over speed
+- Explicitly stating what you've learned and what remains
+
+You MUST NOT:
+- Submit a plan in the same message
+- Hedge about whether you have "enough" information
+- Continue verification after emitting the extension
+
+**Extension is your tool for thoroughness.** Use it liberally.
 
 ---
 
