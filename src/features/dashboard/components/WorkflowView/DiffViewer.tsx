@@ -662,24 +662,33 @@ const SEVERITY_COLORS = {
 
 /** Inline comment bubble for diff view */
 function InlineComment({ comment }: { comment: ReviewComment }) {
-	// User comments (no severity) get a neutral style
-	const isUserComment = comment.author === "user" || !comment.severity;
-	const colorClass = comment.severity
-		? SEVERITY_COLORS[comment.severity]
-		: "bg-muted/50 text-foreground border-border";
+	// Explicit check for user comments
+	const isUserComment = comment.author === "user";
+
+	// User comments get a distinct purple/violet tint, agent comments use severity-based colors
+	const colorClass = isUserComment
+		? "bg-violet-500/10 text-foreground border-violet-500/40"
+		: comment.severity
+			? SEVERITY_COLORS[comment.severity]
+			: "bg-muted/50 text-foreground border-border";
 
 	return (
 		<div className={cn("mx-4 my-2 p-3 rounded-lg border text-sm", colorClass)}>
 			<div className="flex items-center gap-2 mb-1">
 				{isUserComment ? (
-					<Badge variant="outline" className="text-xs">
+					<Badge
+						variant="outline"
+						className="text-xs bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30"
+					>
 						You
 					</Badge>
 				) : (
 					<>
-						<Badge variant="outline" className="text-xs">
-							{comment.severity}
-						</Badge>
+						{comment.severity && (
+							<Badge variant="outline" className="text-xs">
+								{comment.severity}
+							</Badge>
+						)}
 						{comment.category && (
 							<Badge variant="secondary" className="text-xs">
 								{comment.category}
