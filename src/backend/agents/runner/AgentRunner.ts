@@ -56,7 +56,7 @@ import { getWorkflowOrchestrator } from "./WorkflowOrchestrator";
 const MAX_TOOL_STEPS = 15;
 
 /** Maximum number of nudges per user message */
-const MAX_NUDGES = 2;
+const MAX_NUDGES = 6;
 
 /**
  * Terminal tools by agent role - these tools signal a valid turn ending.
