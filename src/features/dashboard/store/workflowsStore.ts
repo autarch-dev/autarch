@@ -435,6 +435,12 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				reviewCards.delete(workflowId);
 				return { plans, reviewCards };
 			}
+			if (targetStage === "review") {
+				// Clear review cards only (rerun review)
+				const reviewCards = new Map(state.reviewCards);
+				reviewCards.delete(workflowId);
+				return { reviewCards };
+			}
 			// For in_progress, the WebSocket events handle state updates
 			return {};
 		});

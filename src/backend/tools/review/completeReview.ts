@@ -72,6 +72,10 @@ The recommendation must be one of: approve, deny, or manual_review.`,
 				input.summary,
 			);
 
+			if (context.turnId) {
+				await artifacts.updateLatestReviewCardTurnId(context.workflowId, context.turnId);
+			}
+
 			// Notify the workflow orchestrator about the tool result
 			// This will set the workflow to awaiting_approval state and broadcast the event
 			const orchestrator = getWorkflowOrchestrator();

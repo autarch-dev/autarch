@@ -1280,7 +1280,14 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 			await this.sessionManager.stopSession(workflow.currentSessionId);
 		}
 
-		// 2. Cleanup git worktree and branch (always needed for any rewind)
+		// Review rewind is special - no git/pulse cleanup needed (keep execution results)
+		if (targetStage === "review") {
+			const projectRoot = findRepoRoot(process.cwd());
+			await this.rewindToReviewImpl(workflowId, projectRoot);
+			return;
+		}
+
+		// 2. Cleanup git worktree and branch (needed for non-review rewinds)
 		const projectRoot = findRepoRoot(process.cwd());
 		try {
 			await cleanupWorkflow(projectRoot, workflowId, { deleteBranch: true });
@@ -1290,7 +1297,7 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 			);
 		}
 
-		// 3. Delete pulse-related data (always needed for any rewind)
+		// 3. Delete pulse-related data (needed for non-review rewinds)
 		await this.pulseRepo.deleteBaselines(workflowId);
 		await this.pulseRepo.deletePreflightSetup(workflowId);
 		await this.pulseRepo.deleteByWorkflow(workflowId);
@@ -1615,6 +1622,106 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 		runner.run(initialMessage, { hidden: true }).catch((error) => {
 			log.workflow.error(
 				`Preflight agent failed after rewind for workflow ${workflowId}:`,
+				error,
+			);
+			this.errorWorkflow(
+				workflowId,
+				error instanceof Error ? error.message : "Unknown error",
+			);
+		});
+	}
+
+	/**
+	 * Implementation for rewinding to review stage (rerun review)
+	 *
+	 * Unlike other rewinds, this keeps the git worktree and pulse data intact
+	 * since execution is complete. It just resets the review card and restarts
+	 * the review agent.
+	 */
+	private async rewindToReviewImpl(
+		workflowId: string,
+		projectRoot: string,
+	): Promise<void> {
+		const repos = getRepositories();
+
+		// Get the latest review card
+		const reviewCard = await this.artifactRepo.getLatestReviewCard(workflowId);
+		if (!reviewCard) {
+			throw new Error(`No review card found for workflow ${workflowId}`);
+		}
+
+		// Delete all comments and reset the review card
+		await this.artifactRepo.deleteReviewComments(reviewCard.id);
+		await this.artifactRepo.resetReviewCard(reviewCard.id);
+
+		// Delete review sessions only
+		const deletedCount = await repos.sessions.deleteByContextAndRoles(
+			"workflow",
+			workflowId,
+			["review"],
+		);
+		log.workflow.info(
+			`Deleted ${deletedCount} review sessions for workflow ${workflowId}`,
+		);
+
+		// Ensure workflow is in review stage
+		await this.workflowRepo.transitionStage(workflowId, "review", null);
+
+		// Start a new review agent session
+		const session = await this.sessionManager.startSession({
+			contextType: "workflow",
+			contextId: workflowId,
+			agentRole: "review",
+		});
+
+		await this.workflowRepo.setCurrentSession(workflowId, session.id);
+
+		// Build initial message for review agent
+		const scopeCard = await this.artifactRepo.getLatestScopeCard(workflowId);
+		if (!scopeCard) {
+			throw new Error(`No scope card found for workflow ${workflowId}`);
+		}
+
+		const initialMessage = `## Scope for Review (Restarted)
+
+The review has been restarted. Previous comments have been cleared.
+
+### ${scopeCard.title}
+
+${scopeCard.description}
+
+---
+
+Please review the changes made for this scope. Use the available tools to:
+1. Get the diff of all changes using \`get_diff\`
+2. Add comments at the line, file, or review level as needed
+3. Complete your review with a recommendation (approve, deny, or manual_review)`;
+
+		// Get the worktree path for the review agent
+		const worktreePath = getWorktreePath(projectRoot, workflowId);
+
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			conversationRepo: this.conversationRepo,
+			worktreePath,
+		});
+
+		log.workflow.info(`Restarting review agent for workflow ${workflowId}`);
+
+		// Broadcast stage changed event with new session ID
+		broadcast(
+			createWorkflowStageChangedEvent({
+				workflowId,
+				previousStage: "review",
+				newStage: "review",
+				sessionId: session.id,
+			}),
+		);
+
+		// Run in background (non-blocking)
+		runner.run(initialMessage, { hidden: true }).catch((error) => {
+			log.workflow.error(
+				`Review agent failed after rewind for workflow ${workflowId}:`,
 				error,
 			);
 			this.errorWorkflow(

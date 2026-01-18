@@ -602,6 +602,21 @@ export class ArtifactRepository implements Repository {
 			.execute();
 	}
 
+	/**
+	 * Update the turn_id on the latest review card for a workflow.
+	 * Used by complete_review to ensure the card is linked to the completing turn.
+	 */
+	async updateLatestReviewCardTurnId(workflowId: string, turnId: string): Promise<void> {
+		const reviewCard = await this.getLatestReviewCard(workflowId);
+		if (reviewCard) {
+			await this.db
+				.updateTable("review_cards")
+				.set({ turn_id: turnId })
+				.where("id", "=", reviewCard.id)
+				.execute();
+		}
+	}
+
 	// ===========================================================================
 	// Review Comments
 	// ===========================================================================
@@ -667,6 +682,31 @@ export class ArtifactRepository implements Repository {
 			.execute();
 
 		return rows.map((row) => this.toReviewComment(row));
+	}
+
+	/**
+	 * Delete all comments for a review card
+	 */
+	async deleteReviewComments(reviewCardId: string): Promise<void> {
+		await this.db
+			.deleteFrom("review_comments")
+			.where("review_card_id", "=", reviewCardId)
+			.execute();
+	}
+
+	/**
+	 * Reset a review card to pending state, clearing recommendation and summary
+	 */
+	async resetReviewCard(reviewCardId: string): Promise<void> {
+		await this.db
+			.updateTable("review_cards")
+			.set({
+				status: "pending",
+				recommendation: null,
+				summary: null,
+			})
+			.where("id", "=", reviewCardId)
+			.execute();
 	}
 
 	// ===========================================================================

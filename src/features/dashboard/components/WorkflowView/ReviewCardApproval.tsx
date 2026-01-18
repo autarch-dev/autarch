@@ -17,6 +17,7 @@ import {
 	FileText,
 	GitCompareArrows,
 	MessageSquare,
+	RotateCcw,
 	XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -55,6 +56,7 @@ interface ReviewCardApprovalProps {
 	reviewCard: ReviewCard;
 	onApprove?: () => Promise<void>;
 	onDeny?: (feedback: string) => Promise<void>;
+	onRewind?: () => Promise<void>;
 }
 
 const STATUS_STYLES = {
@@ -231,10 +233,12 @@ export function ReviewCardApproval({
 	reviewCard,
 	onApprove,
 	onDeny,
+	onRewind,
 }: ReviewCardApprovalProps) {
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(reviewCard.status === "pending");
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
+	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
 
 	// Collapse when status changes from pending
 	useEffect(() => {
@@ -269,6 +273,7 @@ export function ReviewCardApproval({
 
 	const isPending = reviewCard.status === "pending";
 	const canApprove = isPending && onApprove && onDeny;
+	const canRewind = !isPending && onRewind;
 
 	const { lineComments, fileComments, reviewComments } = groupCommentsByType(
 		reviewCard.comments,
@@ -300,6 +305,17 @@ export function ReviewCardApproval({
 			await onDeny(feedback.trim());
 			setDenyDialogOpen(false);
 			setFeedback("");
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	const handleRewind = async () => {
+		if (!onRewind) return;
+		setIsSubmitting(true);
+		try {
+			await onRewind();
+			setRewindDialogOpen(false);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -371,6 +387,21 @@ export function ReviewCardApproval({
 										</span>
 									</TooltipTrigger>
 									<TooltipContent>View Diff</TooltipContent>
+								</Tooltip>
+							)}
+							{canRewind && (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant="ghost"
+											size="icon-sm"
+											onClick={() => setRewindDialogOpen(true)}
+											className="text-muted-foreground hover:text-foreground"
+										>
+											<RotateCcw className="size-4" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Rerun Review</TooltipContent>
 								</Tooltip>
 							)}
 						</div>
@@ -468,6 +499,37 @@ export function ReviewCardApproval({
 							disabled={isSubmitting || !feedback.trim()}
 						>
 							Submit Feedback
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Rerun Review Confirmation Dialog */}
+			<Dialog open={rewindDialogOpen} onOpenChange={setRewindDialogOpen}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Rerun Review</DialogTitle>
+						<DialogDescription>
+							This will clear all existing review comments and restart the
+							review agent. The execution results and changes will be preserved.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setRewindDialogOpen(false)}
+							disabled={isSubmitting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleRewind}
+							disabled={isSubmitting}
+						>
+							<RotateCcw className="size-4 mr-1" />
+							Rerun Review
 						</Button>
 					</DialogFooter>
 				</DialogContent>

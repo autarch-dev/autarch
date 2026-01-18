@@ -176,6 +176,11 @@ export function WorkflowView({
 						onDeny={
 							artifact.data.status === "pending" ? onRequestChanges : undefined
 						}
+						onRewind={
+							artifact.data.status !== "pending" && onRewind
+								? () => onRewind("review")
+								: undefined
+						}
 					/>
 				);
 		}

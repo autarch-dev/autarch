@@ -35,7 +35,7 @@ export type ArtifactStatus = z.infer<typeof ArtifactStatusSchema>;
 // Rewind Target
 // =============================================================================
 
-export const RewindTargetSchema = z.enum(["researching", "planning", "in_progress"]);
+export const RewindTargetSchema = z.enum(["researching", "planning", "in_progress", "review"]);
 export type RewindTarget = z.infer<typeof RewindTargetSchema>;
 
 // =============================================================================
