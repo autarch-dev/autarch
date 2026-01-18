@@ -9,6 +9,7 @@
 import {
 	AlertTriangle,
 	CheckCircle,
+	CheckSquare,
 	ChevronDown,
 	ChevronRight,
 	ClipboardCheck,
@@ -17,6 +18,7 @@ import {
 	FileText,
 	GitCompareArrows,
 	MessageSquare,
+	Square,
 	XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -144,7 +146,15 @@ function groupCommentsByType(comments: ReviewComment[]) {
 /**
  * Render a single comment item
  */
-function CommentItem({ comment }: { comment: ReviewComment }) {
+function CommentItem({
+	comment,
+	isSelected,
+	onToggle,
+}: {
+	comment: ReviewComment;
+	isSelected?: boolean;
+	onToggle?: () => void;
+}) {
 	const locationInfo =
 		comment.type === "line" && comment.filePath
 			? `${comment.filePath}:${comment.startLine}${comment.endLine && comment.endLine !== comment.startLine ? `-${comment.endLine}` : ""}`
@@ -156,9 +166,28 @@ function CommentItem({ comment }: { comment: ReviewComment }) {
 	const isUserComment = comment.author === "user" || !comment.severity;
 
 	return (
-		<div className="border rounded-lg p-3 bg-background">
+		<div
+			className={cn(
+				"border rounded-lg p-3 bg-background transition-colors",
+				isSelected && "bg-primary/10 border-primary/50",
+			)}
+		>
 			<div className="flex items-start justify-between gap-2 mb-2">
 				<div className="flex items-center gap-2 flex-wrap">
+					{onToggle && (
+						<button
+							type="button"
+							onClick={onToggle}
+							className="text-muted-foreground hover:text-foreground transition-colors"
+							aria-label={isSelected ? "Deselect comment" : "Select comment"}
+						>
+							{isSelected ? (
+								<CheckSquare className="size-4 text-primary" />
+							) : (
+								<Square className="size-4" />
+							)}
+						</button>
+					)}
 					{isUserComment ? (
 						<Badge variant="outline" className="text-xs">
 							You
@@ -202,11 +231,15 @@ function CommentSection({
 	icon: Icon,
 	comments,
 	defaultOpen = true,
+	selectedCommentIds,
+	onToggleComment,
 }: {
 	title: string;
 	icon: React.ElementType;
 	comments: ReviewComment[];
 	defaultOpen?: boolean;
+	selectedCommentIds?: Set<string>;
+	onToggleComment?: (commentId: string) => void;
 }) {
 	const [isOpen, setIsOpen] = useState(defaultOpen);
 
@@ -233,7 +266,14 @@ function CommentSection({
 			</CollapsibleTrigger>
 			<CollapsibleContent className="space-y-2 pl-6 pt-2">
 				{comments.map((comment) => (
-					<CommentItem key={comment.id} comment={comment} />
+					<CommentItem
+						key={comment.id}
+						comment={comment}
+						isSelected={selectedCommentIds?.has(comment.id)}
+						onToggle={
+							onToggleComment ? () => onToggleComment(comment.id) : undefined
+						}
+					/>
 				))}
 			</CollapsibleContent>
 		</Collapsible>
@@ -248,6 +288,9 @@ export function ReviewCardApproval({
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(reviewCard.status === "pending");
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
+	const [selectedCommentIds, setSelectedCommentIds] = useState<Set<string>>(
+		new Set(),
+	);
 
 	// Collapse when status changes from pending
 	useEffect(() => {
@@ -288,6 +331,19 @@ export function ReviewCardApproval({
 	);
 
 	const totalComments = reviewCard.comments.length;
+	const selectedCount = selectedCommentIds.size;
+
+	const handleToggleComment = (commentId: string) => {
+		setSelectedCommentIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(commentId)) {
+				next.delete(commentId);
+			} else {
+				next.add(commentId);
+			}
+			return next;
+		});
+	};
 
 	const handleCopyMarkdown = async () => {
 		const markdown = reviewCardToMarkdown(reviewCard);
@@ -340,6 +396,15 @@ export function ReviewCardApproval({
 							{totalComments > 0 && (
 								<Badge variant="secondary" className="text-xs">
 									{totalComments} comment{totalComments !== 1 ? "s" : ""}
+								</Badge>
+							)}
+							{selectedCount > 0 && (
+								<Badge
+									variant="outline"
+									className="text-xs text-primary border-primary/50 bg-primary/10"
+								>
+									<CheckSquare className="size-3 mr-1" />
+									{selectedCount} selected
 								</Badge>
 							)}
 							{reviewCard.recommendation &&
@@ -429,16 +494,28 @@ export function ReviewCardApproval({
 									title="Line Comments"
 									icon={MessageSquare}
 									comments={lineComments}
+									selectedCommentIds={
+										canApprove ? selectedCommentIds : undefined
+									}
+									onToggleComment={canApprove ? handleToggleComment : undefined}
 								/>
 								<CommentSection
 									title="File Comments"
 									icon={FileText}
 									comments={fileComments}
+									selectedCommentIds={
+										canApprove ? selectedCommentIds : undefined
+									}
+									onToggleComment={canApprove ? handleToggleComment : undefined}
 								/>
 								<CommentSection
 									title="Review Comments"
 									icon={Eye}
 									comments={reviewComments}
+									selectedCommentIds={
+										canApprove ? selectedCommentIds : undefined
+									}
+									onToggleComment={canApprove ? handleToggleComment : undefined}
 								/>
 							</div>
 						) : (
