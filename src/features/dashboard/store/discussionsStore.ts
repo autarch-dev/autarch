@@ -17,6 +17,7 @@ import type {
 	ChannelDeletedPayload,
 	QuestionsAnsweredPayload,
 	QuestionsAskedPayload,
+	QuestionsSubmittedPayload,
 	SessionStartedPayload,
 	TurnCompletedPayload,
 	TurnMessageDeltaPayload,
@@ -65,6 +66,8 @@ export interface StreamingMessage {
 	}[];
 	/** Questions asked by the agent */
 	questions: StreamingQuestion[];
+	/** User comment/feedback provided when submitting question answers */
+	questionsComment?: string;
 	isComplete: boolean;
 }
 
@@ -390,6 +393,9 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 				break;
 			case "questions:answered":
 				handleQuestionsAnswered(event.payload, set, get);
+				break;
+			case "questions:submitted":
+				handleQuestionsSubmitted(event.payload, set, get);
 				break;
 		}
 	},
@@ -900,6 +906,50 @@ function handleQuestionsAnswered(
 								? { ...q, answer: payload.answer, status: "answered" as const }
 								: q,
 						),
+					};
+				}
+				return msg;
+			});
+
+			conversations.set(channelId, {
+				...existing,
+				messages,
+			});
+		}
+
+		return { conversations };
+	});
+}
+
+function handleQuestionsSubmitted(
+	payload: QuestionsSubmittedPayload,
+	set: SetState,
+	get: GetState,
+): void {
+	const channelId = findChannelBySession(payload.sessionId, get);
+	if (!channelId) return;
+
+	set((state) => {
+		const conversations = new Map(state.conversations);
+		const existing = conversations.get(channelId);
+		if (!existing) return { conversations };
+
+		// Update questionsComment in streaming message if present
+		if (existing.streamingMessage?.turnId === payload.turnId) {
+			conversations.set(channelId, {
+				...existing,
+				streamingMessage: {
+					...existing.streamingMessage,
+					questionsComment: payload.comment,
+				},
+			});
+		} else {
+			// Update questionsComment in completed messages
+			const messages = existing.messages.map((msg) => {
+				if (msg.turnId === payload.turnId) {
+					return {
+						...msg,
+						questionsComment: payload.comment,
 					};
 				}
 				return msg;

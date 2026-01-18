@@ -191,6 +191,11 @@ export function MessageBubble(props: MessageBubbleProps) {
 			? props.message.questions
 			: (props.message.questions ?? []);
 
+	const questionsComment =
+		props.variant === "streaming"
+			? props.message.questionsComment
+			: props.message.questionsComment;
+
 	const activeSegmentIndex =
 		props.variant === "streaming" ? props.message.activeSegmentIndex : -1;
 
@@ -344,6 +349,7 @@ export function MessageBubble(props: MessageBubbleProps) {
 						questions={questions}
 						onAnswer={handleAnswerQuestions}
 						disabled={isStreaming}
+						questionsComment={questionsComment}
 					/>
 				)}
 

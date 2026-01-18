@@ -8,6 +8,8 @@ export interface QuestionBlockProps {
 		comment?: string,
 	) => void;
 	disabled?: boolean;
+	/** User comment/feedback provided when questions were submitted (for display) */
+	questionsComment?: string;
 }
 
 export interface SingleQuestionProps {

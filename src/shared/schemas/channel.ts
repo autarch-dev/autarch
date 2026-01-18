@@ -106,6 +106,8 @@ export const ChannelMessageSchema = z.object({
 	thought: z.string().optional(),
 	/** Questions asked by the agent (assistant only) */
 	questions: z.array(MessageQuestionSchema).optional(),
+	/** User comment/feedback provided when submitting question answers */
+	questionsComment: z.string().optional(),
 });
 export type ChannelMessage = z.infer<typeof ChannelMessageSchema>;
 

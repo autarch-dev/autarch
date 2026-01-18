@@ -6,7 +6,10 @@
  */
 
 import { z } from "zod";
-import { createQuestionsAnsweredEvent } from "@/shared/schemas/events";
+import {
+	createQuestionsAnsweredEvent,
+	createQuestionsSubmittedEvent,
+} from "@/shared/schemas/events";
 import type { AnswerQuestionsResponse } from "@/shared/schemas/questions";
 import { AgentRunner, getSessionManager } from "../agents/runner";
 import { findRepoRoot } from "../git";
@@ -259,6 +262,15 @@ export const questionRoutes = {
 
 				// Mark any remaining pending questions as "skipped"
 				await repos.conversations.skipPendingQuestions(turnId);
+
+				// Broadcast the submitted event with optional comment
+				broadcast(
+					createQuestionsSubmittedEvent({
+						sessionId,
+						turnId,
+						comment: comment || undefined,
+					}),
+				);
 
 				// All questions are now processed
 				const allAnswered = true;

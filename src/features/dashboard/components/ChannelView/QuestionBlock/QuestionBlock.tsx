@@ -10,8 +10,8 @@
  * Collapsed when answered, expanded when pending.
  */
 
-import { ChevronDown, ChevronRight, Loader2, Send } from "lucide-react";
-import { useCallback, useState } from "react";
+import { CheckCircle, ChevronDown, ChevronRight, Loader2, MessageSquare, Send } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import type { MessageQuestion } from "@/shared/schemas/channel";
 import { FreeTextQuestion } from "./FreeTextQuestion";
 import { MultiSelectQuestion } from "./MultiSelectQuestion";
@@ -45,6 +46,7 @@ export function QuestionBlock({
 	questions,
 	onAnswer,
 	disabled,
+	questionsComment,
 }: QuestionBlockProps) {
 	// Block is submitted if NO questions are pending (all are "answered" or "skipped")
 	// This happens after any submission, even if all questions were skipped
@@ -55,6 +57,13 @@ export function QuestionBlock({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	// Auto-collapse if already submitted
 	const [isExpanded, setIsExpanded] = useState(!hasBeenSubmitted);
+
+	// Collapse when questions are submitted
+	useEffect(() => {
+		if (hasBeenSubmitted) {
+			setIsExpanded(false);
+		}
+	}, [hasBeenSubmitted]);
 
 	// Check if user has provided at least one answer
 	const hasAnyAnswer = questions.some((q) => {
@@ -128,19 +137,11 @@ export function QuestionBlock({
 					onChange={(v) => handleAnswerChange(question.id, v)}
 					disabled={disabled || isAnswered || isSubmitting}
 				/>
-				{isAnswered && (
-					<p className="text-xs text-muted-foreground">
-						Answered:{" "}
-						{Array.isArray(question.answer)
-							? question.answer.join(", ")
-							: String(question.answer)}
-					</p>
-				)}
 			</div>
 		);
 	};
 
-	// If submitted (no pending questions), show collapsed read-only view
+	// If submitted (no pending questions), show collapsed read-only view with green "approved" styling
 	if (hasBeenSubmitted) {
 		const answeredCount = questions.filter(
 			(q) => q.status === "answered",
@@ -162,23 +163,39 @@ export function QuestionBlock({
 				onOpenChange={setIsExpanded}
 				className="my-3"
 			>
-				<div className="rounded-lg border bg-muted/30">
+				<div className={cn(
+					"rounded-lg border",
+					"border-green-500/30 bg-green-500/5"
+				)}>
 					<CollapsibleTrigger asChild>
 						<Button
 							variant="ghost"
-							className="w-full justify-start gap-2 p-3 h-auto font-medium text-muted-foreground hover:text-foreground"
+							className="w-full justify-start gap-2 p-3 h-auto font-medium text-green-600 hover:text-green-700 hover:bg-green-500/10"
 						>
 							{isExpanded ? (
 								<ChevronDown className="size-4" />
 							) : (
 								<ChevronRight className="size-4" />
 							)}
+							<CheckCircle className="size-4" />
 							{statusText}
 						</Button>
 					</CollapsibleTrigger>
 					<CollapsibleContent>
 						<div className="px-4 pb-4 space-y-4">
 							{questions.map(renderQuestion)}
+							{/* Show user's comment if provided */}
+							{questionsComment && (
+								<div className="pt-2 border-t border-green-500/20">
+									<div className="flex items-start gap-2 text-sm">
+										<MessageSquare className="size-4 text-green-600 mt-0.5 shrink-0" />
+										<div>
+											<span className="font-medium text-green-600">Your comment:</span>
+											<p className="text-muted-foreground mt-1">{questionsComment}</p>
+										</div>
+									</div>
+								</div>
+							)}
 						</div>
 					</CollapsibleContent>
 				</div>

@@ -511,6 +511,25 @@ export type QuestionsAnsweredEvent = z.infer<
 	typeof QuestionsAnsweredEventSchema
 >;
 
+// questions:submitted - User submitted all answers for a question block
+export const QuestionsSubmittedPayloadSchema = z.object({
+	sessionId: z.string(),
+	turnId: z.string(),
+	/** Optional comment/feedback provided by user */
+	comment: z.string().optional(),
+});
+export type QuestionsSubmittedPayload = z.infer<
+	typeof QuestionsSubmittedPayloadSchema
+>;
+
+export const QuestionsSubmittedEventSchema = z.object({
+	type: z.literal("questions:submitted"),
+	payload: QuestionsSubmittedPayloadSchema,
+});
+export type QuestionsSubmittedEvent = z.infer<
+	typeof QuestionsSubmittedEventSchema
+>;
+
 // =============================================================================
 // WebSocket Event Union
 // =============================================================================
@@ -553,6 +572,7 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	// Question events
 	QuestionsAskedEventSchema,
 	QuestionsAnsweredEventSchema,
+	QuestionsSubmittedEventSchema,
 ]);
 
 export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
@@ -686,6 +706,12 @@ export function createQuestionsAnsweredEvent(
 	payload: QuestionsAnsweredPayload,
 ): QuestionsAnsweredEvent {
 	return { type: "questions:answered", payload };
+}
+
+export function createQuestionsSubmittedEvent(
+	payload: QuestionsSubmittedPayload,
+): QuestionsSubmittedEvent {
+	return { type: "questions:submitted", payload };
 }
 
 // Pulse events
