@@ -30,11 +30,11 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="overflow-y-auto sm:max-w-lg">
+			<SheetContent side="right" className="overflow-y-auto sm:max-w-xl">
 				<SheetHeader>
 					<SheetTitle>Settings</SheetTitle>
 				</SheetHeader>
-				<div className="flex flex-col gap-8 py-4">
+				<div className="flex flex-col gap-6 py-4">
 					<ApiProviderKeysSection />
 					<ModelPreferencesSection />
 					<IntegrationsSection />
