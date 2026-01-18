@@ -27,6 +27,7 @@ import type {
 	TurnsTable,
 	TurnToolsTable,
 } from "@/backend/db/project/types";
+import { getCostCalculator } from "@/backend/services/cost";
 import { ids } from "@/backend/utils";
 import type { ChannelMessage, MessageQuestion } from "@/shared/schemas/channel";
 import type {
@@ -221,6 +222,21 @@ export class ConversationRepository implements Repository {
 			return null;
 		}
 
+		// Calculate cost for assistant turns
+		let cost: number | undefined;
+		if (
+			turn.role === "assistant" &&
+			turn.model_id &&
+			turn.prompt_tokens != null &&
+			turn.completion_tokens != null
+		) {
+			cost = getCostCalculator().calculate(
+				turn.model_id,
+				turn.prompt_tokens,
+				turn.completion_tokens,
+			);
+		}
+
 		return {
 			id: turn.id,
 			turnId: turn.id,
@@ -239,6 +255,7 @@ export class ConversationRepository implements Repository {
 				questions.length > 0
 					? questions.map((q) => this.toMessageQuestion(q))
 					: undefined,
+			cost,
 		};
 	}
 

@@ -25,6 +25,7 @@ import {
 } from "@/backend/llm";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
+import { getCostCalculator } from "@/backend/services/cost";
 import { isExaKeyConfigured } from "@/backend/services/globalSettings";
 import type { ToolContext } from "@/backend/tools/types";
 import { broadcast } from "@/backend/ws";
@@ -1001,11 +1002,26 @@ export class AgentRunner {
 		// Use repository for DB operation
 		await this.config.conversationRepo.completeTurn(turnId, usage);
 
+		// Calculate cost for the event payload
+		let cost: number | undefined;
+		if (
+			usage?.modelId &&
+			usage.promptTokens != null &&
+			usage.completionTokens != null
+		) {
+			cost = getCostCalculator().calculate(
+				usage.modelId,
+				usage.promptTokens,
+				usage.completionTokens,
+			);
+		}
+
 		broadcast(
 			createTurnCompletedEvent({
 				sessionId: this.session.id,
 				turnId,
 				tokenCount: usage?.tokenCount,
+				cost,
 			}),
 		);
 	}
