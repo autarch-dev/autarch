@@ -38,7 +38,7 @@ export function WorkflowHeader({ workflow, totalCost }: WorkflowHeaderProps) {
 						{status.label}
 					</Badge>
 					<Badge variant="secondary" className="bg-muted">
-						~${totalCost.toFixed(2)}
+						Cost: ${totalCost.toFixed(2)}
 					</Badge>
 					<Button variant="ghost" size="icon-sm">
 						<MoreHorizontal className="size-4" />
