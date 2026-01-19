@@ -17,6 +17,8 @@ import {
 	Eye,
 	FileText,
 	GitCompareArrows,
+	GitMerge,
+	Loader2,
 	MessageSquare,
 	RotateCcw,
 	Square,
@@ -39,6 +41,14 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
 	Tooltip,
@@ -47,6 +57,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type {
+	MergeStrategy,
 	ReviewCard,
 	ReviewComment,
 	ReviewCommentSeverity,
@@ -54,9 +65,14 @@ import type {
 import { reviewCardToMarkdown } from "./artifactMarkdown";
 import { DiffViewerModal } from "./DiffViewer";
 
+interface MergeOptions {
+	mergeStrategy: MergeStrategy;
+	commitMessage: string;
+}
+
 interface ReviewCardApprovalProps {
 	reviewCard: ReviewCard;
-	onApprove?: () => Promise<void>;
+	onApprove?: (mergeOptions: MergeOptions) => Promise<void>;
 	onDeny?: (feedback: string) => Promise<void>;
 	onRewind?: () => Promise<void>;
 	onRequestFixes?: (commentIds: string[], summary?: string) => Promise<void>;
@@ -295,6 +311,15 @@ export function ReviewCardApproval({
 	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
 	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
 	const [requestFixesDialogOpen, setRequestFixesDialogOpen] = useState(false);
+	const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+	const [selectedStrategy, setSelectedStrategy] =
+		useState<MergeStrategy>("fast-forward");
+	const [commitMessage, setCommitMessage] = useState(
+		reviewCard.suggestedCommitMessage ?? "",
+	);
+	const [mergeErrorMessage, setMergeErrorMessage] = useState<string | null>(
+		null,
+	);
 	const [selectedCommentIds, setSelectedCommentIds] = useState<Set<string>>(
 		new Set(),
 	);
@@ -361,11 +386,27 @@ export function ReviewCardApproval({
 		setTimeout(() => setCopied(false), 2000);
 	};
 
-	const handleApprove = async () => {
+	const handleOpenApproveDialog = () => {
+		// Reset state when opening dialog
+		setCommitMessage(reviewCard.suggestedCommitMessage ?? "");
+		setSelectedStrategy("fast-forward");
+		setMergeErrorMessage(null);
+		setApproveDialogOpen(true);
+	};
+
+	const handleApproveAndMerge = async () => {
 		if (!onApprove) return;
 		setIsSubmitting(true);
+		setMergeErrorMessage(null);
 		try {
-			await onApprove();
+			await onApprove({
+				mergeStrategy: selectedStrategy,
+				commitMessage: commitMessage.trim(),
+			});
+			setApproveDialogOpen(false);
+		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : "Merge failed";
+			setMergeErrorMessage(errorMsg);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -532,11 +573,11 @@ export function ReviewCardApproval({
 								</Button>
 								<Button
 									size="sm"
-									onClick={handleApprove}
+									onClick={handleOpenApproveDialog}
 									disabled={isSubmitting}
 								>
-									<CheckCircle className="size-4 mr-1" />
-									Approve
+									<GitMerge className="size-4 mr-1" />
+									Approve and Merge
 								</Button>
 							</div>
 						)}
@@ -693,6 +734,72 @@ export function ReviewCardApproval({
 						</Button>
 						<Button onClick={handleRequestFixes} disabled={isSubmitting}>
 							Submit
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Approve and Merge Dialog */}
+			<Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+				<DialogContent className="sm:max-w-lg">
+					<DialogHeader>
+						<DialogTitle>Approve and Merge</DialogTitle>
+						<DialogDescription>
+							Choose a merge strategy and confirm the commit message.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-4 py-4">
+						<div className="space-y-2">
+							<Label htmlFor="merge-strategy">Merge Strategy</Label>
+							<Select
+								value={selectedStrategy}
+								onValueChange={(value) =>
+									setSelectedStrategy(value as MergeStrategy)
+								}
+							>
+								<SelectTrigger id="merge-strategy">
+									<SelectValue placeholder="Select merge strategy" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="fast-forward">Fast-forward</SelectItem>
+									<SelectItem value="squash">Squash</SelectItem>
+									<SelectItem value="merge-commit">Merge commit</SelectItem>
+									<SelectItem value="rebase">Rebase and merge</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="commit-message">Commit Message</Label>
+							<Textarea
+								id="commit-message"
+								value={commitMessage}
+								onChange={(e) => setCommitMessage(e.target.value)}
+								placeholder="Enter commit message..."
+								rows={4}
+							/>
+						</div>
+						{mergeErrorMessage && (
+							<div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+								{mergeErrorMessage}
+							</div>
+						)}
+					</div>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setApproveDialogOpen(false)}
+							disabled={isSubmitting}
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={handleApproveAndMerge}
+							disabled={isSubmitting || !commitMessage.trim()}
+						>
+							{isSubmitting && <Loader2 className="size-4 mr-1 animate-spin" />}
+							<GitMerge className="size-4 mr-1" />
+							Approve and Merge
 						</Button>
 					</DialogFooter>
 				</DialogContent>
