@@ -564,7 +564,100 @@ export async function rebaseMerge(
 }
 
 /**
+ * Rebase merge variant that can skip base branch checkout when not needed
+ *
+ * Used when the base branch is already checked out in the target worktree,
+ * avoiding the Git error about branches being checked out in multiple worktrees.
+ *
+ * @param worktreePath - Path to the worktree where merge will happen
+ * @param baseBranch - The base branch to rebase onto and merge into
+ * @param workflowBranch - The workflow branch to rebase
+ * @param needsBaseCheckout - Whether we need to checkout the base branch (false if already checked out)
+ */
+async function rebaseMergeWithWorktree(
+	worktreePath: string,
+	baseBranch: string,
+	workflowBranch: string,
+	needsBaseCheckout: boolean,
+): Promise<void> {
+	// For rebase, we need to be on the workflow branch to rebase it
+	// But we can only checkout the workflow branch if it's not checked out elsewhere
+	// Rebase approach: use a temporary detached HEAD to do the rebase
+
+	if (needsBaseCheckout) {
+		// Standard flow: we can freely switch branches
+		// Step 1: Checkout workflow branch
+		await checkoutInWorktree(worktreePath, workflowBranch);
+
+		// Step 2: Rebase workflow branch onto base branch
+		const result = await execGit(["rebase", baseBranch], {
+			cwd: worktreePath,
+		});
+
+		if (!result.success) {
+			await execGit(["rebase", "--abort"], { cwd: worktreePath });
+			throw new Error(
+				`Git rebase failed: git rebase ${baseBranch}\n${result.stderr}`,
+			);
+		}
+
+		log.git.info(`Rebased ${workflowBranch} onto ${baseBranch}`);
+
+		// Step 3: Checkout base branch
+		await checkoutInWorktree(worktreePath, baseBranch);
+
+		// Step 4: Fast-forward merge the rebased workflow branch
+		await fastForwardMerge(worktreePath, workflowBranch);
+	} else {
+		// We're in a worktree where baseBranch is already checked out
+		// We need to do the rebase without checking out workflowBranch (it may be in another worktree)
+
+		// Use git rebase with explicit refs instead of checkout
+		// First, update the workflow branch to be rebased onto baseBranch
+		const result = await execGit(["rebase", baseBranch, workflowBranch], {
+			cwd: worktreePath,
+		});
+
+		if (!result.success) {
+			await execGit(["rebase", "--abort"], { cwd: worktreePath });
+			throw new Error(
+				`Git rebase failed: git rebase ${baseBranch} ${workflowBranch}\n${result.stderr}`,
+			);
+		}
+
+		log.git.info(`Rebased ${workflowBranch} onto ${baseBranch}`);
+
+		// Now fast-forward merge (baseBranch is already checked out)
+		await fastForwardMerge(worktreePath, workflowBranch);
+	}
+}
+
+/**
+ * Find if a branch is checked out in any worktree and return that worktree's path if so
+ *
+ * @param repoRoot - Path to the main repository
+ * @param branchName - The branch to look for
+ * @returns The worktree path where the branch is checked out, or null if not found
+ */
+async function findWorktreeWithBranch(
+	repoRoot: string,
+	branchName: string,
+): Promise<string | null> {
+	const worktrees = await listWorktrees(repoRoot);
+	for (const wt of worktrees) {
+		if (wt.branch === branchName) {
+			return wt.path;
+		}
+	}
+	return null;
+}
+
+/**
  * Merge a workflow branch into the base branch using the specified strategy
+ *
+ * If the base branch is already checked out in another worktree (e.g., the main worktree),
+ * the merge will be performed there instead, avoiding the Git error about branches being
+ * checked out in multiple worktrees.
  *
  * @param repoRoot - Path to the main repository
  * @param worktreePath - Path to the worktree
@@ -574,32 +667,69 @@ export async function rebaseMerge(
  * @param commitMessage - Message for the commit (used by squash and merge-commit strategies)
  */
 export async function mergeWorkflowBranch(
-	_repoRoot: string,
+	repoRoot: string,
 	worktreePath: string,
 	baseBranch: string,
 	workflowBranch: string,
 	strategy: MergeStrategy,
 	commitMessage: string,
 ): Promise<void> {
+	// Check if baseBranch is already checked out in another worktree
+	const existingWorktree = await findWorktreeWithBranch(repoRoot, baseBranch);
+
+	// Determine where to perform the merge
+	let mergePath: string;
+	let needsCheckout: boolean;
+
+	if (existingWorktree && existingWorktree !== worktreePath) {
+		// baseBranch is checked out in another worktree (likely the main worktree)
+		// Check if it has uncommitted changes
+		const hasChanges = await hasUncommittedChanges(existingWorktree);
+		if (hasChanges) {
+			throw new Error(
+				"Cannot merge: your working directory has uncommitted changes. Please commit or stash your changes first, then retry.",
+			);
+		}
+
+		// Use the existing worktree for the merge (baseBranch is already checked out)
+		mergePath = existingWorktree;
+		needsCheckout = false;
+		log.git.info(
+			`Base branch ${baseBranch} is checked out at ${existingWorktree}, performing merge there`,
+		);
+	} else {
+		// baseBranch is not checked out elsewhere, use the workflow worktree
+		mergePath = worktreePath;
+		needsCheckout = true;
+	}
+
 	// For rebase strategy, we handle checkout differently (workflow branch first)
-	// For all other strategies, checkout base branch first
+	// For all other strategies, checkout base branch first (if needed)
 	if (strategy === "rebase") {
 		// rebaseMerge handles its own checkout sequence
-		await rebaseMerge(worktreePath, baseBranch, workflowBranch);
+		// Pass needsCheckout to indicate if base branch checkout is safe
+		await rebaseMergeWithWorktree(
+			mergePath,
+			baseBranch,
+			workflowBranch,
+			needsCheckout,
+		);
 	} else {
-		// Checkout base branch in worktree
-		await checkoutInWorktree(worktreePath, baseBranch);
+		// Checkout base branch in worktree (only if needed)
+		if (needsCheckout) {
+			await checkoutInWorktree(mergePath, baseBranch);
+		}
 
 		// Execute merge based on strategy
 		switch (strategy) {
 			case "fast-forward":
-				await fastForwardMerge(worktreePath, workflowBranch);
+				await fastForwardMerge(mergePath, workflowBranch);
 				break;
 			case "squash":
-				await squashMerge(worktreePath, workflowBranch, commitMessage);
+				await squashMerge(mergePath, workflowBranch, commitMessage);
 				break;
 			case "merge-commit":
-				await mergeCommit(worktreePath, workflowBranch, commitMessage);
+				await mergeCommit(mergePath, workflowBranch, commitMessage);
 				break;
 			default: {
 				const _exhaustive: never = strategy;
@@ -610,12 +740,12 @@ export async function mergeWorkflowBranch(
 
 	// Push result back to origin (if remote exists)
 	const remoteResult = await execGit(["remote", "get-url", "origin"], {
-		cwd: worktreePath,
+		cwd: mergePath,
 	});
 
 	if (remoteResult.success) {
 		await execGitOrThrow(["push", "origin", baseBranch], {
-			cwd: worktreePath,
+			cwd: mergePath,
 		});
 		log.git.info(`Pushed ${baseBranch} to origin`);
 	}

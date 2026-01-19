@@ -781,7 +781,16 @@ export function ReviewCardApproval({
 			</Dialog>
 
 			{/* Approve and Merge Dialog */}
-			<Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+			<Dialog
+				open={approveDialogOpen}
+				onOpenChange={(open) => {
+					setApproveDialogOpen(open);
+					// Clear stale error message when dialog closes
+					if (!open) {
+						setMergeErrorMessage(null);
+					}
+				}}
+			>
 				<DialogContent className="sm:max-w-lg">
 					<DialogHeader>
 						<DialogTitle>Approve and Merge</DialogTitle>
