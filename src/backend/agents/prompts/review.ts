@@ -371,6 +371,7 @@ When calling \`complete_review\`, you must provide:
 - No scope violations
 - No significant risks
 - Minor suggestions (if any) are non-blocking
+- Include a suggestedCommitMessage for the merge
 
 **request_changes**
 - Critical correctness issues
@@ -385,13 +386,33 @@ When calling \`complete_review\`, you must provide:
 - Architectural decisions that need human judgment
 - Tradeoffs that aren't clearly right or wrong
 
+### Commit Message Generation
+
+When completing a review with **approve** recommendation, include a \`suggestedCommitMessage\` following Conventional Commit format:
+
+\`\`\`
+type(scope): description
+\`\`\`
+
+**Types:** \`feat\`, \`fix\`, \`refactor\`, \`docs\`, \`test\`, \`chore\`
+
+**Scope:** Should reflect the primary area changed (e.g., \`auth\`, \`api\`, \`ui\`, \`db\`)
+
+**Description:** Imperative mood, concise summary of changes (e.g., "add email validation to user service")
+
+**Examples:**
+- \`feat(auth): add email validation to user service\`
+- \`fix(api): handle null response in fetch handler\`
+- \`refactor(db): extract query builder into separate module\`
+
 ### Examples
 
 **Approve:**
 \`\`\`json
 {
   "recommendation": "approve",
-  "summary": "Changes correctly implement email validation. Error handling is explicit, tests cover edge cases, follows existing patterns."
+  "summary": "Changes correctly implement email validation. Error handling is explicit, tests cover edge cases, follows existing patterns.",
+  "suggestedCommitMessage": "feat(auth): add email validation to user service"
 }
 \`\`\`
 
