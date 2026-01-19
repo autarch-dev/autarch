@@ -203,6 +203,8 @@ export const ReviewCardSchema = z.object({
 	recommendation: ReviewRecommendationSchema.optional(),
 	/** Summary from review agent - undefined until completeReview is called */
 	summary: z.string().optional(),
+	/** Suggested commit message from review agent - undefined until completeReview is called */
+	suggestedCommitMessage: z.string().optional(),
 	/** Comments added during review */
 	comments: z.array(ReviewCommentSchema),
 	status: ArtifactStatusSchema,

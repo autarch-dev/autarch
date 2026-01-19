@@ -359,6 +359,8 @@ export interface ReviewCardsTable {
 	recommendation: ReviewRecommendation | null;
 	/** Summary from review agent - nullable until completeReview is called */
 	summary: string | null;
+	/** Suggested commit message from review agent - nullable until completeReview is called */
+	suggested_commit_message: string | null;
 	status: ArtifactStatus;
 	created_at: number;
 }

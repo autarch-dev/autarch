@@ -31,6 +31,7 @@ export async function migrateProjectDb(
 	await addArtifactTurnIdColumns(db);
 	await addTurnTokenUsageColumns(db);
 	await addReviewCommentsAuthorColumn(db);
+	await addSuggestedCommitMessageColumn(db);
 }
 
 // =============================================================================
@@ -784,4 +785,22 @@ async function addReviewCommentsAuthorColumn(
 	// new databases will have them as NOT NULL. For existing databases, we leave
 	// the columns as-is since existing data has values, and the TypeScript types
 	// now allow null. The application code handles null values properly.
+}
+
+// =============================================================================
+// Suggested Commit Message Migration
+// =============================================================================
+
+async function addSuggestedCommitMessageColumn(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	// Add suggested_commit_message column to review_cards table
+	try {
+		await db.schema
+			.alterTable("review_cards")
+			.addColumn("suggested_commit_message", "text")
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
 }
