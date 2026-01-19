@@ -26,6 +26,7 @@ import type {
 	WorkflowStageChangedPayload,
 } from "@/shared/schemas/events";
 import type {
+	MergeStrategy,
 	Plan,
 	ResearchCard,
 	ReviewCard,
@@ -122,6 +123,10 @@ interface WorkflowsState {
 
 	// Actions - Approval
 	approveArtifact: (workflowId: string) => Promise<void>;
+	approveWithMerge: (
+		workflowId: string,
+		mergeOptions: { mergeStrategy: MergeStrategy; commitMessage: string },
+	) => Promise<void>;
 	requestChanges: (workflowId: string, feedback: string) => Promise<void>;
 	rewindWorkflow: (
 		workflowId: string,
@@ -375,6 +380,31 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 		if (!response.ok) {
 			const error = await response.json();
 			throw new Error(error.error ?? "Failed to approve artifact");
+		}
+
+		// Update artifact status in local state to "approved"
+		set((state) =>
+			updateArtifactStatusInState(state, workflowId, artifactType, "approved"),
+		);
+	},
+
+	approveWithMerge: async (
+		workflowId: string,
+		mergeOptions: { mergeStrategy: MergeStrategy; commitMessage: string },
+	) => {
+		// Capture artifact type BEFORE the API call - WebSocket events might clear it during await
+		const workflow = get().workflows.find((w) => w.id === workflowId);
+		const artifactType = workflow?.pendingArtifactType;
+
+		const response = await fetch(`/api/workflows/${workflowId}/approve`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(mergeOptions),
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error ?? "Failed to approve and merge");
 		}
 
 		// Update artifact status in local state to "approved"
