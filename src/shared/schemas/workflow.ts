@@ -213,6 +213,18 @@ export const ReviewCardSchema = z.object({
 export type ReviewCard = z.infer<typeof ReviewCardSchema>;
 
 // =============================================================================
+// Merge Strategy
+// =============================================================================
+
+export const MergeStrategySchema = z.enum([
+	"fast-forward",
+	"squash",
+	"merge-commit",
+	"rebase",
+]);
+export type MergeStrategy = z.infer<typeof MergeStrategySchema>;
+
+// =============================================================================
 // Workflow
 // =============================================================================
 
