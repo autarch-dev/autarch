@@ -613,7 +613,8 @@ async function rebaseMergeWithWorktree(
 		// We need to do the rebase without checking out workflowBranch (it may be in another worktree)
 
 		// Use git rebase with explicit refs instead of checkout
-		// First, update the workflow branch to be rebased onto baseBranch
+		// This is equivalent to: git checkout workflowBranch && git rebase baseBranch
+		// After this command, HEAD will be on workflowBranch (rebased)
 		const result = await execGit(["rebase", baseBranch, workflowBranch], {
 			cwd: worktreePath,
 		});
@@ -627,7 +628,10 @@ async function rebaseMergeWithWorktree(
 
 		log.git.info(`Rebased ${workflowBranch} onto ${baseBranch}`);
 
-		// Now fast-forward merge (baseBranch is already checked out)
+		// After rebase, we're on workflowBranch - need to checkout baseBranch for the merge
+		await checkoutInWorktree(worktreePath, baseBranch);
+
+		// Now fast-forward merge workflowBranch into baseBranch
 		await fastForwardMerge(worktreePath, workflowBranch);
 	}
 }

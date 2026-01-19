@@ -360,7 +360,8 @@ When calling \`complete_review\`, you must provide:
 \`\`\`typescript
 {
   "recommendation": "approve" | "deny" | "manual_review",
-  "summary": "Brief summary of review findings"
+  "summary": "Brief summary of review findings",
+  "suggestedCommitMessage": "Conventional Commit format message"
 }
 \`\`\`
 
@@ -371,7 +372,6 @@ When calling \`complete_review\`, you must provide:
 - No scope violations
 - No significant risks
 - Minor suggestions (if any) are non-blocking
-- Include a suggestedCommitMessage for the merge
 
 **request_changes**
 - Critical correctness issues
@@ -388,7 +388,7 @@ When calling \`complete_review\`, you must provide:
 
 ### Commit Message Generation
 
-When completing a review with **approve** recommendation, include a \`suggestedCommitMessage\` following Conventional Commit format:
+**Always include a \`suggestedCommitMessage\`** following Conventional Commit format, regardless of recommendation:
 
 \`\`\`
 type(scope): description
@@ -420,7 +420,8 @@ type(scope): description
 \`\`\`json
 {
   "recommendation": "deny",
-  "summary": "Critical issues found: unhandled null pointer at UserService.ts:45, missing validation for edge case, test coverage incomplete."
+  "summary": "Critical issues found: unhandled null pointer at UserService.ts:45, missing validation for edge case, test coverage incomplete.",
+  "suggestedCommitMessage": "feat(auth): add email validation to user service"
 }
 \`\`\`
 
@@ -428,7 +429,8 @@ type(scope): description
 \`\`\`json
 {
   "recommendation": "manual_review",
-  "summary": "Changes introduce new validation pattern inconsistent with existing code. May be justified by scope/research not visible to review. Needs confirmation."
+  "summary": "Changes introduce new validation pattern inconsistent with existing code. May be justified by scope/research not visible to review. Needs confirmation.",
+  "suggestedCommitMessage": "feat(validation): add new validator pattern"
 }
 \`\`\`
 
