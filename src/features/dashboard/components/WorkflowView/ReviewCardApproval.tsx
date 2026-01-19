@@ -866,6 +866,7 @@ export function ReviewCardApproval({
 							onClick={handleApproveAndMerge}
 							disabled={
 								isSubmitting ||
+								isFetchingDefault ||
 								(selectedStrategy !== "fast-forward" && !commitMessage.trim())
 							}
 						>

@@ -18,51 +18,22 @@ import {
 // Schema
 // =============================================================================
 
-// Base fields shared by all recommendation types
-const baseReviewFields = {
+export const completeReviewInputSchema = z.object({
 	reason: z.string().describe(REASON_DESCRIPTION),
 	summary: z
 		.string()
 		.min(1)
 		.describe("A summary explanation for the recommendation"),
-};
-
-// Discriminated union: suggestedCommitMessage is only required for "approve"
-export const completeReviewInputSchema = z.discriminatedUnion(
-	"recommendation",
-	[
-		z.object({
-			...baseReviewFields,
-			recommendation: z
-				.literal("approve")
-				.describe("Approve the changes for merge"),
-			suggestedCommitMessage: z
-				.string()
-				.min(1)
-				.describe(
-					"Suggested commit message in Conventional Commit format (required for approve)",
-				),
-		}),
-		z.object({
-			...baseReviewFields,
-			recommendation: z.literal("deny").describe("Deny the changes"),
-			suggestedCommitMessage: z
-				.string()
-				.optional()
-				.describe("Optional commit message suggestion"),
-		}),
-		z.object({
-			...baseReviewFields,
-			recommendation: z
-				.literal("manual_review")
-				.describe("Request manual human review"),
-			suggestedCommitMessage: z
-				.string()
-				.optional()
-				.describe("Optional commit message suggestion"),
-		}),
-	],
-);
+	recommendation: z
+		.enum(["approve", "deny", "manual_review"])
+		.describe("The review recommendation: approve, deny, or manual_review"),
+	suggestedCommitMessage: z
+		.string()
+		.min(1)
+		.describe(
+			"Suggested commit message in Conventional Commit format (type(scope): description)",
+		),
+});
 
 export type CompleteReviewInput = z.infer<typeof completeReviewInputSchema>;
 
