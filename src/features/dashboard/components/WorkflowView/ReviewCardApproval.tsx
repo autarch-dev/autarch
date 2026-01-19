@@ -314,6 +314,9 @@ export function ReviewCardApproval({
 	const [approveDialogOpen, setApproveDialogOpen] = useState(false);
 	const [selectedStrategy, setSelectedStrategy] =
 		useState<MergeStrategy>("fast-forward");
+	const [defaultStrategy, setDefaultStrategy] =
+		useState<MergeStrategy>("fast-forward");
+	const [isFetchingDefault, setIsFetchingDefault] = useState(true);
 	const [commitMessage, setCommitMessage] = useState(
 		reviewCard.suggestedCommitMessage ?? "",
 	);
@@ -331,6 +334,31 @@ export function ReviewCardApproval({
 			setIsExpanded(false);
 		}
 	}, [reviewCard.status]);
+
+	// Fetch default merge strategy on mount
+	useEffect(() => {
+		setIsFetchingDefault(true);
+		fetch("/api/settings/merge-strategy")
+			.then((res) => {
+				if (!res.ok) {
+					throw new Error("Failed to fetch merge strategy");
+				}
+				return res.json();
+			})
+			.then((data) => {
+				if (data.strategy) {
+					setDefaultStrategy(data.strategy);
+					setSelectedStrategy(data.strategy);
+				}
+			})
+			.catch((err) => {
+				console.error("Failed to fetch merge strategy preference:", err);
+				// Keep 'fast-forward' as fallback (already set as default)
+			})
+			.finally(() => {
+				setIsFetchingDefault(false);
+			});
+	}, []);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [copied, setCopied] = useState(false);
@@ -389,7 +417,7 @@ export function ReviewCardApproval({
 	const handleOpenApproveDialog = () => {
 		// Reset state when opening dialog
 		setCommitMessage(reviewCard.suggestedCommitMessage ?? "");
-		setSelectedStrategy("fast-forward");
+		setSelectedStrategy(defaultStrategy);
 		setMergeErrorMessage(null);
 		setApproveDialogOpen(true);
 	};
@@ -403,6 +431,19 @@ export function ReviewCardApproval({
 				mergeStrategy: selectedStrategy,
 				commitMessage: commitMessage.trim(),
 			});
+
+			// Save preference if strategy differs from default
+			if (selectedStrategy !== defaultStrategy) {
+				fetch("/api/settings/merge-strategy", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ strategy: selectedStrategy }),
+				}).catch((err) => {
+					// Non-blocking - just log if preference save fails
+					console.error("Failed to save merge strategy preference:", err);
+				});
+			}
+
 			setApproveDialogOpen(false);
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : "Merge failed";
@@ -756,9 +797,17 @@ export function ReviewCardApproval({
 								onValueChange={(value) =>
 									setSelectedStrategy(value as MergeStrategy)
 								}
+								disabled={isFetchingDefault}
 							>
 								<SelectTrigger id="merge-strategy">
-									<SelectValue placeholder="Select merge strategy" />
+									{isFetchingDefault ? (
+										<span className="flex items-center gap-2">
+											<Loader2 className="size-4 animate-spin" />
+											Loading...
+										</span>
+									) : (
+										<SelectValue placeholder="Select merge strategy" />
+									)}
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="fast-forward">Fast-forward</SelectItem>
