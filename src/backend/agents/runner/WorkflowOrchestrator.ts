@@ -10,7 +10,12 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
-import { cleanupWorkflow, findRepoRoot, getCurrentBranch } from "@/backend/git";
+import {
+	cleanupWorkflow,
+	findRepoRoot,
+	getCurrentBranch,
+	mergeWorkflowBranch,
+} from "@/backend/git";
 import { getWorktreePath } from "@/backend/git/worktree";
 import { getModelForScenario } from "@/backend/llm/models";
 import { log } from "@/backend/logger";
@@ -288,7 +293,7 @@ export class WorkflowOrchestrator {
 	 */
 	async approveArtifact(
 		workflowId: string,
-		_mergeOptions?: { mergeStrategy: MergeStrategy; commitMessage: string },
+		mergeOptions?: { mergeStrategy: MergeStrategy; commitMessage: string },
 	): Promise<void> {
 		const workflow = await this.workflowRepo.getById(workflowId);
 		if (!workflow) {
@@ -297,6 +302,52 @@ export class WorkflowOrchestrator {
 
 		if (!workflow.awaitingApproval) {
 			throw new Error(`Workflow ${workflowId} is not awaiting approval`);
+		}
+
+		// Handle merge and cleanup for review stage approvals
+		if (mergeOptions && workflow.pendingArtifactType === "review_card") {
+			const baseBranch = workflow.baseBranch;
+			if (!baseBranch) {
+				throw new Error(
+					`Workflow ${workflowId} has no base branch recorded - cannot merge`,
+				);
+			}
+
+			const workflowBranch = `autarch/${workflowId}`;
+			const projectRoot = findRepoRoot(process.cwd());
+			const worktreePath = getWorktreePath(projectRoot, workflowId);
+
+			try {
+				// Merge workflow branch into base branch
+				await mergeWorkflowBranch(
+					projectRoot,
+					worktreePath,
+					baseBranch,
+					workflowBranch,
+					mergeOptions.mergeStrategy,
+					mergeOptions.commitMessage,
+				);
+
+				log.workflow.info(
+					`Merged workflow ${workflowId} into ${baseBranch} using ${mergeOptions.mergeStrategy} strategy`,
+				);
+
+				// Cleanup worktree and delete workflow branch
+				await cleanupWorkflow(projectRoot, workflowId, { deleteBranch: true });
+				log.workflow.info(
+					`Cleaned up workflow ${workflowId} after successful merge`,
+				);
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error ? error.message : String(error);
+				log.workflow.error(
+					`Merge failed for workflow ${workflowId}: ${errorMessage}`,
+				);
+				// Do NOT call transitionStage - workflow stays in review
+				throw new Error(
+					`Failed to merge workflow branch into ${baseBranch}: ${errorMessage}`,
+				);
+			}
 		}
 
 		// Update the artifact status to approved
