@@ -69,7 +69,7 @@ const TERMINAL_TOOLS: Record<string, string[]> = {
 	execution: ["complete_pulse", "request_extension"],
 	// discussion and review agents don't require terminal tools
 	discussion: [],
-	review: [],
+	review: ["complete_review"],
 	basic: [],
 };
 
@@ -113,6 +113,14 @@ As a reminder, every message MUST end with exactly one of:
 
 Please continue and ensure your next response ends with one of these tools.
 If no work remains, call \`complete_pulse\` and yield to the user.`,
+
+	review: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`complete_review\` — if you have completed the review
+
+Please continue and ensure your next response ends with one of these tools.
+If no work remains, call \`complete_review\` and yield to the user.`,
 };
 
 // =============================================================================
@@ -288,7 +296,7 @@ export class AgentRunner {
 		}
 
 		log.agent.info(
-			`Agent [${role}] did not use terminal tool (tools called: ${toolNames.join(", ") || "none"}) - nudging`,
+			`Agent [${role}] did not use terminal tool (tools called: ${toolNames.join(", ") || "none"}, expected: ${terminalTools.join(", ")}) - nudging`,
 		);
 
 		// Recursively call run with the nudge message

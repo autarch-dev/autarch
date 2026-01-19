@@ -410,10 +410,6 @@ export class WorkflowOrchestrator {
 		// Format the fix description from comments
 		let fixDescription = "## Fix Request\n\n";
 
-		if (summary) {
-			fixDescription += `### Summary\n${summary}\n\n`;
-		}
-
 		fixDescription += "### Comments to Address\n\n";
 
 		for (const comment of comments) {
@@ -438,6 +434,12 @@ export class WorkflowOrchestrator {
 			fixDescription += `**Author:** ${comment.author}\n`;
 			fixDescription += `\n${comment.description}\n\n`;
 		}
+
+		if (summary) {
+			fixDescription += `### Comments from Human Reviewer:\n${summary}\n\n`;
+		}
+
+		fixDescription += "---\n\nNote: The fixes above have been **explicitly requested by the user**. Apply them, regardless of whether they're described as \"required\", \"optional\", or \"nice to have\".\n";
 
 		// Stop current session if any
 		if (workflow.currentSessionId) {
