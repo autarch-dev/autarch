@@ -31,7 +31,11 @@ import {
 	createWorkflowErrorEvent,
 	createWorkflowStageChangedEvent,
 } from "@/shared/schemas/events";
-import type { RewindTarget, WorkflowStatus } from "@/shared/schemas/workflow";
+import type {
+	MergeStrategy,
+	RewindTarget,
+	WorkflowStatus,
+} from "@/shared/schemas/workflow";
 import {
 	APPROVAL_REQUIRED_TOOLS,
 	AUTO_TRANSITION_TOOLS,
@@ -280,8 +284,12 @@ export class WorkflowOrchestrator {
 
 	/**
 	 * User approves pending artifact → transition to next stage
+	 * @param mergeOptions - Optional merge options for review stage approvals
 	 */
-	async approveArtifact(workflowId: string): Promise<void> {
+	async approveArtifact(
+		workflowId: string,
+		_mergeOptions?: { mergeStrategy: MergeStrategy; commitMessage: string },
+	): Promise<void> {
 		const workflow = await this.workflowRepo.getById(workflowId);
 		if (!workflow) {
 			throw new Error(`Workflow not found: ${workflowId}`);

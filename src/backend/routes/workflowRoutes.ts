@@ -6,7 +6,10 @@
  */
 
 import { z } from "zod";
-import { RewindTargetSchema } from "@/shared/schemas/workflow";
+import {
+	MergeStrategySchema,
+	RewindTargetSchema,
+} from "@/shared/schemas/workflow";
 import { getWorkflowOrchestrator } from "../agents/runner";
 import { getDiff } from "../git";
 import { log } from "../logger";
@@ -58,6 +61,11 @@ const RequestFixesSchema = z.object({
 
 const IdParamSchema = z.object({
 	id: z.string().min(1),
+});
+
+const MergeApprovalSchema = z.object({
+	mergeStrategy: MergeStrategySchema,
+	commitMessage: z.string().min(1),
 });
 
 // =============================================================================
@@ -166,7 +174,27 @@ export const workflowRoutes = {
 			}
 			try {
 				const orchestrator = getWorkflowOrchestrator();
-				await orchestrator.approveArtifact(params.id);
+				const contentType = req.headers.get("Content-Type");
+
+				// If JSON content-type, parse merge options (review stage approval)
+				if (contentType?.includes("application/json")) {
+					const body = await req.json();
+					const parsed = MergeApprovalSchema.safeParse(body);
+					if (!parsed.success) {
+						return Response.json(
+							{
+								error: "Invalid request body",
+								details: z.prettifyError(parsed.error),
+							},
+							{ status: 400 },
+						);
+					}
+					await orchestrator.approveArtifact(params.id, parsed.data);
+				} else {
+					// No JSON body - scope/research/plan approvals
+					await orchestrator.approveArtifact(params.id);
+				}
+
 				log.api.success(`Approved artifact for workflow: ${params.id}`);
 				return Response.json({ success: true });
 			} catch (error) {
