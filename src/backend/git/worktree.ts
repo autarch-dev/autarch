@@ -26,6 +26,13 @@ export interface GitResult {
 	exitCode: number;
 }
 
+/** Merge strategy for combining workflow branches */
+export type MergeStrategy =
+	| "fast-forward"
+	| "squash"
+	| "merge-commit"
+	| "rebase";
+
 // =============================================================================
 // Constants
 // =============================================================================
@@ -454,6 +461,146 @@ export async function fastForwardMerge(
 	});
 
 	log.git.info(`Fast-forward merged ${sourceBranch}`);
+}
+
+/**
+ * Squash merge a branch into the current branch
+ *
+ * @param worktreePath - Path to the worktree (must be on target branch)
+ * @param sourceBranch - Branch to merge from
+ * @param commitMessage - Message for the squash commit
+ */
+export async function squashMerge(
+	worktreePath: string,
+	sourceBranch: string,
+	commitMessage: string,
+): Promise<void> {
+	await execGitOrThrow(["merge", "--squash", sourceBranch], {
+		cwd: worktreePath,
+	});
+
+	await execGitOrThrow(["commit", "-m", commitMessage], {
+		cwd: worktreePath,
+		env: {
+			GIT_AUTHOR_NAME: "Autarch",
+			GIT_AUTHOR_EMAIL: "autarch@local",
+			GIT_COMMITTER_NAME: "Autarch",
+			GIT_COMMITTER_EMAIL: "autarch@local",
+		},
+	});
+
+	log.git.info(`Squash merged ${sourceBranch}`);
+}
+
+/**
+ * Create a merge commit (no fast-forward)
+ *
+ * @param worktreePath - Path to the worktree (must be on target branch)
+ * @param sourceBranch - Branch to merge from
+ * @param commitMessage - Message for the merge commit
+ */
+export async function mergeCommit(
+	worktreePath: string,
+	sourceBranch: string,
+	commitMessage: string,
+): Promise<void> {
+	await execGitOrThrow(
+		["merge", "--no-ff", "-m", commitMessage, sourceBranch],
+		{
+			cwd: worktreePath,
+			env: {
+				GIT_AUTHOR_NAME: "Autarch",
+				GIT_AUTHOR_EMAIL: "autarch@local",
+				GIT_COMMITTER_NAME: "Autarch",
+				GIT_COMMITTER_EMAIL: "autarch@local",
+			},
+		},
+	);
+
+	log.git.info(`Merge commit created for ${sourceBranch}`);
+}
+
+/**
+ * Rebase merge a branch onto the current branch
+ *
+ * @param worktreePath - Path to the worktree (must be on target branch)
+ * @param sourceBranch - Branch to rebase onto
+ */
+export async function rebaseMerge(
+	worktreePath: string,
+	sourceBranch: string,
+): Promise<void> {
+	const result = await execGit(["rebase", sourceBranch], {
+		cwd: worktreePath,
+	});
+
+	if (!result.success) {
+		// Abort the rebase on error
+		await execGit(["rebase", "--abort"], { cwd: worktreePath });
+		throw new Error(
+			`Git rebase failed: git rebase ${sourceBranch}\n${result.stderr}`,
+		);
+	}
+
+	log.git.info(`Rebased onto ${sourceBranch}`);
+}
+
+/**
+ * Merge a workflow branch into the base branch using the specified strategy
+ *
+ * @param repoRoot - Path to the main repository
+ * @param worktreePath - Path to the worktree
+ * @param baseBranch - The base branch to merge into
+ * @param workflowBranch - The workflow branch to merge from
+ * @param strategy - The merge strategy to use
+ * @param commitMessage - Message for the commit (used by squash and merge-commit strategies)
+ */
+export async function mergeWorkflowBranch(
+	_repoRoot: string,
+	worktreePath: string,
+	baseBranch: string,
+	workflowBranch: string,
+	strategy: MergeStrategy,
+	commitMessage: string,
+): Promise<void> {
+	// Checkout base branch in worktree
+	await checkoutInWorktree(worktreePath, baseBranch);
+
+	// Execute merge based on strategy
+	switch (strategy) {
+		case "fast-forward":
+			await fastForwardMerge(worktreePath, workflowBranch);
+			break;
+		case "squash":
+			await squashMerge(worktreePath, workflowBranch, commitMessage);
+			break;
+		case "merge-commit":
+			await mergeCommit(worktreePath, workflowBranch, commitMessage);
+			break;
+		case "rebase":
+			await rebaseMerge(worktreePath, workflowBranch);
+			break;
+		default: {
+			const _exhaustive: never = strategy;
+			throw new Error(`Unknown merge strategy: ${strategy}`);
+		}
+	}
+
+	// Push result back to origin (if remote exists)
+	const remoteResult = await execGit(["remote", "get-url", "origin"], {
+		cwd: worktreePath,
+	});
+
+	if (remoteResult.success) {
+		await execGitOrThrow(["push", "origin", baseBranch], {
+			cwd: worktreePath,
+		});
+		log.git.info(`Pushed ${baseBranch} to origin`);
+	}
+
+	log.git.info(
+		`Merged workflow branch ${workflowBranch} into ${baseBranch} using ${strategy} strategy`,
+	);
 }
 
 /**
