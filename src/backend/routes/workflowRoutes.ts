@@ -11,9 +11,13 @@ import {
 	RewindTargetSchema,
 } from "@/shared/schemas/workflow";
 import { getWorkflowOrchestrator } from "../agents/runner";
-import { getDiff } from "../git";
+import { findRepoRoot, getDiff } from "../git";
 import { log } from "../logger";
 import { getRepositories } from "../repositories";
+import {
+	getMergeStrategy,
+	setMergeStrategy,
+} from "../services/projectSettings";
 
 // =============================================================================
 // Request Schemas
@@ -568,6 +572,52 @@ export const workflowRoutes = {
 				return Response.json({ success: true });
 			} catch (error) {
 				log.api.error("Failed to request fixes:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/settings/merge-strategy": {
+		async GET() {
+			try {
+				const projectRoot = findRepoRoot(process.cwd());
+				const strategy = await getMergeStrategy(projectRoot);
+				return Response.json({ strategy });
+			} catch (error) {
+				log.api.error("Failed to get merge strategy:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+
+		async POST(req: Request) {
+			try {
+				const body = await req.json();
+				const parsed = z
+					.object({ strategy: MergeStrategySchema })
+					.safeParse(body);
+				if (!parsed.success) {
+					return Response.json(
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
+						{ status: 400 },
+					);
+				}
+
+				const projectRoot = findRepoRoot(process.cwd());
+				await setMergeStrategy(projectRoot, parsed.data.strategy);
+
+				log.api.success(`Set merge strategy to: ${parsed.data.strategy}`);
+				return Response.json({ success: true });
+			} catch (error) {
+				log.api.error("Failed to set merge strategy:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },
