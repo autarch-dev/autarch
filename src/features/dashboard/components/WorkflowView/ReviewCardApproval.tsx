@@ -823,9 +823,20 @@ export function ReviewCardApproval({
 								id="commit-message"
 								value={commitMessage}
 								onChange={(e) => setCommitMessage(e.target.value)}
-								placeholder="Enter commit message..."
+								placeholder={
+									selectedStrategy === "fast-forward"
+										? "Not required for fast-forward merge"
+										: "Enter commit message..."
+								}
 								rows={4}
+								disabled={selectedStrategy === "fast-forward"}
 							/>
+							{selectedStrategy === "fast-forward" && (
+								<p className="text-xs text-muted-foreground">
+									Fast-forward merges don't create a new commit, so no message
+									is needed.
+								</p>
+							)}
 						</div>
 						{mergeErrorMessage && (
 							<div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -844,7 +855,10 @@ export function ReviewCardApproval({
 						</Button>
 						<Button
 							onClick={handleApproveAndMerge}
-							disabled={isSubmitting || !commitMessage.trim()}
+							disabled={
+								isSubmitting ||
+								(selectedStrategy !== "fast-forward" && !commitMessage.trim())
+							}
 						>
 							{isSubmitting && <Loader2 className="size-4 mr-1 animate-spin" />}
 							<GitMerge className="size-4 mr-1" />

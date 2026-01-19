@@ -521,16 +521,28 @@ export async function mergeCommit(
 }
 
 /**
- * Rebase merge a branch onto the current branch
+ * Rebase merge a workflow branch onto the base branch (GitHub-style rebase and merge)
  *
- * @param worktreePath - Path to the worktree (must be on target branch)
- * @param sourceBranch - Branch to rebase onto
+ * This performs a proper "rebase and merge" operation:
+ * 1. Checkout the workflow branch
+ * 2. Rebase it onto the base branch
+ * 3. Checkout the base branch
+ * 4. Fast-forward merge the rebased workflow branch
+ *
+ * @param worktreePath - Path to the worktree
+ * @param baseBranch - The base branch to rebase onto and merge into
+ * @param workflowBranch - The workflow branch to rebase
  */
 export async function rebaseMerge(
 	worktreePath: string,
-	sourceBranch: string,
+	baseBranch: string,
+	workflowBranch: string,
 ): Promise<void> {
-	const result = await execGit(["rebase", sourceBranch], {
+	// Step 1: Checkout workflow branch
+	await checkoutInWorktree(worktreePath, workflowBranch);
+
+	// Step 2: Rebase workflow branch onto base branch
+	const result = await execGit(["rebase", baseBranch], {
 		cwd: worktreePath,
 	});
 
@@ -538,11 +550,17 @@ export async function rebaseMerge(
 		// Abort the rebase on error
 		await execGit(["rebase", "--abort"], { cwd: worktreePath });
 		throw new Error(
-			`Git rebase failed: git rebase ${sourceBranch}\n${result.stderr}`,
+			`Git rebase failed: git rebase ${baseBranch}\n${result.stderr}`,
 		);
 	}
 
-	log.git.info(`Rebased onto ${sourceBranch}`);
+	log.git.info(`Rebased ${workflowBranch} onto ${baseBranch}`);
+
+	// Step 3: Checkout base branch
+	await checkoutInWorktree(worktreePath, baseBranch);
+
+	// Step 4: Fast-forward merge the rebased workflow branch
+	await fastForwardMerge(worktreePath, workflowBranch);
 }
 
 /**
@@ -563,26 +581,30 @@ export async function mergeWorkflowBranch(
 	strategy: MergeStrategy,
 	commitMessage: string,
 ): Promise<void> {
-	// Checkout base branch in worktree
-	await checkoutInWorktree(worktreePath, baseBranch);
+	// For rebase strategy, we handle checkout differently (workflow branch first)
+	// For all other strategies, checkout base branch first
+	if (strategy === "rebase") {
+		// rebaseMerge handles its own checkout sequence
+		await rebaseMerge(worktreePath, baseBranch, workflowBranch);
+	} else {
+		// Checkout base branch in worktree
+		await checkoutInWorktree(worktreePath, baseBranch);
 
-	// Execute merge based on strategy
-	switch (strategy) {
-		case "fast-forward":
-			await fastForwardMerge(worktreePath, workflowBranch);
-			break;
-		case "squash":
-			await squashMerge(worktreePath, workflowBranch, commitMessage);
-			break;
-		case "merge-commit":
-			await mergeCommit(worktreePath, workflowBranch, commitMessage);
-			break;
-		case "rebase":
-			await rebaseMerge(worktreePath, workflowBranch);
-			break;
-		default: {
-			const _exhaustive: never = strategy;
-			throw new Error(`Unknown merge strategy: ${strategy}`);
+		// Execute merge based on strategy
+		switch (strategy) {
+			case "fast-forward":
+				await fastForwardMerge(worktreePath, workflowBranch);
+				break;
+			case "squash":
+				await squashMerge(worktreePath, workflowBranch, commitMessage);
+				break;
+			case "merge-commit":
+				await mergeCommit(worktreePath, workflowBranch, commitMessage);
+				break;
+			default: {
+				const _exhaustive: never = strategy;
+				throw new Error(`Unknown merge strategy: ${strategy}`);
+			}
 		}
 	}
 

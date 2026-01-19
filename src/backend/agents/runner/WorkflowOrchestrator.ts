@@ -16,7 +16,7 @@ import {
 	getCurrentBranch,
 	mergeWorkflowBranch,
 } from "@/backend/git";
-import { getWorktreePath } from "@/backend/git/worktree";
+import { checkoutInWorktree, getWorktreePath } from "@/backend/git/worktree";
 import { getModelForScenario } from "@/backend/llm/models";
 import { log } from "@/backend/logger";
 import {
@@ -343,6 +343,20 @@ export class WorkflowOrchestrator {
 				log.workflow.error(
 					`Merge failed for workflow ${workflowId}: ${errorMessage}`,
 				);
+
+				// Attempt to restore worktree to workflow branch to leave it in a consistent state
+				try {
+					await checkoutInWorktree(worktreePath, workflowBranch);
+					log.workflow.info(
+						`Restored worktree to ${workflowBranch} after merge failure`,
+					);
+				} catch (restoreError) {
+					// Log but don't throw - the original error is more important
+					log.workflow.error(
+						`Failed to restore worktree to ${workflowBranch}: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`,
+					);
+				}
+
 				// Do NOT call transitionStage - workflow stays in review
 				throw new Error(
 					`Failed to merge workflow branch into ${baseBranch}: ${errorMessage}`,

@@ -18,20 +18,51 @@ import {
 // Schema
 // =============================================================================
 
-export const completeReviewInputSchema = z.object({
+// Base fields shared by all recommendation types
+const baseReviewFields = {
 	reason: z.string().describe(REASON_DESCRIPTION),
-	recommendation: z
-		.enum(["approve", "deny", "manual_review"])
-		.describe("The recommendation: approve, deny, or manual_review"),
 	summary: z
 		.string()
 		.min(1)
 		.describe("A summary explanation for the recommendation"),
-	suggestedCommitMessage: z
-		.string()
-		.min(1)
-		.describe("Suggested commit message in Conventional Commit format"),
-});
+};
+
+// Discriminated union: suggestedCommitMessage is only required for "approve"
+export const completeReviewInputSchema = z.discriminatedUnion(
+	"recommendation",
+	[
+		z.object({
+			...baseReviewFields,
+			recommendation: z
+				.literal("approve")
+				.describe("Approve the changes for merge"),
+			suggestedCommitMessage: z
+				.string()
+				.min(1)
+				.describe(
+					"Suggested commit message in Conventional Commit format (required for approve)",
+				),
+		}),
+		z.object({
+			...baseReviewFields,
+			recommendation: z.literal("deny").describe("Deny the changes"),
+			suggestedCommitMessage: z
+				.string()
+				.optional()
+				.describe("Optional commit message suggestion"),
+		}),
+		z.object({
+			...baseReviewFields,
+			recommendation: z
+				.literal("manual_review")
+				.describe("Request manual human review"),
+			suggestedCommitMessage: z
+				.string()
+				.optional()
+				.describe("Optional commit message suggestion"),
+		}),
+	],
+);
 
 export type CompleteReviewInput = z.infer<typeof completeReviewInputSchema>;
 
@@ -78,7 +109,10 @@ The recommendation must be one of: approve, deny, or manual_review.`,
 			);
 
 			if (context.turnId) {
-				await artifacts.updateLatestReviewCardTurnId(context.workflowId, context.turnId);
+				await artifacts.updateLatestReviewCardTurnId(
+					context.workflowId,
+					context.turnId,
+				);
 			}
 
 			// Notify the workflow orchestrator about the tool result
