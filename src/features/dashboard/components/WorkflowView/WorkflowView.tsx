@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ChannelMessage } from "@/shared/schemas/channel";
 import type {
+	MergeStrategy,
 	Plan,
 	ResearchCard,
 	ReviewCard,
@@ -39,6 +40,10 @@ interface WorkflowViewProps {
 	plans: Plan[];
 	reviewCards: ReviewCard[];
 	onApprove?: () => Promise<void>;
+	onApproveWithMerge?: (mergeOptions: {
+		mergeStrategy: MergeStrategy;
+		commitMessage: string;
+	}) => Promise<void>;
 	onRequestChanges?: (feedback: string) => Promise<void>;
 	onRequestFixes?: (commentIds: string[], summary?: string) => Promise<void>;
 	onRewind?: (targetStage: RewindTarget) => Promise<void>;
@@ -61,6 +66,7 @@ export function WorkflowView({
 	plans,
 	reviewCards,
 	onApprove,
+	onApproveWithMerge,
 	onRequestChanges,
 	onRequestFixes,
 	onRewind,
@@ -173,7 +179,9 @@ export function WorkflowView({
 						key={artifact.data.id}
 						reviewCard={artifact.data}
 						onApprove={
-							artifact.data.status === "pending" ? onApprove : undefined
+							artifact.data.status === "pending"
+								? onApproveWithMerge
+								: undefined
 						}
 						onDeny={
 							artifact.data.status === "pending" ? onRequestChanges : undefined

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { Channel } from "@/shared/schemas/channel";
-import type { RewindTarget, Workflow } from "@/shared/schemas/workflow";
+import type {
+	MergeStrategy,
+	RewindTarget,
+	Workflow,
+} from "@/shared/schemas/workflow";
 import { ChannelView } from "./components/ChannelView";
 import { AppSidebar } from "./components/Sidebar";
 import { WorkflowView } from "./components/WorkflowView";
@@ -38,6 +42,7 @@ export function Dashboard() {
 		selectWorkflow,
 		fetchHistory: fetchWorkflowHistory,
 		approveArtifact,
+		approveWithMerge,
 		requestChanges,
 		requestFixes,
 		rewindWorkflow,
@@ -129,6 +134,18 @@ export function Dashboard() {
 			}
 		},
 		[selectedId, requestChanges],
+	);
+
+	const handleApproveWithMerge = useCallback(
+		async (mergeOptions: {
+			mergeStrategy: MergeStrategy;
+			commitMessage: string;
+		}) => {
+			if (selectedId) {
+				await approveWithMerge(selectedId, mergeOptions);
+			}
+		},
+		[selectedId, approveWithMerge],
 	);
 
 	const handleRewindWorkflow = useCallback(
@@ -231,6 +248,7 @@ export function Dashboard() {
 						plans={selectedPlans}
 						reviewCards={selectedReviewCards}
 						onApprove={handleApproveScope}
+						onApproveWithMerge={handleApproveWithMerge}
 						onRequestChanges={handleRequestChanges}
 						onRequestFixes={handleRequestFixes}
 						onRewind={handleRewindWorkflow}
