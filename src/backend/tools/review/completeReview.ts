@@ -27,6 +27,10 @@ export const completeReviewInputSchema = z.object({
 		.string()
 		.min(1)
 		.describe("A summary explanation for the recommendation"),
+	suggestedCommitMessage: z
+		.string()
+		.min(1)
+		.describe("Suggested commit message in Conventional Commit format"),
 });
 
 export type CompleteReviewInput = z.infer<typeof completeReviewInputSchema>;
@@ -65,11 +69,12 @@ The recommendation must be one of: approve, deny, or manual_review.`,
 				};
 			}
 
-			// Update the review card with recommendation and summary
+			// Update the review card with recommendation, summary, and suggested commit message
 			await artifacts.updateReviewCardCompletion(
 				reviewCard.id,
 				input.recommendation,
 				input.summary,
+				input.suggestedCommitMessage,
 			);
 
 			if (context.turnId) {

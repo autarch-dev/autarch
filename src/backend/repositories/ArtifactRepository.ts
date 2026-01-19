@@ -472,6 +472,7 @@ export class ArtifactRepository implements Repository {
 			turnId: row.turn_id ?? undefined,
 			recommendation: row.recommendation ?? undefined,
 			summary: row.summary ?? undefined,
+			suggestedCommitMessage: row.suggested_commit_message ?? undefined,
 			comments,
 			status: row.status,
 			createdAt: row.created_at,
@@ -577,16 +578,25 @@ export class ArtifactRepository implements Repository {
 	}
 
 	/**
-	 * Update a review card with recommendation and summary (called by completeReview tool)
+	 * Update a review card with recommendation, summary, and optional suggested commit message (called by completeReview tool)
 	 */
 	async updateReviewCardCompletion(
 		id: string,
 		recommendation: ReviewRecommendation,
 		summary: string,
+		suggestedCommitMessage?: string,
 	): Promise<void> {
+		const setClause: {
+			recommendation: ReviewRecommendation;
+			summary: string;
+			suggested_commit_message?: string;
+		} = { recommendation, summary };
+		if (suggestedCommitMessage !== undefined) {
+			setClause.suggested_commit_message = suggestedCommitMessage;
+		}
 		await this.db
 			.updateTable("review_cards")
-			.set({ recommendation, summary })
+			.set(setClause)
 			.where("id", "=", id)
 			.execute();
 	}
