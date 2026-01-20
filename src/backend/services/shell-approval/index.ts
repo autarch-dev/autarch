@@ -180,6 +180,9 @@ export function resolveApproval(
 /**
  * Clean up all pending approvals for a session (called when session ends)
  *
+ * Resolves pending promises with approved: false (consistent with resolveApproval denial pattern)
+ * rather than rejecting them, so callers don't need special error handling.
+ *
  * @param sessionId - The session ID to clean up
  */
 export function cleanupSession(sessionId: string): void {
@@ -190,7 +193,13 @@ export function cleanupSession(sessionId: string): void {
 			log.agent.info(
 				`Cleaning up pending approval for ended session: ${approvalId}`,
 			);
-			pending.reject(new Error("Session ended"));
+			// Use resolve with approved: false (consistent with resolveApproval denial pattern)
+			// This avoids requiring special error handling in callers
+			pending.resolve({
+				approved: false,
+				remember: false,
+				denyReason: "Session ended",
+			});
 			toRemove.push(approvalId);
 		}
 	}

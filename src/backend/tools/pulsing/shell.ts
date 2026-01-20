@@ -127,22 +127,33 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 				!shellApprovalService.isCommandRemembered(workflowId, input.command)
 			) {
 				// Request approval and wait for user decision
-				const approvalResult = await shellApprovalService.requestApproval({
-					workflowId,
-					sessionId,
-					turnId,
-					toolId: toolCallId ?? crypto.randomUUID(),
-					command: input.command,
-					reason: input.reason,
-				});
+				try {
+					const approvalResult = await shellApprovalService.requestApproval({
+						workflowId,
+						sessionId,
+						turnId,
+						toolId: toolCallId ?? crypto.randomUUID(),
+						command: input.command,
+						reason: input.reason,
+					});
 
-				if (!approvalResult.approved) {
-					const reason = approvalResult.denyReason
-						? `Command denied by user: ${approvalResult.denyReason}. Please try an alternative approach.`
-						: "Command denied by user. Please try an alternative approach.";
+					if (!approvalResult.approved) {
+						const reason = approvalResult.denyReason
+							? `Command denied by user: ${approvalResult.denyReason}. Please try an alternative approach.`
+							: "Command denied by user. Please try an alternative approach.";
+						return {
+							success: false,
+							output: reason,
+						};
+					}
+				} catch (error) {
+					// Handle approval service errors (e.g., session cleanup during pending approval)
+					const errorMessage =
+						error instanceof Error ? error.message : "Approval request failed";
+					log.tools.info(`Shell approval error: ${errorMessage}`);
 					return {
 						success: false,
-						output: reason,
+						output: `Command not executed: ${errorMessage}`,
 					};
 				}
 			}
