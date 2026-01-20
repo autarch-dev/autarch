@@ -439,7 +439,8 @@ export class WorkflowOrchestrator {
 			fixDescription += `### Comments from Human Reviewer:\n${summary}\n\n`;
 		}
 
-		fixDescription += "---\n\nNote: The fixes above have been **explicitly requested by the user**. Apply them, regardless of whether they're described as \"required\", \"optional\", or \"nice to have\".\n";
+		fixDescription +=
+			'---\n\nNote: The fixes above have been **explicitly requested by the user**. Apply them, regardless of whether they\'re described as "required", "optional", or "nice to have".\n';
 
 		// Stop current session if any
 		if (workflow.currentSessionId) {

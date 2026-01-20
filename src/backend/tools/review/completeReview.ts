@@ -73,7 +73,10 @@ The recommendation must be one of: approve, deny, or manual_review.`,
 			);
 
 			if (context.turnId) {
-				await artifacts.updateLatestReviewCardTurnId(context.workflowId, context.turnId);
+				await artifacts.updateLatestReviewCardTurnId(
+					context.workflowId,
+					context.turnId,
+				);
 			}
 
 			// Notify the workflow orchestrator about the tool result
