@@ -6,7 +6,7 @@
  */
 
 import { CheckCircle2, Loader2, Wrench, XCircle } from "lucide-react";
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -137,9 +137,6 @@ function ToolCallDisplay({ tool, defaultOpen }: ToolCallDisplayProps) {
 	const reason = getToolReason(tool.input);
 	const isRunning = tool.status === "running";
 
-	// Track in-flight approval operations to prevent double-submission
-	const approvalInFlight = useRef(false);
-
 	// If this is a shell tool with pending approval, render ShellApprovalCard
 	if (tool.pendingApproval && tool.name === "shell") {
 		const {
@@ -149,8 +146,6 @@ function ToolCallDisplay({ tool, defaultOpen }: ToolCallDisplayProps) {
 		} = tool.pendingApproval;
 
 		const handleApprove = async (id: string, remember: boolean) => {
-			if (approvalInFlight.current) return;
-			approvalInFlight.current = true;
 			try {
 				const response = await fetch(`/api/shell-approval/${id}/approve`, {
 					method: "POST",
@@ -163,14 +158,10 @@ function ToolCallDisplay({ tool, defaultOpen }: ToolCallDisplayProps) {
 				}
 			} catch (err) {
 				console.error("Failed to approve shell command:", err);
-			} finally {
-				approvalInFlight.current = false;
 			}
 		};
 
 		const handleDeny = async (id: string, denyReason: string) => {
-			if (approvalInFlight.current) return;
-			approvalInFlight.current = true;
 			try {
 				const response = await fetch(`/api/shell-approval/${id}/deny`, {
 					method: "POST",
@@ -183,8 +174,6 @@ function ToolCallDisplay({ tool, defaultOpen }: ToolCallDisplayProps) {
 				}
 			} catch (err) {
 				console.error("Failed to deny shell command:", err);
-			} finally {
-				approvalInFlight.current = false;
 			}
 		};
 

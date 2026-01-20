@@ -137,10 +137,12 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 				});
 
 				if (!approvalResult.approved) {
+					const reason = approvalResult.denyReason
+						? `Command denied by user: ${approvalResult.denyReason}. Please try an alternative approach.`
+						: "Command denied by user. Please try an alternative approach.";
 					return {
 						success: false,
-						output:
-							"Command denied by user. Please try an alternative approach.",
+						output: reason,
 					};
 				}
 			}

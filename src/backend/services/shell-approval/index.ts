@@ -23,6 +23,8 @@ import {
 export interface ApprovalResult {
 	approved: boolean;
 	remember: boolean;
+	/** Reason for denial (only present when approved is false) */
+	denyReason?: string;
 }
 
 /**
@@ -155,14 +157,11 @@ export function resolveApproval(
 		commands.add(pending.command);
 	}
 
-	// Resolve or reject the promise
+	// Resolve the promise (denial is resolved with approved: false, not rejected)
 	if (approved) {
 		pending.resolve({ approved: true, remember });
 	} else {
-		const errorMessage = denyReason
-			? `Command denied by user: ${denyReason}`
-			: "Command denied by user";
-		pending.reject(new Error(errorMessage));
+		pending.resolve({ approved: false, remember: false, denyReason });
 	}
 
 	// Broadcast the resolution event so frontend can update UI state
