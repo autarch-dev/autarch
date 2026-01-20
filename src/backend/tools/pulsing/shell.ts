@@ -68,15 +68,21 @@ function formatBytes(bytes: number): string {
 }
 
 /**
- * Truncate output using head+tail strategy if it exceeds max size
+ * Truncate output using head+tail strategy if it exceeds max size.
+ * Uses HEAD_SIZE:TAIL_SIZE ratio (1:3) scaled to maxSize for truncation bounds.
  */
 function truncateOutput(output: string, maxSize: number): string {
 	if (output.length <= maxSize) {
 		return output;
 	}
-	const omittedBytes = output.length - HEAD_SIZE - TAIL_SIZE;
+	// Scale head/tail sizes proportionally to maxSize, maintaining 1:3 ratio
+	const totalParts = HEAD_SIZE + TAIL_SIZE; // 4KB
+	const headSize = Math.floor((HEAD_SIZE / totalParts) * maxSize);
+	const tailSize = maxSize - headSize;
+
+	const omittedBytes = output.length - headSize - tailSize;
 	const omissionMsg = `\n... [${formatBytes(omittedBytes)} omitted] ...\n`;
-	return output.slice(0, HEAD_SIZE) + omissionMsg + output.slice(-TAIL_SIZE);
+	return output.slice(0, headSize) + omissionMsg + output.slice(-tailSize);
 }
 
 /**
