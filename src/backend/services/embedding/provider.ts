@@ -170,7 +170,9 @@ async function initProcess(): Promise<boolean> {
 		try {
 			log.embedding.error("Embed CLI failed to start:", err);
 			if (startupStderr.length > 0) {
-				log.embedding.error(`Embed startup stderr:\n${startupStderr.join("\n")}`);
+				log.embedding.error(
+					`Embed startup stderr:\n${startupStderr.join("\n")}`,
+				);
 			}
 		} catch (e) {
 			// Swallow logging errors
