@@ -11,6 +11,7 @@
 
 import { log } from "@/backend/logger";
 import type { SessionRepository } from "@/backend/repositories";
+import { shellApprovalService } from "@/backend/services/shell-approval";
 import { broadcast } from "@/backend/ws";
 import {
 	createSessionCompletedEvent,
@@ -113,6 +114,9 @@ export class SessionManager {
 		// Abort any in-flight operations
 		session.abortController.abort();
 		session.status = status;
+
+		// Clean up any pending shell approvals for this session
+		shellApprovalService.cleanupSession(sessionId);
 
 		// Update database via repository
 		await this.sessionRepo.updateStatus(sessionId, status);
