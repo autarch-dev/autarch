@@ -11,7 +11,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { ChannelMessage, MessageQuestion } from "@/shared/schemas/channel";
-import type { StreamingMessage } from "../../store/discussionsStore";
+import type {
+	PendingShellApproval,
+	StreamingMessage,
+} from "../../store/workflowsStore";
 import { formatTime } from "../../utils";
 import { Markdown } from "../Markdown";
 import { ShellApprovalCard } from "../WorkflowView/ShellApprovalCard";
@@ -21,12 +24,8 @@ import { QuestionBlock } from "./QuestionBlock";
 // Types
 // =============================================================================
 
-/** Pending shell approval state for a tool */
-export interface PendingApproval {
-	approvalId: string;
-	command: string;
-	reason: string;
-}
+/** Pending shell approval state for a tool - re-exported from workflowsStore for convenience */
+export type PendingApproval = PendingShellApproval;
 
 /** Common tool call structure used by both message types */
 export interface ToolCallInfo {
