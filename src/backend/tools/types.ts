@@ -27,6 +27,8 @@ export interface ToolContext {
 	worktreePath?: string;
 	/** Current channel ID (if in a channel context) */
 	channelId?: string;
+	/** Unique identifier for this tool call (for approval tracking) */
+	toolCallId?: string;
 }
 
 /**
