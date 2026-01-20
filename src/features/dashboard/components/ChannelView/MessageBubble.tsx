@@ -6,7 +6,7 @@
  */
 
 import { CheckCircle2, Loader2, Wrench, XCircle } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -14,11 +14,19 @@ import type { ChannelMessage, MessageQuestion } from "@/shared/schemas/channel";
 import type { StreamingMessage } from "../../store/discussionsStore";
 import { formatTime } from "../../utils";
 import { Markdown } from "../Markdown";
+import { ShellApprovalCard } from "../WorkflowView/ShellApprovalCard";
 import { QuestionBlock } from "./QuestionBlock";
 
 // =============================================================================
 // Types
 // =============================================================================
+
+/** Pending shell approval state for a tool */
+export interface PendingApproval {
+	approvalId: string;
+	command: string;
+	reason: string;
+}
 
 /** Common tool call structure used by both message types */
 export interface ToolCallInfo {
@@ -29,6 +37,8 @@ export interface ToolCallInfo {
 	input: unknown;
 	output?: unknown;
 	status: "running" | "completed" | "error";
+	/** Pending shell approval state if this tool is awaiting user approval */
+	pendingApproval?: PendingApproval;
 }
 
 /** Segment with optional streaming state */
@@ -126,6 +136,68 @@ interface ToolCallDisplayProps {
 function ToolCallDisplay({ tool, defaultOpen }: ToolCallDisplayProps) {
 	const reason = getToolReason(tool.input);
 	const isRunning = tool.status === "running";
+
+	// Track in-flight approval operations to prevent double-submission
+	const approvalInFlight = useRef(false);
+
+	// If this is a shell tool with pending approval, render ShellApprovalCard
+	if (tool.pendingApproval && tool.name === "shell") {
+		const {
+			approvalId,
+			command,
+			reason: approvalReason,
+		} = tool.pendingApproval;
+
+		const handleApprove = async (id: string, remember: boolean) => {
+			if (approvalInFlight.current) return;
+			approvalInFlight.current = true;
+			try {
+				const response = await fetch(`/api/shell-approval/${id}/approve`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ remember }),
+				});
+				if (!response.ok) {
+					const error = await response.json();
+					console.error("Failed to approve shell command:", error);
+				}
+			} catch (err) {
+				console.error("Failed to approve shell command:", err);
+			} finally {
+				approvalInFlight.current = false;
+			}
+		};
+
+		const handleDeny = async (id: string, denyReason: string) => {
+			if (approvalInFlight.current) return;
+			approvalInFlight.current = true;
+			try {
+				const response = await fetch(`/api/shell-approval/${id}/deny`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ reason: denyReason }),
+				});
+				if (!response.ok) {
+					const error = await response.json();
+					console.error("Failed to deny shell command:", error);
+				}
+			} catch (err) {
+				console.error("Failed to deny shell command:", err);
+			} finally {
+				approvalInFlight.current = false;
+			}
+		};
+
+		return (
+			<ShellApprovalCard
+				approvalId={approvalId}
+				command={command}
+				reason={approvalReason}
+				onApprove={handleApprove}
+				onDeny={handleDeny}
+			/>
+		);
+	}
 
 	return (
 		<details className="group text-xs" open={defaultOpen ?? isRunning}>
