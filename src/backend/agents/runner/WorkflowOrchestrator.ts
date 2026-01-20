@@ -23,6 +23,7 @@ import {
 	type WorkflowRepository,
 } from "@/backend/repositories";
 import { PulseOrchestrator } from "@/backend/services/pulsing";
+import { shellApprovalService } from "@/backend/services/shell-approval";
 import { broadcast } from "@/backend/ws";
 import {
 	createWorkflowApprovalNeededEvent,
@@ -600,6 +601,9 @@ export class WorkflowOrchestrator {
 		// Check if workflow is complete
 		if (newStage === "done") {
 			await this.workflowRepo.transitionStage(workflowId, "done", null);
+
+			// Clean up remembered shell commands for this workflow
+			shellApprovalService.cleanupWorkflow(workflowId);
 
 			broadcast(createWorkflowCompletedEvent({ workflowId }));
 

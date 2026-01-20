@@ -532,6 +532,50 @@ export type QuestionsSubmittedEvent = z.infer<
 >;
 
 // =============================================================================
+// Shell Approval Events
+// =============================================================================
+
+// shell:approval_needed - Shell command requires user approval before execution
+export const ShellApprovalNeededPayloadSchema = z.object({
+	approvalId: z.string(),
+	workflowId: z.string(),
+	sessionId: z.string(),
+	turnId: z.string(),
+	toolId: z.string(),
+	command: z.string(),
+	reason: z.string(),
+});
+export type ShellApprovalNeededPayload = z.infer<
+	typeof ShellApprovalNeededPayloadSchema
+>;
+
+export const ShellApprovalNeededEventSchema = z.object({
+	type: z.literal("shell:approval_needed"),
+	payload: ShellApprovalNeededPayloadSchema,
+});
+export type ShellApprovalNeededEvent = z.infer<
+	typeof ShellApprovalNeededEventSchema
+>;
+
+// shell:approval_resolved - User has approved or denied a shell command
+export const ShellApprovalResolvedPayloadSchema = z.object({
+	approvalId: z.string(),
+	approved: z.boolean(),
+	remember: z.boolean().optional(),
+});
+export type ShellApprovalResolvedPayload = z.infer<
+	typeof ShellApprovalResolvedPayloadSchema
+>;
+
+export const ShellApprovalResolvedEventSchema = z.object({
+	type: z.literal("shell:approval_resolved"),
+	payload: ShellApprovalResolvedPayloadSchema,
+});
+export type ShellApprovalResolvedEvent = z.infer<
+	typeof ShellApprovalResolvedEventSchema
+>;
+
+// =============================================================================
 // WebSocket Event Union
 // =============================================================================
 
@@ -574,6 +618,9 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	QuestionsAskedEventSchema,
 	QuestionsAnsweredEventSchema,
 	QuestionsSubmittedEventSchema,
+	// Shell approval events
+	ShellApprovalNeededEventSchema,
+	ShellApprovalResolvedEventSchema,
 ]);
 
 export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
@@ -757,4 +804,17 @@ export function createPreflightFailedEvent(
 	payload: PreflightFailedPayload,
 ): PreflightFailedEvent {
 	return { type: "preflight:failed", payload };
+}
+
+// Shell approval events
+export function createShellApprovalNeededEvent(
+	payload: ShellApprovalNeededPayload,
+): ShellApprovalNeededEvent {
+	return { type: "shell:approval_needed", payload };
+}
+
+export function createShellApprovalResolvedEvent(
+	payload: ShellApprovalResolvedPayload,
+): ShellApprovalResolvedEvent {
+	return { type: "shell:approval_resolved", payload };
 }

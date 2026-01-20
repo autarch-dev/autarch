@@ -65,9 +65,15 @@ export function convertToAISDKTools(
 			tool({
 				description: t.description,
 				inputSchema: t.inputSchema,
-				execute: async (input: unknown, _options) => {
+				execute: async (input: unknown, options) => {
+					// Create an extended context that includes the toolCallId from the AI SDK
+					// This allows tools (like shell) to use the toolCallId for approval tracking
+					const extendedContext: ToolContext = {
+						...context,
+						toolCallId: options.toolCallId,
+					};
 					// Execute our tool and convert result to AI SDK format
-					const result = await t.execute(input, context);
+					const result = await t.execute(input, extendedContext);
 					return formatToolResult(result);
 				},
 			}),

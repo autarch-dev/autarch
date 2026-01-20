@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { log } from "@/backend/logger";
+import { shellApprovalService } from "@/backend/services/shell-approval";
 import { getEffectiveRoot } from "../base/utils";
 import {
 	REASON_DESCRIPTION,
@@ -116,6 +117,48 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 		// Use worktree path if available (for pulsing agent isolation)
 		const cwd = getEffectiveRoot(context);
 		const timeout = (input.timeoutSeconds ?? 60) * 1000;
+
+		// Check for approval if we have workflow context
+		const { workflowId, sessionId, turnId, toolCallId } = context;
+
+		if (workflowId && sessionId && turnId) {
+			// Check if command is remembered (auto-approved)
+			if (
+				!shellApprovalService.isCommandRemembered(workflowId, input.command)
+			) {
+				// Request approval and wait for user decision
+				try {
+					const approvalResult = await shellApprovalService.requestApproval({
+						workflowId,
+						sessionId,
+						turnId,
+						toolId: toolCallId ?? crypto.randomUUID(),
+						command: input.command,
+						reason: input.reason,
+					});
+
+					if (!approvalResult.approved) {
+						const reason = approvalResult.denyReason
+							? `Command denied by user: ${approvalResult.denyReason}. Please try an alternative approach.`
+							: "Command denied by user. Please try an alternative approach.";
+						return {
+							success: false,
+							output: reason,
+						};
+					}
+				} catch (error) {
+					// Handle approval service errors (e.g., session cleanup during pending approval)
+					const errorMessage =
+						error instanceof Error ? error.message : "Approval request failed";
+					log.tools.info(`Shell approval error: ${errorMessage}`);
+					return {
+						success: false,
+						output: `Command not executed: ${errorMessage}`,
+					};
+				}
+			}
+		}
+		// If any context fields are missing (e.g., channel context), proceed without approval
 
 		log.tools.info(`shell: ${input.command} (cwd: ${cwd})`);
 
