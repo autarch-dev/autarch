@@ -8,7 +8,10 @@
 
 import { log } from "@/backend/logger";
 import { broadcast } from "@/backend/ws";
-import { createShellApprovalNeededEvent } from "@/shared/schemas/events";
+import {
+	createShellApprovalNeededEvent,
+	createShellApprovalResolvedEvent,
+} from "@/shared/schemas/events";
 
 // =============================================================================
 // Types
@@ -161,6 +164,15 @@ export function resolveApproval(
 			: "Command denied by user";
 		pending.reject(new Error(errorMessage));
 	}
+
+	// Broadcast the resolution event so frontend can update UI state
+	broadcast(
+		createShellApprovalResolvedEvent({
+			approvalId,
+			approved,
+			remember,
+		}),
+	);
 
 	// Clean up
 	pendingApprovals.delete(approvalId);
