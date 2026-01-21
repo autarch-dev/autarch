@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { log } from "@/backend/logger";
+import { shellApprovalService } from "@/backend/services/shell-approval";
 import { getEffectiveRoot } from "../base/utils";
 import {
 	REASON_DESCRIPTION,
@@ -15,11 +16,17 @@ import {
 // Constants
 // =============================================================================
 
-/** Maximum output size before truncation */
-const MAX_OUTPUT_SIZE = 64 * 1024; // 64KB
+/** Maximum output size when full_output is true */
+const FULL_OUTPUT_SIZE = 64 * 1024; // 64KB
 
-/** Truncation message */
-const TRUNCATION_MSG = "\n... [output truncated] ...";
+/** Default output size for truncated output */
+const DEFAULT_OUTPUT_SIZE = 4 * 1024; // 4KB
+
+/** Size of head portion to preserve when truncating */
+const HEAD_SIZE = 1024; // 1KB
+
+/** Size of tail portion to preserve when truncating */
+const TAIL_SIZE = 3072; // 3KB
 
 // =============================================================================
 // Schema
@@ -36,6 +43,13 @@ export const shellInputSchema = z.object({
 		.optional()
 		.default(60)
 		.describe("Timeout in seconds (default: 60, max: 300)"),
+	full_output: z
+		.boolean()
+		.optional()
+		.default(false)
+		.describe(
+			"If true, returns up to 64KB of output. Default: truncates to 4KB (1KB head + 3KB tail) with omission notice.",
+		),
 });
 
 export type ShellInput = z.infer<typeof shellInputSchema>;
@@ -45,13 +59,31 @@ export type ShellInput = z.infer<typeof shellInputSchema>;
 // =============================================================================
 
 /**
- * Truncate output if it exceeds max size
+ * Format byte count for display (KB with one decimal for >= 1024, bytes otherwise)
+ */
+function formatBytes(bytes: number): string {
+	if (bytes >= 1024) {
+		return `${(bytes / 1024).toFixed(1)}KB`;
+	}
+	return `${bytes} bytes`;
+}
+
+/**
+ * Truncate output using head+tail strategy if it exceeds max size.
+ * Uses HEAD_SIZE:TAIL_SIZE ratio (1:3) scaled to maxSize for truncation bounds.
  */
 function truncateOutput(output: string, maxSize: number): string {
 	if (output.length <= maxSize) {
 		return output;
 	}
-	return output.slice(0, maxSize - TRUNCATION_MSG.length) + TRUNCATION_MSG;
+	// Scale head/tail sizes proportionally to maxSize, maintaining 1:3 ratio
+	const totalParts = HEAD_SIZE + TAIL_SIZE; // 4KB
+	const headSize = Math.floor((HEAD_SIZE / totalParts) * maxSize);
+	const tailSize = maxSize - headSize;
+
+	const omittedBytes = output.length - headSize - tailSize;
+	const omissionMsg = `\n... [${formatBytes(omittedBytes)} omitted] ...\n`;
+	return output.slice(0, headSize) + omissionMsg + output.slice(-tailSize);
 }
 
 /**
@@ -74,6 +106,8 @@ export const shellTool: ToolDefinition<ShellInput> = {
 Returns stdout, stderr, and exit code.
 Commands time out after 60 seconds by default.
 
+Output is truncated to 4KB by default (preserving first 1KB and last 3KB). Use full_output: true to return up to 64KB.
+
 Note: You are working in an isolated git worktree. All commands run in that context.
 
 WARNING: Shell commands can have side effects. Use with caution.
@@ -83,6 +117,48 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 		// Use worktree path if available (for pulsing agent isolation)
 		const cwd = getEffectiveRoot(context);
 		const timeout = (input.timeoutSeconds ?? 60) * 1000;
+
+		// Check for approval if we have workflow context
+		const { workflowId, sessionId, turnId, toolCallId } = context;
+
+		if (workflowId && sessionId && turnId) {
+			// Check if command is remembered (auto-approved)
+			if (
+				!shellApprovalService.isCommandRemembered(workflowId, input.command)
+			) {
+				// Request approval and wait for user decision
+				try {
+					const approvalResult = await shellApprovalService.requestApproval({
+						workflowId,
+						sessionId,
+						turnId,
+						toolId: toolCallId ?? crypto.randomUUID(),
+						command: input.command,
+						reason: input.reason,
+					});
+
+					if (!approvalResult.approved) {
+						const reason = approvalResult.denyReason
+							? `Command denied by user: ${approvalResult.denyReason}. Please try an alternative approach.`
+							: "Command denied by user. Please try an alternative approach.";
+						return {
+							success: false,
+							output: reason,
+						};
+					}
+				} catch (error) {
+					// Handle approval service errors (e.g., session cleanup during pending approval)
+					const errorMessage =
+						error instanceof Error ? error.message : "Approval request failed";
+					log.tools.info(`Shell approval error: ${errorMessage}`);
+					return {
+						success: false,
+						output: `Command not executed: ${errorMessage}`,
+					};
+				}
+			}
+		}
+		// If any context fields are missing (e.g., channel context), proceed without approval
 
 		log.tools.info(`shell: ${input.command} (cwd: ${cwd})`);
 
@@ -130,15 +206,15 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 				]);
 
 				exitCode = code;
-				stdout = truncateOutput(stdoutText, MAX_OUTPUT_SIZE);
-				stderr = truncateOutput(stderrText, MAX_OUTPUT_SIZE);
+				stdout = stdoutText;
+				stderr = stderrText;
 			} finally {
 				clearTimeout(timeoutId);
 			}
 
 			log.tools.info(`shell completed: exit=${exitCode}`);
 
-			// Format output as plain text
+			// Build combined output first
 			const lines: string[] = [];
 			lines.push(`Exit code: ${exitCode}`);
 			if (stdout.trim()) {
@@ -150,9 +226,15 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 				lines.push(stderr);
 			}
 
+			// Determine max size based on full_output parameter
+			const maxSize = input.full_output
+				? FULL_OUTPUT_SIZE
+				: DEFAULT_OUTPUT_SIZE;
+			const combinedOutput = truncateOutput(lines.join("\n"), maxSize);
+
 			return {
 				success: exitCode === 0,
-				output: lines.join("\n"),
+				output: combinedOutput,
 			};
 		} catch (error) {
 			const errorMessage =

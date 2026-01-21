@@ -28,6 +28,7 @@ import {
 	type WorkflowRepository,
 } from "@/backend/repositories";
 import { PulseOrchestrator } from "@/backend/services/pulsing";
+import { shellApprovalService } from "@/backend/services/shell-approval";
 import { broadcast } from "@/backend/ws";
 import {
 	createWorkflowApprovalNeededEvent,
@@ -512,7 +513,8 @@ export class WorkflowOrchestrator {
 			fixDescription += `### Comments from Human Reviewer:\n${summary}\n\n`;
 		}
 
-		fixDescription += "---\n\nNote: The fixes above have been **explicitly requested by the user**. Apply them, regardless of whether they're described as \"required\", \"optional\", or \"nice to have\".\n";
+		fixDescription +=
+			'---\n\nNote: The fixes above have been **explicitly requested by the user**. Apply them, regardless of whether they\'re described as "required", "optional", or "nice to have".\n';
 
 		// Stop current session if any
 		if (workflow.currentSessionId) {
@@ -672,6 +674,9 @@ export class WorkflowOrchestrator {
 		// Check if workflow is complete
 		if (newStage === "done") {
 			await this.workflowRepo.transitionStage(workflowId, "done", null);
+
+			// Clean up remembered shell commands for this workflow
+			shellApprovalService.cleanupWorkflow(workflowId);
 
 			broadcast(createWorkflowCompletedEvent({ workflowId }));
 

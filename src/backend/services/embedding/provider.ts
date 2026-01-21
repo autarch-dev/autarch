@@ -136,31 +136,60 @@ async function initProcess(): Promise<boolean> {
 		}
 	});
 
-	// Wait for "ready" signal on stderr
-	await new Promise<void>((resolve, reject) => {
-		const timeout = setTimeout(() => {
-			reject(new Error("Embed CLI failed to start (timeout)"));
-		}, 60000); // 60 second timeout for model loading
+	// Wait for "ready" signal on stderr. Buffer stderr lines so we can
+	// include them in failure logs if startup fails.
+	const startupStderr: string[] = [];
+	try {
+		await new Promise<void>((resolve, reject) => {
+			const timeout = setTimeout(() => {
+				reject(new Error("Embed CLI failed to start (timeout)"));
+			}, 60000); // 60 second timeout for model loading
 
-		// Read stderr for ready signal and logging
-		readLines(spawnedProc.stderr, (line) => {
-			if (line === "ready") {
-				clearTimeout(timeout);
-				resolve();
-			} else {
-				// Log other stderr output (errors, warnings)
-				log.embedding.debug(`[embed] ${line}`);
-			}
-		});
+			// Read stderr for ready signal and logging
+			readLines(spawnedProc.stderr, (line) => {
+				if (line === "ready") {
+					clearTimeout(timeout);
+					resolve();
+				} else {
+					// Buffer and also debug-log other stderr output
+					startupStderr.push(line);
+					log.embedding.debug(`[embed] ${line}`);
+				}
+			});
 
-		// Handle process exit during startup
-		spawnedProc.exited.then((code) => {
-			if (code !== 0) {
-				clearTimeout(timeout);
-				reject(new Error(`Embed CLI exited with code ${code}`));
-			}
+			// Handle process exit during startup
+			spawnedProc.exited.then((code) => {
+				if (code !== 0) {
+					clearTimeout(timeout);
+					reject(new Error(`Embed CLI exited with code ${code}`));
+				}
+			});
 		});
-	});
+	} catch (err) {
+		// Log a clear error and include any buffered stderr to help debugging
+		try {
+			log.embedding.error("Embed CLI failed to start:", err);
+			if (startupStderr.length > 0) {
+				log.embedding.error(
+					`Embed startup stderr:\n${startupStderr.join("\n")}`,
+				);
+			}
+		} catch (e) {
+			// Swallow logging errors
+		}
+
+		// Attempt to clean up the subprocess and reset init state so callers
+		// can retry later.
+		try {
+			spawnedProc.stdin?.end();
+		} catch (e) {
+			/* ignore */
+		}
+		proc = null;
+		initPromise = null;
+		// Re-throw to allow callers to handle if needed
+		throw err;
+	}
 
 	log.embedding.success("Embed CLI ready");
 	return true;

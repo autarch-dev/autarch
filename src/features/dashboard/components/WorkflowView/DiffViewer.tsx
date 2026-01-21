@@ -504,24 +504,19 @@ const DiffLineView = memo(function DiffLineView({
 			<span className={cn(lineNumberClass, "border-r border-border")}>
 				{line.newLineNumber !== null ? line.newLineNumber : ""}
 			</span>
-			{/* Add comment indicator */}
-			{isClickable && (
-				<span className="w-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-					<MessageSquarePlus className="size-3 text-violet-500" />
-				</span>
-			)}
 			{/* Change indicator */}
-			<span
-				className={cn(
-					"w-5 text-center shrink-0 select-none",
-					isClickable && "group-hover:hidden",
-				)}
-			>
+			<span className="w-5 text-center shrink-0 select-none">
 				{line.type === "add" && (
 					<Plus className="size-3 inline text-green-600 dark:text-green-400" />
 				)}
 				{line.type === "del" && (
 					<Minus className="size-3 inline text-red-600 dark:text-red-400" />
+				)}
+			</span>
+			{/* Add comment indicator */}
+			<span className="w-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+				{isClickable && (
+					<MessageSquarePlus className="size-3 text-violet-500" />
 				)}
 			</span>
 			{/* Code content */}

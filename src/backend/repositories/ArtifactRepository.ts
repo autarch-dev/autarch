@@ -618,7 +618,10 @@ export class ArtifactRepository implements Repository {
 	 * Update the turn_id on the latest review card for a workflow.
 	 * Used by complete_review to ensure the card is linked to the completing turn.
 	 */
-	async updateLatestReviewCardTurnId(workflowId: string, turnId: string): Promise<void> {
+	async updateLatestReviewCardTurnId(
+		workflowId: string,
+		turnId: string,
+	): Promise<void> {
 		const reviewCard = await this.getLatestReviewCard(workflowId);
 		if (reviewCard) {
 			await this.db

@@ -5,4 +5,5 @@ export { PlanCardApproval } from "./PlanCardApproval";
 export { ResearchCardApproval } from "./ResearchCardApproval";
 export { ReviewCardApproval } from "./ReviewCardApproval";
 export { ScopeCardApproval } from "./ScopeCardApproval";
+export { ShellApprovalCard } from "./ShellApprovalCard";
 export { WorkflowView } from "./WorkflowView";

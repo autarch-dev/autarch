@@ -12,6 +12,8 @@ import type {
 	QuestionsAskedPayload,
 	QuestionsSubmittedPayload,
 	SessionStartedPayload,
+	ShellApprovalNeededPayload,
+	ShellApprovalResolvedPayload,
 	TurnCompletedPayload,
 	TurnMessageDeltaPayload,
 	TurnSegmentCompletePayload,
@@ -49,6 +51,13 @@ export interface StreamingSegment {
 	isComplete: boolean;
 }
 
+/** Pending shell approval state for a tool */
+export interface PendingShellApproval {
+	approvalId: string;
+	command: string;
+	reason: string;
+}
+
 /**
  * Question in a streaming message.
  * Uses the same type as MessageQuestion from the channel schema.
@@ -72,6 +81,8 @@ export interface StreamingMessage {
 		input: unknown;
 		output?: unknown;
 		status: "running" | "completed" | "error";
+		/** Pending shell approval state if this tool is awaiting user approval */
+		pendingApproval?: PendingShellApproval;
 	}[];
 	/** Questions asked by the agent */
 	questions: StreamingQuestion[];
@@ -621,6 +632,14 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				break;
 			case "questions:submitted":
 				handleQuestionsSubmitted(event.payload, set, get);
+				break;
+
+			// Shell approval events
+			case "shell:approval_needed":
+				handleShellApprovalNeeded(event.payload, set, get);
+				break;
+			case "shell:approval_resolved":
+				handleShellApprovalResolved(event.payload, set, get);
 				break;
 		}
 	},
@@ -1462,6 +1481,92 @@ function handleQuestionsSubmitted(
 				messages,
 			});
 		}
+
+		return { conversations };
+	});
+}
+
+function handleShellApprovalNeeded(
+	payload: ShellApprovalNeededPayload,
+	set: SetState,
+	get: GetState,
+): void {
+	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	if (!workflowId) return;
+
+	set((state) => {
+		const conversations = new Map(state.conversations);
+		const existing = conversations.get(workflowId);
+		if (!existing?.streamingMessage) return { conversations };
+
+		// Find the tool by toolId and add pendingApproval
+		const tools = existing.streamingMessage.tools.map((tool) =>
+			tool.id === payload.toolId
+				? {
+						...tool,
+						pendingApproval: {
+							approvalId: payload.approvalId,
+							command: payload.command,
+							reason: payload.reason,
+						},
+					}
+				: tool,
+		);
+
+		conversations.set(workflowId, {
+			...existing,
+			streamingMessage: {
+				...existing.streamingMessage,
+				tools,
+			},
+		});
+
+		return { conversations };
+	});
+}
+
+function handleShellApprovalResolved(
+	payload: ShellApprovalResolvedPayload,
+	set: SetState,
+	get: GetState,
+): void {
+	// Find the workflow by searching for the pending approval across all streaming tools
+	const { conversations } = get();
+	let targetWorkflowId: string | undefined;
+
+	for (const [workflowId, conversation] of conversations) {
+		if (conversation.streamingMessage) {
+			const hasPendingApproval = conversation.streamingMessage.tools.some(
+				(tool) => tool.pendingApproval?.approvalId === payload.approvalId,
+			);
+			if (hasPendingApproval) {
+				targetWorkflowId = workflowId;
+				break;
+			}
+		}
+	}
+
+	if (!targetWorkflowId) return;
+
+	set((state) => {
+		const conversations = new Map(state.conversations);
+		const existing = conversations.get(targetWorkflowId);
+		if (!existing?.streamingMessage) return { conversations };
+
+		// Remove the pendingApproval from the matching tool
+		const tools = existing.streamingMessage.tools.map((tool) =>
+			tool.pendingApproval?.approvalId === payload.approvalId
+				? { ...tool, pendingApproval: undefined }
+				: tool,
+		);
+
+		conversations.set(targetWorkflowId, {
+			...existing,
+			streamingMessage: {
+				...existing.streamingMessage,
+				tools,
+			},
+		});
 
 		return { conversations };
 	});

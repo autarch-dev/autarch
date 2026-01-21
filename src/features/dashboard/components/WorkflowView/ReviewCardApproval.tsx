@@ -62,6 +62,7 @@ import type {
 	ReviewComment,
 	ReviewCommentSeverity,
 } from "@/shared/schemas/workflow";
+import { Markdown } from "../Markdown";
 import { reviewCardToMarkdown } from "./artifactMarkdown";
 import { DiffViewerModal } from "./DiffViewer";
 
@@ -237,7 +238,9 @@ function CommentItem({
 				</div>
 			)}
 
-			<p className="text-sm text-muted-foreground">{comment.description}</p>
+			<Markdown className="text-sm prose-p:text-muted-foreground">
+				{comment.description}
+			</Markdown>
 		</div>
 	);
 }
@@ -630,7 +633,7 @@ export function ReviewCardApproval({
 						{/* Summary */}
 						{reviewCard.summary && (
 							<div className="bg-muted/30 rounded-lg p-3 border">
-								<p className="text-sm">{reviewCard.summary}</p>
+								<Markdown className="text-sm">{reviewCard.summary}</Markdown>
 							</div>
 						)}
 
