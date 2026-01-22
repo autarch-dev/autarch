@@ -46,8 +46,8 @@ export interface ToolSchema {
 	schema: {
 		/** Property definitions */
 		properties: Record<string, JSONSchemaProperty>;
-		/** Names of required properties */
-		required: string[];
+		/** Names of required properties (optional per JSON Schema spec) */
+		required?: string[];
 	};
 }
 

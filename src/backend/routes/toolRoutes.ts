@@ -45,7 +45,7 @@ function parseParams<T extends z.ZodTypeAny>(
 export const toolRoutes = {
 	"/api/tools": {
 		GET() {
-			return Response.json(getToolNames());
+			return Response.json({ tools: getToolNames() });
 		},
 	},
 

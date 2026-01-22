@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,12 @@ export interface SchemaFormProps {
 export function SchemaForm({ schema, onSubmit, isExecuting }: SchemaFormProps) {
 	const [formValues, setFormValues] = useState<Record<string, unknown>>({});
 
+	// Reset form values when schema changes (different tool selected)
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Intentional - reset form when tool selection changes
+	useEffect(() => {
+		setFormValues({});
+	}, [schema?.name]);
+
 	if (!schema) {
 		return (
 			<div className="text-muted-foreground text-sm p-4">
@@ -51,7 +57,29 @@ export function SchemaForm({ schema, onSubmit, isExecuting }: SchemaFormProps) {
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
-		onSubmit(formValues);
+
+		// Parse JSON strings for array and object fields
+		const parsedValues: Record<string, unknown> = {};
+		for (const [key, value] of Object.entries(formValues)) {
+			const property = properties[key];
+			if (
+				property &&
+				(property.type === "array" || property.type === "object") &&
+				typeof value === "string" &&
+				value.trim() !== ""
+			) {
+				try {
+					parsedValues[key] = JSON.parse(value);
+				} catch {
+					// If parsing fails, send the raw string and let backend validation handle it
+					parsedValues[key] = value;
+				}
+			} else {
+				parsedValues[key] = value;
+			}
+		}
+
+		onSubmit(parsedValues);
 	};
 
 	/**
@@ -204,7 +232,7 @@ export function SchemaForm({ schema, onSubmit, isExecuting }: SchemaFormProps) {
 				const property = properties[fieldName];
 				// Skip if property is undefined (shouldn't happen, but TypeScript safety)
 				if (!property) return null;
-				const isRequired = required.includes(fieldName);
+				const isRequired = required?.includes(fieldName) ?? false;
 
 				return (
 					<div key={fieldName} className="space-y-2">

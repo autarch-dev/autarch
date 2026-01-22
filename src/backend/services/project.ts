@@ -113,7 +113,7 @@ export async function getProjectIconFile(): Promise<BunFile | null> {
 /**
  * Get the tsconfig.json path for the current project, if one exists.
  * Returns the shallowest match (closest to project root).
- * 
+ *
  * @param projectRoot - The root directory of the project
  * @returns The tsconfig.json path, or null if no tsconfig.json is found
  */
@@ -128,7 +128,11 @@ export async function getTsconfigPath(
 	});
 
 	for await (const match of tsConfigPath) {
-		if (match.includes("node_modules") || match.includes(".git") || match.includes(".autarch")) {
+		if (
+			match.includes("node_modules") ||
+			match.includes(".git") ||
+			match.includes(".autarch")
+		) {
 			continue;
 		}
 		if (await isGitIgnored(projectRoot, match)) {

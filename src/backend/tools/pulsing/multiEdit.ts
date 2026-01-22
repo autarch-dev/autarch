@@ -225,7 +225,7 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 
 					context.project.resolveSourceFileDependencies();
 
-					const diagnostics = context.project.getPreEmitDiagnostics()
+					const diagnostics = context.project.getPreEmitDiagnostics();
 
 					if (diagnostics.length > 0) {
 						const formatted =
