@@ -92,7 +92,14 @@ export function ToolTestbench() {
 			});
 
 			const data = await response.json();
-			setResult(data);
+			if (!response.ok) {
+				setResult({
+					success: false,
+					output: data.details ? `${data.error}: ${data.details}` : data.error,
+				});
+			} else {
+				setResult(data);
+			}
 		} catch (error) {
 			setResult({
 				success: false,
