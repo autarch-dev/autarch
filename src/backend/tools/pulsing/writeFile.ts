@@ -70,9 +70,34 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 			const bytesWritten = Buffer.byteLength(input.content, "utf-8");
 			log.tools.info(`write_file: ${normalizedPath} (${bytesWritten} bytes)`);
 
+			// Check for type errors if it's a TypeScript file
+			let diagnosticOutput = "";
+			if (context.project && /\.tsx?$/.test(normalizedPath)) {
+				try {
+					// Refresh the source file from disk
+					let sourceFile = context.project.getSourceFile(fullPath);
+					
+					if (sourceFile) {
+						sourceFile.refreshFromFileSystemSync();
+					} else {
+						sourceFile = context.project.addSourceFileAtPath(fullPath);
+					}
+
+					const diagnostics = context.project.getPreEmitDiagnostics()
+
+					if (diagnostics.length > 0) {
+						const formatted =
+							context.project.formatDiagnosticsWithColorAndContext(diagnostics);
+						diagnosticOutput = `\n\n⚠️ ${diagnostics.length} type error(s):\n${formatted}`;
+					}
+				} catch {
+					// Don't fail the edit if diagnostics fail
+				}
+			}
+
 			return {
 				success: true,
-				output: `Wrote ${bytesWritten} bytes to ${normalizedPath}`,
+				output: `Wrote ${bytesWritten} bytes to ${normalizedPath}${diagnosticOutput}`,
 			};
 		} catch (error) {
 			return {
