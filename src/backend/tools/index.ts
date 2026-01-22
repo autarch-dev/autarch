@@ -94,6 +94,11 @@ export type {
 	ToolResult,
 } from "./types";
 export { REASON_DESCRIPTION, registerTool } from "./types";
+// Typescript tools (TypeScript-specific tools)
+export {
+	findSymbolInputSchema,
+	findSymbolTool,
+} from "./typescript";
 
 // =============================================================================
 // Tool Registry
@@ -105,6 +110,7 @@ import { preflightTools } from "./preflight";
 import { pulsingTools } from "./pulsing";
 import { reviewTools } from "./review";
 import type { RegisteredTool } from "./types";
+import { typescriptTools } from "./typescript";
 
 /** All tools indexed by name */
 export const toolRegistry: Record<string, RegisteredTool> = {};
@@ -116,6 +122,7 @@ for (const tool of [
 	...preflightTools,
 	...reviewTools,
 	...blockTools,
+	...typescriptTools,
 ]) {
 	toolRegistry[tool.name] = tool;
 }

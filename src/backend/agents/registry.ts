@@ -24,6 +24,7 @@ import {
 	submitResearchTool,
 	submitScopeTool,
 } from "../tools/blocks";
+import { typescriptTools } from "../tools/typescript";
 import { agentPrompts } from "./prompts";
 import type { AgentConfig, AgentRole } from "./types";
 
@@ -35,11 +36,12 @@ import type { AgentConfig, AgentRole } from "./types";
 const BASIC_TOOLS: RegisteredTool[] = [];
 
 /** Discussion agent: base tools (read-only) */
-const DISCUSSION_TOOLS: RegisteredTool[] = [...baseTools];
+const DISCUSSION_TOOLS: RegisteredTool[] = [...baseTools, ...typescriptTools];
 
 /** Scoping agent: base tools + submit_scope + ask_questions */
 const SCOPING_TOOLS: RegisteredTool[] = [
 	...baseTools,
+	...typescriptTools,
 	registerTool(submitScopeTool),
 	registerTool(askQuestionsTool),
 ];
@@ -47,6 +49,7 @@ const SCOPING_TOOLS: RegisteredTool[] = [
 /** Research agent: base tools + submit_research + request_extension + ask_questions */
 const RESEARCH_TOOLS: RegisteredTool[] = [
 	...baseTools,
+	...typescriptTools,
 	registerTool(submitResearchTool),
 	registerTool(requestExtensionTool),
 	registerTool(askQuestionsTool),
@@ -55,12 +58,14 @@ const RESEARCH_TOOLS: RegisteredTool[] = [
 /** Planning agent: base tools + submit_plan */
 const PLANNING_TOOLS: RegisteredTool[] = [
 	...baseTools,
+	...typescriptTools,
 	registerTool(submitPlanTool),
 ];
 
 /** Preflight agent: preflight tools + complete_preflight */
 const PREFLIGHT_TOOLS: RegisteredTool[] = [
 	...preflightTools,
+	...typescriptTools,
 	registerTool(completePreflightTool),
 ];
 
@@ -68,12 +73,17 @@ const PREFLIGHT_TOOLS: RegisteredTool[] = [
 const EXECUTION_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...pulsingTools,
+	...typescriptTools,
 	registerTool(completePulseTool),
 	registerTool(requestExtensionTool),
 ];
 
 /** Review agent: base tools + review tools */
-const REVIEW_TOOLS: RegisteredTool[] = [...baseTools, ...reviewTools];
+const REVIEW_TOOLS: RegisteredTool[] = [
+	...baseTools,
+	...reviewTools,
+	...typescriptTools,
+];
 
 // =============================================================================
 // Agent Registry

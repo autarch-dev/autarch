@@ -7,7 +7,12 @@
 
 import type { Tool } from "ai";
 import { tool } from "ai";
+import { Project } from "ts-morph";
+import { log } from "../logger";
+import { getTsconfigPath } from "../services/project";
 import type { RegisteredTool, ToolContext, ToolResult } from "../tools/types";
+
+const PROJECT_CACHE = new Map<string, Project>();
 
 // =============================================================================
 // Types
@@ -94,33 +99,67 @@ function formatToolResult(result: ToolResult): string {
 /**
  * Create a tool context for a channel discussion.
  */
-export function createChannelToolContext(
+export async function createChannelToolContext(
 	projectRoot: string,
 	channelId: string,
 	sessionId: string,
-): ToolContext {
+): Promise<ToolContext> {
+	const tsconfigPath = await getTsconfigPath(projectRoot);
+
+	if (tsconfigPath) {
+		let project = PROJECT_CACHE.get(tsconfigPath);
+
+		if (!project) {
+			log.tools.info(`Creating project instance for ${tsconfigPath}`);
+			project = new Project({
+				tsConfigFilePath: tsconfigPath,
+			});
+			PROJECT_CACHE.set(tsconfigPath, project);
+		}
+	} else {
+		log.tools.info(`No tsconfig.json found for ${projectRoot}`);
+	}
+
 	return {
 		projectRoot,
 		channelId,
 		sessionId,
+		project: tsconfigPath ? PROJECT_CACHE.get(tsconfigPath) : undefined,
 	};
 }
 
 /**
  * Create a tool context for a workflow execution.
  */
-export function createWorkflowToolContext(
+export async function createWorkflowToolContext(
 	projectRoot: string,
 	workflowId: string,
 	sessionId: string,
 	turnId?: string,
 	worktreePath?: string,
-): ToolContext {
+): Promise<ToolContext> {
+	const tsconfigPath = await getTsconfigPath(projectRoot);
+
+	if (tsconfigPath) {
+		let project = PROJECT_CACHE.get(tsconfigPath);
+
+		if (!project) {
+			log.tools.info(`Creating project instance for ${tsconfigPath}`);
+			project = new Project({
+				tsConfigFilePath: tsconfigPath,
+			});
+			PROJECT_CACHE.set(tsconfigPath, project);
+		}
+	} else {
+		log.tools.info(`No tsconfig.json found for ${projectRoot}`);
+	}
+
 	return {
 		projectRoot,
 		workflowId,
 		sessionId,
 		turnId,
 		worktreePath,
+		project: tsconfigPath ? PROJECT_CACHE.get(tsconfigPath) : undefined,
 	};
 }

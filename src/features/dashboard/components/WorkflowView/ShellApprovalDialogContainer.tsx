@@ -17,12 +17,6 @@ export function ShellApprovalDialogContainer() {
 	// Get the first pending approval (if any)
 	const firstApproval = pendingShellApprovals.values().next().value;
 
-	console.log(
-		"[ShellApprovalDialogContainer] pendingShellApprovals:",
-		pendingShellApprovals.size,
-		firstApproval ? `showing: ${firstApproval.approvalId}` : "none",
-	);
-
 	if (!firstApproval) {
 		return null;
 	}

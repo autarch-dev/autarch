@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { basename, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import type { BunFile } from "bun";
 import type { ProjectInfo } from "@/shared/schemas/project";
 import { findRepoRoot } from "../git";
@@ -108,4 +108,34 @@ export async function getProjectIconFile(): Promise<BunFile | null> {
 	}
 
 	return Bun.file(iconPath);
+}
+
+/**
+ * Get the tsconfig.json path for the current project, if one exists.
+ * Returns the shallowest match (closest to project root).
+ * 
+ * @param projectRoot - The root directory of the project
+ * @returns The tsconfig.json path, or null if no tsconfig.json is found
+ */
+export async function getTsconfigPath(
+	projectRoot: string,
+): Promise<string | null> {
+	// Use glob to find tsconfig.json
+	const tsConfigPath = new Bun.Glob("**/tsconfig.json").scan({
+		cwd: projectRoot,
+		absolute: true,
+		onlyFiles: true,
+	});
+
+	for await (const match of tsConfigPath) {
+		if (match.includes("node_modules") || match.includes(".git") || match.includes(".autarch")) {
+			continue;
+		}
+		if (await isGitIgnored(projectRoot, match)) {
+			continue;
+		}
+		return match;
+	}
+
+	return null;
 }

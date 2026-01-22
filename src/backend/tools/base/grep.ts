@@ -158,8 +158,17 @@ export const grepTool: ToolDefinition<GrepInput> = {
 			const stats = await file.stat().catch(() => null);
 			if (!stats) continue;
 
+			// Convert absolute path to relative path
+			const relativePath = filePath.startsWith(rootPath)
+				? filePath.slice(rootPath.length).replace(/^\//, "")
+				: filePath;
+
+			console.log("relativePath", relativePath);
+			console.log("filePath", filePath);
+			console.log("rootPath", rootPath);
+
 			matches.push({
-				path: filePath,
+				path: relativePath,
 				modTime: stats.mtime.getTime(),
 				lineNum,
 				lineText,
@@ -167,6 +176,7 @@ export const grepTool: ToolDefinition<GrepInput> = {
 		}
 
 		matches.sort((a, b) => b.modTime - a.modTime);
+		console.log("matches", matches);
 
 		const limit = 100;
 		const truncated = matches.length > limit;
@@ -211,7 +221,7 @@ export const grepTool: ToolDefinition<GrepInput> = {
 
 		return {
 			success: true,
-			output: lines.join("\n"),
+			output: outputLines.join("\n"),
 		};
 	},
 };

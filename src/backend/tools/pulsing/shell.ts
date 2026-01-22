@@ -109,6 +109,7 @@ Commands time out after 60 seconds by default.
 Output is truncated to 4KB by default (preserving first 1KB and last 3KB). Use full_output: true to return up to 64KB.
 
 Note: You are working in an isolated git worktree. All commands run in that context.
+The current working directory is already set to the worktree root.
 
 WARNING: Shell commands can have side effects. Use with caution.
 If you have other tools that can accomplish the same thing, use them instead.`,

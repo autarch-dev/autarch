@@ -690,7 +690,7 @@ export class AgentRunner {
 		const { model, modelId } = await getModelForScenario(agentConfig.role);
 
 		// Create tool context based on session type (include turnId for artifact tracking)
-		const toolContext = this.createToolContext(turn.id);
+		const toolContext = await this.createToolContext(turn.id);
 
 		// Check if Exa API key is configured for web search tools
 		const hasExaKey = await isExaKeyConfigured();
@@ -936,15 +936,15 @@ export class AgentRunner {
 	/**
 	 * Create the appropriate tool context based on session type
 	 */
-	private createToolContext(turnId?: string): ToolContext {
+	private async createToolContext(turnId?: string): Promise<ToolContext> {
 		if (this.session.contextType === "channel") {
-			return createChannelToolContext(
+			return await createChannelToolContext(
 				this.config.projectRoot,
 				this.session.contextId,
 				this.session.id,
 			);
 		}
-		return createWorkflowToolContext(
+		return await createWorkflowToolContext(
 			this.config.projectRoot,
 			this.session.contextId,
 			this.session.id,
