@@ -22,7 +22,7 @@ export const grepInputSchema = z.object({
 		.describe(
 			"The search pattern (literal string or regex depending on useRegex parameter)",
 		),
-	glob: z
+	include: z
 		.string()
 		.nullable()
 		.optional()
@@ -51,11 +51,8 @@ export type GrepInput = z.infer<typeof grepInputSchema>;
 // Constants
 // =============================================================================
 
-/** Maximum matches to return per call */
-const MAX_RESULTS = 50;
-
 /** Maximum length for a single output line (truncate longer lines) */
-const MAX_LINE_LENGTH = 200;
+const MAX_LINE_LENGTH = 2000;
 
 // =============================================================================
 // Tool Definition
@@ -63,39 +60,31 @@ const MAX_LINE_LENGTH = 200;
 
 export const grepTool: ToolDefinition<GrepInput> = {
 	name: "grep",
-	description: `Search file contents for a pattern using regex matching.
-Returns matches in standard grep format: file:line:content (one per line).
-
-- Case-insensitive by default (set caseSensitive=true for exact case matching)
-- Respects .gitignore and .autarchignore rules
-- Skips binary files
-- Returns up to 50 matches; use skip parameter to paginate through more results
-
-Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
+	description: `- Search file contents for a pattern using full regex matching.
+- Filter files by pattern with the \`include\` parameter, e.g., "**/*.cs" for C# files only.
+- Returns file paths and line numbers with at least one match sorted by modification time`,
 	inputSchema: grepInputSchema,
 	execute: async (input, context): Promise<ToolResult> => {
-		// Build ripgrep arguments
-		const args: string[] = [
-			"--line-number", // Include line numbers
-			"--no-heading", // Don't group by file
-			"--color=never", // No ANSI colors
-		];
-
-		// Case sensitivity
-		if (!input.caseSensitive) {
-			args.push("--ignore-case");
-		}
-
-		// Glob filter
-		if (input.glob) {
-			args.push("--glob", input.glob);
-		}
-
-		// Add the pattern and path
-		args.push("--", input.pattern, ".");
-
 		// Use worktree path if available (for pulsing agent isolation)
 		const rootPath = getEffectiveRoot(context);
+
+		// Build ripgrep arguments
+		const args: string[] = [
+			"-nH",
+			"--hidden",
+			"--follow",
+			"--no-messages",
+			"--field-match-separator=|",
+			"--regexp",
+			input.pattern,
+		];
+
+		// Glob filter
+		if (input.include) {
+			args.push("--glob", input.include);
+		}
+
+		args.push(rootPath);
 
 		// Run ripgrep
 		let proc: Bun.Subprocess;
@@ -135,7 +124,14 @@ Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 
 		// Exit code 1 means no matches (not an error)
 		// Exit code 2+ means actual error
-		if (exitCode > 1) {
+		if (exitCode === 1 || (exitCode === 2 && !stdout.trim())) {
+			return {
+				success: true,
+				output: "No files found.",
+			};
+		}
+
+		if (exitCode !== 0 && exitCode !== 2) {
 			return {
 				success: false,
 				output: `Error: ripgrep failed: ${stderr || "unknown error"}`,
@@ -143,31 +139,74 @@ Use glob parameter to filter files, e.g., "**/*.cs" for C# files only.`,
 		}
 
 		// Process output: paginate, truncate long lines
-		const skip = input.skip ?? 0;
-		const allLines = stdout.split("\n").filter((line) => line.length > 0);
-		const totalMatches = allLines.length;
+		const hasErrors = exitCode === 2;
 
-		if (totalMatches === 0) {
+		// Handle both Unix (\n) and Windows (\r\n) line endings
+		const lines = stdout.trim().split(/\r?\n/);
+		const matches = [];
+
+		for (const line of lines) {
+			if (!line) continue;
+
+			const [filePath, lineNumStr, ...lineTextParts] = line.split("|");
+			if (!filePath || !lineNumStr || lineTextParts.length === 0) continue;
+
+			const lineNum = parseInt(lineNumStr, 10);
+			const lineText = lineTextParts.join("|");
+
+			const file = Bun.file(filePath);
+			const stats = await file.stat().catch(() => null);
+			if (!stats) continue;
+
+			matches.push({
+				path: filePath,
+				modTime: stats.mtime.getTime(),
+				lineNum,
+				lineText,
+			});
+		}
+
+		matches.sort((a, b) => b.modTime - a.modTime);
+
+		const limit = 100;
+		const truncated = matches.length > limit;
+		const finalMatches = truncated ? matches.slice(0, limit) : matches;
+
+		if (finalMatches.length === 0) {
 			return {
 				success: true,
-				output: "No matches found.",
+				output: "No files found",
 			};
 		}
 
-		const lines = allLines
-			.slice(skip, skip + MAX_RESULTS)
-			.map((line) =>
-				line.length > MAX_LINE_LENGTH
-					? `${line.slice(0, MAX_LINE_LENGTH)}...`
-					: line,
-			);
+		const outputLines = [`Found ${finalMatches.length} matches`];
 
-		// Add pagination notice if there are more results
-		if (totalMatches > skip + MAX_RESULTS) {
-			const remaining = totalMatches - skip - MAX_RESULTS;
-			lines.push(
-				`--- ${remaining} more matches (use skip=${skip + MAX_RESULTS} to continue) ---`,
+		let currentFile = "";
+		for (const match of finalMatches) {
+			if (currentFile !== match.path) {
+				if (currentFile !== "") {
+					outputLines.push("");
+				}
+				currentFile = match.path;
+				outputLines.push(`${match.path}:`);
+			}
+			const truncatedLineText =
+				match.lineText.length > MAX_LINE_LENGTH
+					? `${match.lineText.substring(0, MAX_LINE_LENGTH)}...`
+					: match.lineText;
+			outputLines.push(`  Line ${match.lineNum}: ${truncatedLineText}`);
+		}
+
+		if (truncated) {
+			outputLines.push("");
+			outputLines.push(
+				"(Results are truncated. Consider using a more specific path or pattern.)",
 			);
+		}
+
+		if (hasErrors) {
+			outputLines.push("");
+			outputLines.push("(Some paths were inaccessible and skipped)");
 		}
 
 		return {

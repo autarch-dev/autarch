@@ -93,6 +93,9 @@ export function requestApproval(
 	log.agent.info(
 		`Shell approval requested: ${params.command} (approvalId: ${approvalId})`,
 	);
+	log.agent.info(
+		`Shell approval context: workflowId=${params.workflowId}, sessionId=${params.sessionId}, turnId=${params.turnId}, toolId=${params.toolId}`,
+	);
 
 	return new Promise<ApprovalResult>((resolve, reject) => {
 		// Store the pending approval with resolve/reject handlers
@@ -108,17 +111,17 @@ export function requestApproval(
 		});
 
 		// Broadcast the approval_needed event to connected clients
-		broadcast(
-			createShellApprovalNeededEvent({
-				approvalId,
-				workflowId: params.workflowId,
-				sessionId: params.sessionId,
-				turnId: params.turnId,
-				toolId: params.toolId,
-				command: params.command,
-				reason: params.reason,
-			}),
-		);
+		const event = createShellApprovalNeededEvent({
+			approvalId,
+			workflowId: params.workflowId,
+			sessionId: params.sessionId,
+			turnId: params.turnId,
+			toolId: params.toolId,
+			command: params.command,
+			reason: params.reason,
+		});
+		log.agent.info(`Broadcasting shell:approval_needed event`);
+		broadcast(event);
 	});
 }
 
@@ -234,6 +237,14 @@ export function getPendingApprovalCount(): number {
 	return pendingApprovals.size;
 }
 
+/**
+ * Get all pending approvals (for re-broadcasting on client reconnect)
+ * Returns an array of [approvalId, pendingApproval] tuples
+ */
+export function getAllPendingApprovals(): Array<[string, PendingApproval]> {
+	return Array.from(pendingApprovals.entries());
+}
+
 // =============================================================================
 // Singleton Export
 // =============================================================================
@@ -246,4 +257,5 @@ export const shellApprovalService = {
 	cleanupWorkflow,
 	getPendingApproval,
 	getPendingApprovalCount,
+	getAllPendingApprovals,
 };

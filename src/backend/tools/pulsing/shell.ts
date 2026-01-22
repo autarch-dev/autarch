@@ -128,11 +128,13 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 			) {
 				// Request approval and wait for user decision
 				try {
+					const effectiveToolId = toolCallId ?? crypto.randomUUID();
+					log.tools.info(`Shell requesting approval with toolCallId: ${toolCallId}, effectiveToolId: ${effectiveToolId}`);
 					const approvalResult = await shellApprovalService.requestApproval({
 						workflowId,
 						sessionId,
 						turnId,
-						toolId: toolCallId ?? crypto.randomUUID(),
+						toolId: effectiveToolId,
 						command: input.command,
 						reason: input.reason,
 					});

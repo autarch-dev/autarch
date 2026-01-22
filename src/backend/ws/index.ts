@@ -1,6 +1,8 @@
 import type { ServerWebSocket } from "bun";
 import type { WebSocketEvent } from "@/shared/schemas/events";
+import { createShellApprovalNeededEvent } from "@/shared/schemas/events";
 import { log } from "../logger";
+import { shellApprovalService } from "../services/shell-approval";
 
 // =============================================================================
 // WebSocket Connection Management
@@ -14,6 +16,22 @@ const clients = new Set<ServerWebSocket<unknown>>();
 export function handleOpen(ws: ServerWebSocket<unknown>): void {
 	clients.add(ws);
 	log.ws.info(`Client connected (${clients.size} total)`);
+
+	// Re-send any pending shell approvals to the newly connected client
+	const pendingApprovals = shellApprovalService.getAllPendingApprovals();
+	for (const [approvalId, pending] of pendingApprovals) {
+		const event = createShellApprovalNeededEvent({
+			approvalId,
+			workflowId: pending.workflowId,
+			sessionId: pending.sessionId,
+			turnId: pending.turnId,
+			toolId: pending.toolId,
+			command: pending.command,
+			reason: pending.reason,
+		});
+		ws.send(JSON.stringify(event));
+		log.ws.debug(`Re-sent pending shell approval ${approvalId} to new client`);
+	}
 }
 
 /**

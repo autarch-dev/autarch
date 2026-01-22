@@ -8,7 +8,7 @@ import type {
 } from "@/shared/schemas/workflow";
 import { ChannelView } from "./components/ChannelView";
 import { AppSidebar } from "./components/Sidebar";
-import { WorkflowView } from "./components/WorkflowView";
+import { ShellApprovalDialogContainer, WorkflowView } from "./components/WorkflowView";
 import { useDiscussionsStore, useWorkflowsStore } from "./store";
 import type { ViewType } from "./types";
 
@@ -261,6 +261,9 @@ export function Dashboard() {
 					</div>
 				)}
 			</SidebarInset>
+
+			{/* Global shell approval dialog - renders when there are pending approvals */}
+			<ShellApprovalDialogContainer />
 		</SidebarProvider>
 	);
 }

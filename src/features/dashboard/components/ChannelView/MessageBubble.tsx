@@ -11,21 +11,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { ChannelMessage, MessageQuestion } from "@/shared/schemas/channel";
-import type {
-	PendingShellApproval,
-	StreamingMessage,
-} from "../../store/workflowsStore";
+import type { StreamingMessage } from "../../store/workflowsStore";
 import { formatTime } from "../../utils";
 import { Markdown } from "../Markdown";
-import { ShellApprovalCard } from "../WorkflowView/ShellApprovalCard";
 import { QuestionBlock } from "./QuestionBlock";
-
-// =============================================================================
-// Types
-// =============================================================================
-
-/** Pending shell approval state for a tool - re-exported from workflowsStore for convenience */
-export type PendingApproval = PendingShellApproval;
 
 /** Common tool call structure used by both message types */
 export interface ToolCallInfo {
@@ -36,8 +25,6 @@ export interface ToolCallInfo {
 	input: unknown;
 	output?: unknown;
 	status: "running" | "completed" | "error";
-	/** Pending shell approval state if this tool is awaiting user approval */
-	pendingApproval?: PendingApproval;
 }
 
 /** Segment with optional streaming state */
@@ -135,57 +122,6 @@ interface ToolCallDisplayProps {
 function ToolCallDisplay({ tool, defaultOpen }: ToolCallDisplayProps) {
 	const reason = getToolReason(tool.input);
 	const isRunning = tool.status === "running";
-
-	// If this is a shell tool with pending approval, render ShellApprovalCard
-	if (tool.pendingApproval && tool.name === "shell") {
-		const {
-			approvalId,
-			command,
-			reason: approvalReason,
-		} = tool.pendingApproval;
-
-		const handleApprove = async (id: string, remember: boolean) => {
-			try {
-				const response = await fetch(`/api/shell-approval/${id}/approve`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ remember }),
-				});
-				if (!response.ok) {
-					const error = await response.json();
-					console.error("Failed to approve shell command:", error);
-				}
-			} catch (err) {
-				console.error("Failed to approve shell command:", err);
-			}
-		};
-
-		const handleDeny = async (id: string, denyReason: string) => {
-			try {
-				const response = await fetch(`/api/shell-approval/${id}/deny`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ reason: denyReason }),
-				});
-				if (!response.ok) {
-					const error = await response.json();
-					console.error("Failed to deny shell command:", error);
-				}
-			} catch (err) {
-				console.error("Failed to deny shell command:", err);
-			}
-		};
-
-		return (
-			<ShellApprovalCard
-				approvalId={approvalId}
-				command={command}
-				reason={approvalReason}
-				onApprove={handleApprove}
-				onDeny={handleDeny}
-			/>
-		);
-	}
 
 	return (
 		<details className="group text-xs" open={defaultOpen ?? isRunning}>

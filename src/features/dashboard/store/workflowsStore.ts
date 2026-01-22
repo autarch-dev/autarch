@@ -51,9 +51,10 @@ export interface StreamingSegment {
 	isComplete: boolean;
 }
 
-/** Pending shell approval state for a tool */
+/** Pending shell approval state */
 export interface PendingShellApproval {
 	approvalId: string;
+	workflowId: string;
 	command: string;
 	reason: string;
 }
@@ -81,8 +82,6 @@ export interface StreamingMessage {
 		input: unknown;
 		output?: unknown;
 		status: "running" | "completed" | "error";
-		/** Pending shell approval state if this tool is awaiting user approval */
-		pendingApproval?: PendingShellApproval;
 	}[];
 	/** Questions asked by the agent */
 	questions: StreamingQuestion[];
@@ -122,6 +121,9 @@ interface WorkflowsState {
 	researchCards: Map<string, ResearchCard[]>;
 	plans: Map<string, Plan[]>;
 	reviewCards: Map<string, ReviewCard[]>;
+
+	// Pending shell approvals (keyed by approvalId)
+	pendingShellApprovals: Map<string, PendingShellApproval>;
 
 	// Actions - Workflow CRUD
 	fetchWorkflows: () => Promise<void>;
@@ -191,6 +193,7 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	researchCards: new Map(),
 	plans: new Map(),
 	reviewCards: new Map(),
+	pendingShellApprovals: new Map(),
 
 	// ===========================================================================
 	// Workflow CRUD
@@ -1489,86 +1492,39 @@ function handleQuestionsSubmitted(
 function handleShellApprovalNeeded(
 	payload: ShellApprovalNeededPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	const workflowId = findWorkflowBySession(payload.sessionId, get);
-	if (!workflowId) return;
+	console.log("[ShellApproval] Received approval_needed:", payload);
 
 	set((state) => {
-		const conversations = new Map(state.conversations);
-		const existing = conversations.get(workflowId);
-		if (!existing?.streamingMessage) return { conversations };
-
-		// Find the tool by toolId and add pendingApproval
-		const tools = existing.streamingMessage.tools.map((tool) =>
-			tool.id === payload.toolId
-				? {
-						...tool,
-						pendingApproval: {
-							approvalId: payload.approvalId,
-							command: payload.command,
-							reason: payload.reason,
-						},
-					}
-				: tool,
-		);
-
-		conversations.set(workflowId, {
-			...existing,
-			streamingMessage: {
-				...existing.streamingMessage,
-				tools,
-			},
+		const pendingShellApprovals = new Map(state.pendingShellApprovals);
+		pendingShellApprovals.set(payload.approvalId, {
+			approvalId: payload.approvalId,
+			workflowId: payload.workflowId,
+			command: payload.command,
+			reason: payload.reason,
 		});
 
-		return { conversations };
+		console.log("[ShellApproval] Added to pendingShellApprovals, count:", pendingShellApprovals.size);
+
+		return { pendingShellApprovals };
 	});
 }
 
 function handleShellApprovalResolved(
 	payload: ShellApprovalResolvedPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	// Find the workflow by searching for the pending approval across all streaming tools
-	const { conversations } = get();
-	let targetWorkflowId: string | undefined;
-
-	for (const [workflowId, conversation] of conversations) {
-		if (conversation.streamingMessage) {
-			const hasPendingApproval = conversation.streamingMessage.tools.some(
-				(tool) => tool.pendingApproval?.approvalId === payload.approvalId,
-			);
-			if (hasPendingApproval) {
-				targetWorkflowId = workflowId;
-				break;
-			}
-		}
-	}
-
-	if (!targetWorkflowId) return;
+	console.log("[ShellApproval] Resolved:", payload.approvalId, payload.approved ? "approved" : "denied");
 
 	set((state) => {
-		const conversations = new Map(state.conversations);
-		const existing = conversations.get(targetWorkflowId);
-		if (!existing?.streamingMessage) return { conversations };
+		const pendingShellApprovals = new Map(state.pendingShellApprovals);
+		pendingShellApprovals.delete(payload.approvalId);
 
-		// Remove the pendingApproval from the matching tool
-		const tools = existing.streamingMessage.tools.map((tool) =>
-			tool.pendingApproval?.approvalId === payload.approvalId
-				? { ...tool, pendingApproval: undefined }
-				: tool,
-		);
+		console.log("[ShellApproval] Removed from pendingShellApprovals, count:", pendingShellApprovals.size);
 
-		conversations.set(targetWorkflowId, {
-			...existing,
-			streamingMessage: {
-				...existing.streamingMessage,
-				tools,
-			},
-		});
-
-		return { conversations };
+		return { pendingShellApprovals };
 	});
 }
 

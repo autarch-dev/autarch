@@ -1,14 +1,14 @@
 /**
- * ShellApprovalCard - Display inline shell command approval UI
+ * ShellApprovalDialog - Modal dialog for shell command approval
  *
- * Shows the command and agent's reason, with approve/deny buttons.
- * Includes option to remember approval for exact command matches in workflow.
+ * Shows the command and agent's reason in a prominent dialog,
+ * with approve/deny buttons. Includes option to remember approval
+ * for exact command matches in workflow.
  */
 
 import { CheckCircle, Terminal, XCircle } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
 	Dialog,
@@ -26,7 +26,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-interface ShellApprovalCardProps {
+interface ShellApprovalDialogProps {
 	approvalId: string;
 	command: string;
 	reason: string;
@@ -34,14 +34,21 @@ interface ShellApprovalCardProps {
 	onDeny: (approvalId: string, reason: string) => Promise<void>;
 }
 
-export function ShellApprovalCard({
+/**
+ * @deprecated Use ShellApprovalDialog instead
+ */
+export function ShellApprovalCard(props: ShellApprovalDialogProps) {
+	return <ShellApprovalDialog {...props} />;
+}
+
+export function ShellApprovalDialog({
 	approvalId,
 	command,
 	reason,
 	onApprove,
 	onDeny,
-}: ShellApprovalCardProps) {
-	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
+}: ShellApprovalDialogProps) {
+	const [view, setView] = useState<"approve" | "deny">("approve");
 	const [denyReason, setDenyReason] = useState("");
 	const [rememberApproval, setRememberApproval] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,120 +67,123 @@ export function ShellApprovalCard({
 		setIsSubmitting(true);
 		try {
 			await onDeny(approvalId, denyReason.trim());
-			setDenyDialogOpen(false);
-			setDenyReason("");
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
 	return (
-		<>
-			<Card className="mx-4 my-4 border-primary/50 bg-primary/5">
-				<CardHeader className="pb-3">
-					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
-							<Terminal className="size-5 text-primary" />
-							<CardTitle className="text-lg">
-								Shell Command Approval Required
-							</CardTitle>
+		<Dialog open={true} onOpenChange={() => {}}>
+			<DialogContent
+				className="sm:max-w-lg"
+				onPointerDownOutside={(e) => e.preventDefault()}
+				onEscapeKeyDown={(e) => e.preventDefault()}
+			>
+				<DialogHeader>
+					<div className="flex items-center gap-2">
+						<Terminal className="size-5 text-primary" />
+						<DialogTitle>Shell Command Approval Required</DialogTitle>
+					</div>
+					<DialogDescription>
+						The agent wants to execute the following command. Review and approve
+						or deny.
+					</DialogDescription>
+				</DialogHeader>
+
+				{view === "approve" ? (
+					<>
+						{/* Command display */}
+						<div className="rounded-md bg-muted p-3 my-2">
+							<code className="text-sm font-mono whitespace-pre-wrap break-all">
+								{command}
+							</code>
 						</div>
-						<div className="flex items-center gap-2">
+
+						{/* Agent's reason */}
+						<p className="text-sm text-muted-foreground">{reason}</p>
+
+						{/* Remember checkbox */}
+						<div className="flex items-center gap-2 mt-2">
+							<Checkbox
+								id={`remember-${approvalId}`}
+								checked={rememberApproval}
+								onCheckedChange={(checked) =>
+									setRememberApproval(checked === true)
+								}
+								disabled={isSubmitting}
+							/>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Label
+										htmlFor={`remember-${approvalId}`}
+										className="text-sm cursor-pointer"
+									>
+										Remember for this workflow
+									</Label>
+								</TooltipTrigger>
+								<TooltipContent side="right" className="max-w-xs">
+									When enabled, this exact command will be auto-approved for the
+									remainder of this workflow. Only exact matches are remembered.
+								</TooltipContent>
+							</Tooltip>
+						</div>
+
+						<DialogFooter className="mt-4">
 							<Button
 								variant="outline"
-								size="sm"
-								onClick={() => setDenyDialogOpen(true)}
+								onClick={() => setView("deny")}
 								disabled={isSubmitting}
 								className="text-destructive hover:text-destructive"
 							>
 								<XCircle className="size-4 mr-1" />
 								Deny
 							</Button>
-							<Button size="sm" onClick={handleApprove} disabled={isSubmitting}>
+							<Button onClick={handleApprove} disabled={isSubmitting}>
 								<CheckCircle className="size-4 mr-1" />
 								Approve
 							</Button>
+						</DialogFooter>
+					</>
+				) : (
+					<>
+						{/* Deny view */}
+						<div className="py-2">
+							<p className="text-sm text-muted-foreground mb-3">
+								Provide a reason for denying this command. The agent will
+								receive this feedback and may try an alternative approach.
+							</p>
+							<Textarea
+								value={denyReason}
+								onChange={(e) => setDenyReason(e.target.value)}
+								placeholder="e.g., This command could modify production data..."
+								rows={4}
+								autoFocus
+							/>
 						</div>
-					</div>
-				</CardHeader>
 
-				<CardContent className="space-y-4 pt-0">
-					{/* Command display */}
-					<div className="rounded-md bg-muted p-3">
-						<code className="text-sm font-mono whitespace-pre-wrap break-all">
-							{command}
-						</code>
-					</div>
-
-					{/* Agent's reason */}
-					<p className="text-sm text-muted-foreground">{reason}</p>
-
-					{/* Remember checkbox */}
-					<div className="flex items-center gap-2">
-						<Checkbox
-							id={`remember-${approvalId}`}
-							checked={rememberApproval}
-							onCheckedChange={(checked) =>
-								setRememberApproval(checked === true)
-							}
-							disabled={isSubmitting}
-						/>
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Label
-									htmlFor={`remember-${approvalId}`}
-									className="text-sm cursor-pointer"
-								>
-									Approve and remember for this workflow
-								</Label>
-							</TooltipTrigger>
-							<TooltipContent side="right" className="max-w-xs">
-								When enabled, this exact command will be auto-approved for the
-								remainder of this workflow. Only exact matches are remembered.
-							</TooltipContent>
-						</Tooltip>
-					</div>
-				</CardContent>
-			</Card>
-
-			{/* Deny Dialog */}
-			<Dialog open={denyDialogOpen} onOpenChange={setDenyDialogOpen}>
-				<DialogContent className="sm:max-w-md">
-					<DialogHeader>
-						<DialogTitle>Deny Shell Command</DialogTitle>
-						<DialogDescription>
-							Provide a reason for denying this command. The agent will receive
-							this feedback and may try an alternative approach.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="py-4">
-						<Textarea
-							value={denyReason}
-							onChange={(e) => setDenyReason(e.target.value)}
-							placeholder="e.g., This command could modify production data..."
-							rows={4}
-							autoFocus
-						/>
-					</div>
-					<DialogFooter>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => setDenyDialogOpen(false)}
-							disabled={isSubmitting}
-						>
-							Cancel
-						</Button>
-						<Button
-							variant="destructive"
-							onClick={handleDeny}
-							disabled={isSubmitting || !denyReason.trim()}
-						>
-							Deny Command
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</>
+						<DialogFooter>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => {
+									setView("approve");
+									setDenyReason("");
+								}}
+								disabled={isSubmitting}
+							>
+								Back
+							</Button>
+							<Button
+								variant="destructive"
+								onClick={handleDeny}
+								disabled={isSubmitting || !denyReason.trim()}
+							>
+								Deny Command
+							</Button>
+						</DialogFooter>
+					</>
+				)}
+			</DialogContent>
+		</Dialog>
 	);
 }
