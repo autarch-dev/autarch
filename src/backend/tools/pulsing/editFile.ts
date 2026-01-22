@@ -157,13 +157,14 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				try {
 					// Refresh the source file from disk
 					let sourceFile = context.project.getSourceFile(fullPath);
-					
+
 					if (sourceFile) {
 						sourceFile.refreshFromFileSystemSync();
 					} else {
 						sourceFile = context.project.addSourceFileAtPath(fullPath);
 					}
 
+					context.project.resolveSourceFileDependencies();
 					const diagnostics = context.project.getPreEmitDiagnostics()
 
 					if (diagnostics.length > 0) {

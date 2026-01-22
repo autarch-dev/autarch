@@ -223,8 +223,10 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 						sourceFile = context.project.addSourceFileAtPath(fullPath);
 					}
 
+					context.project.resolveSourceFileDependencies();
+
 					const diagnostics = context.project.getPreEmitDiagnostics()
-					
+
 					if (diagnostics.length > 0) {
 						const formatted =
 							context.project.formatDiagnosticsWithColorAndContext(diagnostics);
