@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Redirect, Route, Switch } from "wouter";
 import { Dashboard } from "@/features/dashboard";
 import { OnboardingPage, useOnboarding } from "@/features/onboarding";
+import { ToolTestbench } from "@/features/testbench";
 import { useWebSocketStore } from "@/features/websocket";
 import "./index.css";
 
@@ -46,6 +47,7 @@ export function App() {
 			<Route path="/" component={RootRedirect} />
 			<Route path="/onboarding" component={OnboardingPage} />
 			<Route path="/dashboard" component={Dashboard} />
+			<Route path="/testbench" component={ToolTestbench} />
 			{/* Fallback for unknown routes */}
 			<Route>
 				<Redirect to="/" />
