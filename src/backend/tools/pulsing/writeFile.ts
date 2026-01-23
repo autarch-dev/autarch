@@ -2,7 +2,13 @@
  * write_file - Write content to a file in the worktree
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { dirname, isAbsolute, join, normalize } from "node:path";
 import { z } from "zod";
 import { log } from "@/backend/logger";
@@ -12,6 +18,7 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
+import { executePostWriteHooks } from "./hooks";
 
 // =============================================================================
 // Schema
@@ -60,6 +67,12 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 		const fullPath = join(root, normalizedPath);
 
 		try {
+			// Save original state for rollback if blocking hook fails
+			const fileExisted = existsSync(fullPath);
+			const originalContent = fileExisted
+				? readFileSync(fullPath, "utf-8")
+				: null;
+
 			// Create parent directories if needed
 			const dir = dirname(fullPath);
 			mkdirSync(dir, { recursive: true });
@@ -70,7 +83,29 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 			const bytesWritten = Buffer.byteLength(input.content, "utf-8");
 			log.tools.info(`write_file: ${normalizedPath} (${bytesWritten} bytes)`);
 
+			// Execute post-write hooks
+			const hookResult = await executePostWriteHooks(
+				context.projectRoot,
+				normalizedPath,
+				root,
+			);
+
+			// If a blocking hook failed, rollback the file and return error
+			if (hookResult.blocked) {
+				// Rollback: restore original content or delete the file if it was new
+				if (originalContent !== null) {
+					writeFileSync(fullPath, originalContent, "utf-8");
+				} else {
+					unlinkSync(fullPath);
+				}
+				return {
+					success: false,
+					output: `Hook failed (blocking), file reverted:\n${hookResult.output}`,
+				};
+			}
+
 			// Check for type errors if it's a TypeScript file
+			// Run after hooks so refreshFromFileSystemSync picks up any hook-induced changes
 			let diagnosticOutput = "";
 			if (context.project && /\.tsx?$/.test(normalizedPath)) {
 				try {
@@ -98,9 +133,15 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				}
 			}
 
+			// Build output with hook output appended if non-empty
+			let output = `Wrote ${bytesWritten} bytes to ${normalizedPath}${diagnosticOutput}`;
+			if (hookResult.output) {
+				output += `\n\n${hookResult.output}`;
+			}
+
 			return {
 				success: true,
-				output: `Wrote ${bytesWritten} bytes to ${normalizedPath}${diagnosticOutput}`,
+				output,
 			};
 		} catch (error) {
 			return {

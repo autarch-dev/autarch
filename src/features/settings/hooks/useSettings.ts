@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { PostWriteHooksConfig } from "@/shared/schemas/hooks";
 import type {
 	AIProvider,
 	ApiKeysResponse,
@@ -9,10 +10,12 @@ import {
 	clearApiKey,
 	clearIntegrationKey,
 	fetchApiKeysStatus,
+	fetchHooksConfig,
 	fetchIntegrationsStatus,
 	fetchModelPreferences,
 	setApiKey,
 	setIntegrationKey,
+	updateHooksConfig,
 	updateModelPreferences,
 } from "../api/settingsApi";
 
@@ -41,6 +44,11 @@ interface SettingsState {
 	modelPreferences: ModelPreferences | null;
 	loadModelPreferences: () => Promise<void>;
 	saveModelPreferences: (prefs: ModelPreferences) => Promise<void>;
+
+	// Hooks
+	hooksConfig: PostWriteHooksConfig | null;
+	loadHooksConfig: () => Promise<void>;
+	saveHooksConfig: (hooks: PostWriteHooksConfig) => Promise<void>;
 }
 
 // =============================================================================
@@ -179,6 +187,41 @@ export const useSettings = create<SettingsState>((set) => ({
 		} catch (err) {
 			const message =
 				err instanceof Error ? err.message : "Failed to save model preferences";
+			set({ error: message, isLoading: false });
+			throw err;
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Hooks
+	// ---------------------------------------------------------------------------
+
+	hooksConfig: null,
+
+	loadHooksConfig: async () => {
+		set({ isLoading: true, error: null });
+		try {
+			const config = await fetchHooksConfig();
+			set({ hooksConfig: config, isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error
+					? err.message
+					: "Failed to load hooks configuration";
+			set({ error: message, isLoading: false });
+		}
+	},
+
+	saveHooksConfig: async (hooks) => {
+		set({ isLoading: true, error: null });
+		try {
+			await updateHooksConfig(hooks);
+			set({ hooksConfig: hooks, isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error
+					? err.message
+					: "Failed to save hooks configuration";
 			set({ error: message, isLoading: false });
 			throw err;
 		}

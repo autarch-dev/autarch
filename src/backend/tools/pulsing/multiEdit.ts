@@ -12,6 +12,7 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
+import { executePostWriteHooks } from "./hooks";
 
 // =============================================================================
 // Schema
@@ -181,7 +182,7 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 		}
 
 		try {
-			// Read file content
+			// Read file content (also serves as original state for rollback)
 			const content = readFileSync(fullPath, "utf-8");
 
 			// Validate all edits first
@@ -210,7 +211,25 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				`multi_edit: ${normalizedPath} (${input.edits.length} edits applied)`,
 			);
 
+			// Execute post-write hooks
+			const hookResult = await executePostWriteHooks(
+				context.projectRoot,
+				normalizedPath,
+				root,
+			);
+
+			// If a blocking hook failed, rollback the file and return error
+			if (hookResult.blocked) {
+				// Rollback: restore original content
+				writeFileSync(fullPath, content, "utf-8");
+				return {
+					success: false,
+					output: `Hook failed (blocking), file reverted:\n${hookResult.output}`,
+				};
+			}
+
 			// Check for type errors if it's a TypeScript file
+			// Run after hooks so refreshFromFileSystemSync picks up any hook-induced changes
 			let diagnosticOutput = "";
 			if (context.project && /\.tsx?$/.test(normalizedPath)) {
 				try {
@@ -239,9 +258,15 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				}
 			}
 
+			// Build output with hook output appended if non-empty
+			let output = `Applied ${input.edits.length} edits to ${normalizedPath}${diagnosticOutput}`;
+			if (hookResult.output) {
+				output += `\n\n${hookResult.output}`;
+			}
+
 			return {
 				success: true,
-				output: `Applied ${input.edits.length} edits to ${normalizedPath}${diagnosticOutput}`,
+				output,
 			};
 		} catch (error) {
 			return {

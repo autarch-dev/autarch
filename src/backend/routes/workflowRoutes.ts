@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { PostWriteHooksConfigSchema } from "@/shared/schemas/hooks";
 import {
 	MergeStrategySchema,
 	RewindTargetSchema,
@@ -16,7 +17,9 @@ import { log } from "../logger";
 import { getRepositories } from "../repositories";
 import {
 	getMergeStrategy,
+	getPostWriteHooks,
 	setMergeStrategy,
+	setPostWriteHooks,
 } from "../services/projectSettings";
 
 // =============================================================================
@@ -618,6 +621,52 @@ export const workflowRoutes = {
 				return Response.json({ success: true });
 			} catch (error) {
 				log.api.error("Failed to set merge strategy:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/settings/hooks": {
+		async GET() {
+			try {
+				const projectRoot = findRepoRoot(process.cwd());
+				const hooks = await getPostWriteHooks(projectRoot);
+				return Response.json({ hooks });
+			} catch (error) {
+				log.api.error("Failed to get hooks:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+
+		async POST(req: Request) {
+			try {
+				const body = await req.json();
+				const parsed = z
+					.object({ hooks: PostWriteHooksConfigSchema })
+					.safeParse(body);
+				if (!parsed.success) {
+					return Response.json(
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
+						{ status: 400 },
+					);
+				}
+
+				const projectRoot = findRepoRoot(process.cwd());
+				await setPostWriteHooks(projectRoot, parsed.data.hooks);
+
+				log.api.success("Updated post-write hooks configuration");
+				return Response.json({ success: true });
+			} catch (error) {
+				log.api.error("Failed to set hooks:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },
