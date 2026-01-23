@@ -1,3 +1,8 @@
+import { z } from "zod";
+import {
+	type PostWriteHooksConfig,
+	PostWriteHooksConfigSchema,
+} from "@/shared/schemas/hooks";
 import {
 	type AIProvider,
 	type ApiKeysResponse,
@@ -122,5 +127,36 @@ export async function updateModelPreferences(
 	if (!response.ok) {
 		const error = await response.json();
 		throw new Error(error.error ?? "Failed to update model preferences");
+	}
+}
+
+// =============================================================================
+// Post-Write Hooks
+// =============================================================================
+
+/**
+ * Get post-write hooks configuration.
+ */
+export async function fetchHooksConfig(): Promise<PostWriteHooksConfig> {
+	const response = await fetch("/api/settings/hooks");
+	const data = await response.json();
+	const parsed = z.object({ hooks: PostWriteHooksConfigSchema }).parse(data);
+	return parsed.hooks;
+}
+
+/**
+ * Update post-write hooks configuration.
+ */
+export async function updateHooksConfig(
+	hooks: PostWriteHooksConfig,
+): Promise<void> {
+	const response = await fetch("/api/settings/hooks", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ hooks }),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to update hooks configuration");
 	}
 }
