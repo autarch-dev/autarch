@@ -1,6 +1,7 @@
 export * from "./channel";
 export * from "./embedding";
 export * from "./events";
+export * from "./hooks";
 export * from "./models";
 export * from "./project";
 export * from "./questions";
