@@ -8,6 +8,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSettings } from "../hooks/useSettings";
 import { ApiProviderKeysSection } from "./ApiProviderKeysSection";
+import { HooksSection } from "./HooksSection";
 import { IntegrationsSection } from "./IntegrationsSection";
 import { ModelPreferencesSection } from "./ModelPreferencesSection";
 
@@ -17,8 +18,12 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
-	const { loadApiKeysStatus, loadModelPreferences, loadIntegrationsStatus } =
-		useSettings();
+	const {
+		loadApiKeysStatus,
+		loadModelPreferences,
+		loadIntegrationsStatus,
+		loadHooksConfig,
+	} = useSettings();
 
 	// Load all data when panel opens
 	useEffect(() => {
@@ -26,8 +31,15 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 			loadApiKeysStatus();
 			loadModelPreferences();
 			loadIntegrationsStatus();
+			loadHooksConfig();
 		}
-	}, [open, loadApiKeysStatus, loadModelPreferences, loadIntegrationsStatus]);
+	}, [
+		open,
+		loadApiKeysStatus,
+		loadModelPreferences,
+		loadIntegrationsStatus,
+		loadHooksConfig,
+	]);
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -49,6 +61,9 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 						<TabsTrigger value="models" className="flex-1">
 							Models
 						</TabsTrigger>
+						<TabsTrigger value="project" className="flex-1">
+							Project
+						</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value="keys" className="mt-6 space-y-6">
@@ -58,6 +73,10 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 
 					<TabsContent value="models" className="mt-6">
 						<ModelPreferencesSection />
+					</TabsContent>
+
+					<TabsContent value="project" className="mt-6">
+						<HooksSection />
 					</TabsContent>
 				</Tabs>
 			</SheetContent>
