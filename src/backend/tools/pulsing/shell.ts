@@ -110,6 +110,7 @@ Output is truncated to 4KB by default (preserving first 1KB and last 3KB). Use f
 
 Note: You are working in an isolated git worktree. All commands run in that context.
 The current working directory is already set to the worktree root.
+You will receive both stdout and stderr output, no need to use \`2>&1\` to combine them.
 
 WARNING: Shell commands can have side effects. Use with caution.
 If you have other tools that can accomplish the same thing, use them instead.`,

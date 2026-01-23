@@ -90,6 +90,8 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 						const formatted =
 							context.project.formatDiagnosticsWithColorAndContext(diagnostics);
 						diagnosticOutput = `\n\n⚠️ ${diagnostics.length} type error(s):\n${formatted}`;
+					} else {
+						diagnosticOutput = "\n\n✅ No type errors found.";
 					}
 				} catch {
 					// Don't fail the edit if diagnostics fail
