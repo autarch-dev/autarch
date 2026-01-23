@@ -32,7 +32,8 @@ export type FindSymbolInput = z.infer<typeof findSymbolInputSchema>;
 // =============================================================================
 export const findSymbolTool: ToolDefinition<FindSymbolInput> = {
 	name: "find_symbol",
-	description: "Find a symbol in the project. Use this over `read_file` and `grep` when possible.",
+	description:
+		"Find a symbol in the project. Use this over `read_file` and `grep` when possible.",
 	inputSchema: findSymbolInputSchema,
 	execute: async (input, context): Promise<ToolResult> => {
 		const project = context.project;

@@ -23,11 +23,14 @@ export function ShellApprovalDialogContainer() {
 
 	const handleApprove = async (approvalId: string, remember: boolean) => {
 		try {
-			const response = await fetch(`/api/shell-approval/${approvalId}/approve`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ remember }),
-			});
+			const response = await fetch(
+				`/api/shell-approval/${approvalId}/approve`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ remember }),
+				},
+			);
 			if (!response.ok) {
 				const error = await response.json();
 				console.error("Failed to approve shell command:", error);

@@ -2,10 +2,9 @@ import { Project } from "ts-morph";
 
 console.time("Project creation");
 const project = new Project({
-    tsConfigFilePath: "tsconfig.json",
+	tsConfigFilePath: "tsconfig.json",
 });
 console.timeEnd("Project creation");
-
 
 // Get all source files
 console.time("Get all source files");

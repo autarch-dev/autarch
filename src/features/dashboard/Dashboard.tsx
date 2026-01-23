@@ -8,7 +8,10 @@ import type {
 } from "@/shared/schemas/workflow";
 import { ChannelView } from "./components/ChannelView";
 import { AppSidebar } from "./components/Sidebar";
-import { ShellApprovalDialogContainer, WorkflowView } from "./components/WorkflowView";
+import {
+	ShellApprovalDialogContainer,
+	WorkflowView,
+} from "./components/WorkflowView";
 import { useDiscussionsStore, useWorkflowsStore } from "./store";
 import type { ViewType } from "./types";
 
