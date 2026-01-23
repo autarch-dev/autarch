@@ -205,7 +205,9 @@ export const useSettings = create<SettingsState>((set) => ({
 			set({ hooksConfig: config, isLoading: false });
 		} catch (err) {
 			const message =
-				err instanceof Error ? err.message : "Failed to load hooks configuration";
+				err instanceof Error
+					? err.message
+					: "Failed to load hooks configuration";
 			set({ error: message, isLoading: false });
 		}
 	},
@@ -217,7 +219,9 @@ export const useSettings = create<SettingsState>((set) => ({
 			set({ hooksConfig: hooks, isLoading: false });
 		} catch (err) {
 			const message =
-				err instanceof Error ? err.message : "Failed to save hooks configuration";
+				err instanceof Error
+					? err.message
+					: "Failed to save hooks configuration";
 			set({ error: message, isLoading: false });
 			throw err;
 		}
