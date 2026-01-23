@@ -12,6 +12,7 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
+import { executePostWriteHooks } from "./hooks";
 
 // =============================================================================
 // Schema
@@ -151,7 +152,23 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				`edit_file: ${normalizedPath} (${occurrences} replacement${occurrences > 1 ? "s" : ""})`,
 			);
 
+			// Execute post-write hooks
+			const hookResult = await executePostWriteHooks(
+				context.projectRoot,
+				normalizedPath,
+				root,
+			);
+
+			// If a blocking hook failed, return early
+			if (hookResult.blocked) {
+				return {
+					success: false,
+					output: `Hook failed (blocking):\n${hookResult.output}`,
+				};
+			}
+
 			// Check for type errors if it's a TypeScript file
+			// Run after hooks so refreshFromFileSystemSync picks up any hook-induced changes
 			let diagnosticOutput = "";
 			if (context.project && /\.tsx?$/.test(normalizedPath)) {
 				try {
@@ -179,9 +196,15 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				}
 			}
 
+			// Build output with hook output appended if non-empty
+			let output = `Applied ${occurrences} edit${occurrences > 1 ? "s" : ""} to ${normalizedPath}${diagnosticOutput}`;
+			if (hookResult.output) {
+				output += `\n\n${hookResult.output}`;
+			}
+
 			return {
 				success: true,
-				output: `Applied ${occurrences} edit${occurrences > 1 ? "s" : ""} to ${normalizedPath}${diagnosticOutput}`,
+				output,
 			};
 		} catch (error) {
 			return {
