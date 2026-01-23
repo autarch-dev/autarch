@@ -2,7 +2,13 @@
  * write_file - Write content to a file in the worktree
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { dirname, isAbsolute, join, normalize } from "node:path";
 import { z } from "zod";
 import { log } from "@/backend/logger";
@@ -61,6 +67,12 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 		const fullPath = join(root, normalizedPath);
 
 		try {
+			// Save original state for rollback if blocking hook fails
+			const fileExisted = existsSync(fullPath);
+			const originalContent = fileExisted
+				? readFileSync(fullPath, "utf-8")
+				: null;
+
 			// Create parent directories if needed
 			const dir = dirname(fullPath);
 			mkdirSync(dir, { recursive: true });
@@ -78,11 +90,17 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				root,
 			);
 
-			// If a blocking hook failed, return early
+			// If a blocking hook failed, rollback the file and return error
 			if (hookResult.blocked) {
+				// Rollback: restore original content or delete the file if it was new
+				if (originalContent !== null) {
+					writeFileSync(fullPath, originalContent, "utf-8");
+				} else {
+					unlinkSync(fullPath);
+				}
 				return {
 					success: false,
-					output: `Hook failed (blocking):\n${hookResult.output}`,
+					output: `Hook failed (blocking), file reverted:\n${hookResult.output}`,
 				};
 			}
 

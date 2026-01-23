@@ -182,7 +182,7 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 		}
 
 		try {
-			// Read file content
+			// Read file content (also serves as original state for rollback)
 			const content = readFileSync(fullPath, "utf-8");
 
 			// Validate all edits first
@@ -218,11 +218,13 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				root,
 			);
 
-			// If a blocking hook failed, return early
+			// If a blocking hook failed, rollback the file and return error
 			if (hookResult.blocked) {
+				// Rollback: restore original content
+				writeFileSync(fullPath, content, "utf-8");
 				return {
 					success: false,
-					output: `Hook failed (blocking):\n${hookResult.output}`,
+					output: `Hook failed (blocking), file reverted:\n${hookResult.output}`,
 				};
 			}
 

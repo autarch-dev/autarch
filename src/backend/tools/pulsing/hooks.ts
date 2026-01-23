@@ -93,6 +93,8 @@ async function executeHook(
 }> {
 	log.tools.info(`Executing hook "${hook.name}": ${command} (cwd: ${cwd})`);
 
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
 	try {
 		// Spawn the process with platform-aware shell args
 		const proc = Bun.spawn(getShellArgs(command), {
@@ -103,10 +105,8 @@ async function executeHook(
 		});
 
 		// Create timeout promise
-		let timedOut = false;
 		const timeoutPromise = new Promise<never>((_, reject) => {
-			setTimeout(() => {
-				timedOut = true;
+			timeoutId = setTimeout(() => {
 				proc.kill();
 				reject(new Error(`Hook "${hook.name}" timed out after 30 seconds`));
 			}, HOOK_TIMEOUT_MS);
@@ -124,8 +124,10 @@ async function executeHook(
 			}),
 		]);
 
+		clearTimeout(timeoutId);
 		return { stdout, stderr, exitCode, timedOut: false };
 	} catch (error) {
+		clearTimeout(timeoutId);
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error";
 		return {

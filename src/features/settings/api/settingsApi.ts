@@ -139,6 +139,10 @@ export async function updateModelPreferences(
  */
 export async function fetchHooksConfig(): Promise<PostWriteHooksConfig> {
 	const response = await fetch("/api/settings/hooks");
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to fetch hooks configuration");
+	}
 	const data = await response.json();
 	const parsed = z.object({ hooks: PostWriteHooksConfigSchema }).parse(data);
 	return parsed.hooks;

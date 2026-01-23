@@ -38,24 +38,3 @@ export type PostWriteHook = z.infer<typeof PostWriteHookSchema>;
  */
 export const PostWriteHooksConfigSchema = z.array(PostWriteHookSchema);
 export type PostWriteHooksConfig = z.infer<typeof PostWriteHooksConfigSchema>;
-
-// =============================================================================
-// Hook Execution Result
-// =============================================================================
-
-/**
- * Result of executing a single hook.
- * Used to report hook execution status back to tool responses.
- */
-export interface HookExecutionResult {
-	/** ID of the hook that was executed */
-	hookId: string;
-	/** Name of the hook that was executed */
-	hookName: string;
-	/** Whether the hook command succeeded (exit code 0) */
-	success: boolean;
-	/** Combined stdout and stderr output from the hook */
-	output: string;
-	/** Whether this hook failure should block the tool (based on onFailure setting) */
-	blocked: boolean;
-}
