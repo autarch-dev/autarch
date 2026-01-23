@@ -1,4 +1,8 @@
 import {
+	type PostWriteHooksConfig,
+	PostWriteHooksConfigSchema,
+} from "@/shared/schemas/hooks";
+import {
 	type MergeStrategy,
 	MergeStrategySchema,
 } from "@/shared/schemas/workflow";
@@ -10,6 +14,7 @@ import { getProjectDb } from "../db/project";
 
 export const PROJECT_META_KEYS = {
 	MERGE_STRATEGY: "merge_strategy",
+	POST_WRITE_HOOKS: "post_write_hooks",
 } as const;
 
 // =============================================================================
@@ -87,4 +92,52 @@ export async function setMergeStrategy(
 	strategy: MergeStrategy,
 ): Promise<void> {
 	await setProjectMeta(projectRoot, PROJECT_META_KEYS.MERGE_STRATEGY, strategy);
+}
+
+// =============================================================================
+// Post-Write Hooks
+// =============================================================================
+
+/**
+ * Get the project's post-write hooks configuration.
+ * Returns an empty array if no hooks are configured or if the stored data is invalid.
+ */
+export async function getPostWriteHooks(
+	projectRoot: string,
+): Promise<PostWriteHooksConfig> {
+	const value = await getProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.POST_WRITE_HOOKS,
+	);
+	if (value === null) {
+		return [];
+	}
+	try {
+		const parsed = JSON.parse(value);
+		const result = PostWriteHooksConfigSchema.safeParse(parsed);
+		return result.success ? result.data : [];
+	} catch {
+		// Invalid JSON, return empty array
+		return [];
+	}
+}
+
+/**
+ * Set the project's post-write hooks configuration.
+ * Validates the input before storing.
+ */
+export async function setPostWriteHooks(
+	projectRoot: string,
+	hooks: PostWriteHooksConfig,
+): Promise<void> {
+	// Validate input
+	const result = PostWriteHooksConfigSchema.safeParse(hooks);
+	if (!result.success) {
+		throw new Error(`Invalid hooks configuration: ${result.error.message}`);
+	}
+	await setProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.POST_WRITE_HOOKS,
+		JSON.stringify(result.data),
+	);
 }
