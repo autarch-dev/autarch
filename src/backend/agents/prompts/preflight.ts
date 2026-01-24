@@ -313,20 +313,20 @@ When environment setup is complete, use the \`complete_preflight\` tool:
   setupCommands: string[],   // Commands that were run
   buildSuccess: boolean,     // Whether build succeeded
   baselinesRecorded: number, // Count of baseline issues recorded
-  verificationInstructions: string  // Newline-separated commands for verification
+  verificationCommands: string[]  // Array of commands for verification
 }
 \`\`\`
 
-### verificationInstructions Format
+### verificationCommands Format
 
-This field should contain newline-separated shell commands that execution agents can run to verify their changes.
+This field should contain an array of shell commands that execution agents can run to verify their changes.
 
-**Format:** Single string with actual newline characters (or \`\\n\`) separating commands
+**Format:** Array of strings, each string being a single command
 
 **Example:**
 \`\`\`json
 {
-  "verificationInstructions": "dotnet build\\ndotnet test"
+  "verificationCommands": ["dotnet build", "dotnet test"]
 }
 \`\`\`
 
@@ -335,7 +335,7 @@ This field should contain newline-separated shell commands that execution agents
 - Order matters: dependencies first (build before test)
 - Use the exact commands found in the project (from package.json, Makefile, etc.)
 - Keep commands simple (no pipes, no complex shell logic)
-- If a project has no verification commands, provide an empty string
+- If a project has no verification commands, provide an empty array
 
 **Commands to include (if they exist):**
 - Build: Compilation/build step
@@ -347,37 +347,28 @@ This field should contain newline-separated shell commands that execution agents
 **Example for various project types:**
 
 **.NET:**
-\`\`\`
-dotnet build
-dotnet test
+\`\`\`json
+["dotnet build", "dotnet test"]
 \`\`\`
 
 **Node.js:**
-\`\`\`
-npm run build
-npm test
-npm run lint
+\`\`\`json
+["npm run build", "npm test", "npm run lint"]
 \`\`\`
 
 **Python:**
-\`\`\`
-python -m pytest
-python -m mypy .
-python -m black --check .
+\`\`\`json
+["python -m pytest", "python -m mypy .", "python -m black --check ."]
 \`\`\`
 
 **Go:**
-\`\`\`
-go build ./...
-go test ./...
-go vet ./...
+\`\`\`json
+["go build ./...", "go test ./...", "go vet ./..."]
 \`\`\`
 
 **Rust:**
-\`\`\`
-cargo build
-cargo test
-cargo clippy
+\`\`\`json
+["cargo build", "cargo test", "cargo clippy"]
 \`\`\`
 
 ---
@@ -423,7 +414,7 @@ complete_preflight({
   setupCommands: ["pnpm install"],
   buildSuccess: true,
   baselinesRecorded: 1,
-  verificationInstructions: "npm run build\nnpm run typecheck\nnpm run lint\nnpm test"
+  verificationCommands: ["npm run build", "npm run typecheck", "npm run lint", "npm test"]
 })
 
 [Stop]
