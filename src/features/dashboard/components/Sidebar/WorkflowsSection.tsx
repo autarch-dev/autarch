@@ -1,5 +1,14 @@
 import { CheckCircle2, Circle, MoreHorizontal, Plus } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -18,6 +27,7 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import type { Workflow } from "@/shared/schemas/workflow";
+import { useWorkflowsStore } from "../../store/workflowsStore";
 import type { ViewType } from "../../types";
 import { CreateWorkflowDialog } from "./CreateWorkflowDialog";
 import { priorityBorders, statusColors } from "./constants";
@@ -38,9 +48,10 @@ export function WorkflowsSection({
 	onCreateWorkflow,
 }: WorkflowsSectionProps) {
 	const [dialogOpen, setDialogOpen] = useState(false);
-	const [_archiveDialogWorkflowId, setArchiveDialogWorkflowId] = useState<
+	const [archiveDialogWorkflowId, setArchiveDialogWorkflowId] = useState<
 		string | null
 	>(null);
+	const archiveWorkflow = useWorkflowsStore((state) => state.archiveWorkflow);
 	const activeWorkflows = workflows.filter((w) => w.status !== "done");
 	const completedWorkflows = workflows.filter((w) => w.status === "done");
 
@@ -55,6 +66,41 @@ export function WorkflowsSection({
 				onOpenChange={setDialogOpen}
 				onCreate={handleCreate}
 			/>
+
+			<Dialog
+				open={archiveDialogWorkflowId !== null}
+				onOpenChange={(open) => !open && setArchiveDialogWorkflowId(null)}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Archive Workflow</DialogTitle>
+						<DialogDescription>
+							Archive this workflow? It will be hidden from the workflow list.
+							This action cannot be undone.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setArchiveDialogWorkflowId(null)}
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={() => {
+								if (archiveDialogWorkflowId) {
+									archiveWorkflow(archiveDialogWorkflowId).catch((error) => {
+										console.error("Failed to archive workflow:", error);
+									});
+								}
+								setArchiveDialogWorkflowId(null);
+							}}
+						>
+							Archive
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<SidebarGroup>
 				<SidebarGroupLabel>Workflows</SidebarGroupLabel>
