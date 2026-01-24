@@ -126,9 +126,10 @@ orchestration for human review.`,
 				const VERIFICATION_TIMEOUT = 300 * 1000; // 300 seconds
 				const worktreePath = pulse.worktreePath; // Capture for use in loop
 
-				for (const command of preflightSetup.verificationCommands) {
+				for (const verificationCmd of preflightSetup.verificationCommands) {
+					const { command, source } = verificationCmd;
 					log.workflow.info(
-						`Running verification command for ${pulse.id}: ${command}`,
+						`Running verification command for ${pulse.id}: ${command} (source: ${source})`,
 					);
 
 					try {
@@ -162,21 +163,23 @@ orchestration for human review.`,
 
 						let stdout: string;
 						let stderr: string;
+						let exitCode: number;
 
 						try {
-							const [stdoutText, stderrText] = await Promise.race([
+							const [stdoutText, stderrText, code] = await Promise.race([
 								Promise.all([
 									new Response(proc.stdout).text(),
 									new Response(proc.stderr).text(),
 									exitPromise,
-								]).then(([out, err]) => [out, err] as [string, string]),
-								timeoutPromise.then((): [string, string] => {
+								]),
+								timeoutPromise.then(() => {
 									throw new Error("timeout");
 								}),
 							]);
 
 							stdout = stdoutText;
 							stderr = stderrText;
+							exitCode = code;
 						} finally {
 							clearTimeout(timeoutId);
 						}
@@ -184,18 +187,7 @@ orchestration for human review.`,
 						// Combine output
 						const output = [stdout, stderr].filter(Boolean).join("\n");
 
-						// Infer source type from command string
-						let source: "build" | "lint" | "test" = "build";
-						const lowerCommand = command.toLowerCase();
-						if (lowerCommand.includes("lint")) {
-							source = "lint";
-						} else if (lowerCommand.includes("test")) {
-							source = "test";
-						} else if (lowerCommand.includes("build")) {
-							source = "build";
-						}
-
-						// Filter output against baselines
+						// Filter output against baselines using explicit source type
 						const filtered = await baselineFilter.filterOutput(
 							pulse.workflowId,
 							output,
@@ -221,6 +213,19 @@ orchestration for human review.`,
 							return {
 								success: false,
 								output: `Verification failed with new errors:\n${errorDetails}`,
+							};
+						}
+
+						// Check exit code after baseline filtering
+						// A non-zero exit code with no parseable new errors still indicates failure
+						if (exitCode !== 0) {
+							log.workflow.info(
+								`Verification command failed for ${pulse.id}: exit code ${exitCode}`,
+							);
+
+							return {
+								success: false,
+								output: `Verification failed: '${command}' exited with code ${exitCode}\n\n${output}`,
 							};
 						}
 					} catch (error) {

@@ -11,6 +11,13 @@ import type { ToolDefinition, ToolResult } from "../types";
 // Schema
 // =============================================================================
 
+const verificationCommandSchema = z.object({
+	command: z.string().describe("The shell command to run"),
+	source: z
+		.enum(["build", "lint", "test"])
+		.describe("The type of verification (for baseline filtering)"),
+});
+
 export const completePreflightInputSchema = z.object({
 	summary: z.string().describe("Brief description of setup completed"),
 	setupCommands: z
@@ -19,10 +26,10 @@ export const completePreflightInputSchema = z.object({
 	buildSuccess: z.boolean().describe("Whether the project builds successfully"),
 	baselinesRecorded: z.number().describe("Count of baseline issues recorded"),
 	verificationCommands: z
-		.array(z.string())
+		.array(verificationCommandSchema)
 		.optional()
 		.describe(
-			"Array of shell commands for verification (build, typecheck, lint, test)",
+			"Array of verification commands with their source type for baseline filtering",
 		),
 });
 

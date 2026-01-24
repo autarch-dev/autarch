@@ -42,6 +42,11 @@ export interface CreatePulseData {
 	description?: string;
 }
 
+export interface VerificationCommand {
+	command: string;
+	source: "build" | "lint" | "test";
+}
+
 export interface PreflightSetup {
 	id: string;
 	workflowId: string;
@@ -49,7 +54,7 @@ export interface PreflightSetup {
 	status: "running" | "completed" | "failed";
 	progressMessage?: string;
 	errorMessage?: string;
-	verificationCommands?: string[];
+	verificationCommands?: VerificationCommand[];
 	createdAt: number;
 	completedAt?: number;
 }
@@ -428,7 +433,7 @@ export class PulseRepository implements Repository {
 	 */
 	async completePreflightSetup(
 		workflowId: string,
-		verificationCommands?: string[],
+		verificationCommands?: VerificationCommand[],
 	): Promise<void> {
 		await this.db
 			.updateTable("preflight_setup")
