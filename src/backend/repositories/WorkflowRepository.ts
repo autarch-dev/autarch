@@ -86,6 +86,7 @@ export class WorkflowRepository implements Repository {
 		const rows = await this.db
 			.selectFrom("workflows")
 			.selectAll()
+			.where("archived", "=", 0)
 			.orderBy(orderBy === "created" ? "created_at" : "updated_at", "desc")
 			.execute();
 
@@ -183,6 +184,20 @@ export class WorkflowRepository implements Repository {
 			.set({
 				awaiting_approval: 0,
 				pending_artifact_type: null,
+				updated_at: Date.now(),
+			})
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
+	 * Archive a workflow (hides from list)
+	 */
+	async archive(id: string): Promise<void> {
+		await this.db
+			.updateTable("workflows")
+			.set({
+				archived: 1,
 				updated_at: Date.now(),
 			})
 			.where("id", "=", id)
