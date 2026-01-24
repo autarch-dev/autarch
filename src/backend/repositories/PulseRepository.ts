@@ -50,6 +50,7 @@ export interface PreflightSetup {
 	progressMessage?: string;
 	errorMessage?: string;
 	verificationInstructions?: string;
+	verificationCommands?: string[];
 	createdAt: number;
 	completedAt?: number;
 }
@@ -115,6 +116,9 @@ export class PulseRepository implements Repository {
 			progressMessage: row.progress_message ?? undefined,
 			errorMessage: row.error_message ?? undefined,
 			verificationInstructions: row.verification_instructions ?? undefined,
+			verificationCommands: row.verification_commands
+				? JSON.parse(row.verification_commands)
+				: undefined,
 			createdAt: row.created_at,
 			completedAt: row.completed_at ?? undefined,
 		};
@@ -427,12 +431,16 @@ export class PulseRepository implements Repository {
 	async completePreflightSetup(
 		workflowId: string,
 		verificationInstructions?: string,
+		verificationCommands?: string[],
 	): Promise<void> {
 		await this.db
 			.updateTable("preflight_setup")
 			.set({
 				status: "completed",
 				verification_instructions: verificationInstructions ?? null,
+				verification_commands: verificationCommands
+					? JSON.stringify(verificationCommands)
+					: null,
 				completed_at: Date.now(),
 			})
 			.where("workflow_id", "=", workflowId)

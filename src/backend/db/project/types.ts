@@ -214,6 +214,8 @@ export interface PreflightSetupTable {
 	error_message: string | null;
 	/** Verification instructions for pulse agents (build, test, lint commands) */
 	verification_instructions: string | null;
+	/** Verification commands as JSON array of strings */
+	verification_commands: string | null;
 	created_at: number;
 	completed_at: number | null;
 }
