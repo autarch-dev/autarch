@@ -179,6 +179,10 @@ export async function executePostWriteHooks(
 		const glob = new Bun.Glob(hook.glob);
 		if (glob.match(relativePath)) {
 			matchingHooks.push(hook);
+		} else {
+			log.tools.debug(
+				`Hook "${hook.name}" does not match glob pattern "${hook.glob}" for ${filePath}`,
+			);
 		}
 	}
 

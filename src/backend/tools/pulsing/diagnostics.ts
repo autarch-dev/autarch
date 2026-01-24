@@ -38,10 +38,10 @@ export async function getDiagnostics(
 		return null;
 	}
 
-	const tsconfigPath = await getTsconfigPath(context.projectRoot);
+	const tsconfigPath = await getTsconfigPath(context.worktreePath ?? context.projectRoot);
 	if (!tsconfigPath) {
 		log.tools.info(
-			`getDiagnostics: no tsconfig.json found for project ${context.projectRoot}`,
+			`getDiagnostics: no tsconfig.json found for project ${context.worktreePath ?? context.projectRoot}`,
 		);
 		return null;
 	}
@@ -50,9 +50,11 @@ export async function getDiagnostics(
 		tsConfigFilePath: tsconfigPath,
 	});
 
+	project.resolveSourceFileDependencies();
 	const diagnostics = project.getPreEmitDiagnostics();
+
 	log.tools.info(
-		`getDiagnostics: ${fullPath} has ${diagnostics.length} type errors`,
+		`getDiagnostics: ${fullPath} has ${diagnostics.length} type error(s)`,
 	);
 
 	return project.formatDiagnosticsWithColorAndContext(diagnostics);
