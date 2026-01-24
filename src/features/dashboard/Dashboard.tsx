@@ -169,6 +169,10 @@ export function Dashboard() {
 		[selectedId, requestFixes],
 	);
 
+	const handleWorkflowArchived = useCallback(() => {
+		setSelectedId(null);
+	}, []);
+
 	const selectedChannel = useMemo((): Channel | null => {
 		if (selectedView !== "channel" || !selectedId) return null;
 		return channels.find((c) => c.id === selectedId) ?? null;
@@ -255,6 +259,7 @@ export function Dashboard() {
 						onRequestChanges={handleRequestChanges}
 						onRequestFixes={handleRequestFixes}
 						onRewind={handleRewindWorkflow}
+						onArchived={handleWorkflowArchived}
 					/>
 				) : (
 					<div className="flex items-center justify-center h-full">
