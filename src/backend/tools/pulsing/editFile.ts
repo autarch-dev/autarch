@@ -12,6 +12,7 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
+import { clearTSProjectCache, getDiagnostics } from "./diagnostics";
 import { executePostWriteHooks } from "./hooks";
 
 // =============================================================================
@@ -170,32 +171,10 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 			}
 
 			// Check for type errors if it's a TypeScript file
-			// Run after hooks so refreshFromFileSystemSync picks up any hook-induced changes
 			let diagnosticOutput = "";
-			if (context.project && /\.tsx?$/.test(normalizedPath)) {
-				try {
-					// Refresh the source file from disk
-					let sourceFile = context.project.getSourceFile(fullPath);
-
-					if (sourceFile) {
-						sourceFile.refreshFromFileSystemSync();
-					} else {
-						sourceFile = context.project.addSourceFileAtPath(fullPath);
-					}
-
-					context.project.resolveSourceFileDependencies();
-					const diagnostics = context.project.getPreEmitDiagnostics();
-
-					if (diagnostics.length > 0) {
-						const formatted =
-							context.project.formatDiagnosticsWithColorAndContext(diagnostics);
-						diagnosticOutput = `\n\n⚠️ ${diagnostics.length} type error(s):\n${formatted}`;
-					} else {
-						diagnosticOutput = "\n\n✅ No type errors found.";
-					}
-				} catch {
-					// Don't fail the edit if diagnostics fail
-				}
+			const diagnostics = await getDiagnostics(context, fullPath);
+			if (diagnostics) {
+				diagnosticOutput = `\n\n⚠️ Type errors:\n${diagnostics}`;
 			}
 
 			// Build output with hook output appended if non-empty
@@ -203,6 +182,8 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 			if (hookResult.output) {
 				output += `\n\n${hookResult.output}`;
 			}
+
+			clearTSProjectCache();
 
 			return {
 				success: true,

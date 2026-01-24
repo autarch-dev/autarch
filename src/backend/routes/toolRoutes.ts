@@ -57,9 +57,6 @@ function getTestbenchToolNames(): string[] {
 	return getToolNames().filter((name) => !WORKFLOW_ONLY_TOOLS.has(name));
 }
 
-/** Cache for ts-morph Project instances by tsconfig path */
-const PROJECT_CACHE = new Map<string, Project>();
-
 /**
  * Create a tool context for testbench execution.
  * Initializes ts-morph Project if in a TypeScript workspace.
@@ -67,27 +64,8 @@ const PROJECT_CACHE = new Map<string, Project>();
 async function createTestbenchContext(
 	projectRoot: string,
 ): Promise<ToolContext> {
-	const tsconfigPath = await getTsconfigPath(projectRoot);
-
-	if (tsconfigPath) {
-		let project = PROJECT_CACHE.get(tsconfigPath);
-
-		if (!project) {
-			log.api.info(
-				`Testbench: Creating ts-morph project instance for ${tsconfigPath}`,
-			);
-			project = new Project({
-				tsConfigFilePath: tsconfigPath,
-			});
-			PROJECT_CACHE.set(tsconfigPath, project);
-		}
-	} else {
-		log.api.info(`Testbench: No tsconfig.json found for ${projectRoot}`);
-	}
-
 	return {
 		projectRoot,
-		project: tsconfigPath ? PROJECT_CACHE.get(tsconfigPath) : undefined,
 	};
 }
 

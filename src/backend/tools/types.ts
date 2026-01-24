@@ -5,7 +5,6 @@
  * See docs/tools.md for the complete tool specification.
  */
 
-import type { Project } from "ts-morph";
 import type { z } from "zod";
 
 // =============================================================================
@@ -30,8 +29,6 @@ export interface ToolContext {
 	channelId?: string;
 	/** Unique identifier for this tool call (for approval tracking) */
 	toolCallId?: string;
-	/** TS-Morph project instance, if project is a TypeScript project */
-	project?: Project;
 }
 
 /**

@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { Node, SyntaxKind } from "ts-morph";
 import { z } from "zod";
+import { getTSProject } from "../pulsing/diagnostics";
 import type { ToolDefinition, ToolResult } from "../types";
 
 type Def = { path: string; line: number; kind: string; signature: string };
@@ -36,7 +37,7 @@ export const findSymbolTool: ToolDefinition<FindSymbolInput> = {
 		"Find a symbol in the project. Use this over `read_file` and `grep` when possible.",
 	inputSchema: findSymbolInputSchema,
 	execute: async (input, context): Promise<ToolResult> => {
-		const project = context.project;
+		const project = await getTSProject(context);
 
 		if (!project) {
 			return {
