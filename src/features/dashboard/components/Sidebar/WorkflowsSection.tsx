@@ -1,5 +1,11 @@
-import { CheckCircle2, Circle, Plus } from "lucide-react";
+import { CheckCircle2, Circle, MoreHorizontal, Plus } from "lucide-react";
 import { useState } from "react";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
 	SidebarGroup,
 	SidebarGroupAction,
@@ -32,6 +38,9 @@ export function WorkflowsSection({
 	onCreateWorkflow,
 }: WorkflowsSectionProps) {
 	const [dialogOpen, setDialogOpen] = useState(false);
+	const [_archiveDialogWorkflowId, setArchiveDialogWorkflowId] = useState<
+		string | null
+	>(null);
 	const activeWorkflows = workflows.filter((w) => w.status !== "done");
 	const completedWorkflows = workflows.filter((w) => w.status === "done");
 
@@ -60,22 +69,41 @@ export function WorkflowsSection({
 					<SidebarMenu>
 						{activeWorkflows.map((workflow) => (
 							<SidebarMenuItem key={workflow.id}>
-								<SidebarMenuButton
-									onClick={() => onSelectWorkflow(workflow.id)}
-									isActive={
-										selectedView === "workflow" && selectedId === workflow.id
-									}
-									tooltip={workflow.title}
-									className={priorityBorders[workflow.priority]}
-								>
-									<Circle
-										className={cn(
-											"size-3 shrink-0 fill-current",
-											statusColors[workflow.status],
-										)}
-									/>
-									<span className="truncate">{workflow.title}</span>
-								</SidebarMenuButton>
+								<div className="flex items-center w-full group">
+									<SidebarMenuButton
+										onClick={() => onSelectWorkflow(workflow.id)}
+										isActive={
+											selectedView === "workflow" && selectedId === workflow.id
+										}
+										tooltip={workflow.title}
+										className={cn("flex-1", priorityBorders[workflow.priority])}
+									>
+										<Circle
+											className={cn(
+												"size-3 shrink-0 fill-current",
+												statusColors[workflow.status],
+											)}
+										/>
+										<span className="truncate">{workflow.title}</span>
+									</SidebarMenuButton>
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<button
+												type="button"
+												className="opacity-0 group-hover:opacity-100 p-1 hover:bg-accent rounded"
+											>
+												<MoreHorizontal className="size-4" />
+											</button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="end" side="right">
+											<DropdownMenuItem
+												onClick={() => setArchiveDialogWorkflowId(workflow.id)}
+											>
+												Archive
+											</DropdownMenuItem>
+										</DropdownMenuContent>
+									</DropdownMenu>
+								</div>
 							</SidebarMenuItem>
 						))}
 					</SidebarMenu>
@@ -92,19 +120,41 @@ export function WorkflowsSection({
 							<SidebarMenu>
 								{completedWorkflows.map((workflow) => (
 									<SidebarMenuItem key={workflow.id}>
-										<SidebarMenuButton
-											onClick={() => onSelectWorkflow(workflow.id)}
-											isActive={
-												selectedView === "workflow" &&
-												selectedId === workflow.id
-											}
-											tooltip={workflow.title}
-										>
-											<CheckCircle2 className="size-3 shrink-0 text-green-500" />
-											<span className="truncate line-through decoration-muted-foreground/50">
-												{workflow.title}
-											</span>
-										</SidebarMenuButton>
+										<div className="flex items-center w-full group">
+											<SidebarMenuButton
+												onClick={() => onSelectWorkflow(workflow.id)}
+												isActive={
+													selectedView === "workflow" &&
+													selectedId === workflow.id
+												}
+												tooltip={workflow.title}
+												className="flex-1"
+											>
+												<CheckCircle2 className="size-3 shrink-0 text-green-500" />
+												<span className="truncate line-through decoration-muted-foreground/50">
+													{workflow.title}
+												</span>
+											</SidebarMenuButton>
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild>
+													<button
+														type="button"
+														className="opacity-0 group-hover:opacity-100 p-1 hover:bg-accent rounded"
+													>
+														<MoreHorizontal className="size-4" />
+													</button>
+												</DropdownMenuTrigger>
+												<DropdownMenuContent align="end" side="right">
+													<DropdownMenuItem
+														onClick={() =>
+															setArchiveDialogWorkflowId(workflow.id)
+														}
+													>
+														Archive
+													</DropdownMenuItem>
+												</DropdownMenuContent>
+											</DropdownMenu>
+										</div>
 									</SidebarMenuItem>
 								))}
 							</SidebarMenu>
