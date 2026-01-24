@@ -1,4 +1,5 @@
 import { Project } from "ts-morph";
+import { log } from "@/backend/logger";
 import { getTsconfigPath } from "@/backend/services/project";
 import type { ToolContext } from "../types";
 
@@ -33,11 +34,15 @@ export async function getDiagnostics(
 	fullPath: string,
 ): Promise<string | null> {
 	if (!/\.tsx?$/.test(fullPath)) {
+		log.tools.info(`getDiagnostics: ${fullPath} is not a TypeScript file`);
 		return null;
 	}
 
 	const tsconfigPath = await getTsconfigPath(context.projectRoot);
 	if (!tsconfigPath) {
+		log.tools.info(
+			`getDiagnostics: no tsconfig.json found for project ${context.projectRoot}`,
+		);
 		return null;
 	}
 
@@ -46,5 +51,9 @@ export async function getDiagnostics(
 	});
 
 	const diagnostics = project.getPreEmitDiagnostics();
+	log.tools.info(
+		`getDiagnostics: ${fullPath} has ${diagnostics.length} type errors`,
+	);
+
 	return project.formatDiagnosticsWithColorAndContext(diagnostics);
 }

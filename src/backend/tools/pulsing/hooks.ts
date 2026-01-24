@@ -165,6 +165,9 @@ export async function executePostWriteHooks(
 
 	// Early return if no hooks configured
 	if (hooks.length === 0) {
+		log.tools.info(
+			`No post-write hooks configured for project ${projectRoot}`,
+		);
 		return { output: "", blocked: false };
 	}
 
@@ -181,6 +184,9 @@ export async function executePostWriteHooks(
 
 	// Early return if no matching hooks
 	if (matchingHooks.length === 0) {
+		log.tools.info(
+			`No post-write hooks found for ${filePath}`,
+		);
 		return { output: "", blocked: false };
 	}
 
