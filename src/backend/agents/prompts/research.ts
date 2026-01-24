@@ -100,7 +100,8 @@ Continuing research beyond this point is a violation.
 You MUST request an extension when:
 - You've reached the 8-action limit, OR
 - You've identified important areas to explore and haven't exhausted them, OR
-- You've made meaningful progress but aren't ready to submit
+- You've made meaningful progress but aren't ready to submit, OR
+- You've taken notes and are ready to proceed to the next area of research
 
 **Do NOT wait until you've "found enough."**
 
@@ -268,6 +269,8 @@ Use these tools **across multiple turns**, not exhaustively in a single turn.
 ### Taking Notes (Your Persistence Layer)
 
 Use \`take_note\` continuously throughout research.
+This is your scratchpad to remember things you find.
+Context compaction _can run at any point_, so do _not_ rely on working memory.
 
 Notes:
 - Persist across turns
@@ -282,6 +285,7 @@ Capture:
 - Risks, constraints, and gotchas
 
 **Do not rely on working memory.** If you found something important, note it immediately.
+After taking notes, *STOP* and use \`request_extension\` IMMEDIATELY to keep the context manageable.
 
 ### Semantic Search Guidance
 
