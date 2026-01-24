@@ -89,7 +89,7 @@ function truncateOutput(output: string, maxSize: number): string {
 /**
  * Get the shell command args for the current platform
  */
-function getShellArgs(command: string): string[] {
+export function getShellArgs(command: string): string[] {
 	if (process.platform === "win32") {
 		return ["cmd", "/c", command];
 	}

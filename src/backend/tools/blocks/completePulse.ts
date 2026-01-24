@@ -6,7 +6,9 @@ import { z } from "zod";
 import { getWorkflowOrchestrator } from "@/backend/agents/runner";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
+import { BaselineFilter } from "@/backend/services/pulsing/BaselineFilter";
 import { CompletionValidator } from "@/backend/services/pulsing/CompletionValidator";
+import { getShellArgs } from "../pulsing/shell";
 import type { ToolDefinition, ToolResult } from "../types";
 
 // =============================================================================
@@ -105,6 +107,138 @@ orchestration for human review.`,
 			log.workflow.info(
 				`Pulse completion validated for ${pulse.id}: ${input.summary}`,
 			);
+
+			// Execute verification commands if configured
+			const preflightSetup = await pulses.getPreflightSetup(pulse.workflowId);
+			if (
+				preflightSetup?.verificationCommands &&
+				preflightSetup.verificationCommands.length > 0
+			) {
+				if (!pulse.worktreePath) {
+					return {
+						success: false,
+						output:
+							"Error: Cannot run verification commands - pulse has no worktree path",
+					};
+				}
+
+				const baselineFilter = new BaselineFilter(pulses);
+				const VERIFICATION_TIMEOUT = 300 * 1000; // 300 seconds
+				const worktreePath = pulse.worktreePath; // Capture for use in loop
+
+				for (const command of preflightSetup.verificationCommands) {
+					log.workflow.info(
+						`Running verification command for ${pulse.id}: ${command}`,
+					);
+
+					try {
+						// Create abort controller for timeout
+						const controller = new AbortController();
+						const timeoutId = setTimeout(
+							() => controller.abort(),
+							VERIFICATION_TIMEOUT,
+						);
+
+						// Spawn the process
+						const proc = Bun.spawn(getShellArgs(command), {
+							cwd: worktreePath,
+							stdout: "pipe",
+							stderr: "pipe",
+							env: process.env,
+						});
+
+						// Wait for process with timeout
+						const exitPromise = proc.exited;
+						const timeoutPromise = new Promise<never>((_, reject) => {
+							controller.signal.addEventListener("abort", () => {
+								proc.kill();
+								reject(
+									new Error(
+										`Verification command timed out after 300 seconds: ${command}`,
+									),
+								);
+							});
+						});
+
+						let stdout: string;
+						let stderr: string;
+
+						try {
+							const [stdoutText, stderrText] = await Promise.race([
+								Promise.all([
+									new Response(proc.stdout).text(),
+									new Response(proc.stderr).text(),
+									exitPromise,
+								]).then(([out, err]) => [out, err] as [string, string]),
+								timeoutPromise.then((): [string, string] => {
+									throw new Error("timeout");
+								}),
+							]);
+
+							stdout = stdoutText;
+							stderr = stderrText;
+						} finally {
+							clearTimeout(timeoutId);
+						}
+
+						// Combine output
+						const output = [stdout, stderr].filter(Boolean).join("\n");
+
+						// Infer source type from command string
+						let source: "build" | "lint" | "test" = "build";
+						const lowerCommand = command.toLowerCase();
+						if (lowerCommand.includes("lint")) {
+							source = "lint";
+						} else if (lowerCommand.includes("test")) {
+							source = "test";
+						} else if (lowerCommand.includes("build")) {
+							source = "build";
+						}
+
+						// Filter output against baselines
+						const filtered = await baselineFilter.filterOutput(
+							pulse.workflowId,
+							output,
+							source,
+						);
+
+						if (filtered.hasNewErrors) {
+							const errorDetails = filtered.newErrors
+								.map((e) => {
+									const parts = [];
+									if (e.filePath) parts.push(e.filePath);
+									if (e.line) parts.push(`line ${e.line}`);
+									if (e.code) parts.push(e.code);
+									parts.push(e.message);
+									return `- [${e.severity}] ${parts.join(": ")}`;
+								})
+								.join("\n");
+
+							log.workflow.info(
+								`Verification failed for ${pulse.id}: ${filtered.newErrors.length} new error(s)`,
+							);
+
+							return {
+								success: false,
+								output: `Verification failed with new errors:\n${errorDetails}`,
+							};
+						}
+					} catch (error) {
+						const errorMessage =
+							error instanceof Error ? error.message : "Unknown error";
+						log.workflow.error(
+							`Verification command failed for ${pulse.id}: ${errorMessage}`,
+						);
+
+						return {
+							success: false,
+							output: `Verification failed: ${errorMessage}`,
+						};
+					}
+				}
+
+				log.workflow.info(`All verification commands passed for ${pulse.id}`);
+			}
 
 			// Commit and merge the pulse changes
 			// Note: Session transition to next pulse is handled by AgentRunner
