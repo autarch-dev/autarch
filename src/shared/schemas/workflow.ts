@@ -237,6 +237,7 @@ export const WorkflowSchema = z.object({
 	priority: WorkflowPrioritySchema,
 	currentSessionId: z.string().optional(),
 	awaitingApproval: z.boolean(),
+	archived: z.boolean().default(false),
 	pendingArtifactType: z
 		.enum(["scope_card", "research", "plan", "review_card"])
 		.optional(),

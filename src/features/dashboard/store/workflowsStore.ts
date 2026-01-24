@@ -774,6 +774,7 @@ function handleWorkflowCreated(
 			status: payload.status,
 			priority: "medium",
 			awaitingApproval: false,
+			archived: false,
 			createdAt: Date.now(),
 			updatedAt: Date.now(),
 		};
