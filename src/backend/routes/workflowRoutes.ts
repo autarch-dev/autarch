@@ -11,7 +11,7 @@ import {
 	MergeStrategySchema,
 	RewindTargetSchema,
 } from "@/shared/schemas/workflow";
-import { getWorkflowOrchestrator } from "../agents/runner";
+import { getSessionManager, getWorkflowOrchestrator } from "../agents/runner";
 import { findRepoRoot, getDiff } from "../git";
 import { log } from "../logger";
 import { getRepositories } from "../repositories";
@@ -575,6 +575,52 @@ export const workflowRoutes = {
 				return Response.json({ success: true });
 			} catch (error) {
 				log.api.error("Failed to request fixes:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/workflows/:id/archive": {
+		async POST(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			try {
+				const repos = getRepositories();
+				const workflow = await repos.workflows.getById(params.id);
+
+				if (!workflow) {
+					return Response.json(
+						{ error: "Workflow not found" },
+						{ status: 404 },
+					);
+				}
+
+				// Stop active session if exists
+				if (workflow.currentSessionId) {
+					const sessionManager = getSessionManager();
+					await sessionManager.stopSession(
+						workflow.currentSessionId,
+						"completed",
+					);
+				}
+
+				// Clear awaiting approval if set
+				if (workflow.awaitingApproval) {
+					await repos.workflows.clearAwaitingApproval(params.id);
+				}
+
+				// Archive the workflow
+				await repos.workflows.archive(params.id);
+
+				log.api.success(`Archived workflow ${params.id}`);
+				return Response.json({ success: true });
+			} catch (error) {
+				log.api.error("Failed to archive workflow:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },

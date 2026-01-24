@@ -163,6 +163,9 @@ interface WorkflowsState {
 		summary?: string,
 	) => Promise<void>;
 
+	// Actions - Archive
+	archiveWorkflow: (id: string) => Promise<void>;
+
 	// Actions - WebSocket event handling
 	handleWebSocketEvent: (event: WebSocketEvent) => void;
 
@@ -561,6 +564,50 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	},
 
 	// ===========================================================================
+	// Archive Actions
+	// ===========================================================================
+
+	archiveWorkflow: async (id: string) => {
+		const response = await fetch(`/api/workflows/${id}/archive`, {
+			method: "POST",
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error ?? "Failed to archive workflow");
+		}
+
+		// Remove workflow from local state
+		set((state) => {
+			const workflows = state.workflows.filter((w) => w.id !== id);
+
+			const conversations = new Map(state.conversations);
+			conversations.delete(id);
+
+			const scopeCards = new Map(state.scopeCards);
+			scopeCards.delete(id);
+
+			const researchCards = new Map(state.researchCards);
+			researchCards.delete(id);
+
+			const plans = new Map(state.plans);
+			plans.delete(id);
+
+			const reviewCards = new Map(state.reviewCards);
+			reviewCards.delete(id);
+
+			return {
+				workflows,
+				conversations,
+				scopeCards,
+				researchCards,
+				plans,
+				reviewCards,
+			};
+		});
+	},
+
+	// ===========================================================================
 	// WebSocket Event Handling
 	// ===========================================================================
 
@@ -774,6 +821,7 @@ function handleWorkflowCreated(
 			status: payload.status,
 			priority: "medium",
 			awaitingApproval: false,
+			archived: false,
 			createdAt: Date.now(),
 			updatedAt: Date.now(),
 		};

@@ -82,6 +82,7 @@ export interface WorkflowsTable {
 	priority: WorkflowPriority;
 	current_session_id: string | null;
 	awaiting_approval: number; // 0 or 1 (SQLite boolean)
+	archived: number; // 0 or 1 (SQLite boolean)
 	pending_artifact_type: PendingArtifactType | null;
 	base_branch: string | null; // The branch workflow was created from (for diff calculation)
 	created_at: number;

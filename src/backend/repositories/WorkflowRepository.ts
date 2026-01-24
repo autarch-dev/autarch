@@ -50,6 +50,7 @@ export class WorkflowRepository implements Repository {
 			priority: row.priority,
 			currentSessionId: row.current_session_id ?? undefined,
 			awaitingApproval: row.awaiting_approval === 1,
+			archived: row.archived === 1,
 			pendingArtifactType: row.pending_artifact_type ?? undefined,
 			baseBranch: row.base_branch ?? undefined,
 			createdAt: row.created_at,
@@ -85,6 +86,7 @@ export class WorkflowRepository implements Repository {
 		const rows = await this.db
 			.selectFrom("workflows")
 			.selectAll()
+			.where("archived", "=", 0)
 			.orderBy(orderBy === "created" ? "created_at" : "updated_at", "desc")
 			.execute();
 
@@ -112,6 +114,7 @@ export class WorkflowRepository implements Repository {
 				priority: data.priority ?? "medium",
 				current_session_id: null,
 				awaiting_approval: 0,
+				archived: 0,
 				pending_artifact_type: null,
 				created_at: now,
 				updated_at: now,
@@ -181,6 +184,20 @@ export class WorkflowRepository implements Repository {
 			.set({
 				awaiting_approval: 0,
 				pending_artifact_type: null,
+				updated_at: Date.now(),
+			})
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
+	 * Archive a workflow (hides from list)
+	 */
+	async archive(id: string): Promise<void> {
+		await this.db
+			.updateTable("workflows")
+			.set({
+				archived: 1,
 				updated_at: Date.now(),
 			})
 			.where("id", "=", id)

@@ -32,6 +32,7 @@ export async function migrateProjectDb(
 	await addTurnTokenUsageColumns(db);
 	await addReviewCommentsAuthorColumn(db);
 	await addSuggestedCommitMessageColumn(db);
+	await addArchivedColumn(db);
 }
 
 // =============================================================================
@@ -799,6 +800,22 @@ async function addSuggestedCommitMessageColumn(
 		await db.schema
 			.alterTable("review_cards")
 			.addColumn("suggested_commit_message", "text")
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+}
+
+// =============================================================================
+// Archived Column Migration
+// =============================================================================
+
+async function addArchivedColumn(db: Kysely<ProjectDatabase>): Promise<void> {
+	// Add archived column to workflows table
+	try {
+		await db.schema
+			.alterTable("workflows")
+			.addColumn("archived", "integer", (col) => col.notNull().defaultTo(0))
 			.execute();
 	} catch {
 		// Column already exists, ignore
