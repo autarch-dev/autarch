@@ -47,6 +47,7 @@ interface WorkflowViewProps {
 	onRequestChanges?: (feedback: string) => Promise<void>;
 	onRequestFixes?: (commentIds: string[], summary?: string) => Promise<void>;
 	onRewind?: (targetStage: RewindTarget) => Promise<void>;
+	onArchived?: () => void;
 }
 
 /** Artifact for a turn (only one per turn) */
@@ -70,6 +71,7 @@ export function WorkflowView({
 	onRequestChanges,
 	onRequestFixes,
 	onRewind,
+	onArchived,
 }: WorkflowViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -202,7 +204,11 @@ export function WorkflowView({
 	return (
 		<TooltipProvider>
 			<div className="flex flex-col h-full">
-				<WorkflowHeader workflow={workflow} totalCost={totalCost} />
+				<WorkflowHeader
+					workflow={workflow}
+					totalCost={totalCost}
+					onArchived={onArchived}
+				/>
 
 				<ScrollArea className="flex-1 min-h-0">
 					<div className="py-2">
