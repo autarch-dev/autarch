@@ -71,7 +71,6 @@ Provide:
 			// after this turn completes (via handleTurnCompletion)
 			await pulses.completePreflightSetup(
 				context.workflowId,
-				undefined,
 				input.verificationCommands,
 			);
 
