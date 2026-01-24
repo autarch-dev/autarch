@@ -163,10 +163,6 @@ export const grepTool: ToolDefinition<GrepInput> = {
 				? filePath.slice(rootPath.length).replace(/^\//, "")
 				: filePath;
 
-			console.log("relativePath", relativePath);
-			console.log("filePath", filePath);
-			console.log("rootPath", rootPath);
-
 			matches.push({
 				path: relativePath,
 				modTime: stats.mtime.getTime(),
@@ -176,7 +172,6 @@ export const grepTool: ToolDefinition<GrepInput> = {
 		}
 
 		matches.sort((a, b) => b.modTime - a.modTime);
-		console.log("matches", matches);
 
 		const limit = 100;
 		const truncated = matches.length > limit;
