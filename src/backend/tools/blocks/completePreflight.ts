@@ -18,11 +18,11 @@ export const completePreflightInputSchema = z.object({
 		.describe("List of commands that were executed"),
 	buildSuccess: z.boolean().describe("Whether the project builds successfully"),
 	baselinesRecorded: z.number().describe("Count of baseline issues recorded"),
-	verificationInstructions: z
-		.string()
+	verificationCommands: z
+		.array(z.string())
 		.optional()
 		.describe(
-			"Concise verification instructions with commands for build, typecheck, lint, test, and format check",
+			"Array of shell commands for verification (build, typecheck, lint, test)",
 		),
 });
 
@@ -71,7 +71,8 @@ Provide:
 			// after this turn completes (via handleTurnCompletion)
 			await pulses.completePreflightSetup(
 				context.workflowId,
-				input.verificationInstructions,
+				undefined,
+				input.verificationCommands,
 			);
 
 			log.workflow.info(
