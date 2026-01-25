@@ -216,6 +216,12 @@ orchestration for human review.`,
 							};
 						}
 
+						if (filtered.baselineErrors.length > 0) {
+							log.workflow.info(
+								`Verification command '${command}' detected ${filtered.baselineErrors.length} baseline error(s)`,
+							);
+						}
+
 						// If no new errors, treat as success even if exit code is non-zero
 						// (baseline errors may cause non-zero exit but shouldn't block completion)
 						if (exitCode !== 0) {
