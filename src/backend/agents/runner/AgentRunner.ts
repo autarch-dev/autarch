@@ -226,12 +226,13 @@ export class AgentRunner {
 
 		try {
 			// streamLLMResponse handles turn completion with token usage data
-			const { totalInputTokens, totalOutputTokens } = await this.streamLLMResponse(
-				assistantTurn,
-				agentConfig,
-				options,
-				conversationHistory,
-			);
+			const { totalInputTokens, totalOutputTokens } =
+				await this.streamLLMResponse(
+					assistantTurn,
+					agentConfig,
+					options,
+					conversationHistory,
+				);
 			log.agent.success(`Agent turn ${assistantTurn.id} completed`, {
 				totalInputTokens,
 				totalOutputTokens,
@@ -884,14 +885,20 @@ export class AgentRunner {
 					// Stream completed
 					log.tools.debug("Streaming completed", part.totalUsage);
 
-					if (part.totalUsage.inputTokens && part.totalUsage.inputTokens !== totalInputTokens) {
+					if (
+						part.totalUsage.inputTokens &&
+						part.totalUsage.inputTokens !== totalInputTokens
+					) {
 						log.tools.error("Streaming input token mismatch", {
 							totalUsage: part.totalUsage,
 							totalInputTokens,
 						});
 					}
 
-					if (part.totalUsage.outputTokens && part.totalUsage.outputTokens !== totalOutputTokens) {
+					if (
+						part.totalUsage.outputTokens &&
+						part.totalUsage.outputTokens !== totalOutputTokens
+					) {
 						log.tools.error("Streaming output token mismatch", {
 							totalUsage: part.totalUsage,
 							totalOutputTokens,

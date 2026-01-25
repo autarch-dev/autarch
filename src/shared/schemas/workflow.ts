@@ -50,6 +50,10 @@ export type RewindTarget = z.infer<typeof RewindTargetSchema>;
 export const RecommendedPathSchema = z.enum(["quick", "full"]);
 export type RecommendedPath = z.infer<typeof RecommendedPathSchema>;
 
+/** Workflow path type for reuse across frontend/backend */
+export const WorkflowPathSchema = z.enum(["quick", "full"]);
+export type WorkflowPath = z.infer<typeof WorkflowPathSchema>;
+
 export const ScopeCardSchema = z.object({
 	id: z.string(),
 	workflowId: z.string(),
@@ -243,6 +247,8 @@ export const WorkflowSchema = z.object({
 		.optional(),
 	/** The branch the workflow was created from (for diff calculation) */
 	baseBranch: z.string().optional(),
+	/** Stages that were skipped (e.g., 'researching', 'planning' for quick path) */
+	skippedStages: z.array(z.string()).optional(),
 	createdAt: z.number(),
 	updatedAt: z.number(),
 });

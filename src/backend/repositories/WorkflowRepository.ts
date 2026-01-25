@@ -24,6 +24,7 @@ export interface CreateWorkflowData {
 	description?: string;
 	priority?: WorkflowPriority;
 	status?: WorkflowStatus;
+	skippedStages?: string[];
 }
 
 // =============================================================================
@@ -53,6 +54,7 @@ export class WorkflowRepository implements Repository {
 			archived: row.archived === 1,
 			pendingArtifactType: row.pending_artifact_type ?? undefined,
 			baseBranch: row.base_branch ?? undefined,
+			skippedStages: row.skipped_stages ? JSON.parse(row.skipped_stages) : [],
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
 		};
@@ -116,6 +118,7 @@ export class WorkflowRepository implements Repository {
 				awaiting_approval: 0,
 				archived: 0,
 				pending_artifact_type: null,
+				skipped_stages: JSON.stringify(data.skippedStages || []),
 				created_at: now,
 				updated_at: now,
 			})
@@ -233,6 +236,20 @@ export class WorkflowRepository implements Repository {
 			.updateTable("workflows")
 			.set({
 				base_branch: baseBranch,
+				updated_at: Date.now(),
+			})
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
+	 * Set the skipped stages for a workflow (e.g., ['researching', 'planning'] for quick path)
+	 */
+	async setSkippedStages(id: string, skippedStages: string[]): Promise<void> {
+		await this.db
+			.updateTable("workflows")
+			.set({
+				skipped_stages: JSON.stringify(skippedStages),
 				updated_at: Date.now(),
 			})
 			.where("id", "=", id)

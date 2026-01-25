@@ -34,6 +34,7 @@ export async function migrateProjectDb(
 	await addReviewCommentsAuthorColumn(db);
 	await addSuggestedCommitMessageColumn(db);
 	await addArchivedColumn(db);
+	await addSkippedStagesColumn(db);
 }
 
 // =============================================================================
@@ -836,6 +837,27 @@ async function addArchivedColumn(db: Kysely<ProjectDatabase>): Promise<void> {
 		await db.schema
 			.alterTable("workflows")
 			.addColumn("archived", "integer", (col) => col.notNull().defaultTo(0))
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+}
+
+// =============================================================================
+// Skipped Stages Column Migration
+// =============================================================================
+
+async function addSkippedStagesColumn(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	// Add skipped_stages column to workflows table
+	// Stores JSON array of skipped stage names (e.g., '["researching", "planning"]')
+	try {
+		await db.schema
+			.alterTable("workflows")
+			.addColumn("skipped_stages", "text", (col) =>
+				col.notNull().defaultTo("[]"),
+			)
 			.execute();
 	} catch {
 		// Column already exists, ignore

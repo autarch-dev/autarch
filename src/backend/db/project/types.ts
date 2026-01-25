@@ -85,6 +85,7 @@ export interface WorkflowsTable {
 	archived: number; // 0 or 1 (SQLite boolean)
 	pending_artifact_type: PendingArtifactType | null;
 	base_branch: string | null; // The branch workflow was created from (for diff calculation)
+	skipped_stages: string; // JSON array of skipped stage names (e.g., '["researching", "planning"]')
 	created_at: number;
 	updated_at: number;
 }
