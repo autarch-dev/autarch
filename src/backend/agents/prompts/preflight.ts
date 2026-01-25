@@ -197,7 +197,7 @@ Use this tool to document pre-existing build/lint issues.
 \`\`\`typescript
 {
   issueType: "Error" | "Warning",
-  source: "Build" | "Lint" | "Test" | "Typecheck",
+  source: "build" | "lint" | "test",
   pattern: string,  // Regex pattern or exact text to match
   description?: string  // Optional context
 }
@@ -209,7 +209,7 @@ Use this tool to document pre-existing build/lint issues.
 \`\`\`json
 {
   "issueType": "Warning",
-  "source": "Build",
+  "source": "build",
   "pattern": "CS0618.*'Method' is obsolete"
 }
 \`\`\`
@@ -218,7 +218,7 @@ Use this tool to document pre-existing build/lint issues.
 \`\`\`json
 {
   "issueType": "Warning",
-  "source": "Build",
+  "source": "build",
   "pattern": "unused variable.*'temp'"
 }
 \`\`\`
@@ -227,7 +227,7 @@ Use this tool to document pre-existing build/lint issues.
 \`\`\`json
 {
   "issueType": "Warning",
-  "source": "Lint",
+  "source": "lint",
   "pattern": "line too long.*exceeds 80 characters"
 }
 \`\`\`
