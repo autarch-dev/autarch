@@ -197,7 +197,7 @@ Use this tool to document pre-existing build/lint issues.
 \`\`\`typescript
 {
   issueType: "Error" | "Warning",
-  source: "Build" | "Lint" | "Test" | "Typecheck",
+  source: "build" | "lint" | "test",
   pattern: string,  // Regex pattern or exact text to match
   description?: string  // Optional context
 }
@@ -209,7 +209,7 @@ Use this tool to document pre-existing build/lint issues.
 \`\`\`json
 {
   "issueType": "Warning",
-  "source": "Build",
+  "source": "build",
   "pattern": "CS0618.*'Method' is obsolete"
 }
 \`\`\`
@@ -218,7 +218,7 @@ Use this tool to document pre-existing build/lint issues.
 \`\`\`json
 {
   "issueType": "Warning",
-  "source": "Build",
+  "source": "build",
   "pattern": "unused variable.*'temp'"
 }
 \`\`\`
@@ -227,7 +227,7 @@ Use this tool to document pre-existing build/lint issues.
 \`\`\`json
 {
   "issueType": "Warning",
-  "source": "Lint",
+  "source": "lint",
   "pattern": "line too long.*exceeds 80 characters"
 }
 \`\`\`
@@ -313,20 +313,31 @@ When environment setup is complete, use the \`complete_preflight\` tool:
   setupCommands: string[],   // Commands that were run
   buildSuccess: boolean,     // Whether build succeeded
   baselinesRecorded: number, // Count of baseline issues recorded
-  verificationInstructions: string  // Newline-separated commands for verification
+  verificationCommands: Array<{  // Commands for verification with source type
+    command: string,         // The shell command to run
+    source: "build" | "lint" | "test"  // Type for baseline filtering
+  }>
 }
 \`\`\`
 
-### verificationInstructions Format
+### verificationCommands Format
 
-This field should contain newline-separated shell commands that execution agents can run to verify their changes.
+This field should contain an array of verification commands that execution agents run to verify their changes.
 
-**Format:** Single string with actual newline characters (or \`\\n\`) separating commands
+**Format:** Array of objects with \`command\` and \`source\` fields
+
+**Source types:**
+- \`"build"\` - Compilation, type checking, bundling
+- \`"lint"\` - Code quality, style, static analysis
+- \`"test"\` - Test suites, unit tests, integration tests
 
 **Example:**
 \`\`\`json
 {
-  "verificationInstructions": "dotnet build\\ndotnet test"
+  "verificationCommands": [
+    { "command": "dotnet build", "source": "build" },
+    { "command": "dotnet test", "source": "test" }
+  ]
 }
 \`\`\`
 
@@ -335,49 +346,59 @@ This field should contain newline-separated shell commands that execution agents
 - Order matters: dependencies first (build before test)
 - Use the exact commands found in the project (from package.json, Makefile, etc.)
 - Keep commands simple (no pipes, no complex shell logic)
-- If a project has no verification commands, provide an empty string
+- If a project has no verification commands, provide an empty array
+- The \`source\` type determines which baselines filter errors (must match how you recorded baselines)
 
 **Commands to include (if they exist):**
-- Build: Compilation/build step
-- Test: Test suite
-- Lint: Code quality checks
-- Typecheck: Static analysis (if separate from build)
-- Format check: Code formatting verification (if separate from lint)
+- Build (\`source: "build"\`): Compilation/build step, type checking
+- Test (\`source: "test"\`): Test suite
+- Lint (\`source: "lint"\`): Code quality checks, static analysis, format checks
 
 **Example for various project types:**
 
 **.NET:**
-\`\`\`
-dotnet build
-dotnet test
+\`\`\`json
+[
+  { "command": "dotnet build", "source": "build" },
+  { "command": "dotnet test", "source": "test" }
+]
 \`\`\`
 
 **Node.js:**
-\`\`\`
-npm run build
-npm test
-npm run lint
+\`\`\`json
+[
+  { "command": "npm run build", "source": "build" },
+  { "command": "npm run typecheck", "source": "build" },
+  { "command": "npm run lint", "source": "lint" },
+  { "command": "npm test", "source": "test" }
+]
 \`\`\`
 
 **Python:**
-\`\`\`
-python -m pytest
-python -m mypy .
-python -m black --check .
+\`\`\`json
+[
+  { "command": "python -m pytest", "source": "test" },
+  { "command": "python -m mypy .", "source": "build" },
+  { "command": "python -m black --check .", "source": "lint" }
+]
 \`\`\`
 
 **Go:**
-\`\`\`
-go build ./...
-go test ./...
-go vet ./...
+\`\`\`json
+[
+  { "command": "go build ./...", "source": "build" },
+  { "command": "go test ./...", "source": "test" },
+  { "command": "go vet ./...", "source": "lint" }
+]
 \`\`\`
 
 **Rust:**
-\`\`\`
-cargo build
-cargo test
-cargo clippy
+\`\`\`json
+[
+  { "command": "cargo build", "source": "build" },
+  { "command": "cargo test", "source": "test" },
+  { "command": "cargo clippy", "source": "lint" }
+]
 \`\`\`
 
 ---
@@ -423,7 +444,12 @@ complete_preflight({
   setupCommands: ["pnpm install"],
   buildSuccess: true,
   baselinesRecorded: 1,
-  verificationInstructions: "npm run build\nnpm run typecheck\nnpm run lint\nnpm test"
+  verificationCommands: [
+    { "command": "npm run build", "source": "build" },
+    { "command": "npm run typecheck", "source": "build" },
+    { "command": "npm run lint", "source": "lint" },
+    { "command": "npm test", "source": "test" }
+  ]
 })
 
 [Stop]

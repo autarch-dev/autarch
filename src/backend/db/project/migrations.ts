@@ -25,6 +25,7 @@ export async function migrateProjectDb(
 	await createQuestionsTable(db);
 	await addArtifactStatusColumns(db);
 	await addVerificationInstructionsColumn(db);
+	await addVerificationCommandsColumn(db);
 	await addBaseBranchColumn(db);
 	await createReviewCardsTable(db);
 	await createReviewCommentsTable(db);
@@ -550,6 +551,25 @@ async function addVerificationInstructionsColumn(
 		await db.schema
 			.alterTable("preflight_setup")
 			.addColumn("verification_instructions", "text")
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+}
+
+// =============================================================================
+// Verification Commands Migration
+// =============================================================================
+
+async function addVerificationCommandsColumn(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	// Add verification_commands column to preflight_setup
+	// Stores JSON array of command strings (serialized with JSON.stringify)
+	try {
+		await db.schema
+			.alterTable("preflight_setup")
+			.addColumn("verification_commands", "text")
 			.execute();
 	} catch {
 		// Column already exists, ignore

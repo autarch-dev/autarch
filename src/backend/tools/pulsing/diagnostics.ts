@@ -38,7 +38,9 @@ export async function getDiagnostics(
 		return null;
 	}
 
-	const tsconfigPath = await getTsconfigPath(context.worktreePath ?? context.projectRoot);
+	const tsconfigPath = await getTsconfigPath(
+		context.worktreePath ?? context.projectRoot,
+	);
 	if (!tsconfigPath) {
 		log.tools.info(
 			`getDiagnostics: no tsconfig.json found for project ${context.worktreePath ?? context.projectRoot}`,

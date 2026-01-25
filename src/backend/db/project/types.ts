@@ -212,8 +212,14 @@ export interface PreflightSetupTable {
 	progress_message: string | null;
 	/** Error message if failed */
 	error_message: string | null;
-	/** Verification instructions for pulse agents (build, test, lint commands) */
+	/**
+	 * @deprecated Kept for backwards compatibility with existing databases.
+	 * This column is no longer read - use verification_commands instead.
+	 * SQLite cannot drop columns, so this remains in the schema.
+	 */
 	verification_instructions: string | null;
+	/** Verification commands as JSON array of { command: string, source: 'build' | 'lint' | 'test' } */
+	verification_commands: string | null;
 	created_at: number;
 	completed_at: number | null;
 }
