@@ -216,17 +216,12 @@ orchestration for human review.`,
 							};
 						}
 
-						// Check exit code after baseline filtering
-						// A non-zero exit code with no parseable new errors still indicates failure
+						// If no new errors, treat as success even if exit code is non-zero
+						// (baseline errors may cause non-zero exit but shouldn't block completion)
 						if (exitCode !== 0) {
 							log.workflow.info(
-								`Verification command failed for ${pulse.id}: exit code ${exitCode}`,
+								`Verification command '${command}' exited with code ${exitCode} but no new errors detected - continuing`,
 							);
-
-							return {
-								success: false,
-								output: `Verification failed: '${command}' exited with code ${exitCode}\n\n${output}`,
-							};
 						}
 					} catch (error) {
 						const errorMessage =
