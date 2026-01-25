@@ -10,11 +10,9 @@
  * - record_baseline requires workflow context to persist baselines
  */
 
-import { Project } from "ts-morph";
 import { z } from "zod";
 import { findRepoRoot } from "../git";
 import { log } from "../logger";
-import { getTsconfigPath } from "../services/project";
 import { getTool, getToolNames } from "../tools";
 import type { ToolContext } from "../tools/types";
 
