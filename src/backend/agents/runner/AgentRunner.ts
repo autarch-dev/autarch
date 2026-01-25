@@ -226,13 +226,16 @@ export class AgentRunner {
 
 		try {
 			// streamLLMResponse handles turn completion with token usage data
-			await this.streamLLMResponse(
+			const { totalInputTokens, totalOutputTokens } = await this.streamLLMResponse(
 				assistantTurn,
 				agentConfig,
 				options,
 				conversationHistory,
 			);
-			log.agent.success(`Agent turn ${assistantTurn.id} completed`);
+			log.agent.success(`Agent turn ${assistantTurn.id} completed`, {
+				totalInputTokens,
+				totalOutputTokens,
+			});
 
 			// Check if a terminal tool was called - if not, nudge the agent
 			await this.maybeNudge(assistantTurn.id, options, nudgeCount);
@@ -685,7 +688,7 @@ export class AgentRunner {
 		agentConfig: ReturnType<typeof getAgentConfig>,
 		options: RunOptions,
 		conversationHistory: ModelMessage[],
-	): Promise<void> {
+	): Promise<{ totalInputTokens: number; totalOutputTokens: number }> {
 		// Get the model for this agent's scenario
 		const { model, modelId } = await getModelForScenario(agentConfig.role);
 
@@ -871,11 +874,7 @@ export class AgentRunner {
 				case "finish-step": {
 					// A step completed (may include tool calls)
 					// We can track token usage here if needed
-					console.log(
-						"finish-step",
-						part.usage.inputTokens,
-						part.usage.outputTokens,
-					);
+					log.tools.debug("Streaming step completed", part.usage);
 					totalInputTokens += part.usage.inputTokens ?? 0;
 					totalOutputTokens += part.usage.outputTokens ?? 0;
 					break;
@@ -883,11 +882,22 @@ export class AgentRunner {
 
 				case "finish": {
 					// Stream completed
-					console.log(
-						"finish",
-						part.totalUsage.inputTokens,
-						part.totalUsage.outputTokens,
-					);
+					log.tools.debug("Streaming completed", part.totalUsage);
+
+					if (part.totalUsage.inputTokens && part.totalUsage.inputTokens !== totalInputTokens) {
+						log.tools.error("Streaming input token mismatch", {
+							totalUsage: part.totalUsage,
+							totalInputTokens,
+						});
+					}
+
+					if (part.totalUsage.outputTokens && part.totalUsage.outputTokens !== totalOutputTokens) {
+						log.tools.error("Streaming output token mismatch", {
+							totalUsage: part.totalUsage,
+							totalOutputTokens,
+						});
+					}
+
 					break;
 				}
 
@@ -927,6 +937,11 @@ export class AgentRunner {
 			completionTokens: totalOutputTokens,
 			modelId,
 		});
+
+		return {
+			totalInputTokens,
+			totalOutputTokens,
+		};
 	}
 
 	// ===========================================================================

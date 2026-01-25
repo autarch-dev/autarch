@@ -845,7 +845,7 @@ export async function getDiff(
 	base: string,
 	head: string,
 ): Promise<string> {
-	return execGitOrThrow(["diff", base, head], { cwd: repoRoot });
+	return execGitOrThrow(["diff", `${base}...${head}`], { cwd: repoRoot });
 }
 
 /**
