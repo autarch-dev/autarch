@@ -29,6 +29,7 @@ import {
 } from "@/backend/repositories";
 import { PulseOrchestrator } from "@/backend/services/pulsing";
 import { shellApprovalService } from "@/backend/services/shell-approval";
+import { ids } from "@/backend/utils";
 import { broadcast } from "@/backend/ws";
 import {
 	createWorkflowApprovalNeededEvent,
@@ -290,11 +291,18 @@ export class WorkflowOrchestrator {
 
 	/**
 	 * User approves pending artifact → transition to next stage
-	 * @param mergeOptions - Optional merge options for review stage approvals
+	 * @param options - Optional options for the approval
+	 * @param options.path - Path to take ('quick' skips research/planning, 'full' follows normal flow)
+	 * @param options.mergeStrategy - Merge strategy for review stage approvals
+	 * @param options.commitMessage - Commit message for review stage approvals
 	 */
 	async approveArtifact(
 		workflowId: string,
-		mergeOptions?: { mergeStrategy: MergeStrategy; commitMessage: string },
+		options?: {
+			path?: "quick" | "full";
+			mergeStrategy?: MergeStrategy;
+			commitMessage?: string;
+		},
 	): Promise<void> {
 		const workflow = await this.workflowRepo.getById(workflowId);
 		if (!workflow) {
@@ -306,7 +314,11 @@ export class WorkflowOrchestrator {
 		}
 
 		// Handle merge and cleanup for review stage approvals
-		if (mergeOptions && workflow.pendingArtifactType === "review_card") {
+		if (
+			options?.mergeStrategy &&
+			options?.commitMessage &&
+			workflow.pendingArtifactType === "review_card"
+		) {
 			const baseBranch = workflow.baseBranch;
 			if (!baseBranch) {
 				throw new Error(
@@ -325,12 +337,12 @@ export class WorkflowOrchestrator {
 					worktreePath,
 					baseBranch,
 					workflowBranch,
-					mergeOptions.mergeStrategy,
-					mergeOptions.commitMessage,
+					options.mergeStrategy,
+					options.commitMessage,
 				);
 
 				log.workflow.info(
-					`Merged workflow ${workflowId} into ${baseBranch} using ${mergeOptions.mergeStrategy} strategy`,
+					`Merged workflow ${workflowId} into ${baseBranch} using ${options.mergeStrategy} strategy`,
 				);
 
 				// Cleanup worktree and delete workflow branch
@@ -372,6 +384,25 @@ export class WorkflowOrchestrator {
 			"approved",
 		);
 
+		// Handle scoping stage with path selection (quick vs full)
+		if (workflow.status === "scoping") {
+			const scopeCard = await this.artifactRepo.getLatestScopeCard(workflowId);
+			if (!scopeCard) {
+				throw new Error(
+					`No scope card found for workflow ${workflowId} when approving`,
+				);
+			}
+
+			const effectivePath = options?.path || scopeCard.recommendedPath;
+
+			if (effectivePath === "quick") {
+				// Quick path: skip research and planning, go directly to execution
+				await this.executeQuickPath(workflowId, scopeCard);
+				return;
+			}
+			// Full path: continue with normal STAGE_TRANSITIONS flow
+		}
+
 		// Get next stage
 		const nextStage = STAGE_TRANSITIONS[workflow.status];
 		if (!nextStage) {
@@ -380,6 +411,163 @@ export class WorkflowOrchestrator {
 
 		// Clear approval state and transition
 		await this.transitionStage(workflowId, nextStage);
+	}
+
+	/**
+	 * Execute quick path: skip research/planning and go directly to execution
+	 * Creates a single pulse from the scope card and starts preflight
+	 */
+	private async executeQuickPath(
+		workflowId: string,
+		scopeCard: {
+			title: string;
+			description: string;
+			inScope: string[];
+			outOfScope: string[];
+			constraints?: string[];
+			rationale?: string;
+		},
+	): Promise<void> {
+		const projectRoot = findRepoRoot(process.cwd());
+
+		// Capture base branch before pulsing initialization
+		const baseBranch = await getCurrentBranch(projectRoot);
+		await this.workflowRepo.setBaseBranch(workflowId, baseBranch);
+		log.workflow.info(
+			`[Quick Path] Captured base branch '${baseBranch}' for workflow ${workflowId}`,
+		);
+
+		// Initialize pulsing (create worktree and branch)
+		const pulsingResult =
+			await this.pulseOrchestrator.initializePulsing(workflowId);
+		if (!pulsingResult.success) {
+			log.workflow.error(
+				`[Quick Path] Failed to initialize pulsing: ${pulsingResult.error}`,
+			);
+			throw new Error(`Failed to initialize pulsing: ${pulsingResult.error}`);
+		}
+
+		// Build pulse description with full scope card context (same format as buildInitialMessage)
+		let pulseDescription = `### Title
+${scopeCard.title}
+
+### Description
+${scopeCard.description}
+
+### In Scope
+${scopeCard.inScope.map((item) => `- ${item}`).join("\n")}
+
+### Out of Scope
+${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
+
+		if (scopeCard.constraints && scopeCard.constraints.length > 0) {
+			pulseDescription += `\n\n### Constraints\n${scopeCard.constraints.map((item) => `- ${item}`).join("\n")}`;
+		}
+
+		if (scopeCard.rationale) {
+			pulseDescription += `\n\n### Rationale\n${scopeCard.rationale}`;
+		}
+
+		// Create single pulse with full scope card as description
+		const singlePulse = {
+			id: ids.pulse(),
+			title: scopeCard.title,
+			description: pulseDescription,
+		};
+
+		await this.pulseOrchestrator.createPulsesFromPlan(workflowId, [
+			singlePulse,
+		]);
+		log.workflow.info(
+			`[Quick Path] Created single pulse ${singlePulse.id} for workflow ${workflowId}`,
+		);
+
+		// Mark skipped stages
+		await this.workflowRepo.setSkippedStages(workflowId, [
+			"researching",
+			"planning",
+		]);
+		log.workflow.info(
+			`[Quick Path] Marked stages as skipped for workflow ${workflowId}`,
+		);
+
+		// Get workflow to access current session (for preflight agent)
+		const workflow = await this.workflowRepo.getById(workflowId);
+		if (!workflow) {
+			throw new Error(`Workflow not found: ${workflowId}`);
+		}
+
+		// Stop current session if any
+		if (workflow.currentSessionId) {
+			await this.sessionManager.stopSession(workflow.currentSessionId);
+		}
+
+		// Start preflight agent session (same as planning→in_progress transition)
+		const agentRole = this.getAgentForStage("in_progress");
+		const session = await this.sessionManager.startSession({
+			contextType: "workflow",
+			contextId: workflowId,
+			agentRole,
+		});
+
+		// Update workflow to in_progress
+		await this.workflowRepo.transitionStage(
+			workflowId,
+			"in_progress",
+			session.id,
+		);
+
+		// Create preflight setup record
+		await this.pulseOrchestrator.createPreflightSetup(workflowId, session.id);
+
+		// Broadcast stage change event
+		broadcast(
+			createWorkflowStageChangedEvent({
+				workflowId,
+				previousStage: "scoping",
+				newStage: "in_progress",
+				sessionId: session.id,
+			}),
+		);
+
+		// Build preflight agent message
+		const preflightMessage = `## Preflight Environment Setup
+
+You are preparing the development environment in an isolated worktree before code execution begins.
+
+**Worktree Path:** \`${pulsingResult.worktreePath}\`
+
+### Quick Path Execution
+
+This workflow is taking the quick path (skipping research and planning stages).
+
+**Pulse to Execute:** 1
+- ${singlePulse.id}: ${singlePulse.title}
+
+Please install dependencies, verify the build succeeds, and run the linter to establish a baseline for the execution phase.`;
+
+		// Run preflight agent
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			conversationRepo: this.conversationRepo,
+			worktreePath: pulsingResult.worktreePath,
+		});
+
+		log.workflow.info(
+			`[Quick Path] Starting preflight agent for workflow ${workflowId} (worktree: ${pulsingResult.worktreePath})`,
+		);
+
+		// Run in background (non-blocking)
+		runner.run(preflightMessage, { hidden: true }).catch((error) => {
+			log.workflow.error(
+				`[Quick Path] Preflight agent run failed for workflow ${workflowId}:`,
+				error,
+			);
+			this.errorWorkflow(
+				workflowId,
+				error instanceof Error ? error.message : "Unknown error",
+			);
+		});
 	}
 
 	/**
