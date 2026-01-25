@@ -575,6 +575,7 @@ export async function rebaseMerge(
  * @param needsBaseCheckout - Whether we need to checkout the base branch (false if already checked out)
  */
 async function rebaseMergeWithWorktree(
+	repoRoot: string,
 	worktreePath: string,
 	baseBranch: string,
 	workflowBranch: string,
@@ -584,55 +585,99 @@ async function rebaseMergeWithWorktree(
 	// But we can only checkout the workflow branch if it's not checked out elsewhere
 	// Rebase approach: use a temporary detached HEAD to do the rebase
 
-	if (needsBaseCheckout) {
-		// Standard flow: we can freely switch branches
-		// Step 1: Checkout workflow branch
-		await checkoutInWorktree(worktreePath, workflowBranch);
+	// Check if workflowBranch is checked out in another worktree
+	// If so, we need to detach HEAD there first to release the branch lock
+	let workflowWorktreeToRestore: string | null = null;
+	const detectedWorktreePath = await findWorktreeWithBranch(
+		repoRoot,
+		workflowBranch,
+	);
 
-		// Step 2: Rebase workflow branch onto base branch
-		const result = await execGit(["rebase", baseBranch], {
-			cwd: worktreePath,
+	if (detectedWorktreePath !== null) {
+		log.git.info(
+			`Detaching HEAD in worktree at ${detectedWorktreePath} to release lock on ${workflowBranch}`,
+		);
+		const detachResult = await execGit(["checkout", "--detach"], {
+			cwd: detectedWorktreePath,
 		});
 
-		if (!result.success) {
-			await execGit(["rebase", "--abort"], { cwd: worktreePath });
+		if (!detachResult.success) {
+			log.git.warn(
+				`Failed to detach HEAD: ${detachResult.stderr || detachResult.stdout}`,
+			);
 			throw new Error(
-				`Git rebase failed: git rebase ${baseBranch}\n${result.stderr}`,
+				`Failed to detach HEAD in worktree at ${detectedWorktreePath}. Cannot proceed with rebase merge.`,
 			);
 		}
 
-		log.git.info(`Rebased ${workflowBranch} onto ${baseBranch}`);
+		workflowWorktreeToRestore = detectedWorktreePath;
+	}
 
-		// Step 3: Checkout base branch
-		await checkoutInWorktree(worktreePath, baseBranch);
+	try {
+		if (needsBaseCheckout) {
+			// Standard flow: we can freely switch branches
+			// Step 1: Checkout workflow branch
+			await checkoutInWorktree(worktreePath, workflowBranch);
 
-		// Step 4: Fast-forward merge the rebased workflow branch
-		await fastForwardMerge(worktreePath, workflowBranch);
-	} else {
-		// We're in a worktree where baseBranch is already checked out
-		// We need to do the rebase without checking out workflowBranch (it may be in another worktree)
+			// Step 2: Rebase workflow branch onto base branch
+			const result = await execGit(["rebase", baseBranch], {
+				cwd: worktreePath,
+			});
 
-		// Use git rebase with explicit refs instead of checkout
-		// This is equivalent to: git checkout workflowBranch && git rebase baseBranch
-		// After this command, HEAD will be on workflowBranch (rebased)
-		const result = await execGit(["rebase", baseBranch, workflowBranch], {
-			cwd: worktreePath,
-		});
+			if (!result.success) {
+				await execGit(["rebase", "--abort"], { cwd: worktreePath });
+				throw new Error(
+					`Git rebase failed: git rebase ${baseBranch}\n${result.stderr}`,
+				);
+			}
 
-		if (!result.success) {
-			await execGit(["rebase", "--abort"], { cwd: worktreePath });
-			throw new Error(
-				`Git rebase failed: git rebase ${baseBranch} ${workflowBranch}\n${result.stderr}`,
-			);
+			log.git.info(`Rebased ${workflowBranch} onto ${baseBranch}`);
+
+			// Step 3: Checkout base branch
+			await checkoutInWorktree(worktreePath, baseBranch);
+
+			// Step 4: Fast-forward merge the rebased workflow branch
+			await fastForwardMerge(worktreePath, workflowBranch);
+		} else {
+			// We're in a worktree where baseBranch is already checked out
+			// We need to do the rebase without checking out workflowBranch (it may be in another worktree)
+
+			// Use git rebase with explicit refs instead of checkout
+			// This is equivalent to: git checkout workflowBranch && git rebase baseBranch
+			// After this command, HEAD will be on workflowBranch (rebased)
+			const result = await execGit(["rebase", baseBranch, workflowBranch], {
+				cwd: worktreePath,
+			});
+
+			if (!result.success) {
+				await execGit(["rebase", "--abort"], { cwd: worktreePath });
+				throw new Error(
+					`Git rebase failed: git rebase ${baseBranch} ${workflowBranch}\n${result.stderr}`,
+				);
+			}
+
+			log.git.info(`Rebased ${workflowBranch} onto ${baseBranch}`);
+
+			// After rebase, we're on workflowBranch - need to checkout baseBranch for the merge
+			await checkoutInWorktree(worktreePath, baseBranch);
+
+			// Now fast-forward merge workflowBranch into baseBranch
+			await fastForwardMerge(worktreePath, workflowBranch);
 		}
-
-		log.git.info(`Rebased ${workflowBranch} onto ${baseBranch}`);
-
-		// After rebase, we're on workflowBranch - need to checkout baseBranch for the merge
-		await checkoutInWorktree(worktreePath, baseBranch);
-
-		// Now fast-forward merge workflowBranch into baseBranch
-		await fastForwardMerge(worktreePath, workflowBranch);
+	} finally {
+		// Restore the workflow branch checkout in the worktree where we detached HEAD
+		// This is a best-effort cleanup - we log failures instead of throwing to avoid
+		// masking the original error if we're in an error path
+		if (workflowWorktreeToRestore !== null) {
+			const restoreResult = await execGit(["checkout", workflowBranch], {
+				cwd: workflowWorktreeToRestore,
+			});
+			if (!restoreResult.success) {
+				log.git.error(
+					`Failed to restore branch ${workflowBranch} in worktree at ${workflowWorktreeToRestore}: ${restoreResult.stderr || restoreResult.stdout}`,
+				);
+			}
+		}
 	}
 }
 
@@ -713,6 +758,7 @@ export async function mergeWorkflowBranch(
 		// rebaseMerge handles its own checkout sequence
 		// Pass needsCheckout to indicate if base branch checkout is safe
 		await rebaseMergeWithWorktree(
+			repoRoot,
 			mergePath,
 			baseBranch,
 			workflowBranch,
