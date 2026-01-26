@@ -127,6 +127,18 @@ You MUST request an extension when:
 
 You MUST NOT perform additional investigation after emitting it.
 
+### request_extension Format (Exact)
+
+\`\`\`json
+{
+  "reason": "Brief explanation of why more time is needed",
+  "completed": ["First thing done", "Second thing done"],
+  "remaining": ["First thing to do", "Second thing to do"]
+}
+\`\`\`
+
+**Critical:** \`completed\` and \`remaining\` are arrays of strings. Each item is a separate string in the array. Do NOT write prose—write discrete items.
+
 ---
 
 ## Why You Exist
