@@ -386,11 +386,13 @@ export async function stageAllChanges(worktreePath: string): Promise<void> {
  *
  * @param worktreePath - Path to the worktree
  * @param message - Commit message
+ * @param trailers - Optional Git trailers to append (key-value pairs)
  * @returns The commit SHA
  */
 export async function commitChanges(
 	worktreePath: string,
 	message: string,
+	trailers?: Record<string, string>,
 ): Promise<string> {
 	// Stage all changes
 	await stageAllChanges(worktreePath);
@@ -402,8 +404,17 @@ export async function commitChanges(
 		return getCurrentCommit(worktreePath);
 	}
 
+	// Build commit message with optional trailers
+	let fullMessage = message;
+	if (trailers && Object.keys(trailers).length > 0) {
+		const trailerLines = Object.entries(trailers)
+			.map(([key, value]) => `${key}: ${value}`)
+			.join("\n");
+		fullMessage = `${message}\n\n${trailerLines}`;
+	}
+
 	// Commit with Autarch identity
-	await execGitOrThrow(["commit", "-m", message], {
+	await execGitOrThrow(["commit", "-m", fullMessage], {
 		cwd: worktreePath,
 		env: {
 			GIT_AUTHOR_NAME: "Autarch",

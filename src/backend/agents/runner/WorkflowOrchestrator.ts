@@ -93,6 +93,7 @@ export class WorkflowOrchestrator {
 		this.pulseOrchestrator = new PulseOrchestrator({
 			pulseRepo: this.pulseRepo,
 			projectRoot: findRepoRoot(process.cwd()),
+			workflowRepo: this.workflowRepo,
 		});
 	}
 

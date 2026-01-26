@@ -26,6 +26,7 @@ import type {
 	Pulse,
 	PulseRepository,
 } from "@/backend/repositories/PulseRepository";
+import type { WorkflowRepository } from "@/backend/repositories/WorkflowRepository";
 
 // =============================================================================
 // Types
@@ -34,6 +35,7 @@ import type {
 export interface PulseOrchestratorConfig {
 	pulseRepo: PulseRepository;
 	projectRoot: string;
+	workflowRepo?: WorkflowRepository;
 }
 
 export interface StartPulsingResult {
@@ -57,10 +59,12 @@ export interface PulseCompletionResult {
 export class PulseOrchestrator {
 	private pulseRepo: PulseRepository;
 	private projectRoot: string;
+	private workflowRepo?: WorkflowRepository;
 
 	constructor(config: PulseOrchestratorConfig) {
 		this.pulseRepo = config.pulseRepo;
 		this.projectRoot = config.projectRoot;
+		this.workflowRepo = config.workflowRepo;
 	}
 
 	// ===========================================================================
@@ -250,8 +254,31 @@ export class PulseOrchestrator {
 			const repoRoot = findRepoRoot(this.projectRoot);
 			const workflowBranch = `autarch/${pulse.workflowId}`;
 
+			// Build trailers for commit traceability
+			const trailers: Record<string, string> = {
+				"Autarch-Workflow-Id": pulse.workflowId,
+				"Autarch-Pulse-Id": pulseId,
+			};
+
+			// Add workflow name if available
+			if (this.workflowRepo) {
+				const workflow = await this.workflowRepo.getById(pulse.workflowId);
+				if (workflow?.title) {
+					// Convert title to lowercase-hyphenated slug
+					const slug = workflow.title
+						.toLowerCase()
+						.replace(/[^a-z0-9]+/g, "-")
+						.replace(/^-|-$/g, "");
+					trailers["Autarch-Workflow-Name"] = slug;
+				}
+			}
+
 			// Commit changes in the pulse branch
-			const commitSha = await commitChanges(pulse.worktreePath, commitMessage);
+			const commitSha = await commitChanges(
+				pulse.worktreePath,
+				commitMessage,
+				trailers,
+			);
 
 			// Merge pulse branch into workflow branch
 			await mergePulseBranch(
