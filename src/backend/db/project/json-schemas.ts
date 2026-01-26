@@ -191,7 +191,9 @@ export function stringifyJson<T extends z.ZodTypeAny>(
 	const result = schema.safeParse(data);
 	if (!result.success) {
 		throw new Error(
-			`${fieldName}: Schema validation failed before stringify - ${result.error.message}`,
+			`${fieldName}: Schema validation failed before stringify - ${result.error.message}`, {
+				cause: data,
+			}
 		);
 	}
 	return JSON.stringify(result.data);

@@ -133,6 +133,12 @@ export function Dashboard() {
 		[selectedId, approveArtifact],
 	);
 
+	const handleApprove = useCallback(async () => {
+		if (selectedId) {
+			await approveArtifact(selectedId);
+		}
+	}, [selectedId, approveArtifact]);
+
 	const handleRequestChanges = useCallback(
 		async (feedback: string) => {
 			if (selectedId) {
@@ -258,6 +264,7 @@ export function Dashboard() {
 						plans={selectedPlans}
 						reviewCards={selectedReviewCards}
 						onApproveScope={handleApproveScope}
+						onApprove={handleApprove}
 						onApproveWithMerge={handleApproveWithMerge}
 						onRequestChanges={handleRequestChanges}
 						onRequestFixes={handleRequestFixes}
