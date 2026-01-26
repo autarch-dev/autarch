@@ -66,6 +66,7 @@ export function CreateWorkflowDialog({
 						<Textarea
 							id="prompt"
 							placeholder="e.g., Add user authentication with OAuth support"
+							className="max-h-[400px] overflow-y-auto"
 							rows={6}
 							autoFocus
 							{...register("prompt", { required: true })}
