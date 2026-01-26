@@ -124,11 +124,14 @@ export function Dashboard() {
 		[selectedView, selectedId, sendChannelMessage],
 	);
 
-	const handleApproveScope = useCallback(async () => {
-		if (selectedId) {
-			await approveArtifact(selectedId);
-		}
-	}, [selectedId, approveArtifact]);
+	const handleApproveScope = useCallback(
+		async (path: "quick" | "full") => {
+			if (selectedId) {
+				await approveArtifact(selectedId, path);
+			}
+		},
+		[selectedId, approveArtifact],
+	);
 
 	const handleRequestChanges = useCallback(
 		async (feedback: string) => {
@@ -254,7 +257,7 @@ export function Dashboard() {
 						researchCards={selectedResearchCards}
 						plans={selectedPlans}
 						reviewCards={selectedReviewCards}
-						onApprove={handleApproveScope}
+						onApproveScope={handleApproveScope}
 						onApproveWithMerge={handleApproveWithMerge}
 						onRequestChanges={handleRequestChanges}
 						onRequestFixes={handleRequestFixes}

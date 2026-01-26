@@ -39,6 +39,7 @@ interface WorkflowViewProps {
 	researchCards: ResearchCard[];
 	plans: Plan[];
 	reviewCards: ReviewCard[];
+	onApproveScope?: (path: "quick" | "full") => Promise<void>;
 	onApprove?: () => Promise<void>;
 	onApproveWithMerge?: (mergeOptions: {
 		mergeStrategy: MergeStrategy;
@@ -66,6 +67,7 @@ export function WorkflowView({
 	researchCards,
 	plans,
 	reviewCards,
+	onApproveScope,
 	onApprove,
 	onApproveWithMerge,
 	onRequestChanges,
@@ -127,7 +129,7 @@ export function WorkflowView({
 						key={artifact.data.id}
 						scopeCard={artifact.data}
 						onApprove={
-							artifact.data.status === "pending" ? onApprove : undefined
+							artifact.data.status === "pending" ? onApproveScope : undefined
 						}
 						onDeny={
 							artifact.data.status === "pending" ? onRequestChanges : undefined

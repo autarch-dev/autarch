@@ -135,7 +135,10 @@ interface WorkflowsState {
 	sendMessage: (workflowId: string, content: string) => Promise<void>;
 
 	// Actions - Approval
-	approveArtifact: (workflowId: string) => Promise<void>;
+	approveArtifact: (
+		workflowId: string,
+		path?: "quick" | "full",
+	) => Promise<void>;
 	approveWithMerge: (
 		workflowId: string,
 		mergeOptions: { mergeStrategy: MergeStrategy; commitMessage: string },
@@ -385,13 +388,20 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	// Approval Actions
 	// ===========================================================================
 
-	approveArtifact: async (workflowId: string) => {
+	approveArtifact: async (workflowId: string, path?: "quick" | "full") => {
 		// Capture artifact type BEFORE the API call - WebSocket events might clear it during await
 		const workflow = get().workflows.find((w) => w.id === workflowId);
 		const artifactType = workflow?.pendingArtifactType;
 
+		// Send path as JSON body when provided, otherwise POST with no body (backward compatible)
 		const response = await fetch(`/api/workflows/${workflowId}/approve`, {
 			method: "POST",
+			...(path
+				? {
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ path }),
+					}
+				: {}),
 		});
 
 		if (!response.ok) {
