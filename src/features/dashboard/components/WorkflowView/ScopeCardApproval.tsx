@@ -15,6 +15,7 @@ import {
 	ClipboardCopy,
 	ListChecks,
 	ListX,
+	MoreHorizontal,
 	RotateCcw,
 	Target,
 	XCircle,
@@ -31,6 +32,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import {
 	Tooltip,
@@ -43,7 +50,7 @@ import { scopeCardToMarkdown } from "./artifactMarkdown";
 
 interface ScopeCardApprovalProps {
 	scopeCard: ScopeCard;
-	onApprove?: () => Promise<void>;
+	onApprove?: (path: "quick" | "full") => Promise<void>;
 	onDeny?: (feedback: string) => Promise<void>;
 	onRewind?: () => Promise<void>;
 }
@@ -89,7 +96,13 @@ export function ScopeCardApproval({
 	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
 	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [approvingPath, setApprovingPath] = useState<"quick" | "full" | null>(
+		null,
+	);
 	const [copied, setCopied] = useState(false);
+
+	const recommendedPath = scopeCard.recommendedPath;
+	const alternatePath = recommendedPath === "full" ? "quick" : "full";
 
 	const isPending = scopeCard.status === "pending";
 	const isApproved = scopeCard.status === "approved";
@@ -103,13 +116,13 @@ export function ScopeCardApproval({
 		setTimeout(() => setCopied(false), 2000);
 	};
 
-	const handleApprove = async () => {
+	const handleApprove = async (path: "quick" | "full") => {
 		if (!onApprove) return;
-		setIsSubmitting(true);
+		setApprovingPath(path);
 		try {
-			await onApprove();
+			await onApprove(path);
 		} finally {
-			setIsSubmitting(false);
+			setApprovingPath(null);
 		}
 	};
 
@@ -199,20 +212,45 @@ export function ScopeCardApproval({
 									variant="outline"
 									size="sm"
 									onClick={() => setDenyDialogOpen(true)}
-									disabled={isSubmitting}
+									disabled={isSubmitting || approvingPath !== null}
 									className="text-destructive hover:text-destructive"
 								>
 									<XCircle className="size-4 mr-1" />
 									Request Changes
 								</Button>
-								<Button
-									size="sm"
-									onClick={handleApprove}
-									disabled={isSubmitting}
-								>
-									<CheckCircle className="size-4 mr-1" />
-									Approve
-								</Button>
+								<div className="flex items-center">
+									<Button
+										size="sm"
+										onClick={() => handleApprove(recommendedPath)}
+										disabled={approvingPath !== null}
+										className="rounded-r-none"
+									>
+										<CheckCircle className="size-4 mr-1" />
+										{recommendedPath === "full"
+											? "Approve → Research"
+											: "Approve → Execution"}
+									</Button>
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button
+												size="sm"
+												disabled={approvingPath !== null}
+												className="rounded-l-none border-l-0 px-2"
+											>
+												<MoreHorizontal className="size-4" />
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="end">
+											<DropdownMenuItem
+												onClick={() => handleApprove(alternatePath)}
+											>
+												{alternatePath === "quick"
+													? "Approve → Execution"
+													: "Approve → Research"}
+											</DropdownMenuItem>
+										</DropdownMenuContent>
+									</DropdownMenu>
+								</div>
 							</div>
 						)}
 					</div>
