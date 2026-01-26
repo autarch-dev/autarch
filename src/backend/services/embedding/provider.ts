@@ -174,7 +174,7 @@ async function initProcess(): Promise<boolean> {
 					`Embed startup stderr:\n${startupStderr.join("\n")}`,
 				);
 			}
-		} catch (e) {
+		} catch (_) {
 			// Swallow logging errors
 		}
 
@@ -182,7 +182,7 @@ async function initProcess(): Promise<boolean> {
 		// can retry later.
 		try {
 			spawnedProc.stdin?.end();
-		} catch (e) {
+		} catch (_) {
 			/* ignore */
 		}
 		proc = null;
