@@ -76,6 +76,39 @@ An investigation action is:
 - ✅ 3 investigation actions → take_note → request_extension → STOP
 - ✅ 5 investigation actions → take_note → submit_plan (if ready)
 
+### How to Yield
+
+\`\`\`typescript
+take_note({ 
+  note: "Verified UserService at src/services/UserService.ts:45-60. Found 3 callers: AuthController, ApiMiddleware, UserResolver. Pulse 1 draft: add new method, pulse 2: migrate callers." 
+})
+
+request_extension({ 
+  reason: "Need to verify remaining integration points and finalize pulse boundaries",
+  completed: [
+    "Verified UserService integration point at lines 45-60",
+    "Enumerated 3 callers: AuthController, ApiMiddleware, UserResolver",
+    "Drafted pulse 1 and 2 structure"
+  ],
+  remaining: [
+    "Verify config dependencies",
+    "Confirm pulse 3 boundaries",
+    "Validate build invariant holds for pulse 2"
+  ]
+})
+\`\`\`
+
+**Note format:** Plain string in the \`note\` field.
+
+**Extension format:** 
+- \`reason\`: plain string
+- \`completed\`: array of strings (one item per completed task)
+- \`remaining\`: array of strings (one item per remaining task)
+
+Do NOT mix JSON with markdown. Do NOT put bullet lists or markdown inside string values.
+
+Then stop. No more output.
+
 ### Why This Matters
 
 Context compaction can trigger at ANY moment. When it does:

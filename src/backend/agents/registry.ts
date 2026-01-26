@@ -60,6 +60,7 @@ const PLANNING_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...typescriptTools,
 	registerTool(submitPlanTool),
+	registerTool(requestExtensionTool),
 ];
 
 /** Preflight agent: preflight tools + complete_preflight */
