@@ -75,6 +75,10 @@ const MergeApprovalSchema = z.object({
 	commitMessage: z.string().min(1),
 });
 
+const PathApprovalSchema = z.object({
+	path: z.enum(["quick", "full"]).optional(),
+});
+
 // =============================================================================
 // Helpers
 // =============================================================================
@@ -183,20 +187,30 @@ export const workflowRoutes = {
 				const orchestrator = getWorkflowOrchestrator();
 				const contentType = req.headers.get("Content-Type");
 
-				// If JSON content-type, parse merge options (review stage approval)
+				// If JSON content-type, attempt to parse body
 				if (contentType?.includes("application/json")) {
 					const body = await req.json();
-					const parsed = MergeApprovalSchema.safeParse(body);
-					if (!parsed.success) {
-						return Response.json(
-							{
-								error: "Invalid request body",
-								details: z.prettifyError(parsed.error),
-							},
-							{ status: 400 },
-						);
+
+					// Try MergeApprovalSchema first (review stage approval)
+					const mergeResult = MergeApprovalSchema.safeParse(body);
+					if (mergeResult.success) {
+						await orchestrator.approveArtifact(params.id, mergeResult.data);
+					} else {
+						// Try PathApprovalSchema (scope approval with optional path)
+						const pathResult = PathApprovalSchema.safeParse(body);
+						if (pathResult.success) {
+							const { path } = pathResult.data;
+							if (path) {
+								await orchestrator.approveArtifact(params.id, { path });
+							} else {
+								// No path specified, use default behavior
+								await orchestrator.approveArtifact(params.id);
+							}
+						} else {
+							// Neither schema matched - backward compatible, call with no options
+							await orchestrator.approveArtifact(params.id);
+						}
 					}
-					await orchestrator.approveArtifact(params.id, parsed.data);
 				} else {
 					// No JSON body - scope/research/plan approvals
 					await orchestrator.approveArtifact(params.id);
