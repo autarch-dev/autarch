@@ -520,17 +520,50 @@ export async function extractPulseIdsFromCommitRange(
  * @param worktreePath - Path to the worktree (must be on target branch)
  * @param sourceBranch - Branch to merge from
  * @param commitMessage - Message for the squash commit
+ * @param options - Optional settings for trailers and pulse ID extraction
+ * @param options.trailers - Key-value pairs to add as Git trailers
+ * @param options.baseBranch - Base branch for extracting pulse IDs from commit range
+ * @param options.cwd - Working directory for git commands (defaults to worktreePath)
  */
 export async function squashMerge(
 	worktreePath: string,
 	sourceBranch: string,
 	commitMessage: string,
+	options?: {
+		trailers?: Record<string, string>;
+		baseBranch?: string;
+		cwd?: string;
+	},
 ): Promise<void> {
 	await execGitOrThrow(["merge", "--squash", sourceBranch], {
 		cwd: worktreePath,
 	});
 
-	await execGitOrThrow(["commit", "-m", commitMessage], {
+	// Build commit message with optional trailers
+	let fullMessage = commitMessage;
+	if (options?.trailers && Object.keys(options.trailers).length > 0) {
+		// Extract pulse IDs from commit range if baseBranch is provided
+		let pulseIds: string[] = [];
+		if (options.baseBranch) {
+			pulseIds = await extractPulseIdsFromCommitRange(
+				options.cwd || worktreePath,
+				options.baseBranch,
+				sourceBranch,
+			);
+		}
+
+		// Build trailer lines: start with provided trailers, then add pulse IDs
+		const trailerLines = Object.entries(options.trailers).map(
+			([key, value]) => `${key}: ${value}`,
+		);
+		for (const id of pulseIds) {
+			trailerLines.push(`Autarch-Pulse-Id: ${id}`);
+		}
+
+		fullMessage = `${commitMessage}\n\n${trailerLines.join("\n")}`;
+	}
+
+	await execGitOrThrow(["commit", "-m", fullMessage], {
 		cwd: worktreePath,
 		env: {
 			GIT_AUTHOR_NAME: "Autarch",
