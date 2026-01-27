@@ -2,6 +2,37 @@
 // Basic Symbols (existing)
 // =============================================================================
 
+/**
+ * A service class for managing users.
+ * Provides methods for user authentication and retrieval.
+ * @example
+ * const service = new UserService();
+ * const user = await service.getUser(1);
+ */
+export class UserService {
+	private users: Map<number, { id: number; name: string }> = new Map();
+
+	/**
+	 * Retrieves a user by their ID.
+	 * @param id - The unique identifier of the user
+	 * @returns The user object or undefined if not found
+	 */
+	getUser(id: number): { id: number; name: string } | undefined {
+		return this.users.get(id);
+	}
+
+	/**
+	 * Authenticates a user with the given credentials.
+	 * @param username - The username to authenticate
+	 * @param password - The password to verify
+	 * @returns True if authentication succeeds
+	 */
+	authenticate(username: string, password: string): boolean {
+		// Simple authentication logic
+		return username.length > 0 && password.length > 0;
+	}
+}
+
 export const VariableSymbol = "VariableSymbol";
 
 export function FunctionSymbol() {
