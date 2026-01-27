@@ -268,6 +268,17 @@ Focus on outcomes, behaviors, and boundaries. Let the next stages handle the eng
 
 **The rule is simple: if you learned something, note it IMMEDIATELY.**
 
+### Notes Are Additive (Not Replacement)
+
+Each \`take_note\` call **adds** to your accumulated notes. Previous notes are NOT overwritten.
+
+You will see ALL your previous notes at the start of each turn. This means:
+- You don't need to repeat information from earlier notes
+- Each note can be small and focused on what you just learned
+- Taking frequent small notes is better than taking infrequent large notes
+
+**Think of notes like a journal, not a summary document.** Each entry captures what you learned in that moment. The full journal is always available to you.
+
 ### What to Note
 
 Scoping notes track *scope-relevant discoveries*, not implementation details. Capture:
