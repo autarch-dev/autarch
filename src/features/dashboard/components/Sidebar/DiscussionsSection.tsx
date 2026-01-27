@@ -1,5 +1,5 @@
 import { Hash, Plus } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
 	SidebarGroup,
 	SidebarGroupAction,
@@ -30,6 +30,14 @@ export function DiscussionsSection({
 }: DiscussionsSectionProps) {
 	const [dialogOpen, setDialogOpen] = useState(false);
 
+	const sortedChannels = useMemo(
+		() =>
+			[...channels].sort((a, b) =>
+				a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+			),
+		[channels],
+	);
+
 	return (
 		<>
 			<SidebarGroup>
@@ -43,14 +51,14 @@ export function DiscussionsSection({
 				</SidebarGroupAction>
 				<SidebarGroupContent>
 					<SidebarMenu>
-						{channels.length === 0 ? (
+						{sortedChannels.length === 0 ? (
 							<SidebarMenuItem>
 								<div className="px-2 py-1.5 text-sm text-muted-foreground">
 									No channels yet
 								</div>
 							</SidebarMenuItem>
 						) : (
-							channels.map((channel) => (
+							sortedChannels.map((channel) => (
 								<SidebarMenuItem key={channel.id}>
 									<SidebarMenuButton
 										onClick={() => onSelectChannel(channel.id)}

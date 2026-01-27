@@ -1,5 +1,5 @@
 import { CheckCircle2, Circle, Plus } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
 	SidebarGroup,
 	SidebarGroupAction,
@@ -32,8 +32,24 @@ export function WorkflowsSection({
 	onCreateWorkflow,
 }: WorkflowsSectionProps) {
 	const [dialogOpen, setDialogOpen] = useState(false);
-	const activeWorkflows = workflows.filter((w) => w.status !== "done");
-	const completedWorkflows = workflows.filter((w) => w.status === "done");
+	const activeWorkflows = useMemo(
+		() =>
+			workflows
+				.filter((w) => w.status !== "done")
+				.sort((a, b) =>
+					a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
+				),
+		[workflows],
+	);
+	const completedWorkflows = useMemo(
+		() =>
+			workflows
+				.filter((w) => w.status === "done")
+				.sort((a, b) =>
+					a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
+				),
+		[workflows],
+	);
 
 	const handleCreate = async (prompt: string) => {
 		await onCreateWorkflow?.(prompt);
