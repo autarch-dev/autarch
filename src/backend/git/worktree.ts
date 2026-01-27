@@ -475,6 +475,46 @@ export async function fastForwardMerge(
 }
 
 /**
+ * Extract pulse IDs from commit messages in a commit range
+ *
+ * Parses Autarch-Pulse-Id trailers from all commits between baseBranch and sourceBranch.
+ *
+ * @param cwd - Working directory (repository or worktree path)
+ * @param baseBranch - The base branch (commits reachable from here are excluded)
+ * @param sourceBranch - The source branch (commits reachable from here are included)
+ * @returns Sorted array of unique pulse IDs found in the commit range
+ */
+export async function extractPulseIdsFromCommitRange(
+	cwd: string,
+	baseBranch: string,
+	sourceBranch: string,
+): Promise<string[]> {
+	// Get all commit message bodies in the range
+	const output = await execGitOrThrow(
+		["log", `${baseBranch}..${sourceBranch}`, "--format=%B"],
+		{ cwd },
+	);
+
+	if (!output) {
+		return [];
+	}
+
+	// Parse Autarch-Pulse-Id trailers from commit messages
+	const pulseIdRegex = /^Autarch-Pulse-Id:\s*(.+)$/gm;
+	const pulseIds = new Set<string>();
+
+	for (const match of output.matchAll(pulseIdRegex)) {
+		const pulseId = match[1];
+		if (pulseId) {
+			pulseIds.add(pulseId.trim());
+		}
+	}
+
+	// Return as sorted array
+	return Array.from(pulseIds).sort();
+}
+
+/**
  * Squash merge a branch into the current branch
  *
  * @param worktreePath - Path to the worktree (must be on target branch)
