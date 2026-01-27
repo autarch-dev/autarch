@@ -331,6 +331,14 @@ export class WorkflowOrchestrator {
 			const projectRoot = findRepoRoot(process.cwd());
 			const worktreePath = getWorktreePath(projectRoot, workflowId);
 
+			// Build trailers for workflow provenance
+			const trailers: Record<string, string> = {
+				"Autarch-Workflow-Id": workflowId,
+			};
+			if (workflow.title?.trim()) {
+				trailers["Autarch-Workflow-Name"] = workflow.title;
+			}
+
 			try {
 				// Merge workflow branch into base branch
 				await mergeWorkflowBranch(
@@ -340,6 +348,7 @@ export class WorkflowOrchestrator {
 					workflowBranch,
 					options.mergeStrategy,
 					options.commitMessage,
+					trailers,
 				);
 
 				log.workflow.info(
