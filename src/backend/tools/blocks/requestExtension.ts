@@ -41,7 +41,8 @@ _No_ markdown lists. Just JSON.
 	execute: async (_input, _context): Promise<ToolResult> => {
 		return {
 			success: true,
-			output: "Extension request pending. You *MUST STOP* and allow the user to respond.",
+			output:
+				"Extension request pending. You *MUST STOP* and allow the user to respond.",
 		};
 	},
 };
