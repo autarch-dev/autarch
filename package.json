@@ -8,7 +8,8 @@
 		"start": "NODE_ENV=production bun src/backend/index.ts",
 		"build": "bun run build.ts",
 		"lint": "biome check --write .",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"test": "bun test --concurrent"
 	},
 	"dependencies": {
 		"@ai-sdk/anthropic": "^3.0.12",

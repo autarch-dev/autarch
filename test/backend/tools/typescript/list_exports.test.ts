@@ -17,7 +17,7 @@ describe("list_exports - basic success", () => {
 		const result = await listExportsTool.execute(
 			{
 				reason: "List all exports from .ts files",
-				pattern: "*.ts",
+				pattern: "**/*.ts",
 			},
 			{
 				worktreePath: tempDir,
@@ -47,7 +47,7 @@ describe("list_exports - no TypeScript project error", () => {
 		const result = await listExportsTool.execute(
 			{
 				reason: "Try to list exports from directory without tsconfig",
-				pattern: "*.ts",
+				pattern: "**/*.ts",
 			},
 			{
 				worktreePath: emptyTempDir,
@@ -98,7 +98,7 @@ describe("list_exports - no matches found", () => {
 		const result = await listExportsTool.execute(
 			{
 				reason: "Test pattern that matches no files",
-				pattern: "*.xyz",
+				pattern: "**/*.xyz",
 			},
 			{
 				worktreePath: tempDir,
@@ -123,7 +123,7 @@ describe("list_exports - output format validation", () => {
 		const result = await listExportsTool.execute(
 			{
 				reason: "Validate output path format",
-				pattern: "*.ts",
+				pattern: "**/*.ts",
 			},
 			{
 				worktreePath: tempDir,
@@ -142,7 +142,7 @@ describe("list_exports - output format validation", () => {
 		const result = await listExportsTool.execute(
 			{
 				reason: "Validate type detection format",
-				pattern: "*.ts",
+				pattern: "**/*.ts",
 			},
 			{
 				worktreePath: tempDir,
@@ -165,7 +165,7 @@ describe("list_exports - output format validation", () => {
 		const result = await listExportsTool.execute(
 			{
 				reason: "Validate signature preview",
-				pattern: "*.ts",
+				pattern: "**/*.ts",
 			},
 			{
 				worktreePath: tempDir,
@@ -184,7 +184,7 @@ describe("list_exports - output format validation", () => {
 		const result = await listExportsTool.execute(
 			{
 				reason: "Validate header format",
-				pattern: "*.ts",
+				pattern: "**/*.ts",
 			},
 			{
 				worktreePath: tempDir,

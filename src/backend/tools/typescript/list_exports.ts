@@ -11,7 +11,7 @@ import type { ToolDefinition, ToolResult } from "../types";
 
 export const listExportsInputSchema = z.object({
 	reason: z.string(),
-	pattern: z.string().describe("Glob pattern to match filenames, e.g. *.ts"),
+	pattern: z.string().describe("Glob pattern to match files, e.g. '**/*.ts'. Relative to project root."),
 });
 
 export type ListExportsInput = z.infer<typeof listExportsInputSchema>;
@@ -63,9 +63,12 @@ export const listExportsTool: ToolDefinition<ListExportsInput> = {
 			// Skip node_modules
 			if (filePath.includes("node_modules")) continue;
 
-			// Match against basename only
-			const basename = path.basename(filePath);
-			if (!glob.match(basename)) continue;
+			// Match against relative path
+			const relativePath = path.relative(
+				context.worktreePath ?? context.projectRoot,
+				filePath,
+			);
+			if (!glob.match(relativePath)) continue;
 
 			matchedFileCount++;
 
