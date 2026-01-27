@@ -579,6 +579,10 @@ export async function squashMerge(
 /**
  * Create a merge commit (no fast-forward)
  *
+ * Unlike squashMerge, this does not extract or include Autarch-Pulse-Id trailers.
+ * The individual pulse commits remain in the git history with their full trailers,
+ * so pulse IDs are already captured and don't need to be duplicated in the merge commit.
+ *
  * @param worktreePath - Path to the worktree (must be on target branch)
  * @param sourceBranch - Branch to merge from
  * @param commitMessage - Message for the merge commit
