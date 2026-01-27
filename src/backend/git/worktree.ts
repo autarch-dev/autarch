@@ -806,6 +806,7 @@ async function findWorktreeWithBranch(
  * @param workflowBranch - The workflow branch to merge from
  * @param strategy - The merge strategy to use
  * @param commitMessage - Message for the commit (used by squash and merge-commit strategies)
+ * @param trailers - Optional Git trailers to add (used by squash and merge-commit strategies)
  */
 export async function mergeWorkflowBranch(
 	repoRoot: string,
@@ -814,6 +815,7 @@ export async function mergeWorkflowBranch(
 	workflowBranch: string,
 	strategy: MergeStrategy,
 	commitMessage: string,
+	trailers?: Record<string, string>,
 ): Promise<void> {
 	// Check if baseBranch is already checked out in another worktree
 	const existingWorktree = await findWorktreeWithBranch(repoRoot, baseBranch);
@@ -868,10 +870,14 @@ export async function mergeWorkflowBranch(
 				await fastForwardMerge(mergePath, workflowBranch);
 				break;
 			case "squash":
-				await squashMerge(mergePath, workflowBranch, commitMessage);
+				await squashMerge(mergePath, workflowBranch, commitMessage, {
+					trailers,
+					baseBranch,
+					cwd: repoRoot,
+				});
 				break;
 			case "merge-commit":
-				await mergeCommit(mergePath, workflowBranch, commitMessage);
+				await mergeCommit(mergePath, workflowBranch, commitMessage, trailers);
 				break;
 			default: {
 				const _exhaustive: never = strategy;
