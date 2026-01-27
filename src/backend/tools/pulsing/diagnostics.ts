@@ -59,5 +59,9 @@ export async function getDiagnostics(
 		`getDiagnostics: ${fullPath} has ${diagnostics.length} type error(s)`,
 	);
 
+	if (diagnostics.length === 0) {
+		return "✅ No type errors found";
+	}
+
 	return project.formatDiagnosticsWithColorAndContext(diagnostics);
 }
