@@ -44,6 +44,7 @@ const SCOPING_TOOLS: RegisteredTool[] = [
 	...typescriptTools,
 	registerTool(submitScopeTool),
 	registerTool(askQuestionsTool),
+	registerTool(requestExtensionTool),
 ];
 
 /** Research agent: base tools + submit_research + request_extension + ask_questions */
@@ -84,6 +85,7 @@ const REVIEW_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...reviewTools,
 	...typescriptTools,
+	registerTool(requestExtensionTool),
 ];
 
 // =============================================================================

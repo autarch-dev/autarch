@@ -63,7 +63,7 @@ const MAX_NUDGES = 6;
  * If an agent completes a turn without calling one of these, it gets nudged.
  */
 const TERMINAL_TOOLS: Record<string, string[]> = {
-	scoping: ["submit_scope", "ask_questions"],
+	scoping: ["submit_scope", "request_extension", "ask_questions"],
 	research: ["submit_research", "request_extension", "ask_questions"],
 	planning: ["submit_plan", "request_extension", "ask_questions"],
 	execution: ["complete_pulse", "request_extension"],
