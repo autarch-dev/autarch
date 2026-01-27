@@ -8,7 +8,7 @@ const PROJECT_CACHE = new Map<string, Project>();
 export async function getTSProject(
 	context: ToolContext,
 ): Promise<Project | null> {
-	const tsconfigPath = await getTsconfigPath(context.projectRoot);
+	const tsconfigPath = await getTsconfigPath(context.worktreePath ?? context.projectRoot);
 
 	if (tsconfigPath) {
 		let project = PROJECT_CACHE.get(tsconfigPath);
