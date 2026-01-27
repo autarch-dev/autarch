@@ -331,6 +331,19 @@ export class WorkflowOrchestrator {
 			const projectRoot = findRepoRoot(process.cwd());
 			const worktreePath = getWorktreePath(projectRoot, workflowId);
 
+			// Build trailers for workflow provenance
+			const trailers: Record<string, string> = {
+				"Autarch-Workflow-Id": workflowId,
+			};
+			if (workflow.title?.trim()) {
+				// Convert title to lowercase-hyphenated slug (matching PulseOrchestrator format)
+				const slug = workflow.title
+					.toLowerCase()
+					.replace(/[^a-z0-9]+/g, "-")
+					.replace(/^-|-$/g, "");
+				trailers["Autarch-Workflow-Name"] = slug;
+			}
+
 			try {
 				// Merge workflow branch into base branch
 				await mergeWorkflowBranch(
@@ -340,6 +353,7 @@ export class WorkflowOrchestrator {
 					workflowBranch,
 					options.mergeStrategy,
 					options.commitMessage,
+					trailers,
 				);
 
 				log.workflow.info(

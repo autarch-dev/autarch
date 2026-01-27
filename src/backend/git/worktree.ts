@@ -475,22 +475,95 @@ export async function fastForwardMerge(
 }
 
 /**
+ * Extract pulse IDs from commit messages in a commit range
+ *
+ * Parses Autarch-Pulse-Id trailers from all commits between baseBranch and sourceBranch.
+ *
+ * @param cwd - Working directory (repository or worktree path)
+ * @param baseBranch - The base branch (commits reachable from here are excluded)
+ * @param sourceBranch - The source branch (commits reachable from here are included)
+ * @returns Sorted array of unique pulse IDs found in the commit range
+ */
+export async function extractPulseIdsFromCommitRange(
+	cwd: string,
+	baseBranch: string,
+	sourceBranch: string,
+): Promise<string[]> {
+	// Get all commit message bodies in the range
+	const output = await execGitOrThrow(
+		["log", `${baseBranch}..${sourceBranch}`, "--format=%B"],
+		{ cwd },
+	);
+
+	if (!output) {
+		return [];
+	}
+
+	// Parse Autarch-Pulse-Id trailers from commit messages
+	const pulseIdRegex = /^Autarch-Pulse-Id:\s*(.+)$/gm;
+	const pulseIds = new Set<string>();
+
+	for (const match of output.matchAll(pulseIdRegex)) {
+		const pulseId = match[1];
+		if (pulseId) {
+			pulseIds.add(pulseId.trim());
+		}
+	}
+
+	// Return as sorted array
+	return Array.from(pulseIds).sort();
+}
+
+/**
  * Squash merge a branch into the current branch
  *
  * @param worktreePath - Path to the worktree (must be on target branch)
  * @param sourceBranch - Branch to merge from
  * @param commitMessage - Message for the squash commit
+ * @param options - Optional settings for trailers and pulse ID extraction
+ * @param options.trailers - Key-value pairs to add as Git trailers
+ * @param options.baseBranch - Base branch for extracting pulse IDs from commit range
+ * @param options.cwd - Working directory for git commands (defaults to worktreePath)
  */
 export async function squashMerge(
 	worktreePath: string,
 	sourceBranch: string,
 	commitMessage: string,
+	options?: {
+		trailers?: Record<string, string>;
+		baseBranch?: string;
+		cwd?: string;
+	},
 ): Promise<void> {
 	await execGitOrThrow(["merge", "--squash", sourceBranch], {
 		cwd: worktreePath,
 	});
 
-	await execGitOrThrow(["commit", "-m", commitMessage], {
+	// Build commit message with optional trailers
+	let fullMessage = commitMessage;
+	if (options?.trailers && Object.keys(options.trailers).length > 0) {
+		// Extract pulse IDs from commit range if baseBranch is provided
+		let pulseIds: string[] = [];
+		if (options.baseBranch) {
+			pulseIds = await extractPulseIdsFromCommitRange(
+				options.cwd || worktreePath,
+				options.baseBranch,
+				sourceBranch,
+			);
+		}
+
+		// Build trailer lines: start with provided trailers, then add pulse IDs
+		const trailerLines = Object.entries(options.trailers).map(
+			([key, value]) => `${key}: ${value}`,
+		);
+		for (const id of pulseIds) {
+			trailerLines.push(`Autarch-Pulse-Id: ${id}`);
+		}
+
+		fullMessage = `${commitMessage}\n\n${trailerLines.join("\n")}`;
+	}
+
+	await execGitOrThrow(["commit", "-m", fullMessage], {
 		cwd: worktreePath,
 		env: {
 			GIT_AUTHOR_NAME: "Autarch",
@@ -506,27 +579,39 @@ export async function squashMerge(
 /**
  * Create a merge commit (no fast-forward)
  *
+ * Unlike squashMerge, this does not extract or include Autarch-Pulse-Id trailers.
+ * The individual pulse commits remain in the git history with their full trailers,
+ * so pulse IDs are already captured and don't need to be duplicated in the merge commit.
+ *
  * @param worktreePath - Path to the worktree (must be on target branch)
  * @param sourceBranch - Branch to merge from
  * @param commitMessage - Message for the merge commit
+ * @param trailers - Optional Git trailers to append (key-value pairs)
  */
 export async function mergeCommit(
 	worktreePath: string,
 	sourceBranch: string,
 	commitMessage: string,
+	trailers?: Record<string, string>,
 ): Promise<void> {
-	await execGitOrThrow(
-		["merge", "--no-ff", "-m", commitMessage, sourceBranch],
-		{
-			cwd: worktreePath,
-			env: {
-				GIT_AUTHOR_NAME: "Autarch",
-				GIT_AUTHOR_EMAIL: "autarch@local",
-				GIT_COMMITTER_NAME: "Autarch",
-				GIT_COMMITTER_EMAIL: "autarch@local",
-			},
+	// Build commit message with optional trailers
+	let fullMessage = commitMessage;
+	if (trailers && Object.keys(trailers).length > 0) {
+		const trailerLines = Object.entries(trailers)
+			.map(([key, value]) => `${key}: ${value}`)
+			.join("\n");
+		fullMessage = `${commitMessage}\n\n${trailerLines}`;
+	}
+
+	await execGitOrThrow(["merge", "--no-ff", "-m", fullMessage, sourceBranch], {
+		cwd: worktreePath,
+		env: {
+			GIT_AUTHOR_NAME: "Autarch",
+			GIT_AUTHOR_EMAIL: "autarch@local",
+			GIT_COMMITTER_NAME: "Autarch",
+			GIT_COMMITTER_EMAIL: "autarch@local",
 		},
-	);
+	});
 
 	log.git.info(`Merge commit created for ${sourceBranch}`);
 }
@@ -725,6 +810,7 @@ async function findWorktreeWithBranch(
  * @param workflowBranch - The workflow branch to merge from
  * @param strategy - The merge strategy to use
  * @param commitMessage - Message for the commit (used by squash and merge-commit strategies)
+ * @param trailers - Optional Git trailers to add (used by squash and merge-commit strategies)
  */
 export async function mergeWorkflowBranch(
 	repoRoot: string,
@@ -733,6 +819,7 @@ export async function mergeWorkflowBranch(
 	workflowBranch: string,
 	strategy: MergeStrategy,
 	commitMessage: string,
+	trailers?: Record<string, string>,
 ): Promise<void> {
 	// Check if baseBranch is already checked out in another worktree
 	const existingWorktree = await findWorktreeWithBranch(repoRoot, baseBranch);
@@ -787,10 +874,14 @@ export async function mergeWorkflowBranch(
 				await fastForwardMerge(mergePath, workflowBranch);
 				break;
 			case "squash":
-				await squashMerge(mergePath, workflowBranch, commitMessage);
+				await squashMerge(mergePath, workflowBranch, commitMessage, {
+					trailers,
+					baseBranch,
+					cwd: repoRoot,
+				});
 				break;
 			case "merge-commit":
-				await mergeCommit(mergePath, workflowBranch, commitMessage);
+				await mergeCommit(mergePath, workflowBranch, commitMessage, trailers);
 				break;
 			default: {
 				const _exhaustive: never = strategy;
