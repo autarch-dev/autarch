@@ -336,7 +336,12 @@ export class WorkflowOrchestrator {
 				"Autarch-Workflow-Id": workflowId,
 			};
 			if (workflow.title?.trim()) {
-				trailers["Autarch-Workflow-Name"] = workflow.title;
+				// Convert title to lowercase-hyphenated slug (matching PulseOrchestrator format)
+				const slug = workflow.title
+					.toLowerCase()
+					.replace(/[^a-z0-9]+/g, "-")
+					.replace(/^-|-$/g, "");
+				trailers["Autarch-Workflow-Name"] = slug;
 			}
 
 			try {
