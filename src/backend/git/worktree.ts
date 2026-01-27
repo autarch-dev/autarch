@@ -582,24 +582,32 @@ export async function squashMerge(
  * @param worktreePath - Path to the worktree (must be on target branch)
  * @param sourceBranch - Branch to merge from
  * @param commitMessage - Message for the merge commit
+ * @param trailers - Optional Git trailers to append (key-value pairs)
  */
 export async function mergeCommit(
 	worktreePath: string,
 	sourceBranch: string,
 	commitMessage: string,
+	trailers?: Record<string, string>,
 ): Promise<void> {
-	await execGitOrThrow(
-		["merge", "--no-ff", "-m", commitMessage, sourceBranch],
-		{
-			cwd: worktreePath,
-			env: {
-				GIT_AUTHOR_NAME: "Autarch",
-				GIT_AUTHOR_EMAIL: "autarch@local",
-				GIT_COMMITTER_NAME: "Autarch",
-				GIT_COMMITTER_EMAIL: "autarch@local",
-			},
+	// Build commit message with optional trailers
+	let fullMessage = commitMessage;
+	if (trailers && Object.keys(trailers).length > 0) {
+		const trailerLines = Object.entries(trailers)
+			.map(([key, value]) => `${key}: ${value}`)
+			.join("\n");
+		fullMessage = `${commitMessage}\n\n${trailerLines}`;
+	}
+
+	await execGitOrThrow(["merge", "--no-ff", "-m", fullMessage, sourceBranch], {
+		cwd: worktreePath,
+		env: {
+			GIT_AUTHOR_NAME: "Autarch",
+			GIT_AUTHOR_EMAIL: "autarch@local",
+			GIT_COMMITTER_NAME: "Autarch",
+			GIT_COMMITTER_EMAIL: "autarch@local",
 		},
-	);
+	});
 
 	log.git.info(`Merge commit created for ${sourceBranch}`);
 }
