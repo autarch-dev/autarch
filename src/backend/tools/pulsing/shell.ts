@@ -176,6 +176,7 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 			// Spawn the process (platform-aware shell)
 			const proc = Bun.spawn(getShellArgs(input.command), {
 				cwd,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 				env: process.env,
