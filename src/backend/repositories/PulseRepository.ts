@@ -10,7 +10,7 @@ import type {
 	PulseStatus,
 	PulsesTable,
 } from "@/backend/db/project";
-import { ids } from "@/backend/utils";
+import { generateId, ids } from "@/backend/utils";
 import type { ProjectDb, Repository } from "./types";
 
 // =============================================================================
@@ -570,6 +570,66 @@ export class PulseRepository implements Repository {
 			.executeTakeFirst();
 
 		return result?.count ?? 0;
+	}
+
+	// ===========================================================================
+	// Command Baseline Operations (Raw Command Outputs)
+	// ===========================================================================
+
+	/**
+	 * Record a command baseline (raw stdout/stderr/exit code)
+	 */
+	async recordCommandBaseline(
+		workflowId: string,
+		command: string,
+		source: string,
+		stdout: string,
+		stderr: string,
+		exitCode: number,
+	): Promise<void> {
+		const id = generateId("cmdbaseline");
+		const now = Date.now();
+
+		await this.db
+			.insertInto("preflight_command_baselines")
+			.values({
+				id,
+				workflow_id: workflowId,
+				command,
+				source: source as "build" | "lint" | "test",
+				stdout,
+				stderr,
+				exit_code: exitCode,
+				recorded_at: now,
+			})
+			.execute();
+	}
+
+	/**
+	 * Get a command baseline by workflow ID and command
+	 */
+	async getCommandBaseline(
+		workflowId: string,
+		command: string,
+	): Promise<{ stdout: string; stderr: string; exit_code: number } | null> {
+		const row = await this.db
+			.selectFrom("preflight_command_baselines")
+			.select(["stdout", "stderr", "exit_code"])
+			.where("workflow_id", "=", workflowId)
+			.where("command", "=", command)
+			.executeTakeFirst();
+
+		return row ?? null;
+	}
+
+	/**
+	 * Delete all command baselines for a workflow
+	 */
+	async deleteCommandBaselines(workflowId: string): Promise<void> {
+		await this.db
+			.deleteFrom("preflight_command_baselines")
+			.where("workflow_id", "=", workflowId)
+			.execute();
 	}
 
 	// ===========================================================================
