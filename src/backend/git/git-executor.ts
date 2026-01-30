@@ -21,6 +21,7 @@ export async function execGit(
 	const proc = Bun.spawn(["git", ...args], {
 		cwd: options.cwd,
 		env: { ...process.env, ...options.env },
+		stdin: "ignore",
 		stdout: "pipe",
 		stderr: "pipe",
 	});
