@@ -15,6 +15,13 @@ export {
 } from "./CompletionValidator";
 
 export {
+	type CommandOutput,
+	type ComparisonResult,
+	OutputComparisonService,
+	stripNumbers,
+} from "./OutputComparison";
+
+export {
 	getPulseOrchestrator,
 	initPulseOrchestrator,
 	type PulseCompletionResult,
