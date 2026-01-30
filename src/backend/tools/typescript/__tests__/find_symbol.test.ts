@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { findSymbolTool } from "@/backend/tools/typescript/find_symbol";
-import { scaffoldTypescriptProject } from "./scaffold-project";
+import { findSymbolTool } from "../find_symbol";
+import { scaffoldTypescriptProject } from ".";
 
 // =============================================================================
 // Class Symbol Tests

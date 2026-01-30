@@ -1,10 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import temp from "temp";
-import {
-	getSymbolInputSchema,
-	getSymbolTool,
-} from "@/backend/tools/typescript/get_symbol";
-import { scaffoldTypescriptProject } from "./scaffold-project";
+import { getSymbolInputSchema, getSymbolTool } from "../get_symbol";
+import { scaffoldTypescriptProject } from ".";
 
 // Enable automatic cleanup of temp directories when the process exits
 temp.track();

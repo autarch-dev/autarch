@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import temp from "temp";
-import { listExportsTool } from "@/backend/tools/typescript/list_exports";
-import { scaffoldTypescriptProject } from "./scaffold-project";
+import { listExportsTool } from "../list_exports";
+import { scaffoldTypescriptProject } from ".";
 
 // Enable automatic cleanup of temp directories when the process exits
 temp.track();
