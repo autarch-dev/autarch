@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
+import { getShellArgs } from "../pulsing/shell";
 import type { ToolDefinition, ToolResult } from "../types";
 
 // =============================================================================
@@ -80,6 +81,67 @@ Provide:
 				context.workflowId,
 				input.verificationCommands,
 			);
+
+			// Execute verification commands and store baseline outputs
+			const verificationCommands = input.verificationCommands ?? [];
+			const worktreePath = context.worktreePath;
+
+			if (worktreePath && verificationCommands.length > 0) {
+				for (const cmd of verificationCommands) {
+					try {
+						const controller = new AbortController();
+						const timeout = setTimeout(() => controller.abort(), 30_000);
+
+						const proc = Bun.spawn(getShellArgs(cmd.command), {
+							cwd: worktreePath,
+							stdout: "pipe",
+							stderr: "pipe",
+							signal: controller.signal,
+						});
+
+						// Capture stdout/stderr with timeout using Promise.race pattern
+						const [stdout, stderr, exitCode] = await Promise.race([
+							(async () => {
+								const stdoutText = await new Response(proc.stdout).text();
+								const stderrText = await new Response(proc.stderr).text();
+								const code = await proc.exited;
+								return [stdoutText, stderrText, code] as const;
+							})(),
+							new Promise<never>((_, reject) => {
+								const timeoutId = setTimeout(
+									() => reject(new Error("Command timed out")),
+									30_000,
+								);
+								// Clean up if the command finishes first
+								proc.exited.then(() => clearTimeout(timeoutId));
+							}),
+						]);
+
+						clearTimeout(timeout);
+
+						// Store baseline output
+						await pulses.recordCommandBaseline(
+							context.workflowId,
+							cmd.command,
+							cmd.source,
+							stdout,
+							stderr,
+							exitCode,
+						);
+
+						log.workflow.info(
+							`Recorded baseline for command "${cmd.command}" (exit code: ${exitCode})`,
+						);
+					} catch (error) {
+						// Log error but continue to next command - do not fail preflight
+						log.workflow.error(
+							`Failed to execute verification command "${cmd.command}": ${
+								error instanceof Error ? error.message : "Unknown error"
+							}`,
+						);
+					}
+				}
+			}
 
 			log.workflow.info(
 				`Preflight complete for workflow ${context.workflowId}: ${input.summary}`,
