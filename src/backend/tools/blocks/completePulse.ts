@@ -6,8 +6,8 @@ import { z } from "zod";
 import { getWorkflowOrchestrator } from "@/backend/agents/runner";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
-import { BaselineFilter } from "@/backend/services/pulsing/BaselineFilter";
 import { CompletionValidator } from "@/backend/services/pulsing/CompletionValidator";
+import { OutputComparisonService } from "@/backend/services/pulsing/OutputComparison";
 import { getShellArgs } from "../pulsing/shell";
 import type { ToolDefinition, ToolResult } from "../types";
 
@@ -122,7 +122,7 @@ orchestration for human review.`,
 					};
 				}
 
-				const baselineFilter = new BaselineFilter(pulses);
+				const outputComparison = new OutputComparisonService();
 				const VERIFICATION_TIMEOUT = 300 * 1000; // 300 seconds
 				const worktreePath = pulse.worktreePath; // Capture for use in loop
 
@@ -184,51 +184,66 @@ orchestration for human review.`,
 							clearTimeout(timeoutId);
 						}
 
-						// Combine output
-						const output = [stdout, stderr].filter(Boolean).join("\n");
-
-						// Filter output against baselines using explicit source type
-						const filtered = await baselineFilter.filterOutput(
+						// Retrieve baseline for this command
+						const baseline = await pulses.getCommandBaseline(
 							pulse.workflowId,
-							output,
-							source,
+							command,
 						);
 
-						if (filtered.hasNewErrors) {
-							const errorDetails = filtered.newErrors
-								.map((e) => {
-									const parts = [];
-									if (e.filePath) parts.push(e.filePath);
-									if (e.line) parts.push(`line ${e.line}`);
-									if (e.code) parts.push(e.code);
-									parts.push(e.message);
-									return `- [${e.severity}] ${parts.join(": ")}`;
-								})
-								.join("\n");
-
-							log.workflow.info(
-								`Verification failed for ${pulse.id}: ${filtered.newErrors.length} new error(s)`,
+						if (baseline === null) {
+							log.workflow.error(
+								`No baseline recorded for command '${command}', run preflight first`,
 							);
-
 							return {
 								success: false,
-								output: `Verification failed with new errors:\n${errorDetails}`,
+								output: `No baseline recorded for command '${command}', run preflight first`,
 							};
 						}
 
-						if (filtered.baselineErrors.length > 0) {
-							log.workflow.info(
-								`Verification command '${command}' detected ${filtered.baselineErrors.length} baseline error(s)`,
+						// Check combined output size against LLM context limits
+						const combinedSize =
+							baseline.stdout.length +
+							baseline.stderr.length +
+							stdout.length +
+							stderr.length;
+						if (combinedSize > 100000) {
+							log.workflow.error(
+								`Output size exceeds LLM context limits for command '${command}'`,
 							);
+							return {
+								success: false,
+								output: `Output size exceeds LLM context limits for command '${command}'`,
+							};
 						}
 
-						// If no new errors, treat as success even if exit code is non-zero
-						// (baseline errors may cause non-zero exit but shouldn't block completion)
-						if (exitCode !== 0) {
-							log.workflow.info(
-								`Verification command '${command}' exited with code ${exitCode} but no new errors detected - continuing`,
+						// Compare outputs using two-tier comparison
+						const comparison = await outputComparison.compareOutputs(
+							pulse.workflowId,
+							baseline,
+							{ stdout, stderr, exit_code: exitCode },
+						);
+
+						if (!comparison.areEquivalent) {
+							// Log new issues for visibility
+							log.workflow.error(
+								`New issues detected for command '${command}':`,
+								comparison.newIssues,
 							);
+
+							const issueDetails = comparison.newIssues
+								.map((issue) => `- ${issue}`)
+								.join("\n");
+
+							return {
+								success: false,
+								output: `Verification failed with new issues:\n${issueDetails}`,
+							};
 						}
+
+						// Outputs are equivalent - continue to next command
+						log.workflow.info(
+							`Verification command '${command}' passed (outputs equivalent)`,
+						);
 					} catch (error) {
 						const errorMessage =
 							error instanceof Error ? error.message : "Unknown error";
