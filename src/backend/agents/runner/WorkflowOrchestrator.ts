@@ -11,12 +11,13 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import {
+	checkoutInWorktree,
 	cleanupWorkflow,
 	findRepoRoot,
 	getCurrentBranch,
+	getWorktreePath,
 	mergeWorkflowBranch,
 } from "@/backend/git";
-import { checkoutInWorktree, getWorktreePath } from "@/backend/git/worktree";
 import { getModelForScenario } from "@/backend/llm/models";
 import { log } from "@/backend/logger";
 import {

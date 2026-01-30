@@ -9,7 +9,6 @@
  * - Manages the transition to review
  */
 
-import { findRepoRoot } from "@/backend/git";
 import {
 	checkoutInWorktree,
 	commitChanges,
@@ -17,9 +16,10 @@ import {
 	createRecoveryCheckpoint,
 	createWorkflowBranch,
 	createWorktree,
+	findRepoRoot,
 	getCurrentBranch,
 	mergePulseBranch,
-} from "@/backend/git/worktree";
+} from "@/backend/git";
 import { log } from "@/backend/logger";
 import type {
 	PreflightSetup,

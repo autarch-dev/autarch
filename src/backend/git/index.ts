@@ -5,40 +5,48 @@ import { dirname, join } from "node:path";
  * Git service for repository operations
  */
 
-// Re-export worktree operations
+// Re-export branch operations (6 functions)
 export {
 	branchExists,
-	checkoutInWorktree,
-	cleanupWorkflow,
-	commitChanges,
 	createPulseBranch,
-	createRecoveryCheckpoint,
 	createWorkflowBranch,
-	createWorktree,
 	deleteBranch,
-	fastForwardMerge,
-	type GitResult,
-	getChangedFiles,
 	getCurrentBranch,
 	getCurrentCommit,
-	getDiff,
-	getUncommittedDiff,
-	getWorktreePath,
-	getWorktreesDir,
+} from "./branches";
+// Re-export commit operations (5 functions)
+export {
+	commitChanges,
+	createRecoveryCheckpoint,
+	getChangedFiles,
 	hasUncommittedChanges,
-	listWorktrees,
-	type MergeStrategy,
+	stageAllChanges,
+} from "./commits";
+// Re-export diff operations (2 functions)
+export { getDiff, getUncommittedDiff } from "./diffs";
+// Re-export merge operations (7 functions)
+export {
+	fastForwardMerge,
 	mergeCommit,
 	mergePulseBranch,
 	mergeWorkflowBranch,
-	pruneWorktrees,
 	rebaseMerge,
+	squashMerge,
+} from "./merges";
+// Re-export types
+export type { GitResult, MergeStrategy, WorktreeInfo } from "./types";
+// Re-export worktree operations (9 functions)
+export {
+	checkoutInWorktree,
+	cleanupWorkflow,
+	createWorktree,
+	getWorktreePath,
+	getWorktreesDir,
+	listWorktrees,
+	pruneWorktrees,
 	removeWorktree,
 	resetWorktree,
-	squashMerge,
-	stageAllChanges,
-	type WorktreeInfo,
-} from "./worktree";
+} from "./worktrees";
 
 /**
  * Find the root directory of a git repository by walking up the directory tree.

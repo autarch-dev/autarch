@@ -11,7 +11,11 @@ import type { ToolDefinition, ToolResult } from "../types";
 
 export const listExportsInputSchema = z.object({
 	reason: z.string(),
-	pattern: z.string().describe("Glob pattern to match files, e.g. '**/*.ts'. Relative to project root."),
+	pattern: z
+		.string()
+		.describe(
+			"Glob pattern to match files, e.g. '**/*.ts'. Relative to project root.",
+		),
 });
 
 export type ListExportsInput = z.infer<typeof listExportsInputSchema>;
