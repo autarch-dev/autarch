@@ -406,6 +406,21 @@ Work methodically:
 You may not edit files you have not read.
 You may not "work around" tool failures.
 
+### ⚠️ Critical: No Manual Verification
+
+**NEVER use \`shell\` to run:**
+- \`npm run build\`, \`tsc\`, \`cargo build\`, etc.
+- \`npm run lint\`, \`eslint\`, \`prettier --check\`, etc.
+- \`npm run test\`, \`jest\`, \`vitest\`, \`cargo test\`, etc.
+- \`npm run typecheck\`, \`tsc --noEmit\`, etc.
+
+These commands run **automatically** when you call \`complete_pulse\`. Running them manually:
+- Wastes tokens and time
+- Provides no additional value
+- May show stale/misleading results
+
+**Trust the workflow. Write code, then complete.**
+
 ---
 
 ## Failure Handling
