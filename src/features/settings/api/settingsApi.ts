@@ -164,3 +164,42 @@ export async function updateHooksConfig(
 		throw new Error(error.error ?? "Failed to update hooks configuration");
 	}
 }
+
+// =============================================================================
+// Persistent Shell Approvals
+// =============================================================================
+
+/**
+ * Response type for persistent approvals endpoint.
+ */
+export interface PersistentApprovalsResponse {
+	approvals: string[];
+}
+
+/**
+ * Get persistent shell approvals for the current project.
+ */
+export async function fetchPersistentApprovals(): Promise<PersistentApprovalsResponse> {
+	const response = await fetch("/api/settings/persistent-approvals");
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to fetch persistent approvals");
+	}
+	const data = await response.json();
+	return data as PersistentApprovalsResponse;
+}
+
+/**
+ * Remove a persistent shell approval.
+ */
+export async function removePersistentApproval(command: string): Promise<void> {
+	const response = await fetch("/api/settings/persistent-approvals", {
+		method: "DELETE",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ command }),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to remove persistent approval");
+	}
+}

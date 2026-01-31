@@ -5,10 +5,11 @@
  * squashMerge, mergeCommit, rebaseMerge, mergeWorkflowBranch, mergePulseBranch.
  */
 
-import { describe, expect, test as bunTest } from "bun:test";
+import { test as bunTest, describe, expect } from "bun:test";
 
 // Use serial tests to avoid flakiness when stdin is /dev/null (Bun bug)
 const test = bunTest.serial;
+
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { branchExists, createWorkflowBranch } from "../branches";

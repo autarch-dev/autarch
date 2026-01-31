@@ -30,7 +30,11 @@ interface ShellApprovalDialogProps {
 	approvalId: string;
 	command: string;
 	reason: string;
-	onApprove: (approvalId: string, remember: boolean) => Promise<void>;
+	isPreflight: boolean;
+	onApprove: (
+		approvalId: string,
+		options: { remember: boolean; persistForProject: boolean },
+	) => Promise<void>;
 	onDeny: (approvalId: string, reason: string) => Promise<void>;
 }
 
@@ -45,18 +49,23 @@ export function ShellApprovalDialog({
 	approvalId,
 	command,
 	reason,
+	isPreflight,
 	onApprove,
 	onDeny,
 }: ShellApprovalDialogProps) {
 	const [view, setView] = useState<"approve" | "deny">("approve");
 	const [denyReason, setDenyReason] = useState("");
 	const [rememberApproval, setRememberApproval] = useState(false);
+	const [persistForProject, setPersistForProject] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const handleApprove = async () => {
 		setIsSubmitting(true);
 		try {
-			await onApprove(approvalId, rememberApproval);
+			await onApprove(approvalId, {
+				remember: rememberApproval,
+				persistForProject,
+			});
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -107,9 +116,14 @@ export function ShellApprovalDialog({
 							<Checkbox
 								id={`remember-${approvalId}`}
 								checked={rememberApproval}
-								onCheckedChange={(checked) =>
-									setRememberApproval(checked === true)
-								}
+								onCheckedChange={(checked) => {
+									const isChecked = checked === true;
+									setRememberApproval(isChecked);
+									// If unchecking remember, also uncheck persistent
+									if (!isChecked) {
+										setPersistForProject(false);
+									}
+								}}
 								disabled={isSubmitting}
 							/>
 							<Tooltip>
@@ -127,6 +141,37 @@ export function ShellApprovalDialog({
 								</TooltipContent>
 							</Tooltip>
 						</div>
+
+						{/* Persistent approval checkbox - only visible during preflight */}
+						{isPreflight && (
+							<div className="flex items-center gap-2 mt-2">
+								<Checkbox
+									id={`persist-${approvalId}`}
+									checked={persistForProject}
+									onCheckedChange={(checked) =>
+										setPersistForProject(checked === true)
+									}
+									disabled={isSubmitting || !rememberApproval}
+								/>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Label
+											htmlFor={`persist-${approvalId}`}
+											className={`text-sm cursor-pointer ${
+												!rememberApproval ? "text-muted-foreground" : ""
+											}`}
+										>
+											Always allow during Preflight
+										</Label>
+									</TooltipTrigger>
+									<TooltipContent side="right" className="max-w-xs">
+										When enabled, this exact command will be auto-approved for
+										all future workflows in this project. Requires "Remember for
+										this workflow" to be checked first.
+									</TooltipContent>
+								</Tooltip>
+							</div>
+						)}
 
 						<DialogFooter className="mt-4">
 							<Button

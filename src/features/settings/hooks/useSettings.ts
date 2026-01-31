@@ -13,6 +13,8 @@ import {
 	fetchHooksConfig,
 	fetchIntegrationsStatus,
 	fetchModelPreferences,
+	fetchPersistentApprovals,
+	removePersistentApproval,
 	setApiKey,
 	setIntegrationKey,
 	updateHooksConfig,
@@ -49,6 +51,11 @@ interface SettingsState {
 	hooksConfig: PostWriteHooksConfig | null;
 	loadHooksConfig: () => Promise<void>;
 	saveHooksConfig: (hooks: PostWriteHooksConfig) => Promise<void>;
+
+	// Persistent Approvals
+	persistentApprovals: string[];
+	loadPersistentApprovals: () => Promise<void>;
+	removePersistentApproval: (command: string) => Promise<void>;
 }
 
 // =============================================================================
@@ -224,6 +231,33 @@ export const useSettings = create<SettingsState>((set) => ({
 					: "Failed to save hooks configuration";
 			set({ error: message, isLoading: false });
 			throw err;
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Persistent Approvals
+	// ---------------------------------------------------------------------------
+
+	persistentApprovals: [],
+
+	loadPersistentApprovals: async () => {
+		try {
+			const data = await fetchPersistentApprovals();
+			set({ persistentApprovals: data.approvals ?? [] });
+		} catch (err) {
+			console.error("Failed to load persistent approvals:", err);
+			set({ persistentApprovals: [] });
+		}
+	},
+
+	removePersistentApproval: async (command) => {
+		try {
+			await removePersistentApproval(command);
+			// Refresh the list after successful removal
+			const data = await fetchPersistentApprovals();
+			set({ persistentApprovals: data.approvals ?? [] });
+		} catch (err) {
+			console.error("Failed to remove persistent approval:", err);
 		}
 	},
 }));

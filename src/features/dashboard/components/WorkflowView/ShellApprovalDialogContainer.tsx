@@ -6,6 +6,7 @@
  * component tree to ensure the dialog is always visible.
  */
 
+import { useWebSocketStore } from "../../../websocket/store";
 import { useWorkflowsStore } from "../../store/workflowsStore";
 import { ShellApprovalDialog } from "./ShellApprovalCard";
 
@@ -21,14 +22,25 @@ export function ShellApprovalDialogContainer() {
 		return null;
 	}
 
-	const handleApprove = async (approvalId: string, remember: boolean) => {
+	// Get session to determine if we're in preflight mode
+	const sessionId = firstApproval.sessionId;
+	const session = useWebSocketStore.getState().getSession(sessionId);
+	const isPreflight = session?.agentRole === "preflight";
+
+	const handleApprove = async (
+		approvalId: string,
+		options: { remember: boolean; persistForProject: boolean },
+	) => {
 		try {
 			const response = await fetch(
 				`/api/shell-approval/${approvalId}/approve`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ remember }),
+					body: JSON.stringify({
+						remember: options.remember,
+						persistForProject: options.persistForProject,
+					}),
 				},
 			);
 			if (!response.ok) {
@@ -61,6 +73,7 @@ export function ShellApprovalDialogContainer() {
 			approvalId={firstApproval.approvalId}
 			command={firstApproval.command}
 			reason={firstApproval.reason}
+			isPreflight={isPreflight}
 			onApprove={handleApprove}
 			onDeny={handleDeny}
 		/>

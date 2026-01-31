@@ -7,6 +7,10 @@
  */
 
 import { log } from "@/backend/logger";
+import {
+	addPersistentShellApproval,
+	getPersistentShellApprovals,
+} from "@/backend/services/projectSettings";
 import { broadcast } from "@/backend/ws";
 import {
 	createShellApprovalNeededEvent,
@@ -51,6 +55,7 @@ export interface RequestApprovalParams {
 	toolId: string;
 	command: string;
 	reason: string;
+	projectRoot: string;
 }
 
 // =============================================================================
@@ -82,12 +87,33 @@ export function isCommandRemembered(
  * Request approval for a shell command.
  * Returns a Promise that resolves when the user approves or rejects when denied.
  *
+ * Checks persistent approvals first (project-wide), then workflow-scoped remembered commands.
+ *
  * @param params - The approval request parameters
  * @returns Promise that resolves with the approval result
  */
-export function requestApproval(
+export async function requestApproval(
 	params: RequestApprovalParams,
 ): Promise<ApprovalResult> {
+	// Check persistent approvals first (project-wide, persists across workflows)
+	const persistentApprovals = await getPersistentShellApprovals(
+		params.projectRoot,
+	);
+	if (persistentApprovals.includes(params.command)) {
+		log.agent.info(
+			`Shell command auto-approved via persistent approval: ${params.command}`,
+		);
+		return { approved: true, remember: false, denyReason: undefined };
+	}
+
+	// Check workflow-scoped remembered commands
+	if (isCommandRemembered(params.workflowId, params.command)) {
+		log.agent.info(
+			`Shell command auto-approved via workflow remembered: ${params.command}`,
+		);
+		return { approved: true, remember: true, denyReason: undefined };
+	}
+
 	const approvalId = crypto.randomUUID();
 
 	log.agent.info(
@@ -131,14 +157,18 @@ export function requestApproval(
  * @param approvalId - The approval ID to resolve
  * @param approved - Whether the command was approved
  * @param remember - Whether to remember this approval for the workflow
+ * @param persistForProject - Whether to persist this approval for the entire project
+ * @param projectRoot - The project root path (required if persistForProject is true)
  * @param denyReason - Optional reason for denial (used in error message)
  */
-export function resolveApproval(
+export async function resolveApproval(
 	approvalId: string,
 	approved: boolean,
 	remember: boolean,
+	persistForProject: boolean,
+	projectRoot: string,
 	denyReason?: string,
-): void {
+): Promise<void> {
 	const pending = pendingApprovals.get(approvalId);
 
 	if (!pending) {
@@ -147,8 +177,13 @@ export function resolveApproval(
 	}
 
 	log.agent.info(
-		`Shell approval resolved: ${pending.command} - ${approved ? "approved" : "denied"}${remember ? " (remembered)" : ""}`,
+		`Shell approval resolved: ${pending.command} - ${approved ? "approved" : "denied"}${remember ? " (remembered)" : ""}${persistForProject ? " (persisted)" : ""}`,
 	);
+
+	// If approved and persistForProject is set, add to persistent approvals
+	if (approved && persistForProject) {
+		await addPersistentShellApproval(projectRoot, pending.command);
+	}
 
 	// If approved and remember is set, add to remembered commands
 	if (approved && remember) {

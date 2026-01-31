@@ -11,6 +11,7 @@ import { ApiProviderKeysSection } from "./ApiProviderKeysSection";
 import { HooksSection } from "./HooksSection";
 import { IntegrationsSection } from "./IntegrationsSection";
 import { ModelPreferencesSection } from "./ModelPreferencesSection";
+import { PersistentApprovalsSection } from "./PersistentApprovalsSection";
 
 interface SettingsPanelProps {
 	open: boolean;
@@ -23,6 +24,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 		loadModelPreferences,
 		loadIntegrationsStatus,
 		loadHooksConfig,
+		loadPersistentApprovals,
 	} = useSettings();
 
 	// Load all data when panel opens
@@ -32,6 +34,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 			loadModelPreferences();
 			loadIntegrationsStatus();
 			loadHooksConfig();
+			loadPersistentApprovals();
 		}
 	}, [
 		open,
@@ -39,6 +42,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 		loadModelPreferences,
 		loadIntegrationsStatus,
 		loadHooksConfig,
+		loadPersistentApprovals,
 	]);
 
 	return (
@@ -75,8 +79,9 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 						<ModelPreferencesSection />
 					</TabsContent>
 
-					<TabsContent value="project" className="mt-6">
+					<TabsContent value="project" className="mt-6 space-y-6">
 						<HooksSection />
+						<PersistentApprovalsSection />
 					</TabsContent>
 				</Tabs>
 			</SheetContent>
