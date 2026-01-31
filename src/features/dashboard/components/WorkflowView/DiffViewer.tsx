@@ -30,6 +30,14 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Select,
@@ -1518,6 +1526,16 @@ interface DiffViewerModalProps {
 	trigger?: React.ReactNode;
 	/** Optional additional className for the dialog content */
 	className?: string;
+	/** Selected comment IDs for Request Fixes */
+	selectedCommentIds?: Set<string>;
+	/** Callback to toggle comment selection */
+	onToggleComment?: (id: string) => void;
+	/** Summary text for fixes request */
+	fixesSummary?: string;
+	/** Callback to update fixes summary */
+	setFixesSummary?: (value: string) => void;
+	/** Callback when Request Fixes is submitted */
+	onRequestFixes?: () => void;
 }
 
 /**
@@ -1531,10 +1549,38 @@ export function DiffViewerModal({
 	onAddComment,
 	trigger,
 	className,
+	selectedCommentIds,
+	onToggleComment,
+	fixesSummary,
+	setFixesSummary,
+	onRequestFixes,
 }: DiffViewerModalProps) {
+	const [requestFixesDialogOpen, setRequestFixesDialogOpen] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const createReviewComment = useWorkflowsStore(
 		(state) => state.createReviewComment,
 	);
+
+	// Check if Request Fixes props are provided
+	const hasRequestFixesProps =
+		selectedCommentIds !== undefined &&
+		onToggleComment !== undefined &&
+		fixesSummary !== undefined &&
+		setFixesSummary !== undefined &&
+		onRequestFixes !== undefined;
+
+	const selectedCount = selectedCommentIds?.size ?? 0;
+
+	const handleRequestFixes = async () => {
+		if (!onRequestFixes) return;
+		setIsSubmitting(true);
+		try {
+			await onRequestFixes();
+			setRequestFixesDialogOpen(false);
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
 
 	// Use store-based comment creation when workflowId is provided
 	const handleAddComment = async (payload: AddCommentPayload) => {
@@ -1568,10 +1614,27 @@ export function DiffViewerModal({
 				className={cn("!w-[100vw] !max-w-[100vw] p-0 flex flex-col", className)}
 			>
 				<SheetHeader className="px-4 py-3 border-b shrink-0">
-					<SheetTitle className="flex items-center gap-2">
-						<GitCompareArrows className="size-5" />
-						Code Changes
-					</SheetTitle>
+					<div className="flex items-center justify-between">
+						<SheetTitle className="flex items-center gap-2">
+							<GitCompareArrows className="size-5" />
+							Code Changes
+						</SheetTitle>
+						{hasRequestFixesProps && (
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setRequestFixesDialogOpen(true)}
+								className="mr-8"
+							>
+								Request Fixes
+								{selectedCount > 0 && (
+									<Badge variant="secondary" className="ml-2">
+										{selectedCount}
+									</Badge>
+								)}
+							</Button>
+						)}
+					</div>
 				</SheetHeader>
 				<div className="flex-1 overflow-hidden">
 					<DiffViewer
@@ -1581,6 +1644,46 @@ export function DiffViewerModal({
 						className="h-full"
 					/>
 				</div>
+
+				{/* Request Fixes Dialog */}
+				{hasRequestFixesProps && (
+					<Dialog
+						open={requestFixesDialogOpen}
+						onOpenChange={setRequestFixesDialogOpen}
+					>
+						<DialogContent className="sm:max-w-md">
+							<DialogHeader>
+								<DialogTitle>Request Fixes</DialogTitle>
+								<DialogDescription>
+									{selectedCount} comment{selectedCount !== 1 ? "s" : ""}{" "}
+									selected
+								</DialogDescription>
+							</DialogHeader>
+							<div className="py-4">
+								<Textarea
+									value={fixesSummary}
+									onChange={(e) => setFixesSummary(e.target.value)}
+									placeholder="Optional: Add any additional context..."
+									rows={4}
+									autoFocus
+								/>
+							</div>
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => setRequestFixesDialogOpen(false)}
+									disabled={isSubmitting}
+								>
+									Cancel
+								</Button>
+								<Button onClick={handleRequestFixes} disabled={isSubmitting}>
+									Submit
+								</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
+				)}
 			</SheetContent>
 		</Sheet>
 	);
