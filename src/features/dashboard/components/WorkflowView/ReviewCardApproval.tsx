@@ -480,7 +480,8 @@ export function ReviewCardApproval({
 	};
 
 	const handleRequestFixes = async () => {
-		if (selectedCommentIds.size === 0 || !onRequestFixes) return;
+		if (selectedCommentIds.size === 0 && !fixesSummary.trim()) return;
+		if (!onRequestFixes) return;
 		setIsSubmitting(true);
 		try {
 			await onRequestFixes(
@@ -776,7 +777,13 @@ export function ReviewCardApproval({
 						>
 							Cancel
 						</Button>
-						<Button onClick={handleRequestFixes} disabled={isSubmitting}>
+						<Button
+							onClick={handleRequestFixes}
+							disabled={
+								isSubmitting ||
+								(selectedCommentIds.size === 0 && !fixesSummary.trim())
+							}
+						>
 							Submit
 						</Button>
 					</DialogFooter>

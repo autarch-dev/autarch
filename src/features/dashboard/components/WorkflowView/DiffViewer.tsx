@@ -1572,6 +1572,7 @@ export function DiffViewerModal({
 	const selectedCount = selectedCommentIds?.size ?? 0;
 
 	const handleRequestFixes = async () => {
+		if (selectedCommentIds?.size === 0 && !fixesSummary?.trim()) return;
 		if (!onRequestFixes) return;
 		setIsSubmitting(true);
 		try {
@@ -1677,7 +1678,13 @@ export function DiffViewerModal({
 								>
 									Cancel
 								</Button>
-								<Button onClick={handleRequestFixes} disabled={isSubmitting}>
+								<Button
+									onClick={handleRequestFixes}
+									disabled={
+										isSubmitting ||
+										(selectedCount === 0 && !fixesSummary?.trim())
+									}
+								>
 									Submit
 								</Button>
 							</DialogFooter>
