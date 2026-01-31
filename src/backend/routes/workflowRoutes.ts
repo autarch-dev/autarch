@@ -17,7 +17,9 @@ import { log } from "../logger";
 import { getRepositories } from "../repositories";
 import {
 	getMergeStrategy,
+	getPersistentShellApprovals,
 	getPostWriteHooks,
+	removePersistentShellApproval,
 	setMergeStrategy,
 	setPostWriteHooks,
 } from "../services/projectSettings";
@@ -727,6 +729,53 @@ export const workflowRoutes = {
 				return Response.json({ success: true });
 			} catch (error) {
 				log.api.error("Failed to set hooks:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/settings/persistent-approvals": {
+		async GET() {
+			try {
+				const projectRoot = findRepoRoot(process.cwd());
+				const approvals = await getPersistentShellApprovals(projectRoot);
+				return Response.json({ approvals });
+			} catch (error) {
+				log.api.error("Failed to get persistent approvals:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+
+		async DELETE(req: Request) {
+			try {
+				const body = await req.json();
+				const DeleteApprovalSchema = z.object({ command: z.string() });
+				const parsed = DeleteApprovalSchema.safeParse(body);
+				if (!parsed.success) {
+					return Response.json(
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
+						{ status: 400 },
+					);
+				}
+
+				const projectRoot = findRepoRoot(process.cwd());
+				await removePersistentShellApproval(projectRoot, parsed.data.command);
+
+				log.api.success(
+					`Removed persistent approval for command: ${parsed.data.command}`,
+				);
+				return Response.json({ success: true });
+			} catch (error) {
+				log.api.error("Failed to remove persistent approval:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },
