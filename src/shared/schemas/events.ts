@@ -544,6 +544,7 @@ export const ShellApprovalNeededPayloadSchema = z.object({
 	toolId: z.string(),
 	command: z.string(),
 	reason: z.string(),
+	agentRole: z.string().optional(),
 });
 export type ShellApprovalNeededPayload = z.infer<
 	typeof ShellApprovalNeededPayloadSchema

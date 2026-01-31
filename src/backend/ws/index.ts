@@ -28,6 +28,7 @@ export function handleOpen(ws: ServerWebSocket<unknown>): void {
 			toolId: pending.toolId,
 			command: pending.command,
 			reason: pending.reason,
+			agentRole: pending.agentRole,
 		});
 		ws.send(JSON.stringify(event));
 		log.ws.debug(`Re-sent pending shell approval ${approvalId} to new client`);

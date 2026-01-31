@@ -115,6 +115,7 @@ export async function createWorkflowToolContext(
 	sessionId: string,
 	turnId?: string,
 	worktreePath?: string,
+	agentRole?: string,
 ): Promise<ToolContext> {
 	return {
 		projectRoot,
@@ -122,5 +123,6 @@ export async function createWorkflowToolContext(
 		sessionId,
 		turnId,
 		worktreePath,
+		agentRole,
 	};
 }

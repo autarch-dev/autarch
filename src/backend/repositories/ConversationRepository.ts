@@ -573,6 +573,21 @@ export class ConversationRepository implements Repository {
 	}
 
 	/**
+	 * Get successfully completed tool names for a turn.
+	 * Only returns tools with status="completed" (not "error").
+	 * Used to determine if auto-transition tools actually succeeded.
+	 */
+	async getSucceededToolNames(turnId: string): Promise<string[]> {
+		const tools = await this.db
+			.selectFrom("turn_tools")
+			.select("tool_name")
+			.where("turn_id", "=", turnId)
+			.where("status", "=", "completed")
+			.execute();
+		return tools.map((t) => t.tool_name);
+	}
+
+	/**
 	 * Parse tool input JSON with validation.
 	 * Returns the parsed input or undefined if null/invalid.
 	 */

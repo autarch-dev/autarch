@@ -93,7 +93,7 @@ export type {
 	ToolName,
 	ToolResult,
 } from "./types";
-export { REASON_DESCRIPTION, registerTool } from "./types";
+export { REASON_DESCRIPTION, registerTool, ToolResultSchema } from "./types";
 // Typescript tools (TypeScript-specific tools)
 export {
 	findSymbolInputSchema,

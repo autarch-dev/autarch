@@ -27,7 +27,7 @@ import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import { getCostCalculator } from "@/backend/services/cost";
 import { isExaKeyConfigured } from "@/backend/services/globalSettings";
-import type { ToolContext } from "@/backend/tools/types";
+import { type ToolContext, ToolResultSchema } from "@/backend/tools/types";
 import { broadcast } from "@/backend/ws";
 import {
 	createTurnCompletedEvent,
@@ -353,6 +353,9 @@ export class AgentRunner {
 	 *
 	 * For complete_preflight and complete_pulse, the actual transition (starting
 	 * the next session) is deferred to here so we don't abort the stream mid-turn.
+	 *
+	 * NOTE: We only trigger transitions for tools that actually succeeded.
+	 * If complete_pulse fails (e.g., verification errors), we don't transition.
 	 */
 	private async maybeAutoTransition(turnId: string): Promise<void> {
 		// Only workflow sessions can have auto-transitions
@@ -360,11 +363,15 @@ export class AgentRunner {
 			return;
 		}
 
-		const toolNames = await this.config.conversationRepo.getToolNames(turnId);
+		// Only check tools that succeeded (status="completed", not "error")
+		// This ensures we don't trigger transitions when complete_pulse/complete_preflight failed
+		const succeededToolNames =
+			await this.config.conversationRepo.getSucceededToolNames(turnId);
 
-		// Check if any auto-transition tools were called
-		const hasPreflightComplete = toolNames.includes("complete_preflight");
-		const hasPulseComplete = toolNames.includes("complete_pulse");
+		// Check if any auto-transition tools succeeded
+		const hasPreflightComplete =
+			succeededToolNames.includes("complete_preflight");
+		const hasPulseComplete = succeededToolNames.includes("complete_pulse");
 
 		if (!hasPreflightComplete && !hasPulseComplete) {
 			return;
@@ -375,7 +382,7 @@ export class AgentRunner {
 			const orchestrator = getWorkflowOrchestrator();
 			await orchestrator.handleTurnCompletion(
 				this.session.contextId, // workflowId
-				toolNames,
+				succeededToolNames,
 			);
 		} catch (error) {
 			log.agent.error(
@@ -843,15 +850,19 @@ export class AgentRunner {
 				}
 
 				case "tool-result": {
-					// Tool execution completed
+					// Tool execution completed (function ran without throwing)
+					// Check the result's success field for application-level success
 					const toolCall = activeToolCalls.get(part.toolCallId);
 					if (toolCall) {
-						log.tools.success(`Tool completed: ${toolCall.toolName}`);
-						await this.recordToolComplete(
-							toolCall,
-							part.output,
-							true, // AI SDK only emits tool-result on success
-						);
+						// Parse output as ToolResult to check success field
+						const parsed = ToolResultSchema.safeParse(part.output);
+						const success = !parsed.success || parsed.data.success;
+						if (success) {
+							log.tools.success(`Tool completed: ${toolCall.toolName}`);
+						} else {
+							log.tools.warn(`Tool returned failure: ${toolCall.toolName}`);
+						}
+						await this.recordToolComplete(toolCall, part.output, success);
 						options.onToolCompleted?.(toolCall);
 					}
 					break;
@@ -972,6 +983,7 @@ export class AgentRunner {
 			this.session.id,
 			turnId,
 			this.config.worktreePath,
+			this.session.agentRole,
 		);
 	}
 

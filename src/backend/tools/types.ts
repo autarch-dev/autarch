@@ -5,11 +5,20 @@
  * See docs/tools.md for the complete tool specification.
  */
 
-import type { z } from "zod";
+import { z } from "zod";
 
 // =============================================================================
 // Tool Definition
 // =============================================================================
+
+/**
+ * Schema for tool execution results.
+ * Used to validate tool outputs have the expected shape.
+ */
+export const ToolResultSchema = z.object({
+	success: z.boolean(),
+	output: z.string(),
+});
 
 /**
  * Context passed to every tool execution
@@ -29,16 +38,15 @@ export interface ToolContext {
 	channelId?: string;
 	/** Unique identifier for this tool call (for approval tracking) */
 	toolCallId?: string;
+	/** Role of the agent (e.g., "preflight", "execution") */
+	agentRole?: string;
 }
 
 /**
  * Result returned from tool execution.
  * All tool outputs are plain text strings.
  */
-export interface ToolResult {
-	success: boolean;
-	output: string;
-}
+export type ToolResult = z.infer<typeof ToolResultSchema>;
 
 /**
  * Tool definition with typed input schema.

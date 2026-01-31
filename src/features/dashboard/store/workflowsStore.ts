@@ -58,6 +58,7 @@ export interface PendingShellApproval {
 	sessionId: string;
 	command: string;
 	reason: string;
+	agentRole?: string;
 }
 
 /**
@@ -1563,6 +1564,7 @@ function handleShellApprovalNeeded(
 			sessionId: payload.sessionId,
 			command: payload.command,
 			reason: payload.reason,
+			agentRole: payload.agentRole,
 		});
 
 		console.log(

@@ -6,7 +6,6 @@
  * component tree to ensure the dialog is always visible.
  */
 
-import { useWebSocketStore } from "../../../websocket/store";
 import { useWorkflowsStore } from "../../store/workflowsStore";
 import { ShellApprovalDialog } from "./ShellApprovalCard";
 
@@ -22,10 +21,8 @@ export function ShellApprovalDialogContainer() {
 		return null;
 	}
 
-	// Get session to determine if we're in preflight mode
-	const sessionId = firstApproval.sessionId;
-	const session = useWebSocketStore.getState().getSession(sessionId);
-	const isPreflight = session?.agentRole === "preflight";
+	// Check if we're in preflight mode from the approval event payload
+	const isPreflight = firstApproval.agentRole === "preflight";
 
 	const handleApprove = async (
 		approvalId: string,

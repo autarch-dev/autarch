@@ -41,6 +41,7 @@ export interface PendingApproval {
 	toolId: string;
 	command: string;
 	reason: string;
+	agentRole?: string;
 	resolve: (result: ApprovalResult) => void;
 	reject: (error: Error) => void;
 }
@@ -56,6 +57,7 @@ export interface RequestApprovalParams {
 	command: string;
 	reason: string;
 	projectRoot: string;
+	agentRole?: string;
 }
 
 // =============================================================================
@@ -132,6 +134,7 @@ export async function requestApproval(
 			toolId: params.toolId,
 			command: params.command,
 			reason: params.reason,
+			agentRole: params.agentRole,
 			resolve,
 			reject,
 		});
@@ -145,6 +148,7 @@ export async function requestApproval(
 			toolId: params.toolId,
 			command: params.command,
 			reason: params.reason,
+			agentRole: params.agentRole,
 		});
 		log.agent.info(`Broadcasting shell:approval_needed event`);
 		broadcast(event);

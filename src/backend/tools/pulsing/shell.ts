@@ -121,7 +121,7 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 		const timeout = (input.timeoutSeconds ?? 60) * 1000;
 
 		// Check for approval if we have workflow context
-		const { workflowId, sessionId, turnId, toolCallId } = context;
+		const { workflowId, sessionId, turnId, toolCallId, agentRole } = context;
 
 		if (workflowId && sessionId && turnId) {
 			// Check if command is remembered (auto-approved)
@@ -142,6 +142,7 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 						command: input.command,
 						reason: input.reason,
 						projectRoot: context.projectRoot,
+						agentRole,
 					});
 
 					if (!approvalResult.approved) {
