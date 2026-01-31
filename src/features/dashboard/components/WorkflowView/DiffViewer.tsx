@@ -381,6 +381,7 @@ function FileTreeNode({
 	depth = 0,
 	expandedFolders,
 	setExpandedFolders,
+	parentPath = "",
 }: {
 	node: TreeNode;
 	selectedFile: DiffFile | null;
@@ -388,6 +389,8 @@ function FileTreeNode({
 	depth?: number;
 	expandedFolders: Set<string>;
 	setExpandedFolders: React.Dispatch<React.SetStateAction<Set<string>>>;
+	/** Accumulated path from parent folders */
+	parentPath?: string;
 }) {
 	const sortedChildren = useMemo(() => {
 		const entries = Array.from(node.children.entries());
@@ -445,8 +448,8 @@ function FileTreeNode({
 		);
 	}
 
-	// Folder node
-	const folderPath = node.name; // Use name as unique identifier for expansion state
+	// Folder node - use full path for unique expansion state
+	const folderPath = parentPath ? `${parentPath}/${node.name}` : node.name;
 	const isOpen = expandedFolders.has(folderPath);
 
 	const toggleFolder = () => {
@@ -488,6 +491,7 @@ function FileTreeNode({
 						depth={depth + 1}
 						expandedFolders={expandedFolders}
 						setExpandedFolders={setExpandedFolders}
+						parentPath={folderPath}
 					/>
 				))}
 			</CollapsibleContent>
@@ -509,23 +513,29 @@ function FileTree({
 }) {
 	const tree = useMemo(() => buildFileTree(files), [files]);
 
-	// Initialize all folders as expanded by collecting all folder names
-	const allFolderNames = useMemo(() => {
-		const names = new Set<string>();
-		const collectFolders = (node: TreeNode) => {
+	// Initialize all folders as expanded by collecting all folder paths
+	const allFolderPaths = useMemo(() => {
+		const paths = new Set<string>();
+		const collectFolders = (node: TreeNode, parentPath: string) => {
 			if (node.type === "folder" && node.name) {
-				names.add(node.name);
-			}
-			for (const child of node.children.values()) {
-				collectFolders(child);
+				const fullPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+				paths.add(fullPath);
+				for (const child of node.children.values()) {
+					collectFolders(child, fullPath);
+				}
+			} else {
+				// Root node - just recurse into children
+				for (const child of node.children.values()) {
+					collectFolders(child, parentPath);
+				}
 			}
 		};
-		collectFolders(tree);
-		return names;
+		collectFolders(tree, "");
+		return paths;
 	}, [tree]);
 
 	const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-		() => new Set(allFolderNames),
+		() => new Set(allFolderPaths),
 	);
 
 	const sortedChildren = useMemo(() => {
