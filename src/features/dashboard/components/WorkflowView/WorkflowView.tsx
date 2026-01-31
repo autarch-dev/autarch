@@ -309,15 +309,18 @@ export function WorkflowView({
 		});
 	};
 
-	// Build stage boundaries for filtering
-	const stageBoundaries = buildStageBoundaries();
+	// Build stage boundaries for filtering (memoized)
+	// biome-ignore lint/correctness/useExhaustiveDependencies: buildStageBoundaries is stable and only uses artifacts arrays
+	const stageBoundaries = useMemo(
+		() => buildStageBoundaries(),
+		[scopeCards, researchCards, plans, reviewCards],
+	);
 
-	// Filter messages for current viewed stage (will be used by later pulses)
-	// biome-ignore lint/correctness/noUnusedVariables: filteredMessages prepared for stage navigation in later pulses
-	const filteredMessages = filterMessagesByStage(
-		messages,
-		stageBoundaries,
-		viewedStage,
+	// Filter messages for current viewed stage
+	// biome-ignore lint/correctness/useExhaustiveDependencies: filterMessagesByStage is a pure function with explicit parameters
+	const filteredMessages = useMemo(
+		() => filterMessagesByStage(messages, stageBoundaries, viewedStage),
+		[messages, stageBoundaries, viewedStage],
 	);
 
 	// Calculate total cost from all messages
@@ -325,11 +328,21 @@ export function WorkflowView({
 		return messages.reduce((sum, m) => sum + (m.cost ?? 0), 0);
 	}, [messages]);
 
-	// Auto-scroll to bottom when new content arrives
-	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll to bottom when new content arrives
+	// Track previous viewedStage to detect stage navigation vs new content
+	const prevViewedStageRef = useRef<WorkflowStatus>(viewedStage);
+
+	// Auto-scroll to bottom when new content arrives, but not when navigating stages
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Smart auto-scroll based on stage navigation vs new content
 	useEffect(() => {
+		// If viewedStage changed, user navigated to a different stage - skip scroll
+		if (prevViewedStageRef.current !== viewedStage) {
+			prevViewedStageRef.current = viewedStage;
+			return;
+		}
+
+		// viewedStage is the same, so messages or streamingMessage changed - scroll to bottom
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages, streamingMessage?.segments]);
+	}, [viewedStage, filteredMessages, streamingMessage?.segments]);
 
 	const hasAnyContent = messages.length > 0 || streamingMessage;
 
@@ -436,7 +449,7 @@ export function WorkflowView({
 							<WorkflowEmptyState />
 						) : (
 							<>
-								{messages.map((message) => {
+								{filteredMessages.map((message) => {
 									const artifact = artifactsByTurn.get(message.turnId);
 									return (
 										<div key={message.id}>
