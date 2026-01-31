@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardDescription,
@@ -30,7 +31,7 @@ import {
 	ChannelMessageBubble,
 	StreamingMessageBubble,
 } from "../ChannelView/MessageBubble";
-import { workflowPhases } from "./config";
+import { statusConfig, workflowPhases } from "./config";
 import { PlanCardApproval } from "./PlanCardApproval";
 import { ResearchCardApproval } from "./ResearchCardApproval";
 import { ReviewCardApproval } from "./ReviewCardApproval";
@@ -519,6 +520,21 @@ export function WorkflowView({
 					viewedStage={viewedStage}
 					onStageClick={handleStageClick}
 				/>
+
+				{workflow.status !== viewedStage && (
+					<div className="mx-4 mt-2 px-4 py-2 rounded-lg border bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 flex items-center justify-between">
+						<span className="text-sm">
+							Workflow moved to {statusConfig[workflow.status].label}
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setViewedStage(workflow.status)}
+						>
+							View Current Stage
+						</Button>
+					</div>
+				)}
 
 				<ScrollArea className="flex-1 min-h-0">
 					<div className="py-2">
