@@ -504,6 +504,11 @@ export function WorkflowView({
 		}
 	};
 
+	// Callback for when user clicks a stage in PhaseIndicator
+	const handleStageClick = (stage: WorkflowStatus) => {
+		setViewedStage(stage);
+	};
+
 	return (
 		<TooltipProvider>
 			<div className="flex flex-col h-full">
@@ -511,6 +516,8 @@ export function WorkflowView({
 					workflow={workflow}
 					totalCost={totalCost}
 					onArchived={onArchived}
+					viewedStage={viewedStage}
+					onStageClick={handleStageClick}
 				/>
 
 				<ScrollArea className="flex-1 min-h-0">
