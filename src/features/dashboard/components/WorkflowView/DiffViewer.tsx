@@ -520,7 +520,7 @@ const DiffLineView = memo(function DiffLineView({
 				)}
 			</span>
 			{/* Code content */}
-			<code className="flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto">
+			<code className="min-w-0 flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto">
 				{(highlightedHtml ?? cachedHtml) ? (
 					<span
 						// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output
