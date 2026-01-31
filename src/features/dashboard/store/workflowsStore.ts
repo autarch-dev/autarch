@@ -55,6 +55,7 @@ export interface StreamingSegment {
 export interface PendingShellApproval {
 	approvalId: string;
 	workflowId: string;
+	sessionId: string;
 	command: string;
 	reason: string;
 }
@@ -1559,6 +1560,7 @@ function handleShellApprovalNeeded(
 		pendingShellApprovals.set(payload.approvalId, {
 			approvalId: payload.approvalId,
 			workflowId: payload.workflowId,
+			sessionId: payload.sessionId,
 			command: payload.command,
 			reason: payload.reason,
 		});

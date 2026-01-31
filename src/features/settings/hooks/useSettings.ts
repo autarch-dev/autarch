@@ -49,6 +49,11 @@ interface SettingsState {
 	hooksConfig: PostWriteHooksConfig | null;
 	loadHooksConfig: () => Promise<void>;
 	saveHooksConfig: (hooks: PostWriteHooksConfig) => Promise<void>;
+
+	// Persistent Approvals
+	persistentApprovals: string[];
+	loadPersistentApprovals: () => Promise<void>;
+	removePersistentApproval: (command: string) => Promise<void>;
 }
 
 // =============================================================================
@@ -224,6 +229,58 @@ export const useSettings = create<SettingsState>((set) => ({
 					: "Failed to save hooks configuration";
 			set({ error: message, isLoading: false });
 			throw err;
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Persistent Approvals
+	// ---------------------------------------------------------------------------
+
+	persistentApprovals: [],
+
+	loadPersistentApprovals: async () => {
+		try {
+			const response = await fetch("/api/settings/persistent-approvals");
+			if (response.ok) {
+				const data = await response.json();
+				set({ persistentApprovals: data.approvals ?? [] });
+			} else {
+				console.error(
+					"Failed to load persistent approvals:",
+					response.statusText,
+				);
+				set({ persistentApprovals: [] });
+			}
+		} catch (err) {
+			console.error("Failed to load persistent approvals:", err);
+			set({ persistentApprovals: [] });
+		}
+	},
+
+	removePersistentApproval: async (command) => {
+		try {
+			const response = await fetch("/api/settings/persistent-approvals", {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ command }),
+			});
+			if (response.ok) {
+				// Refresh the list after successful removal
+				const refreshResponse = await fetch(
+					"/api/settings/persistent-approvals",
+				);
+				if (refreshResponse.ok) {
+					const data = await refreshResponse.json();
+					set({ persistentApprovals: data.approvals ?? [] });
+				}
+			} else {
+				console.error(
+					"Failed to remove persistent approval:",
+					response.statusText,
+				);
+			}
+		} catch (err) {
+			console.error("Failed to remove persistent approval:", err);
 		}
 	},
 }));
