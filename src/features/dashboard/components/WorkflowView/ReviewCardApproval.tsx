@@ -607,16 +607,6 @@ export function ReviewCardApproval({
 									</Button>
 								)}
 								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => setDenyDialogOpen(true)}
-									disabled={isSubmitting}
-									className="text-destructive hover:text-destructive"
-								>
-									<XCircle className="size-4 mr-1" />
-									Request Changes
-								</Button>
-								<Button
 									size="sm"
 									onClick={handleOpenApproveDialog}
 									disabled={isSubmitting}
