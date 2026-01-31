@@ -85,7 +85,7 @@ export function WorkflowHeader({
 				</div>
 
 				{/* Phase Progress */}
-				{workflow.status !== "backlog" && workflow.status !== "done" && (
+				{workflow.status !== "backlog" && (
 					<PhaseIndicator
 						currentStatus={workflow.status}
 						skippedStages={workflow.skippedStages}

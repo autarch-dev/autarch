@@ -64,11 +64,7 @@ export function PhaseIndicator({
 										isEnabled ? "cursor-pointer" : "cursor-not-allowed",
 										isViewed && "ring-2 ring-offset-2 ring-current",
 									)}
-									onClick={
-										isEnabled && onStageClick
-											? () => onStageClick(phase)
-											: undefined
-									}
+									onClick={() => onStageClick?.(phase)}
 								>
 									{isSkipped ? (
 										<SkipForward className="size-3.5" />
