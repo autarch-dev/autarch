@@ -141,6 +141,7 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 						toolId: effectiveToolId,
 						command: input.command,
 						reason: input.reason,
+						projectRoot: context.projectRoot,
 					});
 
 					if (!approvalResult.approved) {

@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { findRepoRoot } from "../git";
 import { log } from "../logger";
 import {
 	getPendingApproval,
@@ -21,6 +22,7 @@ const IdParamSchema = z.object({
 
 const ApproveRequestSchema = z.object({
 	remember: z.boolean().optional(),
+	persistForProject: z.boolean().optional(),
 });
 
 const DenyRequestSchema = z.object({
@@ -70,19 +72,30 @@ export const shellApprovalRoutes = {
 					);
 				}
 
-				// Parse optional body for remember flag
+				// Parse optional body for remember flag and persistForProject
 				let remember = false;
+				let persistForProject = false;
 				const contentType = req.headers.get("content-type");
 				if (contentType?.includes("application/json")) {
 					const body = await req.json();
 					const parsed = ApproveRequestSchema.safeParse(body);
 					if (parsed.success) {
 						remember = parsed.data.remember ?? false;
+						persistForProject = parsed.data.persistForProject ?? false;
 					}
 				}
 
+				// Get project root for persistent approval storage
+				const projectRoot = findRepoRoot(process.cwd());
+
 				// Resolve the approval
-				resolveApproval(approvalId, true, remember);
+				await resolveApproval(
+					approvalId,
+					true,
+					remember,
+					persistForProject,
+					projectRoot,
+				);
 
 				log.api.info(
 					`Shell approval ${approvalId} approved${remember ? " (remembered)" : ""}`,
@@ -131,8 +144,18 @@ export const shellApprovalRoutes = {
 					);
 				}
 
+				// Get project root for signature compatibility
+				const projectRoot = findRepoRoot(process.cwd());
+
 				// Resolve the denial
-				resolveApproval(approvalId, false, false, parsed.data.reason);
+				await resolveApproval(
+					approvalId,
+					false,
+					false,
+					false,
+					projectRoot,
+					parsed.data.reason,
+				);
 
 				log.api.info(
 					`Shell approval ${approvalId} denied: ${parsed.data.reason}`,
