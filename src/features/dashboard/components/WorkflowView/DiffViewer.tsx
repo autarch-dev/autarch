@@ -19,8 +19,6 @@ import {
 	Folder,
 	GitCompareArrows,
 	MessageSquarePlus,
-	Minus,
-	Plus,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useState } from "react";
 import { codeToHtml } from "shiki";
@@ -596,20 +594,11 @@ function AddCommentForm({
 }
 
 /**
- * A single diff line with syntax highlighting
+ * Hook for syntax highlighting a single line of code
  */
-const DiffLineView = memo(function DiffLineView({
-	line,
-	language,
-	onLineClick,
-}: {
-	line: DiffLine;
-	language: string;
-	onLineClick?: (lineNumber: number) => void;
-}) {
+function useHighlightedCode(content: string, language: string) {
 	const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
-
-	const cacheKey = `${language}:${line.content}`;
+	const cacheKey = `${language}:${content}`;
 	const cachedHtml = diffHighlightCache.get(cacheKey);
 
 	useEffect(() => {
@@ -619,20 +608,20 @@ const DiffLineView = memo(function DiffLineView({
 		}
 
 		// Skip highlighting for empty lines
-		if (!line.content.trim()) {
+		if (!content.trim()) {
 			return;
 		}
 
 		let cancelled = false;
 
-		codeToHtml(line.content, {
+		codeToHtml(content, {
 			lang: language,
 			theme: "github-dark",
 		}).then((result) => {
 			if (!cancelled) {
 				// Extract just the code content, stripping wrapper elements
 				const match = result.match(/<code[^>]*>([\s\S]*?)<\/code>/);
-				const codeContent = match?.[1] ?? line.content;
+				const codeContent = match?.[1] ?? content;
 				diffHighlightCache.set(cacheKey, codeContent);
 				setHighlightedHtml(codeContent);
 			}
@@ -641,40 +630,106 @@ const DiffLineView = memo(function DiffLineView({
 		return () => {
 			cancelled = true;
 		};
-	}, [cacheKey, cachedHtml, language, line.content]);
+	}, [cacheKey, cachedHtml, language, content]);
 
-	const bgColor =
-		line.type === "add"
-			? "bg-green-500/10 dark:bg-green-500/15"
-			: line.type === "del"
-				? "bg-red-500/10 dark:bg-red-500/15"
-				: "";
+	return highlightedHtml ?? cachedHtml ?? null;
+}
 
-	const borderColor =
-		line.type === "add"
-			? "border-l-green-500"
-			: line.type === "del"
-				? "border-l-red-500"
-				: "border-l-transparent";
+/** Paired row for side-by-side diff: left (old/del) and right (new/add) */
+interface SideBySidePair {
+	left: DiffLine | null;
+	right: DiffLine | null;
+}
 
-	const lineNumberClass = "text-muted-foreground text-xs w-10 text-right px-2";
+/**
+ * Process hunk lines into paired rows for side-by-side display.
+ * - Consecutive del/add lines are paired together
+ * - Del without matching add: left=del, right=null
+ * - Add without matching del: left=null, right=add
+ * - Context lines: render identically on both sides
+ */
+function pairHunkLines(lines: DiffLine[]): SideBySidePair[] {
+	const pairs: SideBySidePair[] = [];
+	let i = 0;
 
-	const handleClick = () => {
-		// Only allow clicking on lines that have a new line number (additions or context)
-		if (onLineClick && line.newLineNumber !== null) {
-			onLineClick(line.newLineNumber);
+	while (i < lines.length) {
+		const line = lines[i];
+		if (!line) {
+			i++;
+			continue;
+		}
+
+		if (line.type === "context") {
+			// Context lines render identically on both sides
+			pairs.push({ left: line, right: line });
+			i++;
+		} else if (line.type === "del") {
+			// Check if next line is an add (paired modification)
+			const nextLine = lines[i + 1];
+			if (nextLine?.type === "add") {
+				// Paired: del on left, add on right
+				pairs.push({ left: line, right: nextLine });
+				i += 2;
+			} else {
+				// Pure deletion: del on left, empty right
+				pairs.push({ left: line, right: null });
+				i++;
+			}
+		} else if (line.type === "add") {
+			// Pure addition: empty left, add on right
+			pairs.push({ left: null, right: line });
+			i++;
+		} else {
+			i++;
+		}
+	}
+
+	return pairs;
+}
+
+/**
+ * Side-by-side diff line component - renders a paired row with left (old) and right (new) columns
+ */
+const SideBySideDiffLine = memo(function SideBySideDiffLine({
+	pair,
+	language,
+	onLineClick,
+}: {
+	pair: SideBySidePair;
+	language: string;
+	onLineClick?: (lineNumber: number) => void;
+}) {
+	const { left, right } = pair;
+
+	// Highlight both sides independently
+	const leftHtml = useHighlightedCode(left?.content ?? "", language);
+	const rightHtml = useHighlightedCode(right?.content ?? "", language);
+
+	// For context lines, left and right are the same line object
+	const isContext = left?.type === "context" && right?.type === "context";
+
+	const handleRightClick = () => {
+		if (
+			onLineClick &&
+			right?.newLineNumber !== null &&
+			right?.newLineNumber !== undefined
+		) {
+			onLineClick(right.newLineNumber);
 		}
 	};
 
-	const isClickable = onLineClick && line.newLineNumber !== null;
+	const isRightClickable =
+		onLineClick &&
+		right?.newLineNumber !== null &&
+		right?.newLineNumber !== undefined;
 
-	const interactiveProps = isClickable
+	const rightInteractiveProps = isRightClickable
 		? {
-				onClick: handleClick,
+				onClick: handleRightClick,
 				onKeyDown: (e: React.KeyboardEvent) => {
 					if (e.key === "Enter" || e.key === " ") {
 						e.preventDefault();
-						handleClick();
+						handleRightClick();
 					}
 				},
 				role: "button" as const,
@@ -683,51 +738,74 @@ const DiffLineView = memo(function DiffLineView({
 		: {};
 
 	return (
-		<div
-			className={cn(
-				"flex items-stretch border-l-2 group",
-				bgColor,
-				borderColor,
-				isClickable && "cursor-pointer hover:bg-muted/30",
-			)}
-			{...interactiveProps}
-		>
-			{/* Old line number */}
-			<span className={lineNumberClass}>
-				{line.oldLineNumber !== null ? line.oldLineNumber : ""}
-			</span>
-			{/* New line number */}
-			<span className={cn(lineNumberClass, "border-r border-border")}>
-				{line.newLineNumber !== null ? line.newLineNumber : ""}
-			</span>
-			{/* Change indicator */}
-			<span className="w-5 text-center shrink-0 select-none">
-				{line.type === "add" && (
-					<Plus className="size-3 inline text-green-600 dark:text-green-400" />
+		<div className="grid grid-cols-2 gap-0">
+			{/* Left column (old/deletion) */}
+			<div
+				className={cn(
+					"flex items-stretch border-r border-border",
+					left?.type === "del" && "bg-red-500/10 dark:bg-red-500/15",
+					isContext && "bg-transparent",
+					!left && "bg-muted/30",
 				)}
-				{line.type === "del" && (
-					<Minus className="size-3 inline text-red-600 dark:text-red-400" />
+			>
+				{/* Line number */}
+				<span className="text-muted-foreground text-xs w-12 text-right px-2 py-0.5 shrink-0 border-r border-border/50">
+					{left?.oldLineNumber ?? ""}
+				</span>
+				{/* Code content */}
+				<code className="min-w-0 flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto">
+					{left ? (
+						leftHtml ? (
+							<span
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output
+								dangerouslySetInnerHTML={{ __html: leftHtml }}
+							/>
+						) : (
+							<span>{left.content}</span>
+						)
+					) : (
+						<span>&nbsp;</span>
+					)}
+				</code>
+			</div>
+
+			{/* Right column (new/addition) */}
+			<div
+				className={cn(
+					"flex items-stretch group",
+					right?.type === "add" && "bg-green-500/10 dark:bg-green-500/15",
+					isContext && "bg-transparent",
+					!right && "bg-muted/30",
+					isRightClickable && "cursor-pointer hover:bg-muted/30",
 				)}
-			</span>
-			{/* Add comment indicator */}
-			<span className="w-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-				{isClickable && (
-					<MessageSquarePlus className="size-3 text-violet-500" />
-				)}
-			</span>
-			{/* Code content */}
-			<code className="min-w-0 flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto">
-				{(highlightedHtml ?? cachedHtml) ? (
-					<span
-						// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output
-						dangerouslySetInnerHTML={{
-							__html: highlightedHtml ?? cachedHtml ?? "",
-						}}
-					/>
-				) : (
-					<span>{line.content}</span>
-				)}
-			</code>
+				{...rightInteractiveProps}
+			>
+				{/* Line number */}
+				<span className="text-muted-foreground text-xs w-12 text-right px-2 py-0.5 shrink-0 border-r border-border/50">
+					{right?.newLineNumber ?? ""}
+				</span>
+				{/* Add comment indicator */}
+				<span className="w-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+					{isRightClickable && (
+						<MessageSquarePlus className="size-3 text-violet-500" />
+					)}
+				</span>
+				{/* Code content */}
+				<code className="min-w-0 flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto">
+					{right ? (
+						rightHtml ? (
+							<span
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output
+								dangerouslySetInnerHTML={{ __html: rightHtml }}
+							/>
+						) : (
+							<span>{right.content}</span>
+						)
+					) : (
+						<span>&nbsp;</span>
+					)}
+				</code>
+			</div>
 		</div>
 	);
 });
@@ -766,36 +844,45 @@ function DiffHunkView({
 	/** Callback when comment form is cancelled */
 	onCommentCancel?: () => void;
 }) {
+	// Pair lines for side-by-side display
+	const pairs = useMemo(() => pairHunkLines(hunk.lines), [hunk.lines]);
+
 	return (
 		<div className="border-b last:border-b-0">
 			{/* Hunk header */}
 			<div className="bg-muted/50 px-4 py-1 font-mono text-xs text-muted-foreground border-b">
 				{hunk.header}
 			</div>
-			{/* Hunk lines */}
+			{/* Hunk lines - side by side */}
 			<div>
-				{hunk.lines.map((hunkLine, idx) => {
+				{pairs.map((pair, idx) => {
+					// Determine which line number to use for comments
+					// For paired rows, use the right (new) line number
+					// For pure deletions, use old line number if it doesn't exist in new file
 					let comments: ReviewComment[] = [];
+					let targetLineNumber: number | null = null;
 
-					if (hunkLine.type === "del" && hunkLine.oldLineNumber) {
-						// For deletions: only show comment if this line number does NOT exist in new file
-						// (i.e., it's a pure deletion, not a modification)
-						if (!newFileLineNumbers.has(hunkLine.oldLineNumber)) {
-							comments = commentsByLine.get(hunkLine.oldLineNumber) ?? [];
+					if (pair.right?.newLineNumber) {
+						// Additions/context/paired: use new line number
+						targetLineNumber = pair.right.newLineNumber;
+						comments = commentsByLine.get(targetLineNumber) ?? [];
+					} else if (pair.left?.type === "del" && pair.left.oldLineNumber) {
+						// Pure deletion: only show comment if line doesn't exist in new file
+						if (!newFileLineNumbers.has(pair.left.oldLineNumber)) {
+							targetLineNumber = pair.left.oldLineNumber;
+							comments = commentsByLine.get(targetLineNumber) ?? [];
 						}
-					} else if (hunkLine.newLineNumber) {
-						// For additions/context: always show comments
-						comments = commentsByLine.get(hunkLine.newLineNumber) ?? [];
 					}
 
 					const showCommentForm =
 						activeCommentLine !== null &&
-						activeCommentLine === hunkLine.newLineNumber;
+						pair.right?.newLineNumber !== null &&
+						activeCommentLine === pair.right?.newLineNumber;
 
 					return (
 						<div key={`${hunk.oldStart}-${hunk.newStart}-${idx}`}>
-							<DiffLineView
-								line={hunkLine}
+							<SideBySideDiffLine
+								pair={pair}
 								language={language}
 								onLineClick={onLineClick}
 							/>
