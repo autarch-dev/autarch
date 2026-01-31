@@ -1965,15 +1965,21 @@ When ready, submit your plan using the \`submit_plan\` tool.`;
 	): Promise<void> {
 		const repos = getRepositories();
 
-		// Delete all preflight and execution sessions (and their messages)
+		// Delete review cards (will be recreated after execution completes)
+		await this.artifactRepo.deleteReviewCardsByWorkflow(workflowId);
+
+		// Delete all preflight, execution, and review sessions (and their messages)
 		const deletedCount = await repos.sessions.deleteByContextAndRoles(
 			"workflow",
 			workflowId,
-			["preflight", "execution"],
+			["preflight", "execution", "review"],
 		);
 		log.workflow.info(
 			`Deleted ${deletedCount} execution-phase sessions for workflow ${workflowId}`,
 		);
+
+		// Update workflow status to in_progress so transition to review works correctly
+		await this.workflowRepo.transitionStage(workflowId, "in_progress", null);
 
 		// Re-initialize pulsing (creates new worktree and branch)
 		const pulsingResult =
