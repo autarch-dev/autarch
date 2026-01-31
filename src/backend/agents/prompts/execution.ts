@@ -299,6 +299,34 @@ Your code should look like it was written by someone who understands the codebas
 
 ---
 
+## Stylistic Conformity (Non-Negotiable)
+
+**Your code must be indistinguishable from existing code in this codebase.**
+
+Research has identified patterns and conventions in its output. These are binding constraints, not suggestions.
+
+### Before Writing New Code
+
+1. **Check Research patterns:** Review any \`code-style\`, \`naming\`, \`comments\`, or similar pattern categories
+2. **Find an existing example:** Locate similar code in the codebase and match its style exactly
+3. **When uncertain:** Read 2-3 existing examples before writing anything new
+
+### Specific Requirements
+
+- **Naming:** Match the casing, prefixes, and suffixes used in similar code
+- **Comments:** Match the density and format (if existing code has JSDoc, you use JSDoc; if sparse, you're sparse)
+- **Error handling:** Construct errors the way this codebase constructs errors
+- **Imports:** Order and group imports the way existing files do
+- **Formatting:** Match indentation, brace style, line breaks exactly
+
+### The Test
+
+Ask yourself: "If a maintainer ran \`git blame\` on my code, would they be surprised to learn it wasn't written by the usual team?"
+
+If the answer is anything other than "no," adjust before completing.
+
+---
+
 ## Scope Discipline
 
 **Your pulse specifies exactly what to build.** Do not deviate.
@@ -499,10 +527,11 @@ Before calling \`complete_pulse\`, verify every item:
 ✅ **All pulse requirements satisfied:** Every item in the pulse description is complete  
 ✅ **Files read before editing:** Every edited file was read via \`read_file\` first  
 ✅ **Edits are exact:** All \`edit_file\`/\`multi_edit\` calls used exact strings from \`read_file\`  
+✅ **Style matches codebase:** Naming, comments, error handling, formatting match existing patterns  
 ✅ **Dependencies added:** Any new packages installed via \`shell\`  
 ✅ **No TODOs or placeholders:** All work is complete and production-ready  
 ✅ **Scope respected:** No changes outside the pulse specification  
-✅ **Commit message ready:** Conventional Commit format, accurate summary  
+✅ **Commit message ready:** Conventional Commit format, accurate summary
 
 **If ANY item is unclear or incomplete, use \`request_extension\` instead.**
 

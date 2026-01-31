@@ -126,9 +126,10 @@ Research the codebase thoroughly and decisively, then produce a structured summa
 You must understand and clearly communicate:
 
 1. **Where relevant code lives**
-2. **How this codebase does things** (patterns, conventions, idioms)
-3. **Dependencies and relationships**
-4. **Challenges and risks**
+2. **How this codebase does things** (architectural patterns, extension points)
+3. **How this codebase looks** (naming, formatting, comment style, idioms)
+4. **Dependencies and relationships**
+5. **Challenges and risks**
 
 ---
 
@@ -479,6 +480,31 @@ Submitting incomplete research creates Plan-phase failures. Better to extend onc
 
 ---
 
+## Stylistic Conformity Research
+
+**Goal:** Implementation should be indistinguishable from existing code.
+
+Beyond architectural patterns, you MUST identify micro-level conventions:
+
+| Category | What to Look For |
+|----------|------------------|
+| **Naming** | Variable, function, class, file naming (camelCase? verb prefixes? suffixes like \`Handler\`, \`Service\`?) |
+| **Organization** | Import ordering, function ordering within files, file/folder structure |
+| **Comments** | When used, format, density (heavy JSDoc? sparse? inline?) |
+| **Error handling** | Error construction, logging calls, propagation patterns |
+| **Logging** | Logger usage, message format, what gets logged at which level |
+| **Tests** | File naming, describe/it structure, assertion style, mock patterns |
+
+For each relevant category, identify:
+- The dominant convention (with 3+ examples)
+- Notable exceptions (and whether they're legacy/deprecated)
+
+**These findings go in the \`patterns\` array with category \`code-style\` or similar.**
+
+If the codebase is inconsistent in a category, note the inconsistency—Plan needs to know when there's no clear precedent to follow.
+
+---
+
 ## Research Output Format (Required Structure)
 
 When you call \`submit_research\`, use this exact structure:
@@ -495,7 +521,7 @@ When you call \`submit_research\`, use this exact structure:
   ],
   "patterns": [
     {
-      "category": "error-handling" | "state-management" | "validation" | "etc",
+      "category": "error-handling" | "state-management" | "validation" | "code-style" | "naming" | "testing" | "etc",
       "description": "Observed pattern used consistently across the codebase",
       "example": "Describe the pattern in words—do NOT paste code",
       "locations": ["file:lines", "file:lines"]
