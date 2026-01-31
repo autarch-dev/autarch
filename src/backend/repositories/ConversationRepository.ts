@@ -149,19 +149,34 @@ export class ConversationRepository implements Repository {
 	private async buildSessionMessages(
 		sessionId: string,
 	): Promise<ChannelMessage[]> {
-		// Get turns for this session (excluding hidden turns like nudges)
+		// Get turns for this session with agent_role via JOIN (excluding hidden turns like nudges)
 		const turns = await this.db
 			.selectFrom("turns")
-			.selectAll()
-			.where("session_id", "=", sessionId)
-			.where("hidden", "=", 0)
-			.orderBy("turn_index", "asc")
+			.innerJoin("sessions", "sessions.id", "turns.session_id")
+			.select([
+				"turns.id",
+				"turns.session_id",
+				"turns.turn_index",
+				"turns.role",
+				"turns.status",
+				"turns.token_count",
+				"turns.prompt_tokens",
+				"turns.completion_tokens",
+				"turns.model_id",
+				"turns.hidden",
+				"turns.created_at",
+				"turns.completed_at",
+				"sessions.agent_role",
+			])
+			.where("turns.session_id", "=", sessionId)
+			.where("turns.hidden", "=", 0)
+			.orderBy("turns.turn_index", "asc")
 			.execute();
 
 		const messages: ChannelMessage[] = [];
 
 		for (const turn of turns) {
-			const message = await this.buildTurnMessage(turn);
+			const message = await this.buildTurnMessage(turn, turn.agent_role);
 			if (message) {
 				messages.push(message);
 			}
@@ -175,7 +190,21 @@ export class ConversationRepository implements Repository {
 	 * All JSON fields are validated against their schemas.
 	 */
 	private async buildTurnMessage(
-		turn: TurnsTable,
+		turn: {
+			id: string;
+			session_id: string;
+			turn_index: number;
+			role: string;
+			status: string;
+			token_count: number | null;
+			prompt_tokens: number | null;
+			completion_tokens: number | null;
+			model_id: string | null;
+			hidden: number;
+			created_at: number;
+			completed_at: number | null;
+		},
+		agentRole?: string | null,
 	): Promise<ChannelMessage | null> {
 		// Get messages for this turn
 		const turnMessages = await this.db
@@ -256,6 +285,7 @@ export class ConversationRepository implements Repository {
 					? questions.map((q) => this.toMessageQuestion(q))
 					: undefined,
 			cost,
+			agentRole: agentRole ?? undefined,
 		};
 	}
 

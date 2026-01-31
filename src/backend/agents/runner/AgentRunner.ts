@@ -1033,6 +1033,7 @@ export class AgentRunner {
 					sessionId: this.session.id,
 					turnId: turn.id,
 					role,
+					agentRole: this.session.agentRole,
 				}),
 			);
 		}
@@ -1072,6 +1073,7 @@ export class AgentRunner {
 				turnId,
 				tokenCount: usage?.tokenCount,
 				cost,
+				agentRole: this.session.agentRole,
 			}),
 		);
 	}

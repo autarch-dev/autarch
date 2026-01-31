@@ -216,6 +216,8 @@ export const TurnStartedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	role: TurnRoleSchema,
+	/** Agent role from session (e.g., scoping, research, planning, execution) */
+	agentRole: z.string().optional(),
 });
 export type TurnStartedPayload = z.infer<typeof TurnStartedPayloadSchema>;
 
@@ -232,6 +234,8 @@ export const TurnCompletedPayloadSchema = z.object({
 	tokenCount: z.number().optional(),
 	/** Calculated cost for this turn (if available) */
 	cost: z.number().optional(),
+	/** Agent role from session (e.g., scoping, research, planning, execution) */
+	agentRole: z.string().optional(),
 });
 export type TurnCompletedPayload = z.infer<typeof TurnCompletedPayloadSchema>;
 

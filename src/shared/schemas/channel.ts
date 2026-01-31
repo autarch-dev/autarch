@@ -110,6 +110,8 @@ export const ChannelMessageSchema = z.object({
 	questionsComment: z.string().optional(),
 	/** Calculated cost for this message (assistant turns only) */
 	cost: z.number().optional(),
+	/** Agent role from session (e.g., discussion, scoping, research, planning, execution) */
+	agentRole: z.string().optional(),
 });
 export type ChannelMessage = z.infer<typeof ChannelMessageSchema>;
 
