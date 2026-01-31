@@ -5,7 +5,11 @@
  * stageAllChanges, commitChanges, createRecoveryCheckpoint.
  */
 
-import { describe, expect, test } from "bun:test";
+import { test as bunTest, describe, expect } from "bun:test";
+
+// Use serial tests to avoid flakiness when stdin is /dev/null (Bun bug)
+const test = bunTest.serial;
+
 import {
 	commitChanges,
 	createRecoveryCheckpoint,

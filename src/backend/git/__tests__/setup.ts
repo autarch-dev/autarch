@@ -40,6 +40,7 @@ export function scaffoldGitRepository(options: ScaffoldOptions = {}): string {
 	// Initialize git repository
 	const initProc = Bun.spawnSync(["git", "init"], {
 		cwd: tempDir,
+		stdin: "ignore",
 		stdout: "pipe",
 		stderr: "pipe",
 	});
@@ -54,6 +55,7 @@ export function scaffoldGitRepository(options: ScaffoldOptions = {}): string {
 		["git", "config", "user.email", "test@example.com"],
 		{
 			cwd: tempDir,
+			stdin: "ignore",
 			stdout: "pipe",
 			stderr: "pipe",
 		},
@@ -67,6 +69,7 @@ export function scaffoldGitRepository(options: ScaffoldOptions = {}): string {
 	// Configure user name
 	const nameProc = Bun.spawnSync(["git", "config", "user.name", "Test User"], {
 		cwd: tempDir,
+		stdin: "ignore",
 		stdout: "pipe",
 		stderr: "pipe",
 	});
@@ -81,6 +84,7 @@ export function scaffoldGitRepository(options: ScaffoldOptions = {}): string {
 		// Create a README file
 		Bun.spawnSync(["touch", "README.md"], {
 			cwd: tempDir,
+			stdin: "ignore",
 			stdout: "pipe",
 			stderr: "pipe",
 		});
@@ -92,6 +96,7 @@ export function scaffoldGitRepository(options: ScaffoldOptions = {}): string {
 		// Stage the files
 		const addProc = Bun.spawnSync(["git", "add", "README.md", ".gitignore"], {
 			cwd: tempDir,
+			stdin: "ignore",
 			stdout: "pipe",
 			stderr: "pipe",
 		});
@@ -104,6 +109,7 @@ export function scaffoldGitRepository(options: ScaffoldOptions = {}): string {
 			["git", "commit", "-m", "Initial commit"],
 			{
 				cwd: tempDir,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			},

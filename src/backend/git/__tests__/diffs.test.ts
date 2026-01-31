@@ -4,7 +4,11 @@
  * Tests diff operations: getDiff, getUncommittedDiff.
  */
 
-import { describe, expect, test } from "bun:test";
+import { test as bunTest, describe, expect } from "bun:test";
+
+// Use serial tests to avoid flakiness when stdin is /dev/null (Bun bug)
+const test = bunTest.serial;
+
 import { commitChanges, stageAllChanges } from "../commits";
 import { getDiff, getUncommittedDiff } from "../diffs";
 import { scaffoldGitRepository } from "./setup";

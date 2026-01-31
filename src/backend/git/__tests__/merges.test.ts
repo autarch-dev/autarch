@@ -5,7 +5,10 @@
  * squashMerge, mergeCommit, rebaseMerge, mergeWorkflowBranch, mergePulseBranch.
  */
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test as bunTest } from "bun:test";
+
+// Use serial tests to avoid flakiness when stdin is /dev/null (Bun bug)
+const test = bunTest.serial;
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { branchExists, createWorkflowBranch } from "../branches";
@@ -34,11 +37,13 @@ function createFileAndCommit(
 	writeFileSync(join(cwd, filename), content);
 	Bun.spawnSync(["git", "add", filename], {
 		cwd,
+		stdin: "ignore",
 		stdout: "pipe",
 		stderr: "pipe",
 	});
 	Bun.spawnSync(["git", "commit", "-m", message], {
 		cwd,
+		stdin: "ignore",
 		stdout: "pipe",
 		stderr: "pipe",
 	});
@@ -58,12 +63,14 @@ function createCommitWithTrailer(
 	writeFileSync(join(cwd, filename), content);
 	Bun.spawnSync(["git", "add", filename], {
 		cwd,
+		stdin: "ignore",
 		stdout: "pipe",
 		stderr: "pipe",
 	});
 	const fullMessage = `${message}\n\n${trailerKey}: ${trailerValue}`;
 	Bun.spawnSync(["git", "commit", "-m", fullMessage], {
 		cwd,
+		stdin: "ignore",
 		stdout: "pipe",
 		stderr: "pipe",
 	});
@@ -75,6 +82,7 @@ function createCommitWithTrailer(
 function getCurrentBranchSync(cwd: string): string {
 	const result = Bun.spawnSync(["git", "rev-parse", "--abbrev-ref", "HEAD"], {
 		cwd,
+		stdin: "ignore",
 		stdout: "pipe",
 		stderr: "pipe",
 	});
@@ -89,6 +97,7 @@ function getParentCount(cwd: string, ref: string): number {
 		["git", "rev-list", "--parents", "-n", "1", ref],
 		{
 			cwd,
+			stdin: "ignore",
 			stdout: "pipe",
 			stderr: "pipe",
 		},
@@ -111,6 +120,7 @@ describe("merges", () => {
 			const featureBranch = "feature-ff";
 			Bun.spawnSync(["git", "branch", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -118,6 +128,7 @@ describe("merges", () => {
 			// Checkout feature branch and add a commit
 			Bun.spawnSync(["git", "checkout", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -131,6 +142,7 @@ describe("merges", () => {
 			// Get the feature branch commit
 			const featureCommit = Bun.spawnSync(["git", "rev-parse", "HEAD"], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			})
@@ -140,6 +152,7 @@ describe("merges", () => {
 			// Checkout base branch
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -150,6 +163,7 @@ describe("merges", () => {
 			// Verify base branch now points to feature commit
 			const baseCommit = Bun.spawnSync(["git", "rev-parse", "HEAD"], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			})
@@ -169,6 +183,7 @@ describe("merges", () => {
 			const featureBranch = "feature-diverged";
 			Bun.spawnSync(["git", "branch", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -184,6 +199,7 @@ describe("merges", () => {
 			// Checkout feature branch and add a different commit
 			Bun.spawnSync(["git", "checkout", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -197,6 +213,7 @@ describe("merges", () => {
 			// Go back to base branch
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -217,6 +234,7 @@ describe("merges", () => {
 			const featureBranch = "feature-trailers";
 			Bun.spawnSync(["git", "branch", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -224,6 +242,7 @@ describe("merges", () => {
 			// Checkout feature branch
 			Bun.spawnSync(["git", "checkout", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -281,6 +300,7 @@ describe("merges", () => {
 				["git", "rev-list", "--count", baseBranch],
 				{
 					cwd: repoRoot,
+					stdin: "ignore",
 					stdout: "pipe",
 					stderr: "pipe",
 				},
@@ -292,6 +312,7 @@ describe("merges", () => {
 			const featureBranch = "feature-squash";
 			Bun.spawnSync(["git", "branch", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -299,6 +320,7 @@ describe("merges", () => {
 			// Checkout feature branch and add multiple commits
 			Bun.spawnSync(["git", "checkout", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -324,6 +346,7 @@ describe("merges", () => {
 			// Checkout base branch
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -336,6 +359,7 @@ describe("merges", () => {
 				["git", "rev-list", "--count", baseBranch],
 				{
 					cwd: repoRoot,
+					stdin: "ignore",
 					stdout: "pipe",
 					stderr: "pipe",
 				},
@@ -363,6 +387,7 @@ describe("merges", () => {
 			const featureBranch = "feature-squash-trailers";
 			Bun.spawnSync(["git", "branch", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -370,6 +395,7 @@ describe("merges", () => {
 			// Checkout feature branch and add commits with pulse ID trailers
 			Bun.spawnSync(["git", "checkout", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -394,6 +420,7 @@ describe("merges", () => {
 			// Checkout base branch
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -408,6 +435,7 @@ describe("merges", () => {
 			// Verify the squash commit message contains extracted pulse IDs
 			const logResult = Bun.spawnSync(["git", "log", "-1", "--format=%B"], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -430,6 +458,7 @@ describe("merges", () => {
 			const featureBranch = "feature-merge-commit";
 			Bun.spawnSync(["git", "branch", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -445,6 +474,7 @@ describe("merges", () => {
 			// Checkout feature branch and add commits
 			Bun.spawnSync(["git", "checkout", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -458,6 +488,7 @@ describe("merges", () => {
 			// Go back to base branch
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -482,6 +513,7 @@ describe("merges", () => {
 			const featureBranch = "feature-rebase";
 			Bun.spawnSync(["git", "branch", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -489,6 +521,7 @@ describe("merges", () => {
 			// Checkout feature branch and add commits
 			Bun.spawnSync(["git", "checkout", featureBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -508,6 +541,7 @@ describe("merges", () => {
 			// Go back to base and add a commit (so rebase is needed)
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -585,6 +619,7 @@ describe("merges", () => {
 			// Verify the rebased files are in base branch
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -665,6 +700,7 @@ describe("merges", () => {
 			// Verify base branch has the file (merge happened)
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -707,6 +743,7 @@ describe("merges", () => {
 				["git", "rev-list", "--count", baseBranch],
 				{
 					cwd: repoRoot,
+					stdin: "ignore",
 					stdout: "pipe",
 					stderr: "pipe",
 				},
@@ -727,6 +764,7 @@ describe("merges", () => {
 			// Verify base branch has the files
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -738,6 +776,7 @@ describe("merges", () => {
 				["git", "rev-list", "--count", baseBranch],
 				{
 					cwd: repoRoot,
+					stdin: "ignore",
 					stdout: "pipe",
 					stderr: "pipe",
 				},
@@ -781,6 +820,7 @@ describe("merges", () => {
 			// Verify base branch has the file
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -825,6 +865,7 @@ describe("merges", () => {
 			// Verify base branch has the file
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -853,6 +894,7 @@ describe("merges", () => {
 			const pulseBranch = `${workflowBranch}-pulse-001`;
 			Bun.spawnSync(["git", "branch", pulseBranch], {
 				cwd: worktreePath,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -860,6 +902,7 @@ describe("merges", () => {
 			// Checkout pulse branch and add a commit
 			Bun.spawnSync(["git", "checkout", pulseBranch], {
 				cwd: worktreePath,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -878,6 +921,7 @@ describe("merges", () => {
 			// Remove the dirty file for this test
 			Bun.spawnSync(["rm", "dirty.txt"], {
 				cwd: worktreePath,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -909,6 +953,7 @@ describe("merges", () => {
 			const conflictBranch = "feature-conflict";
 			Bun.spawnSync(["git", "branch", conflictBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -924,12 +969,14 @@ describe("merges", () => {
 			// Checkout conflict branch and add conflicting content to same file
 			Bun.spawnSync(["git", "checkout", conflictBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
 			// First reset to have the same starting point, then make conflicting change
 			Bun.spawnSync(["git", "reset", "--hard", "HEAD~1"], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -943,6 +990,7 @@ describe("merges", () => {
 			// Go back to base
 			Bun.spawnSync(["git", "checkout", baseBranch], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -960,6 +1008,7 @@ describe("merges", () => {
 			// Verify repo is in a clean state (no rebase in progress)
 			const statusResult = Bun.spawnSync(["git", "status"], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
@@ -971,6 +1020,7 @@ describe("merges", () => {
 			// Should be able to perform git operations
 			const logResult = Bun.spawnSync(["git", "log", "-1", "--oneline"], {
 				cwd: repoRoot,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});
