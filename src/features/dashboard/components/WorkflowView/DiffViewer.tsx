@@ -9,6 +9,7 @@
  * - Modal trigger for viewing from ReviewCardApproval
  */
 
+import { diffWords } from "diff";
 import {
 	ChevronDown,
 	ChevronRight,
@@ -548,7 +549,65 @@ function FileTree({
 }
 
 // Module-level cache for highlighted diff lines
+// Cache key format:
+// - Single content: "<language>:<content>"
+// - Word diff pair: "<language>:word:<oldContent>:<newContent>:<side>"
 const diffHighlightCache = new Map<string, string>();
+
+/**
+ * Escape HTML entities in a string to prevent XSS and ensure proper rendering
+ */
+function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
+}
+
+/**
+ * Apply word-level diff highlighting to paired lines.
+ * Returns { left, right } with HTML markup for changed segments.
+ * Falls back to original content if diffWords fails or returns empty.
+ */
+function applyWordDiff(
+	oldContent: string,
+	newContent: string,
+): { left: string; right: string } | null {
+	try {
+		const changes = diffWords(oldContent, newContent);
+
+		// Defensive: if no changes returned, fall back
+		if (!changes || changes.length === 0) {
+			return null;
+		}
+
+		let leftHtml = "";
+		let rightHtml = "";
+
+		for (const change of changes) {
+			const escapedValue = escapeHtml(change.value);
+
+			if (change.removed) {
+				// Removed text: only appears on the left (old) side
+				leftHtml += `<mark class="bg-red-500/30">${escapedValue}</mark>`;
+			} else if (change.added) {
+				// Added text: only appears on the right (new) side
+				rightHtml += `<mark class="bg-green-500/30">${escapedValue}</mark>`;
+			} else {
+				// Unchanged text: appears on both sides
+				leftHtml += escapedValue;
+				rightHtml += escapedValue;
+			}
+		}
+
+		return { left: leftHtml, right: rightHtml };
+	} catch {
+		// If diffWords throws, fall back to original content
+		return null;
+	}
+}
 
 /**
  * Inline form for adding a comment
@@ -688,6 +747,102 @@ function pairHunkLines(lines: DiffLine[]): SideBySidePair[] {
 }
 
 /**
+ * Hook for word-level diff highlighting on paired del/add lines.
+ * Returns { leftHtml, rightHtml } with word-level diff markup applied,
+ * or null if word diff is not applicable (context lines, unpaired lines, or failure).
+ */
+function useWordDiffHighlightedCode(
+	leftContent: string | null,
+	rightContent: string | null,
+	leftType: "add" | "del" | "context" | undefined,
+	rightType: "add" | "del" | "context" | undefined,
+	language: string,
+): { leftHtml: string | null; rightHtml: string | null } | null {
+	const [result, setResult] = useState<{
+		leftHtml: string | null;
+		rightHtml: string | null;
+	} | null>(null);
+
+	// Only apply word diff to paired del/add lines (not context, not unpaired)
+	const isPairedModification =
+		leftType === "del" &&
+		rightType === "add" &&
+		leftContent !== null &&
+		rightContent !== null;
+
+	// Cache key includes both contents for word diff scenarios
+	const cacheKeyLeft = isPairedModification
+		? `${language}:word:${leftContent}:${rightContent}:left`
+		: null;
+	const cacheKeyRight = isPairedModification
+		? `${language}:word:${leftContent}:${rightContent}:right`
+		: null;
+
+	const cachedLeft = cacheKeyLeft
+		? diffHighlightCache.get(cacheKeyLeft)
+		: undefined;
+	const cachedRight = cacheKeyRight
+		? diffHighlightCache.get(cacheKeyRight)
+		: undefined;
+
+	useEffect(() => {
+		if (!isPairedModification || !leftContent || !rightContent) {
+			setResult(null);
+			return;
+		}
+
+		// Check cache first
+		if (cachedLeft !== undefined && cachedRight !== undefined) {
+			setResult({ leftHtml: cachedLeft, rightHtml: cachedRight });
+			return;
+		}
+
+		// Compute word diff
+		const wordDiffResult = applyWordDiff(leftContent, rightContent);
+		if (!wordDiffResult) {
+			setResult(null);
+			return;
+		}
+
+		let cancelled = false;
+
+		// Now apply syntax highlighting to the word-diff result
+		// We pass the pre-escaped HTML content with marks to Shiki
+		// Since the content already has HTML, we need to handle this carefully
+		// Actually, we should apply syntax highlighting first, then word diff
+		// But that's complex. For now, skip syntax highlighting for word-diff lines
+		// and just use the word-diff markup directly.
+
+		// Store in cache
+		if (cacheKeyLeft && cacheKeyRight) {
+			diffHighlightCache.set(cacheKeyLeft, wordDiffResult.left);
+			diffHighlightCache.set(cacheKeyRight, wordDiffResult.right);
+		}
+
+		if (!cancelled) {
+			setResult({
+				leftHtml: wordDiffResult.left,
+				rightHtml: wordDiffResult.right,
+			});
+		}
+
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		isPairedModification,
+		leftContent,
+		rightContent,
+		cacheKeyLeft,
+		cacheKeyRight,
+		cachedLeft,
+		cachedRight,
+	]);
+
+	return isPairedModification ? result : null;
+}
+
+/**
  * Side-by-side diff line component - renders a paired row with left (old) and right (new) columns
  */
 const SideBySideDiffLine = memo(function SideBySideDiffLine({
@@ -701,12 +856,34 @@ const SideBySideDiffLine = memo(function SideBySideDiffLine({
 }) {
 	const { left, right } = pair;
 
-	// Highlight both sides independently
-	const leftHtml = useHighlightedCode(left?.content ?? "", language);
-	const rightHtml = useHighlightedCode(right?.content ?? "", language);
-
 	// For context lines, left and right are the same line object
 	const isContext = left?.type === "context" && right?.type === "context";
+
+	// Check if this is a paired del/add (modification)
+	const isPairedModification = left?.type === "del" && right?.type === "add";
+
+	// Try word-level diff for paired modifications
+	const wordDiffResult = useWordDiffHighlightedCode(
+		left?.content ?? null,
+		right?.content ?? null,
+		left?.type,
+		right?.type,
+		language,
+	);
+
+	// Fall back to regular syntax highlighting if word diff is not applicable or failed
+	const leftHighlighted = useHighlightedCode(left?.content ?? "", language);
+	const rightHighlighted = useHighlightedCode(right?.content ?? "", language);
+
+	// Use word diff result if available, otherwise use regular highlighting
+	const leftHtml =
+		isPairedModification && wordDiffResult?.leftHtml
+			? wordDiffResult.leftHtml
+			: leftHighlighted;
+	const rightHtml =
+		isPairedModification && wordDiffResult?.rightHtml
+			? wordDiffResult.rightHtml
+			: rightHighlighted;
 
 	const handleRightClick = () => {
 		if (
@@ -757,7 +934,7 @@ const SideBySideDiffLine = memo(function SideBySideDiffLine({
 					{left ? (
 						leftHtml ? (
 							<span
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki/word-diff output
 								dangerouslySetInnerHTML={{ __html: leftHtml }}
 							/>
 						) : (
@@ -795,7 +972,7 @@ const SideBySideDiffLine = memo(function SideBySideDiffLine({
 					{right ? (
 						rightHtml ? (
 							<span
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki/word-diff output
 								dangerouslySetInnerHTML={{ __html: rightHtml }}
 							/>
 						) : (
