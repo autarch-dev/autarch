@@ -83,7 +83,6 @@ export function WorkflowHeader({
 						</DropdownMenu>
 					</div>
 				</div>
-
 				{/* Phase Progress */}
 				{workflow.status !== "backlog" && (
 					<PhaseIndicator

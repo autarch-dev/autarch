@@ -36,7 +36,7 @@ export function PhaseIndicator({
 				const isViewed = phase === viewedStage;
 
 				return (
-					<div key={phase} className="flex items-center">
+					<div key={phase} className="flex items-center m-1">
 						{idx > 0 && (
 							<div
 								className={cn(
@@ -62,7 +62,7 @@ export function PhaseIndicator({
 										isComplete && "text-green-500",
 										isPending && "text-muted-foreground",
 										isEnabled ? "cursor-pointer" : "cursor-not-allowed",
-										isViewed && "ring-2 ring-offset-2 ring-current",
+										isViewed && "ring-1 ring-current",
 									)}
 									onClick={() => onStageClick?.(phase)}
 								>
