@@ -9,6 +9,7 @@
  * - Modal trigger for viewing from ReviewCardApproval
  */
 
+import { diffWords } from "diff";
 import {
 	ChevronDown,
 	ChevronRight,
@@ -16,15 +17,27 @@ import {
 	FileMinus,
 	FilePlus,
 	Filter,
+	Folder,
 	GitCompareArrows,
 	MessageSquarePlus,
-	Minus,
-	Plus,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useState } from "react";
 import { codeToHtml } from "shiki";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Select,
@@ -299,62 +312,320 @@ function getUniqueExtensions(files: DiffFile[]): string[] {
 // Sub-Components
 // =============================================================================
 
-/**
- * File tree item showing a single file with stats
- */
-function FileTreeItem({
-	file,
-	isSelected,
-	onSelect,
-}: {
-	file: DiffFile;
-	isSelected: boolean;
-	onSelect: () => void;
-}) {
-	const StatusIcon =
-		file.status === "added"
-			? FilePlus
-			: file.status === "deleted"
-				? FileMinus
-				: FileCode;
+// =============================================================================
+// File Tree Types & Helpers
+// =============================================================================
 
-	const statusColor =
-		file.status === "added"
-			? "text-green-500"
-			: file.status === "deleted"
-				? "text-red-500"
-				: "text-blue-500";
+/** Tree node representing a folder or file in the hierarchy */
+interface TreeNode {
+	type: "folder" | "file";
+	name: string;
+	children: Map<string, TreeNode>;
+	file?: DiffFile;
+}
+
+/**
+ * Build a hierarchical tree structure from a flat list of files
+ */
+function buildFileTree(files: DiffFile[]): TreeNode {
+	const root: TreeNode = {
+		type: "folder",
+		name: "",
+		children: new Map(),
+	};
+
+	for (const file of files) {
+		const parts = file.path.split("/");
+		let current = root;
+
+		for (let i = 0; i < parts.length; i++) {
+			const part = parts[i];
+			if (!part) continue;
+
+			const isLastPart = i === parts.length - 1;
+
+			if (isLastPart) {
+				// This is the file
+				current.children.set(part, {
+					type: "file",
+					name: part,
+					children: new Map(),
+					file,
+				});
+			} else {
+				// This is a folder - create if it doesn't exist
+				let next = current.children.get(part);
+				if (!next) {
+					next = {
+						type: "folder",
+						name: part,
+						children: new Map(),
+					};
+					current.children.set(part, next);
+				}
+				current = next;
+			}
+		}
+	}
+
+	return root;
+}
+
+/**
+ * Recursive tree node renderer for folders and files
+ */
+function FileTreeNode({
+	node,
+	selectedFile,
+	onSelect,
+	depth = 0,
+	expandedFolders,
+	setExpandedFolders,
+	parentPath = "",
+}: {
+	node: TreeNode;
+	selectedFile: DiffFile | null;
+	onSelect: (file: DiffFile) => void;
+	depth?: number;
+	expandedFolders: Set<string>;
+	setExpandedFolders: React.Dispatch<React.SetStateAction<Set<string>>>;
+	/** Accumulated path from parent folders */
+	parentPath?: string;
+}) {
+	const sortedChildren = useMemo(() => {
+		const entries = Array.from(node.children.entries());
+		// Sort: folders first, then files, alphabetically within each group
+		return entries.sort((a, b) => {
+			if (a[1].type !== b[1].type) {
+				return a[1].type === "folder" ? -1 : 1;
+			}
+			return a[0].localeCompare(b[0]);
+		});
+	}, [node.children]);
+
+	if (node.type === "file" && node.file) {
+		const file = node.file;
+		const StatusIcon =
+			file.status === "added"
+				? FilePlus
+				: file.status === "deleted"
+					? FileMinus
+					: FileCode;
+
+		const statusColor =
+			file.status === "added"
+				? "text-green-500"
+				: file.status === "deleted"
+					? "text-red-500"
+					: "text-blue-500";
+
+		return (
+			<button
+				type="button"
+				onClick={() => onSelect(file)}
+				className={cn(
+					"w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm rounded-md transition-colors",
+					"hover:bg-muted/50",
+					selectedFile === file && "bg-muted",
+				)}
+				style={{ paddingLeft: `${depth * 12 + 8}px` }}
+			>
+				<StatusIcon className={cn("size-4 shrink-0", statusColor)} />
+				<span className="truncate flex-1 font-mono text-xs">{node.name}</span>
+				<div className="flex items-center gap-1 text-xs shrink-0">
+					{file.additions > 0 && (
+						<span className="text-green-600 dark:text-green-400">
+							+{file.additions}
+						</span>
+					)}
+					{file.deletions > 0 && (
+						<span className="text-red-600 dark:text-red-400">
+							-{file.deletions}
+						</span>
+					)}
+				</div>
+			</button>
+		);
+	}
+
+	// Folder node - use full path for unique expansion state
+	const folderPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+	const isOpen = expandedFolders.has(folderPath);
+
+	const toggleFolder = () => {
+		setExpandedFolders((prev) => {
+			const next = new Set(prev);
+			if (next.has(folderPath)) {
+				next.delete(folderPath);
+			} else {
+				next.add(folderPath);
+			}
+			return next;
+		});
+	};
 
 	return (
-		<button
-			type="button"
-			onClick={onSelect}
-			className={cn(
-				"w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm rounded-md transition-colors",
-				"hover:bg-muted/50",
-				isSelected && "bg-muted",
-			)}
-		>
-			<StatusIcon className={cn("size-4 shrink-0", statusColor)} />
-			<span className="truncate flex-1 font-mono text-xs">{file.path}</span>
-			<div className="flex items-center gap-1 text-xs shrink-0">
-				{file.additions > 0 && (
-					<span className="text-green-600 dark:text-green-400">
-						+{file.additions}
-					</span>
+		<Collapsible open={isOpen} onOpenChange={toggleFolder}>
+			<CollapsibleTrigger
+				className={cn(
+					"w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm rounded-md transition-colors",
+					"hover:bg-muted/50",
 				)}
-				{file.deletions > 0 && (
-					<span className="text-red-600 dark:text-red-400">
-						-{file.deletions}
-					</span>
+				style={{ paddingLeft: `${depth * 12 + 8}px` }}
+			>
+				{isOpen ? (
+					<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+				) : (
+					<ChevronRight className="size-4 shrink-0 text-muted-foreground" />
 				)}
-			</div>
-		</button>
+				<Folder className="size-4 shrink-0 text-muted-foreground" />
+				<span className="truncate flex-1 font-mono text-xs">{node.name}</span>
+			</CollapsibleTrigger>
+			<CollapsibleContent>
+				{sortedChildren.map(([name, child]) => (
+					<FileTreeNode
+						key={name}
+						node={child}
+						selectedFile={selectedFile}
+						onSelect={onSelect}
+						depth={depth + 1}
+						expandedFolders={expandedFolders}
+						setExpandedFolders={setExpandedFolders}
+						parentPath={folderPath}
+					/>
+				))}
+			</CollapsibleContent>
+		</Collapsible>
+	);
+}
+
+/**
+ * Hierarchical file tree component
+ */
+function FileTree({
+	files,
+	selectedFile,
+	onSelect,
+}: {
+	files: DiffFile[];
+	selectedFile: DiffFile | null;
+	onSelect: (file: DiffFile) => void;
+}) {
+	const tree = useMemo(() => buildFileTree(files), [files]);
+
+	// Initialize all folders as expanded by collecting all folder paths
+	const allFolderPaths = useMemo(() => {
+		const paths = new Set<string>();
+		const collectFolders = (node: TreeNode, parentPath: string) => {
+			if (node.type === "folder" && node.name) {
+				const fullPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+				paths.add(fullPath);
+				for (const child of node.children.values()) {
+					collectFolders(child, fullPath);
+				}
+			} else {
+				// Root node - just recurse into children
+				for (const child of node.children.values()) {
+					collectFolders(child, parentPath);
+				}
+			}
+		};
+		collectFolders(tree, "");
+		return paths;
+	}, [tree]);
+
+	const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+		() => new Set(allFolderPaths),
+	);
+
+	const sortedChildren = useMemo(() => {
+		const entries = Array.from(tree.children.entries());
+		// Sort: folders first, then files, alphabetically within each group
+		return entries.sort((a, b) => {
+			if (a[1].type !== b[1].type) {
+				return a[1].type === "folder" ? -1 : 1;
+			}
+			return a[0].localeCompare(b[0]);
+		});
+	}, [tree.children]);
+
+	return (
+		<div className="space-y-0.5">
+			{sortedChildren.map(([name, child]) => (
+				<FileTreeNode
+					key={name}
+					node={child}
+					selectedFile={selectedFile}
+					onSelect={onSelect}
+					depth={0}
+					expandedFolders={expandedFolders}
+					setExpandedFolders={setExpandedFolders}
+				/>
+			))}
+		</div>
 	);
 }
 
 // Module-level cache for highlighted diff lines
+// Cache key format:
+// - Single content: "<language>:<content>"
+// - Word diff pair: "<language>:word:<oldContent>:<newContent>:<side>"
 const diffHighlightCache = new Map<string, string>();
+
+/**
+ * Escape HTML entities in a string to prevent XSS and ensure proper rendering
+ */
+function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
+}
+
+/**
+ * Apply word-level diff highlighting to paired lines.
+ * Returns { left, right } with HTML markup for changed segments.
+ * Falls back to original content if diffWords fails or returns empty.
+ */
+function applyWordDiff(
+	oldContent: string,
+	newContent: string,
+): { left: string; right: string } | null {
+	try {
+		const changes = diffWords(oldContent, newContent);
+
+		// Defensive: if no changes returned, fall back
+		if (!changes || changes.length === 0) {
+			return null;
+		}
+
+		let leftHtml = "";
+		let rightHtml = "";
+
+		for (const change of changes) {
+			const escapedValue = escapeHtml(change.value);
+
+			if (change.removed) {
+				// Removed text: only appears on the left (old) side
+				leftHtml += `<mark class="bg-red-500/30">${escapedValue}</mark>`;
+			} else if (change.added) {
+				// Added text: only appears on the right (new) side
+				rightHtml += `<mark class="bg-green-500/30">${escapedValue}</mark>`;
+			} else {
+				// Unchanged text: appears on both sides
+				leftHtml += escapedValue;
+				rightHtml += escapedValue;
+			}
+		}
+
+		return { left: leftHtml, right: rightHtml };
+	} catch {
+		// If diffWords throws, fall back to original content
+		return null;
+	}
+}
 
 /**
  * Inline form for adding a comment
@@ -400,20 +671,11 @@ function AddCommentForm({
 }
 
 /**
- * A single diff line with syntax highlighting
+ * Hook for syntax highlighting a single line of code
  */
-const DiffLineView = memo(function DiffLineView({
-	line,
-	language,
-	onLineClick,
-}: {
-	line: DiffLine;
-	language: string;
-	onLineClick?: (lineNumber: number) => void;
-}) {
+function useHighlightedCode(content: string, language: string) {
 	const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
-
-	const cacheKey = `${language}:${line.content}`;
+	const cacheKey = `${language}:${content}`;
 	const cachedHtml = diffHighlightCache.get(cacheKey);
 
 	useEffect(() => {
@@ -423,20 +685,20 @@ const DiffLineView = memo(function DiffLineView({
 		}
 
 		// Skip highlighting for empty lines
-		if (!line.content.trim()) {
+		if (!content.trim()) {
 			return;
 		}
 
 		let cancelled = false;
 
-		codeToHtml(line.content, {
+		codeToHtml(content, {
 			lang: language,
 			theme: "github-dark",
 		}).then((result) => {
 			if (!cancelled) {
 				// Extract just the code content, stripping wrapper elements
 				const match = result.match(/<code[^>]*>([\s\S]*?)<\/code>/);
-				const codeContent = match?.[1] ?? line.content;
+				const codeContent = match?.[1] ?? content;
 				diffHighlightCache.set(cacheKey, codeContent);
 				setHighlightedHtml(codeContent);
 			}
@@ -445,40 +707,224 @@ const DiffLineView = memo(function DiffLineView({
 		return () => {
 			cancelled = true;
 		};
-	}, [cacheKey, cachedHtml, language, line.content]);
+	}, [cacheKey, cachedHtml, language, content]);
 
-	const bgColor =
-		line.type === "add"
-			? "bg-green-500/10 dark:bg-green-500/15"
-			: line.type === "del"
-				? "bg-red-500/10 dark:bg-red-500/15"
-				: "";
+	return highlightedHtml ?? cachedHtml ?? null;
+}
 
-	const borderColor =
-		line.type === "add"
-			? "border-l-green-500"
-			: line.type === "del"
-				? "border-l-red-500"
-				: "border-l-transparent";
+/** Paired row for side-by-side diff: left (old/del) and right (new/add) */
+interface SideBySidePair {
+	left: DiffLine | null;
+	right: DiffLine | null;
+}
 
-	const lineNumberClass = "text-muted-foreground text-xs w-10 text-right px-2";
+/**
+ * Process hunk lines into paired rows for side-by-side display.
+ * - Consecutive del/add lines are paired together
+ * - Del without matching add: left=del, right=null
+ * - Add without matching del: left=null, right=add
+ * - Context lines: render identically on both sides
+ */
+function pairHunkLines(lines: DiffLine[]): SideBySidePair[] {
+	const pairs: SideBySidePair[] = [];
+	let i = 0;
 
-	const handleClick = () => {
-		// Only allow clicking on lines that have a new line number (additions or context)
-		if (onLineClick && line.newLineNumber !== null) {
-			onLineClick(line.newLineNumber);
+	while (i < lines.length) {
+		const line = lines[i];
+		if (!line) {
+			i++;
+			continue;
+		}
+
+		if (line.type === "context") {
+			// Context lines render identically on both sides
+			pairs.push({ left: line, right: line });
+			i++;
+		} else if (line.type === "del") {
+			// Check if next line is an add (paired modification)
+			const nextLine = lines[i + 1];
+			if (nextLine?.type === "add") {
+				// Paired: del on left, add on right
+				pairs.push({ left: line, right: nextLine });
+				i += 2;
+			} else {
+				// Pure deletion: del on left, empty right
+				pairs.push({ left: line, right: null });
+				i++;
+			}
+		} else if (line.type === "add") {
+			// Pure addition: empty left, add on right
+			pairs.push({ left: null, right: line });
+			i++;
+		} else {
+			i++;
+		}
+	}
+
+	return pairs;
+}
+
+/**
+ * Hook for word-level diff highlighting on paired del/add lines.
+ * Returns { leftHtml, rightHtml } with word-level diff markup applied,
+ * or null if word diff is not applicable (context lines, unpaired lines, or failure).
+ */
+function useWordDiffHighlightedCode(
+	leftContent: string | null,
+	rightContent: string | null,
+	leftType: "add" | "del" | "context" | undefined,
+	rightType: "add" | "del" | "context" | undefined,
+	language: string,
+): { leftHtml: string | null; rightHtml: string | null } | null {
+	const [result, setResult] = useState<{
+		leftHtml: string | null;
+		rightHtml: string | null;
+	} | null>(null);
+
+	// Only apply word diff to paired del/add lines (not context, not unpaired)
+	const isPairedModification =
+		leftType === "del" &&
+		rightType === "add" &&
+		leftContent !== null &&
+		rightContent !== null;
+
+	// Cache key includes both contents for word diff scenarios
+	const cacheKeyLeft = isPairedModification
+		? `${language}:word:${leftContent}:${rightContent}:left`
+		: null;
+	const cacheKeyRight = isPairedModification
+		? `${language}:word:${leftContent}:${rightContent}:right`
+		: null;
+
+	const cachedLeft = cacheKeyLeft
+		? diffHighlightCache.get(cacheKeyLeft)
+		: undefined;
+	const cachedRight = cacheKeyRight
+		? diffHighlightCache.get(cacheKeyRight)
+		: undefined;
+
+	useEffect(() => {
+		if (!isPairedModification || !leftContent || !rightContent) {
+			setResult(null);
+			return;
+		}
+
+		// Check cache first
+		if (cachedLeft !== undefined && cachedRight !== undefined) {
+			setResult({ leftHtml: cachedLeft, rightHtml: cachedRight });
+			return;
+		}
+
+		// Compute word diff
+		const wordDiffResult = applyWordDiff(leftContent, rightContent);
+		if (!wordDiffResult) {
+			setResult(null);
+			return;
+		}
+
+		let cancelled = false;
+
+		// Now apply syntax highlighting to the word-diff result
+		// We pass the pre-escaped HTML content with marks to Shiki
+		// Since the content already has HTML, we need to handle this carefully
+		// Actually, we should apply syntax highlighting first, then word diff
+		// But that's complex. For now, skip syntax highlighting for word-diff lines
+		// and just use the word-diff markup directly.
+
+		// Store in cache
+		if (cacheKeyLeft && cacheKeyRight) {
+			diffHighlightCache.set(cacheKeyLeft, wordDiffResult.left);
+			diffHighlightCache.set(cacheKeyRight, wordDiffResult.right);
+		}
+
+		if (!cancelled) {
+			setResult({
+				leftHtml: wordDiffResult.left,
+				rightHtml: wordDiffResult.right,
+			});
+		}
+
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		isPairedModification,
+		leftContent,
+		rightContent,
+		cacheKeyLeft,
+		cacheKeyRight,
+		cachedLeft,
+		cachedRight,
+	]);
+
+	return isPairedModification ? result : null;
+}
+
+/**
+ * Side-by-side diff line component - renders a paired row with left (old) and right (new) columns
+ */
+const SideBySideDiffLine = memo(function SideBySideDiffLine({
+	pair,
+	language,
+	onLineClick,
+}: {
+	pair: SideBySidePair;
+	language: string;
+	onLineClick?: (lineNumber: number) => void;
+}) {
+	const { left, right } = pair;
+
+	// For context lines, left and right are the same line object
+	const isContext = left?.type === "context" && right?.type === "context";
+
+	// Check if this is a paired del/add (modification)
+	const isPairedModification = left?.type === "del" && right?.type === "add";
+
+	// Try word-level diff for paired modifications
+	const wordDiffResult = useWordDiffHighlightedCode(
+		left?.content ?? null,
+		right?.content ?? null,
+		left?.type,
+		right?.type,
+		language,
+	);
+
+	// Fall back to regular syntax highlighting if word diff is not applicable or failed
+	const leftHighlighted = useHighlightedCode(left?.content ?? "", language);
+	const rightHighlighted = useHighlightedCode(right?.content ?? "", language);
+
+	// Use word diff result if available, otherwise use regular highlighting
+	const leftHtml =
+		isPairedModification && wordDiffResult?.leftHtml
+			? wordDiffResult.leftHtml
+			: leftHighlighted;
+	const rightHtml =
+		isPairedModification && wordDiffResult?.rightHtml
+			? wordDiffResult.rightHtml
+			: rightHighlighted;
+
+	const handleRightClick = () => {
+		if (
+			onLineClick &&
+			right?.newLineNumber !== null &&
+			right?.newLineNumber !== undefined
+		) {
+			onLineClick(right.newLineNumber);
 		}
 	};
 
-	const isClickable = onLineClick && line.newLineNumber !== null;
+	const isRightClickable =
+		onLineClick &&
+		right?.newLineNumber !== null &&
+		right?.newLineNumber !== undefined;
 
-	const interactiveProps = isClickable
+	const rightInteractiveProps = isRightClickable
 		? {
-				onClick: handleClick,
+				onClick: handleRightClick,
 				onKeyDown: (e: React.KeyboardEvent) => {
 					if (e.key === "Enter" || e.key === " ") {
 						e.preventDefault();
-						handleClick();
+						handleRightClick();
 					}
 				},
 				role: "button" as const,
@@ -487,51 +933,74 @@ const DiffLineView = memo(function DiffLineView({
 		: {};
 
 	return (
-		<div
-			className={cn(
-				"flex items-stretch border-l-2 group",
-				bgColor,
-				borderColor,
-				isClickable && "cursor-pointer hover:bg-muted/30",
-			)}
-			{...interactiveProps}
-		>
-			{/* Old line number */}
-			<span className={lineNumberClass}>
-				{line.oldLineNumber !== null ? line.oldLineNumber : ""}
-			</span>
-			{/* New line number */}
-			<span className={cn(lineNumberClass, "border-r border-border")}>
-				{line.newLineNumber !== null ? line.newLineNumber : ""}
-			</span>
-			{/* Change indicator */}
-			<span className="w-5 text-center shrink-0 select-none">
-				{line.type === "add" && (
-					<Plus className="size-3 inline text-green-600 dark:text-green-400" />
+		<div className="grid grid-cols-2 gap-0">
+			{/* Left column (old/deletion) */}
+			<div
+				className={cn(
+					"flex items-stretch border-r border-border",
+					left?.type === "del" && "bg-red-500/10 dark:bg-red-500/15",
+					isContext && "bg-transparent",
+					!left && "bg-muted/30",
 				)}
-				{line.type === "del" && (
-					<Minus className="size-3 inline text-red-600 dark:text-red-400" />
+			>
+				{/* Line number */}
+				<span className="text-muted-foreground text-xs w-12 text-right px-2 py-0.5 shrink-0 border-r border-border/50">
+					{left?.oldLineNumber ?? ""}
+				</span>
+				{/* Code content */}
+				<code className="min-w-0 flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto">
+					{left ? (
+						leftHtml ? (
+							<span
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki/word-diff output
+								dangerouslySetInnerHTML={{ __html: leftHtml }}
+							/>
+						) : (
+							<span>{left.content}</span>
+						)
+					) : (
+						<span>&nbsp;</span>
+					)}
+				</code>
+			</div>
+
+			{/* Right column (new/addition) */}
+			<div
+				className={cn(
+					"flex items-stretch group",
+					right?.type === "add" && "bg-green-500/10 dark:bg-green-500/15",
+					isContext && "bg-transparent",
+					!right && "bg-muted/30",
+					isRightClickable && "cursor-pointer hover:bg-muted/30",
 				)}
-			</span>
-			{/* Add comment indicator */}
-			<span className="w-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-				{isClickable && (
-					<MessageSquarePlus className="size-3 text-violet-500" />
-				)}
-			</span>
-			{/* Code content */}
-			<code className="flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto">
-				{(highlightedHtml ?? cachedHtml) ? (
-					<span
-						// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki output
-						dangerouslySetInnerHTML={{
-							__html: highlightedHtml ?? cachedHtml ?? "",
-						}}
-					/>
-				) : (
-					<span>{line.content}</span>
-				)}
-			</code>
+				{...rightInteractiveProps}
+			>
+				{/* Line number */}
+				<span className="text-muted-foreground text-xs w-12 text-right px-2 py-0.5 shrink-0 border-r border-border/50">
+					{right?.newLineNumber ?? ""}
+				</span>
+				{/* Add comment indicator */}
+				<span className="w-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+					{isRightClickable && (
+						<MessageSquarePlus className="size-3 text-violet-500" />
+					)}
+				</span>
+				{/* Code content */}
+				<code className="min-w-0 flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto">
+					{right ? (
+						rightHtml ? (
+							<span
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki/word-diff output
+								dangerouslySetInnerHTML={{ __html: rightHtml }}
+							/>
+						) : (
+							<span>{right.content}</span>
+						)
+					) : (
+						<span>&nbsp;</span>
+					)}
+				</code>
+			</div>
 		</div>
 	);
 });
@@ -570,36 +1039,45 @@ function DiffHunkView({
 	/** Callback when comment form is cancelled */
 	onCommentCancel?: () => void;
 }) {
+	// Pair lines for side-by-side display
+	const pairs = useMemo(() => pairHunkLines(hunk.lines), [hunk.lines]);
+
 	return (
 		<div className="border-b last:border-b-0">
 			{/* Hunk header */}
 			<div className="bg-muted/50 px-4 py-1 font-mono text-xs text-muted-foreground border-b">
 				{hunk.header}
 			</div>
-			{/* Hunk lines */}
+			{/* Hunk lines - side by side */}
 			<div>
-				{hunk.lines.map((hunkLine, idx) => {
+				{pairs.map((pair, idx) => {
+					// Determine which line number to use for comments
+					// For paired rows, use the right (new) line number
+					// For pure deletions, use old line number if it doesn't exist in new file
 					let comments: ReviewComment[] = [];
+					let targetLineNumber: number | null = null;
 
-					if (hunkLine.type === "del" && hunkLine.oldLineNumber) {
-						// For deletions: only show comment if this line number does NOT exist in new file
-						// (i.e., it's a pure deletion, not a modification)
-						if (!newFileLineNumbers.has(hunkLine.oldLineNumber)) {
-							comments = commentsByLine.get(hunkLine.oldLineNumber) ?? [];
+					if (pair.right?.newLineNumber) {
+						// Additions/context/paired: use new line number
+						targetLineNumber = pair.right.newLineNumber;
+						comments = commentsByLine.get(targetLineNumber) ?? [];
+					} else if (pair.left?.type === "del" && pair.left.oldLineNumber) {
+						// Pure deletion: only show comment if line doesn't exist in new file
+						if (!newFileLineNumbers.has(pair.left.oldLineNumber)) {
+							targetLineNumber = pair.left.oldLineNumber;
+							comments = commentsByLine.get(targetLineNumber) ?? [];
 						}
-					} else if (hunkLine.newLineNumber) {
-						// For additions/context: always show comments
-						comments = commentsByLine.get(hunkLine.newLineNumber) ?? [];
 					}
 
 					const showCommentForm =
 						activeCommentLine !== null &&
-						activeCommentLine === hunkLine.newLineNumber;
+						pair.right?.newLineNumber !== null &&
+						activeCommentLine === pair.right?.newLineNumber;
 
 					return (
 						<div key={`${hunk.oldStart}-${hunk.newStart}-${idx}`}>
-							<DiffLineView
-								line={hunkLine}
+							<SideBySideDiffLine
+								pair={pair}
 								language={language}
 								onLineClick={onLineClick}
 							/>
@@ -928,7 +1406,7 @@ export function DiffViewer({
 		[comments],
 	);
 
-	const [selectedFile, setSelectedFile] = useState<string | null>(null);
+	const [selectedFile, setSelectedFile] = useState<DiffFile | null>(null);
 	const [filterExtension, setFilterExtension] = useState<string>("all");
 
 	// Filter files by extension
@@ -958,11 +1436,9 @@ export function DiffViewer({
 		);
 	}
 
-	const handleFileSelect = (filePath: string) => {
-		setSelectedFile(selectedFile === filePath ? null : filePath);
-		// Scroll to file in main view
+	const scrollToFile = (file: DiffFile) => {
 		const element = document.getElementById(
-			`diff-file-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`,
+			`diff-file-${file.path.replace(/[^a-zA-Z0-9]/g, "-")}`,
 		);
 		element?.scrollIntoView({ behavior: "smooth" });
 	};
@@ -1009,15 +1485,15 @@ export function DiffViewer({
 
 				{/* File list */}
 				<ScrollArea className="flex-1">
-					<div className="p-2 space-y-0.5">
-						{filteredFiles.map((file) => (
-							<FileTreeItem
-								key={file.path}
-								file={file}
-								isSelected={selectedFile === file.path}
-								onSelect={() => handleFileSelect(file.path)}
-							/>
-						))}
+					<div className="p-2">
+						<FileTree
+							files={filteredFiles}
+							selectedFile={selectedFile}
+							onSelect={(file) => {
+								setSelectedFile(file);
+								scrollToFile(file);
+							}}
+						/>
 					</div>
 				</ScrollArea>
 			</div>
@@ -1060,6 +1536,16 @@ interface DiffViewerModalProps {
 	trigger?: React.ReactNode;
 	/** Optional additional className for the dialog content */
 	className?: string;
+	/** Selected comment IDs for Request Fixes */
+	selectedCommentIds?: Set<string>;
+	/** Callback to toggle comment selection */
+	onToggleComment?: (id: string) => void;
+	/** Summary text for fixes request */
+	fixesSummary?: string;
+	/** Callback to update fixes summary */
+	setFixesSummary?: (value: string) => void;
+	/** Callback when Request Fixes is submitted */
+	onRequestFixes?: () => void;
 }
 
 /**
@@ -1073,10 +1559,39 @@ export function DiffViewerModal({
 	onAddComment,
 	trigger,
 	className,
+	selectedCommentIds,
+	onToggleComment,
+	fixesSummary,
+	setFixesSummary,
+	onRequestFixes,
 }: DiffViewerModalProps) {
+	const [requestFixesDialogOpen, setRequestFixesDialogOpen] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const createReviewComment = useWorkflowsStore(
 		(state) => state.createReviewComment,
 	);
+
+	// Check if Request Fixes props are provided
+	const hasRequestFixesProps =
+		selectedCommentIds !== undefined &&
+		onToggleComment !== undefined &&
+		fixesSummary !== undefined &&
+		setFixesSummary !== undefined &&
+		onRequestFixes !== undefined;
+
+	const selectedCount = selectedCommentIds?.size ?? 0;
+
+	const handleRequestFixes = async () => {
+		if (selectedCommentIds?.size === 0 && !fixesSummary?.trim()) return;
+		if (!onRequestFixes) return;
+		setIsSubmitting(true);
+		try {
+			await onRequestFixes();
+			setRequestFixesDialogOpen(false);
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
 
 	// Use store-based comment creation when workflowId is provided
 	const handleAddComment = async (payload: AddCommentPayload) => {
@@ -1110,10 +1625,27 @@ export function DiffViewerModal({
 				className={cn("!w-[100vw] !max-w-[100vw] p-0 flex flex-col", className)}
 			>
 				<SheetHeader className="px-4 py-3 border-b shrink-0">
-					<SheetTitle className="flex items-center gap-2">
-						<GitCompareArrows className="size-5" />
-						Code Changes
-					</SheetTitle>
+					<div className="flex items-center justify-between">
+						<SheetTitle className="flex items-center gap-2">
+							<GitCompareArrows className="size-5" />
+							Code Changes
+						</SheetTitle>
+						{hasRequestFixesProps && (
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setRequestFixesDialogOpen(true)}
+								className="mr-8"
+							>
+								Request Fixes
+								{selectedCount > 0 && (
+									<Badge variant="secondary" className="ml-2">
+										{selectedCount}
+									</Badge>
+								)}
+							</Button>
+						)}
+					</div>
 				</SheetHeader>
 				<div className="flex-1 overflow-hidden">
 					<DiffViewer
@@ -1123,6 +1655,52 @@ export function DiffViewerModal({
 						className="h-full"
 					/>
 				</div>
+
+				{/* Request Fixes Dialog */}
+				{hasRequestFixesProps && (
+					<Dialog
+						open={requestFixesDialogOpen}
+						onOpenChange={setRequestFixesDialogOpen}
+					>
+						<DialogContent className="sm:max-w-md">
+							<DialogHeader>
+								<DialogTitle>Request Fixes</DialogTitle>
+								<DialogDescription>
+									{selectedCount} comment{selectedCount !== 1 ? "s" : ""}{" "}
+									selected
+								</DialogDescription>
+							</DialogHeader>
+							<div className="py-4">
+								<Textarea
+									value={fixesSummary}
+									onChange={(e) => setFixesSummary(e.target.value)}
+									placeholder="Optional: Add any additional context..."
+									rows={4}
+									autoFocus
+								/>
+							</div>
+							<DialogFooter>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => setRequestFixesDialogOpen(false)}
+									disabled={isSubmitting}
+								>
+									Cancel
+								</Button>
+								<Button
+									onClick={handleRequestFixes}
+									disabled={
+										isSubmitting ||
+										(selectedCount === 0 && !fixesSummary?.trim())
+									}
+								>
+									Submit
+								</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
+				)}
 			</SheetContent>
 		</Sheet>
 	);

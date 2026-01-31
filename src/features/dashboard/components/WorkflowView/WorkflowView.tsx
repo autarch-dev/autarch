@@ -34,7 +34,7 @@ import {
 import { statusConfig, workflowPhases } from "./config";
 import { PlanCardApproval } from "./PlanCardApproval";
 import { ResearchCardApproval } from "./ResearchCardApproval";
-import { ReviewCardApproval } from "./ReviewCardApproval";
+import ReviewCardApproval from "./ReviewCardApproval";
 import { ScopeCardApproval } from "./ScopeCardApproval";
 import { WorkflowEmptyState } from "./WorkflowEmptyState";
 import { WorkflowHeader } from "./WorkflowHeader";
