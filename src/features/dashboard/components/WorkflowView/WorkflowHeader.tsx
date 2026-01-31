@@ -19,7 +19,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import type { Workflow } from "@/shared/schemas/workflow";
+import type { Workflow, WorkflowStatus } from "@/shared/schemas/workflow";
 import { useWorkflowsStore } from "../../store/workflowsStore";
 import { statusConfig } from "./config";
 import { PhaseIndicator } from "./PhaseIndicator";
@@ -28,12 +28,16 @@ interface WorkflowHeaderProps {
 	workflow: Workflow;
 	totalCost: number;
 	onArchived?: () => void;
+	viewedStage?: WorkflowStatus;
+	onStageClick?: (stage: WorkflowStatus) => void;
 }
 
 export function WorkflowHeader({
 	workflow,
 	totalCost,
 	onArchived,
+	viewedStage,
+	onStageClick,
 }: WorkflowHeaderProps) {
 	const [isArchiveDialogOpen, setIsArchiveDialogOpen] =
 		useState<boolean>(false);
@@ -81,10 +85,12 @@ export function WorkflowHeader({
 				</div>
 
 				{/* Phase Progress */}
-				{workflow.status !== "backlog" && workflow.status !== "done" && (
+				{workflow.status !== "backlog" && (
 					<PhaseIndicator
 						currentStatus={workflow.status}
 						skippedStages={workflow.skippedStages}
+						viewedStage={viewedStage}
+						onStageClick={onStageClick}
 					/>
 				)}
 			</header>

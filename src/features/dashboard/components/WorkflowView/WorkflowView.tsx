@@ -5,7 +5,14 @@
  * and artifact cards (scope, research, plan) interleaved by timestamp.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ChannelMessage } from "@/shared/schemas/channel";
@@ -17,12 +24,14 @@ import type {
 	RewindTarget,
 	ScopeCard,
 	Workflow,
+	WorkflowStatus,
 } from "@/shared/schemas/workflow";
 import type { StreamingMessage } from "../../store/workflowsStore";
 import {
 	ChannelMessageBubble,
 	StreamingMessageBubble,
 } from "../ChannelView/MessageBubble";
+import { statusConfig, workflowPhases } from "./config";
 import { PlanCardApproval } from "./PlanCardApproval";
 import { ResearchCardApproval } from "./ResearchCardApproval";
 import { ReviewCardApproval } from "./ReviewCardApproval";
@@ -58,6 +67,357 @@ type TurnArtifact =
 	| { type: "plan"; data: Plan }
 	| { type: "review_card"; data: ReviewCard };
 
+/**
+ * Build stage boundaries from approved artifacts.
+ * Each stage's boundary is defined by the turnId of its approved artifact.
+ * - scoping ends at ScopeCard turnId
+ * - researching ends at ResearchCard turnId
+ * - planning ends at Plan turnId
+ * - in_progress ends at ReviewCard turnId
+ *
+ * @returns Map<WorkflowStatus, {startTurnId: string | null, endTurnId: string | null}>
+ */
+function buildStageBoundaries(
+	scopeCards: ScopeCard[],
+	researchCards: ResearchCard[],
+	plans: Plan[],
+	reviewCards: ReviewCard[],
+): Map<
+	WorkflowStatus,
+	{ startTurnId: string | null; endTurnId: string | null }
+> {
+	const boundaries = new Map<
+		WorkflowStatus,
+		{ startTurnId: string | null; endTurnId: string | null }
+	>();
+
+	// Collect all approved artifacts with their turnIds and createdAt timestamps
+	type ApprovedArtifact = {
+		type: "scope_card" | "research_card" | "plan" | "review_card";
+		turnId: string;
+		createdAt: number;
+	};
+
+	const approvedArtifacts: ApprovedArtifact[] = [];
+
+	for (const scopeCard of scopeCards) {
+		if (scopeCard.status === "approved" && scopeCard.turnId) {
+			approvedArtifacts.push({
+				type: "scope_card",
+				turnId: scopeCard.turnId,
+				createdAt: scopeCard.createdAt,
+			});
+		}
+	}
+
+	for (const researchCard of researchCards) {
+		if (researchCard.status === "approved" && researchCard.turnId) {
+			approvedArtifacts.push({
+				type: "research_card",
+				turnId: researchCard.turnId,
+				createdAt: researchCard.createdAt,
+			});
+		}
+	}
+
+	for (const plan of plans) {
+		if (plan.status === "approved" && plan.turnId) {
+			approvedArtifacts.push({
+				type: "plan",
+				turnId: plan.turnId,
+				createdAt: plan.createdAt,
+			});
+		}
+	}
+
+	for (const reviewCard of reviewCards) {
+		if (reviewCard.status === "approved" && reviewCard.turnId) {
+			approvedArtifacts.push({
+				type: "review_card",
+				turnId: reviewCard.turnId,
+				createdAt: reviewCard.createdAt,
+			});
+		}
+	}
+
+	// Sort by createdAt to establish order
+	approvedArtifacts.sort((a, b) => a.createdAt - b.createdAt);
+
+	// Map artifact types to their ending stages
+	const artifactToStage: Record<ApprovedArtifact["type"], WorkflowStatus> = {
+		scope_card: "scoping",
+		research_card: "researching",
+		plan: "planning",
+		review_card: "in_progress",
+	};
+
+	// Build boundaries: each stage starts after the previous stage's artifact
+	// and ends at its own artifact
+	let previousEndTurnId: string | null = null;
+
+	for (const artifact of approvedArtifacts) {
+		const stage = artifactToStage[artifact.type];
+		boundaries.set(stage, {
+			startTurnId: previousEndTurnId,
+			endTurnId: artifact.turnId,
+		});
+		previousEndTurnId = artifact.turnId;
+	}
+
+	// Handle stages without approved artifacts yet
+	const allStages: WorkflowStatus[] = [
+		"scoping",
+		"researching",
+		"planning",
+		"in_progress",
+		"review",
+		"done",
+	];
+	for (const stage of allStages) {
+		if (!boundaries.has(stage)) {
+			// Stage hasn't completed - find the previous stage's end
+			const stageIndex = allStages.indexOf(stage);
+			let startTurnId: string | null = null;
+
+			// Look backwards to find the most recent completed stage's endTurnId
+			for (let i = stageIndex - 1; i >= 0; i--) {
+				const prevStage = allStages[i];
+				if (prevStage && boundaries.has(prevStage)) {
+					startTurnId = boundaries.get(prevStage)?.endTurnId ?? null;
+					break;
+				}
+			}
+
+			boundaries.set(stage, {
+				startTurnId,
+				endTurnId: null, // Stage not complete yet
+			});
+		}
+	}
+
+	return boundaries;
+}
+
+/**
+ * Filter messages to show only those belonging to a specific stage.
+ * Uses stage boundaries based on approved artifact turnIds.
+ *
+ * Edge case: if no approved artifacts exist, return all messages for scoping stage.
+ *
+ * @param allMessages - All messages in the workflow
+ * @param stageBoundaries - Map of stage to turnId boundaries
+ * @param targetStage - The stage to filter messages for
+ * @returns Filtered messages belonging to the target stage
+ */
+function filterMessagesByStage(
+	allMessages: ChannelMessage[],
+	stageBoundaries: Map<
+		WorkflowStatus,
+		{ startTurnId: string | null; endTurnId: string | null }
+	>,
+	targetStage: WorkflowStatus,
+): ChannelMessage[] {
+	const boundary = stageBoundaries.get(targetStage);
+
+	// Edge case: if no approved artifacts exist, return all messages for scoping stage
+	const hasAnyApprovedArtifacts = Array.from(stageBoundaries.values()).some(
+		(b) => b.endTurnId !== null,
+	);
+	if (!hasAnyApprovedArtifacts && targetStage === "scoping") {
+		return allMessages;
+	}
+
+	if (!boundary) {
+		return [];
+	}
+
+	// Build a map of turnId -> message index for ordering
+	const turnIdToIndex = new Map<string, number>();
+	for (let i = 0; i < allMessages.length; i++) {
+		const msg = allMessages[i];
+		if (msg && !turnIdToIndex.has(msg.turnId)) {
+			turnIdToIndex.set(msg.turnId, i);
+		}
+	}
+
+	const { startTurnId, endTurnId } = boundary;
+
+	// Determine start and end indices
+	const startIndex =
+		startTurnId !== null ? (turnIdToIndex.get(startTurnId) ?? -1) + 1 : 0;
+	const endIndex =
+		endTurnId !== null
+			? (turnIdToIndex.get(endTurnId) ?? allMessages.length - 1)
+			: allMessages.length - 1;
+
+	// Filter messages within the boundary range
+	return allMessages.filter((msg) => {
+		const msgIndex = turnIdToIndex.get(msg.turnId);
+		if (msgIndex === undefined) return false;
+
+		// Include messages from startIndex (exclusive of previous boundary)
+		// up to and including endIndex (inclusive of this stage's artifact)
+		return msgIndex >= startIndex && msgIndex <= endIndex;
+	});
+}
+
+/**
+ * Map stages to the artifact type that ends/completes each stage.
+ * For example, "scoping" ends when a scope_card is approved.
+ */
+const stageEndingArtifactType: Record<
+	string,
+	"scope_card" | "research_card" | "plan" | "review_card" | null
+> = {
+	scoping: "scope_card",
+	researching: "research_card",
+	planning: "plan",
+	in_progress: "review_card",
+	review: null, // review and done don't have artifacts that end them
+	done: null,
+};
+
+/**
+ * Get the approved artifact from the previous stage.
+ * Uses workflowPhases array to determine stage order.
+ * For scoping stage, returns null (no previous stage).
+ */
+function getPreviousStageArtifact(
+	viewedStage: WorkflowStatus,
+	scopeCards: ScopeCard[],
+	researchCards: ResearchCard[],
+	plans: Plan[],
+	reviewCards: ReviewCard[],
+): TurnArtifact | null {
+	const currentIndex = workflowPhases.indexOf(viewedStage);
+
+	// Scoping is the first stage - no previous stage
+	if (currentIndex <= 0) {
+		return null;
+	}
+
+	const previousStage = workflowPhases[currentIndex - 1];
+	if (!previousStage) {
+		return null;
+	}
+
+	const artifactType = stageEndingArtifactType[previousStage];
+	if (!artifactType) {
+		return null;
+	}
+
+	// Find the approved artifact for the previous stage
+	switch (artifactType) {
+		case "scope_card": {
+			const approvedScope = scopeCards.find((s) => s.status === "approved");
+			return approvedScope ? { type: "scope_card", data: approvedScope } : null;
+		}
+		case "research_card": {
+			const approvedResearch = researchCards.find(
+				(r) => r.status === "approved",
+			);
+			return approvedResearch
+				? { type: "research_card", data: approvedResearch }
+				: null;
+		}
+		case "plan": {
+			const approvedPlan = plans.find((p) => p.status === "approved");
+			return approvedPlan ? { type: "plan", data: approvedPlan } : null;
+		}
+		case "review_card": {
+			const approvedReview = reviewCards.find((r) => r.status === "approved");
+			return approvedReview
+				? { type: "review_card", data: approvedReview }
+				: null;
+		}
+		default:
+			return null;
+	}
+}
+
+/** Renders the previous stage artifact in read-only mode or scoping context */
+function PreviousStageContext({
+	viewedStage,
+	workflow,
+	scopeCards,
+	researchCards,
+	plans,
+	reviewCards,
+}: {
+	viewedStage: WorkflowStatus;
+	workflow: Workflow;
+	scopeCards: ScopeCard[];
+	researchCards: ResearchCard[];
+	plans: Plan[];
+	reviewCards: ReviewCard[];
+}) {
+	const previousArtifact = getPreviousStageArtifact(
+		viewedStage,
+		scopeCards,
+		researchCards,
+		plans,
+		reviewCards,
+	);
+
+	if (previousArtifact) {
+		// Render in read-only mode (no action props)
+		switch (previousArtifact.type) {
+			case "scope_card":
+				return (
+					<div className="mx-4 mb-2">
+						<ScopeCardApproval
+							key={`prev-${previousArtifact.data.id}`}
+							scopeCard={previousArtifact.data}
+						/>
+					</div>
+				);
+			case "research_card":
+				return (
+					<div className="mx-4 mb-2">
+						<ResearchCardApproval
+							key={`prev-${previousArtifact.data.id}`}
+							researchCard={previousArtifact.data}
+						/>
+					</div>
+				);
+			case "plan":
+				return (
+					<div className="mx-4 mb-2">
+						<PlanCardApproval
+							key={`prev-${previousArtifact.data.id}`}
+							plan={previousArtifact.data}
+						/>
+					</div>
+				);
+			case "review_card":
+				return (
+					<div className="mx-4 mb-2">
+						<ReviewCardApproval
+							key={`prev-${previousArtifact.data.id}`}
+							reviewCard={previousArtifact.data}
+						/>
+					</div>
+				);
+		}
+	}
+
+	// Scoping stage with no previous - show workflow context
+	if (viewedStage === "scoping") {
+		return (
+			<Card className="mx-4 mb-2">
+				<CardHeader>
+					<CardTitle>{workflow.title}</CardTitle>
+					{workflow.description && (
+						<CardDescription>{workflow.description}</CardDescription>
+					)}
+				</CardHeader>
+			</Card>
+		);
+	}
+
+	return null;
+}
+
 export function WorkflowView({
 	workflow,
 	messages,
@@ -76,6 +436,17 @@ export function WorkflowView({
 	onArchived,
 }: WorkflowViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
+
+	// Track which stage the user is currently viewing (may differ from workflow.status)
+	const [viewedStage, setViewedStage] = useState<WorkflowStatus>(
+		workflow.status,
+	);
+
+	// Reset viewedStage when workflow changes (both id and status trigger reset)
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally reset on workflow.id change even though status is the value
+	useEffect(() => {
+		setViewedStage(workflow.status);
+	}, [workflow.id, workflow.status]);
 
 	// Build a map of turnId -> artifact (one artifact per turn max)
 	const artifactsByTurn = useMemo(() => {
@@ -108,16 +479,38 @@ export function WorkflowView({
 		return map;
 	}, [scopeCards, researchCards, plans, reviewCards]);
 
+	// Build stage boundaries for filtering (memoized)
+	const stageBoundaries = useMemo(
+		() => buildStageBoundaries(scopeCards, researchCards, plans, reviewCards),
+		[scopeCards, researchCards, plans, reviewCards],
+	);
+
+	// Filter messages for current viewed stage
+	const filteredMessages = useMemo(
+		() => filterMessagesByStage(messages, stageBoundaries, viewedStage),
+		[messages, stageBoundaries, viewedStage],
+	);
+
 	// Calculate total cost from all messages
 	const totalCost = useMemo(() => {
 		return messages.reduce((sum, m) => sum + (m.cost ?? 0), 0);
 	}, [messages]);
 
-	// Auto-scroll to bottom when new content arrives
-	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll to bottom when new content arrives
+	// Track previous viewedStage to detect stage navigation vs new content
+	const prevViewedStageRef = useRef<WorkflowStatus>(viewedStage);
+
+	// Auto-scroll to bottom when new content arrives, but not when navigating stages
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Smart auto-scroll based on stage navigation vs new content
 	useEffect(() => {
+		// If viewedStage changed, user navigated to a different stage - skip scroll
+		if (prevViewedStageRef.current !== viewedStage) {
+			prevViewedStageRef.current = viewedStage;
+			return;
+		}
+
+		// viewedStage is the same, so messages or streamingMessage changed - scroll to bottom
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages, streamingMessage?.segments]);
+	}, [viewedStage, filteredMessages, streamingMessage?.segments]);
 
 	const hasAnyContent = messages.length > 0 || streamingMessage;
 
@@ -203,6 +596,11 @@ export function WorkflowView({
 		}
 	};
 
+	// Callback for when user clicks a stage in PhaseIndicator
+	const handleStageClick = (stage: WorkflowStatus) => {
+		setViewedStage(stage);
+	};
+
 	return (
 		<TooltipProvider>
 			<div className="flex flex-col h-full">
@@ -210,7 +608,24 @@ export function WorkflowView({
 					workflow={workflow}
 					totalCost={totalCost}
 					onArchived={onArchived}
+					viewedStage={viewedStage}
+					onStageClick={handleStageClick}
 				/>
+
+				{workflow.status !== viewedStage && (
+					<div className="mx-4 mt-2 px-4 py-2 rounded-lg border bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 flex items-center justify-between">
+						<span className="text-sm">
+							Workflow moved to {statusConfig[workflow.status].label}
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setViewedStage(workflow.status)}
+						>
+							View Current Stage
+						</Button>
+					</div>
+				)}
 
 				<ScrollArea className="flex-1 min-h-0">
 					<div className="py-2">
@@ -224,7 +639,16 @@ export function WorkflowView({
 							<WorkflowEmptyState />
 						) : (
 							<>
-								{messages.map((message) => {
+								{/* Previous stage artifact or scoping context header */}
+								<PreviousStageContext
+									viewedStage={viewedStage}
+									workflow={workflow}
+									scopeCards={scopeCards}
+									researchCards={researchCards}
+									plans={plans}
+									reviewCards={reviewCards}
+								/>
+								{filteredMessages.map((message) => {
 									const artifact = artifactsByTurn.get(message.turnId);
 									return (
 										<div key={message.id}>
@@ -233,7 +657,8 @@ export function WorkflowView({
 										</div>
 									);
 								})}
-								{streamingMessage && (
+								{/* Only show streaming message when viewing the current stage */}
+								{streamingMessage && viewedStage === workflow.status && (
 									<StreamingMessageBubble message={streamingMessage} />
 								)}
 							</>

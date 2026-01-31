@@ -11,11 +11,15 @@ import { statusConfig, workflowPhases } from "./config";
 interface PhaseIndicatorProps {
 	currentStatus: WorkflowStatus;
 	skippedStages?: string[];
+	viewedStage?: WorkflowStatus;
+	onStageClick?: (stage: WorkflowStatus) => void;
 }
 
 export function PhaseIndicator({
 	currentStatus,
 	skippedStages,
+	viewedStage,
+	onStageClick,
 }: PhaseIndicatorProps) {
 	const currentIndex = workflowPhases.indexOf(currentStatus);
 
@@ -28,6 +32,8 @@ export function PhaseIndicator({
 				const isComplete = idx < currentIndex && !isSkipped;
 				const isCurrent = phase === currentStatus;
 				const isPending = idx > currentIndex && !isSkipped;
+				const isEnabled = idx <= currentIndex && !isSkipped;
+				const isViewed = phase === viewedStage;
 
 				return (
 					<div key={phase} className="flex items-center">
@@ -45,7 +51,9 @@ export function PhaseIndicator({
 						)}
 						<Tooltip>
 							<TooltipTrigger asChild>
-								<div
+								<button
+									type="button"
+									disabled={!isEnabled}
 									className={cn(
 										"flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-colors",
 										isSkipped && "opacity-50 italic",
@@ -53,7 +61,10 @@ export function PhaseIndicator({
 										isCurrent && config.color,
 										isComplete && "text-green-500",
 										isPending && "text-muted-foreground",
+										isEnabled ? "cursor-pointer" : "cursor-not-allowed",
+										isViewed && "ring-2 ring-offset-2 ring-current",
 									)}
+									onClick={() => onStageClick?.(phase)}
 								>
 									{isSkipped ? (
 										<SkipForward className="size-3.5" />
@@ -63,7 +74,7 @@ export function PhaseIndicator({
 										<Icon className="size-3.5" />
 									)}
 									<span className="hidden sm:inline">{config.label}</span>
-								</div>
+								</button>
 							</TooltipTrigger>
 							<TooltipContent>
 								{isSkipped ? `${config.label} (Skipped)` : config.label}
