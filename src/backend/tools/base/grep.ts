@@ -92,6 +92,7 @@ export const grepTool: ToolDefinition<GrepInput> = {
 			const rgPath = await getRipgrepPath();
 			proc = Bun.spawn([rgPath, ...args], {
 				cwd: rootPath,
+				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "pipe",
 			});

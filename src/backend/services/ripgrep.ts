@@ -92,6 +92,7 @@ async function extractTarGz(
 	logger.debug(`Running: ${args.join(" ")}`);
 	const proc = Bun.spawn(args, {
 		cwd: BIN_DIR,
+		stdin: "ignore",
 		stdout: "pipe",
 		stderr: "pipe",
 	});

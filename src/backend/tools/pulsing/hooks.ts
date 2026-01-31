@@ -99,6 +99,7 @@ async function executeHook(
 		// Spawn the process with platform-aware shell args
 		const proc = Bun.spawn(getShellArgs(command), {
 			cwd,
+			stdin: "ignore",
 			stdout: "pipe",
 			stderr: "pipe",
 			env: process.env,

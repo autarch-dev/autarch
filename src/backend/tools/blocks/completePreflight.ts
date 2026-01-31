@@ -92,6 +92,7 @@ Provide:
 					try {
 						const proc = Bun.spawn(getShellArgs(cmd.command), {
 							cwd: worktreePath,
+							stdin: "ignore",
 							stdout: "pipe",
 							stderr: "pipe",
 						});

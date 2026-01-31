@@ -143,6 +143,7 @@ orchestration for human review.`,
 						// Spawn the process
 						const proc = Bun.spawn(getShellArgs(command), {
 							cwd: worktreePath,
+							stdin: "ignore",
 							stdout: "pipe",
 							stderr: "pipe",
 							env: process.env,
