@@ -39,7 +39,6 @@ import { DiffViewerModal } from "../DiffViewer";
 import { CommentSection, groupCommentsByType } from "./CommentSection";
 import {
 	ApproveDialog,
-	DenyDialog,
 	RequestFixesDialog,
 	RewindDialog,
 } from "./ReviewDialogs";
@@ -118,7 +117,6 @@ export default function ReviewCardApproval({
 }: ReviewCardApprovalProps) {
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(reviewCard.status === "pending");
-	const [denyDialogOpen, setDenyDialogOpen] = useState(false);
 	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
 	const [requestFixesDialogOpen, setRequestFixesDialogOpen] = useState(false);
 	const [approveDialogOpen, setApproveDialogOpen] = useState(false);
@@ -169,7 +167,6 @@ export default function ReviewCardApproval({
 				setIsFetchingDefault(false);
 			});
 	}, []);
-	const [feedback, setFeedback] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [copied, setCopied] = useState(false);
 	const [diff, setDiff] = useState<string | null>(null);
@@ -258,18 +255,6 @@ export default function ReviewCardApproval({
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : "Merge failed";
 			setMergeErrorMessage(errorMsg);
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
-
-	const handleDeny = async () => {
-		if (!feedback.trim() || !onDeny) return;
-		setIsSubmitting(true);
-		try {
-			await onDeny(feedback.trim());
-			setDenyDialogOpen(false);
-			setFeedback("");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -404,7 +389,10 @@ export default function ReviewCardApproval({
 										variant="outline"
 										size="sm"
 										onClick={() => setRequestFixesDialogOpen(true)}
-										disabled={isSubmitting || selectedCount === 0}
+										disabled={
+											isSubmitting ||
+											(selectedCount === 0 && !fixesSummary.trim())
+										}
 										className="text-amber-600 hover:text-amber-600"
 									>
 										<AlertTriangle className="size-4 mr-1" />
@@ -474,16 +462,6 @@ export default function ReviewCardApproval({
 					</CardContent>
 				)}
 			</Card>
-
-			{/* Deny Dialog */}
-			<DenyDialog
-				open={denyDialogOpen}
-				onOpenChange={setDenyDialogOpen}
-				feedback={feedback}
-				onFeedbackChange={setFeedback}
-				onSubmit={handleDeny}
-				isSubmitting={isSubmitting}
-			/>
 
 			{/* Rerun Review Confirmation Dialog */}
 			<RewindDialog
