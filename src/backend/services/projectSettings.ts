@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
 	type PostWriteHooksConfig,
 	PostWriteHooksConfigSchema,
@@ -8,6 +9,9 @@ import {
 } from "@/shared/schemas/workflow";
 import { getProjectDb } from "../db/project";
 
+// Schema for persistent shell approvals (array of command strings)
+const PersistentShellApprovalsSchema = z.array(z.string());
+
 // =============================================================================
 // Project Meta Keys
 // =============================================================================
@@ -15,6 +19,7 @@ import { getProjectDb } from "../db/project";
 export const PROJECT_META_KEYS = {
 	MERGE_STRATEGY: "merge_strategy",
 	POST_WRITE_HOOKS: "post_write_hooks",
+	PERSISTENT_SHELL_APPROVALS: "persistent_shell_approvals",
 } as const;
 
 // =============================================================================
@@ -139,5 +144,70 @@ export async function setPostWriteHooks(
 		projectRoot,
 		PROJECT_META_KEYS.POST_WRITE_HOOKS,
 		JSON.stringify(result.data),
+	);
+}
+
+// =============================================================================
+// Persistent Shell Approvals
+// =============================================================================
+
+/**
+ * Get the project's persistent shell approvals.
+ * Returns an empty array if no approvals are stored or if the stored data is invalid.
+ */
+export async function getPersistentShellApprovals(
+	projectRoot: string,
+): Promise<string[]> {
+	const value = await getProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.PERSISTENT_SHELL_APPROVALS,
+	);
+	if (value === null) {
+		return [];
+	}
+	try {
+		const parsed = JSON.parse(value);
+		const result = PersistentShellApprovalsSchema.safeParse(parsed);
+		return result.success ? result.data : [];
+	} catch {
+		// Invalid JSON, return empty array
+		return [];
+	}
+}
+
+/**
+ * Add a command to the project's persistent shell approvals.
+ * Deduplicates: if the command already exists, it won't be added again.
+ */
+export async function addPersistentShellApproval(
+	projectRoot: string,
+	command: string,
+): Promise<void> {
+	const existing = await getPersistentShellApprovals(projectRoot);
+	if (existing.includes(command)) {
+		// Already approved, nothing to do
+		return;
+	}
+	const updated = [...existing, command];
+	await setProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.PERSISTENT_SHELL_APPROVALS,
+		JSON.stringify(updated),
+	);
+}
+
+/**
+ * Remove a command from the project's persistent shell approvals.
+ */
+export async function removePersistentShellApproval(
+	projectRoot: string,
+	command: string,
+): Promise<void> {
+	const existing = await getPersistentShellApprovals(projectRoot);
+	const updated = existing.filter((c) => c !== command);
+	await setProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.PERSISTENT_SHELL_APPROVALS,
+		JSON.stringify(updated),
 	);
 }

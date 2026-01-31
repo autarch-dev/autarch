@@ -271,7 +271,7 @@ export class OutputComparisonService {
 		const systemPrompt =
 			"Compare build/test outputs. Determine if they represent equivalent outcomes. " +
 			"Ignore timing differences, test ordering, and cosmetic formatting. " +
-			"Focus on actual errors, failures, and warnings. " + 
+			"Focus on actual errors, failures, and warnings. " +
 			"Previously failing tests in the Baseline output that are now passing are not considered new issues.";
 
 		const userPrompt = `Baseline output:
