@@ -37,6 +37,7 @@ export interface ProjectDatabase {
 	pulses: PulsesTable;
 	preflight_setup: PreflightSetupTable;
 	preflight_baselines: PreflightBaselinesTable;
+	preflight_command_baselines: PreflightCommandBaselinesTable;
 	sessions: SessionsTable;
 	session_notes: SessionNotesTable;
 	turns: TurnsTable;
@@ -243,6 +244,26 @@ export interface PreflightBaselinesTable {
 	file_path: string | null;
 	/** Optional description for context */
 	description: string | null;
+	recorded_at: number;
+}
+
+// =============================================================================
+// Preflight Command Baselines (Raw Command Outputs)
+// =============================================================================
+
+export interface PreflightCommandBaselinesTable {
+	id: string;
+	workflow_id: string;
+	/** The verification command name (e.g., 'build', 'lint', 'test') */
+	command: string;
+	/** Source of the command: build, lint, or test */
+	source: BaselineSource;
+	/** Raw stdout from the command */
+	stdout: string;
+	/** Raw stderr from the command */
+	stderr: string;
+	/** Exit code from the command */
+	exit_code: number;
 	recorded_at: number;
 }
 

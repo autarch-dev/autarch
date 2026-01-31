@@ -16,6 +16,7 @@ export async function migrateProjectDb(
 	await createPulsesTable(db);
 	await createPreflightSetupTable(db);
 	await createPreflightBaselinesTable(db);
+	await createPreflightCommandBaselinesTable(db);
 	await createSessionsTable(db);
 	await createSessionNotesTable(db);
 	await createTurnsTable(db);
@@ -309,6 +310,37 @@ async function createPreflightBaselinesTable(
 		.createIndex("idx_preflight_baselines_workflow")
 		.ifNotExists()
 		.on("preflight_baselines")
+		.column("workflow_id")
+		.execute();
+}
+
+// =============================================================================
+// Preflight Command Baselines (Raw Command Outputs)
+// =============================================================================
+
+async function createPreflightCommandBaselinesTable(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("preflight_command_baselines")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("workflow_id", "text", (col) =>
+			col.notNull().references("workflows.id"),
+		)
+		.addColumn("command", "text", (col) => col.notNull())
+		.addColumn("source", "text", (col) => col.notNull())
+		.addColumn("stdout", "text", (col) => col.notNull())
+		.addColumn("stderr", "text", (col) => col.notNull())
+		.addColumn("exit_code", "integer", (col) => col.notNull())
+		.addColumn("recorded_at", "integer", (col) => col.notNull())
+		.execute();
+
+	// Index for finding command baselines by workflow
+	await db.schema
+		.createIndex("idx_preflight_command_baselines_workflow")
+		.ifNotExists()
+		.on("preflight_command_baselines")
 		.column("workflow_id")
 		.execute();
 }

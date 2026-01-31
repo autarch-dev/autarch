@@ -1725,6 +1725,7 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 
 		// 3. Delete pulse-related data (needed for non-review rewinds)
 		await this.pulseRepo.deleteBaselines(workflowId);
+		await this.pulseRepo.deleteCommandBaselines(workflowId);
 		await this.pulseRepo.deletePreflightSetup(workflowId);
 		await this.pulseRepo.deleteByWorkflow(workflowId);
 
