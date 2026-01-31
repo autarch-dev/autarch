@@ -144,9 +144,24 @@ export class OutputComparisonService {
 		baseline: CommandOutput,
 		current: CommandOutput,
 	): Promise<ComparisonResult> {
-		// Fast-path: check exit code equality first
+		// Fast-path rejection: baseline succeeded (exit 0) but current failed (non-zero)
+		// with error indicators - this is an obvious regression, skip LLM
+		if (baseline.exit_code === 0 && current.exit_code !== 0) {
+			if (this.hasErrorIndicators(current)) {
+				log.workflow.debug(
+					"Fast-path rejection: baseline succeeded but current failed with error indicators",
+				);
+				return {
+					areEquivalent: false,
+					newIssues: [
+						`Command failed (exit code ${current.exit_code}) when baseline succeeded`,
+					],
+				};
+			}
+		}
+
+		// Exit codes differ but not obvious regression - need LLM to determine if meaningful
 		if (baseline.exit_code !== current.exit_code) {
-			// Exit codes differ - need LLM to determine if this is meaningful
 			return this.llmComparison(workflowId, baseline, current);
 		}
 
@@ -169,6 +184,26 @@ export class OutputComparisonService {
 	private normalizeOutput(output: CommandOutput): string {
 		const combined = `${output.stdout}\n${output.stderr}`;
 		return stripNumbers(combined);
+	}
+
+	/**
+	 * Check if output contains common error indicators.
+	 * Used for fast-path rejection of obvious failures.
+	 */
+	private hasErrorIndicators(output: CommandOutput): boolean {
+		const combined = `${output.stdout}\n${output.stderr}`.toLowerCase();
+		const errorPatterns = [
+			"error",
+			"failed",
+			"failure",
+			"exception",
+			"fatal",
+			"panic",
+			"cannot",
+			"could not",
+			"unable to",
+		];
+		return errorPatterns.some((pattern) => combined.includes(pattern));
 	}
 
 	/**
@@ -288,8 +323,18 @@ exit_code: ${current.exit_code}`;
 			}
 		}
 
-		// Both attempts failed
-		throw new Error("LLM comparison unavailable, cannot verify changes");
+		// Both attempts failed - fall back to treating outputs as non-equivalent
+		// This lets the user decide rather than blocking progress entirely
+		log.workflow.warn(
+			"LLM comparison unavailable after retries, treating outputs as non-equivalent",
+		);
+		return {
+			areEquivalent: false,
+			newIssues: [
+				"LLM comparison unavailable - outputs differ and could not be verified. " +
+					"Review the output differences manually.",
+			],
+		};
 	}
 
 	/**
