@@ -6,6 +6,12 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+	Card,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ChannelMessage } from "@/shared/schemas/channel";
@@ -24,6 +30,7 @@ import {
 	ChannelMessageBubble,
 	StreamingMessageBubble,
 } from "../ChannelView/MessageBubble";
+import { workflowPhases } from "./config";
 import { PlanCardApproval } from "./PlanCardApproval";
 import { ResearchCardApproval } from "./ResearchCardApproval";
 import { ReviewCardApproval } from "./ReviewCardApproval";
@@ -346,6 +353,75 @@ export function WorkflowView({
 
 	const hasAnyContent = messages.length > 0 || streamingMessage;
 
+	/**
+	 * Get the approved artifact from the previous stage.
+	 * Uses workflowPhases array to determine stage order.
+	 * For scoping stage, returns null (no previous stage).
+	 *
+	 * @returns TurnArtifact | null
+	 */
+	const getPreviousStageArtifact = (): TurnArtifact | null => {
+		const currentIndex = workflowPhases.indexOf(viewedStage);
+
+		// Scoping is the first stage - no previous stage
+		if (currentIndex <= 0) {
+			return null;
+		}
+
+		const previousStage = workflowPhases[currentIndex - 1];
+		if (!previousStage) {
+			return null;
+		}
+
+		// Map stages to their corresponding artifact types
+		const stageToArtifactType: Record<
+			string,
+			"scope_card" | "research_card" | "plan" | "review_card" | null
+		> = {
+			scoping: "scope_card",
+			researching: "research_card",
+			planning: "plan",
+			in_progress: "review_card",
+			review: null, // review and done don't have artifacts that end them
+			done: null,
+		};
+
+		const artifactType = stageToArtifactType[previousStage];
+		if (!artifactType) {
+			return null;
+		}
+
+		// Find the approved artifact for the previous stage
+		switch (artifactType) {
+			case "scope_card": {
+				const approvedScope = scopeCards.find((s) => s.status === "approved");
+				return approvedScope
+					? { type: "scope_card", data: approvedScope }
+					: null;
+			}
+			case "research_card": {
+				const approvedResearch = researchCards.find(
+					(r) => r.status === "approved",
+				);
+				return approvedResearch
+					? { type: "research_card", data: approvedResearch }
+					: null;
+			}
+			case "plan": {
+				const approvedPlan = plans.find((p) => p.status === "approved");
+				return approvedPlan ? { type: "plan", data: approvedPlan } : null;
+			}
+			case "review_card": {
+				const approvedReview = reviewCards.find((r) => r.status === "approved");
+				return approvedReview
+					? { type: "review_card", data: approvedReview }
+					: null;
+			}
+			default:
+				return null;
+		}
+	};
+
 	const renderArtifact = (artifact: TurnArtifact) => {
 		switch (artifact.type) {
 			case "scope_card":
@@ -449,6 +525,67 @@ export function WorkflowView({
 							<WorkflowEmptyState />
 						) : (
 							<>
+								{/* Previous stage artifact or scoping context header */}
+								{(() => {
+									const previousArtifact = getPreviousStageArtifact();
+									if (previousArtifact) {
+										// Render in read-only mode (no action props)
+										switch (previousArtifact.type) {
+											case "scope_card":
+												return (
+													<div className="mx-4 mb-2">
+														<ScopeCardApproval
+															key={`prev-${previousArtifact.data.id}`}
+															scopeCard={previousArtifact.data}
+														/>
+													</div>
+												);
+											case "research_card":
+												return (
+													<div className="mx-4 mb-2">
+														<ResearchCardApproval
+															key={`prev-${previousArtifact.data.id}`}
+															researchCard={previousArtifact.data}
+														/>
+													</div>
+												);
+											case "plan":
+												return (
+													<div className="mx-4 mb-2">
+														<PlanCardApproval
+															key={`prev-${previousArtifact.data.id}`}
+															plan={previousArtifact.data}
+														/>
+													</div>
+												);
+											case "review_card":
+												return (
+													<div className="mx-4 mb-2">
+														<ReviewCardApproval
+															key={`prev-${previousArtifact.data.id}`}
+															reviewCard={previousArtifact.data}
+														/>
+													</div>
+												);
+										}
+									}
+									// Scoping stage with no previous - show workflow context
+									if (viewedStage === "scoping") {
+										return (
+											<Card className="mx-4 mb-2">
+												<CardHeader>
+													<CardTitle>{workflow.title}</CardTitle>
+													{workflow.description && (
+														<CardDescription>
+															{workflow.description}
+														</CardDescription>
+													)}
+												</CardHeader>
+											</Card>
+										);
+									}
+									return null;
+								})()}
 								{filteredMessages.map((message) => {
 									const artifact = artifactsByTurn.get(message.turnId);
 									return (
