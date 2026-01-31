@@ -67,9 +67,9 @@ const TERMINAL_TOOLS: Record<string, string[]> = {
 	research: ["submit_research", "request_extension", "ask_questions"],
 	planning: ["submit_plan", "request_extension", "ask_questions"],
 	execution: ["complete_pulse", "request_extension"],
-	// discussion and review agents don't require terminal tools
+	review: ["complete_review", "request_extension"],
+	// discussion and basic agents don't require terminal tools
 	discussion: [],
-	review: ["complete_review"],
 	basic: [],
 };
 
