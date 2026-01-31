@@ -16,6 +16,7 @@ import {
 	FileMinus,
 	FilePlus,
 	Filter,
+	Folder,
 	GitCompareArrows,
 	MessageSquarePlus,
 	Minus,
@@ -25,6 +26,11 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { codeToHtml } from "shiki";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Select,
@@ -299,57 +305,247 @@ function getUniqueExtensions(files: DiffFile[]): string[] {
 // Sub-Components
 // =============================================================================
 
-/**
- * File tree item showing a single file with stats
- */
-function FileTreeItem({
-	file,
-	isSelected,
-	onSelect,
-}: {
-	file: DiffFile;
-	isSelected: boolean;
-	onSelect: () => void;
-}) {
-	const StatusIcon =
-		file.status === "added"
-			? FilePlus
-			: file.status === "deleted"
-				? FileMinus
-				: FileCode;
+// =============================================================================
+// File Tree Types & Helpers
+// =============================================================================
 
-	const statusColor =
-		file.status === "added"
-			? "text-green-500"
-			: file.status === "deleted"
-				? "text-red-500"
-				: "text-blue-500";
+/** Tree node representing a folder or file in the hierarchy */
+interface TreeNode {
+	type: "folder" | "file";
+	name: string;
+	children: Map<string, TreeNode>;
+	file?: DiffFile;
+}
+
+/**
+ * Build a hierarchical tree structure from a flat list of files
+ */
+function buildFileTree(files: DiffFile[]): TreeNode {
+	const root: TreeNode = {
+		type: "folder",
+		name: "",
+		children: new Map(),
+	};
+
+	for (const file of files) {
+		const parts = file.path.split("/");
+		let current = root;
+
+		for (let i = 0; i < parts.length; i++) {
+			const part = parts[i];
+			if (!part) continue;
+
+			const isLastPart = i === parts.length - 1;
+
+			if (isLastPart) {
+				// This is the file
+				current.children.set(part, {
+					type: "file",
+					name: part,
+					children: new Map(),
+					file,
+				});
+			} else {
+				// This is a folder - create if it doesn't exist
+				let next = current.children.get(part);
+				if (!next) {
+					next = {
+						type: "folder",
+						name: part,
+						children: new Map(),
+					};
+					current.children.set(part, next);
+				}
+				current = next;
+			}
+		}
+	}
+
+	return root;
+}
+
+/**
+ * Recursive tree node renderer for folders and files
+ */
+function FileTreeNode({
+	node,
+	selectedFile,
+	onSelect,
+	depth = 0,
+	expandedFolders,
+	setExpandedFolders,
+}: {
+	node: TreeNode;
+	selectedFile: DiffFile | null;
+	onSelect: (file: DiffFile) => void;
+	depth?: number;
+	expandedFolders: Set<string>;
+	setExpandedFolders: React.Dispatch<React.SetStateAction<Set<string>>>;
+}) {
+	const sortedChildren = useMemo(() => {
+		const entries = Array.from(node.children.entries());
+		// Sort: folders first, then files, alphabetically within each group
+		return entries.sort((a, b) => {
+			if (a[1].type !== b[1].type) {
+				return a[1].type === "folder" ? -1 : 1;
+			}
+			return a[0].localeCompare(b[0]);
+		});
+	}, [node.children]);
+
+	if (node.type === "file" && node.file) {
+		const file = node.file;
+		const StatusIcon =
+			file.status === "added"
+				? FilePlus
+				: file.status === "deleted"
+					? FileMinus
+					: FileCode;
+
+		const statusColor =
+			file.status === "added"
+				? "text-green-500"
+				: file.status === "deleted"
+					? "text-red-500"
+					: "text-blue-500";
+
+		return (
+			<button
+				type="button"
+				onClick={() => onSelect(file)}
+				className={cn(
+					"w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm rounded-md transition-colors",
+					"hover:bg-muted/50",
+					selectedFile === file && "bg-muted",
+				)}
+				style={{ paddingLeft: `${depth * 12 + 8}px` }}
+			>
+				<StatusIcon className={cn("size-4 shrink-0", statusColor)} />
+				<span className="truncate flex-1 font-mono text-xs">{node.name}</span>
+				<div className="flex items-center gap-1 text-xs shrink-0">
+					{file.additions > 0 && (
+						<span className="text-green-600 dark:text-green-400">
+							+{file.additions}
+						</span>
+					)}
+					{file.deletions > 0 && (
+						<span className="text-red-600 dark:text-red-400">
+							-{file.deletions}
+						</span>
+					)}
+				</div>
+			</button>
+		);
+	}
+
+	// Folder node
+	const folderPath = node.name; // Use name as unique identifier for expansion state
+	const isOpen = expandedFolders.has(folderPath);
+
+	const toggleFolder = () => {
+		setExpandedFolders((prev) => {
+			const next = new Set(prev);
+			if (next.has(folderPath)) {
+				next.delete(folderPath);
+			} else {
+				next.add(folderPath);
+			}
+			return next;
+		});
+	};
 
 	return (
-		<button
-			type="button"
-			onClick={onSelect}
-			className={cn(
-				"w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm rounded-md transition-colors",
-				"hover:bg-muted/50",
-				isSelected && "bg-muted",
-			)}
-		>
-			<StatusIcon className={cn("size-4 shrink-0", statusColor)} />
-			<span className="truncate flex-1 font-mono text-xs">{file.path}</span>
-			<div className="flex items-center gap-1 text-xs shrink-0">
-				{file.additions > 0 && (
-					<span className="text-green-600 dark:text-green-400">
-						+{file.additions}
-					</span>
+		<Collapsible open={isOpen} onOpenChange={toggleFolder}>
+			<CollapsibleTrigger
+				className={cn(
+					"w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm rounded-md transition-colors",
+					"hover:bg-muted/50",
 				)}
-				{file.deletions > 0 && (
-					<span className="text-red-600 dark:text-red-400">
-						-{file.deletions}
-					</span>
+				style={{ paddingLeft: `${depth * 12 + 8}px` }}
+			>
+				{isOpen ? (
+					<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+				) : (
+					<ChevronRight className="size-4 shrink-0 text-muted-foreground" />
 				)}
-			</div>
-		</button>
+				<Folder className="size-4 shrink-0 text-muted-foreground" />
+				<span className="truncate flex-1 font-mono text-xs">{node.name}</span>
+			</CollapsibleTrigger>
+			<CollapsibleContent>
+				{sortedChildren.map(([name, child]) => (
+					<FileTreeNode
+						key={name}
+						node={child}
+						selectedFile={selectedFile}
+						onSelect={onSelect}
+						depth={depth + 1}
+						expandedFolders={expandedFolders}
+						setExpandedFolders={setExpandedFolders}
+					/>
+				))}
+			</CollapsibleContent>
+		</Collapsible>
+	);
+}
+
+/**
+ * Hierarchical file tree component
+ */
+function FileTree({
+	files,
+	selectedFile,
+	onSelect,
+}: {
+	files: DiffFile[];
+	selectedFile: DiffFile | null;
+	onSelect: (file: DiffFile) => void;
+}) {
+	const tree = useMemo(() => buildFileTree(files), [files]);
+
+	// Initialize all folders as expanded by collecting all folder names
+	const allFolderNames = useMemo(() => {
+		const names = new Set<string>();
+		const collectFolders = (node: TreeNode) => {
+			if (node.type === "folder" && node.name) {
+				names.add(node.name);
+			}
+			for (const child of node.children.values()) {
+				collectFolders(child);
+			}
+		};
+		collectFolders(tree);
+		return names;
+	}, [tree]);
+
+	const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+		() => new Set(allFolderNames),
+	);
+
+	const sortedChildren = useMemo(() => {
+		const entries = Array.from(tree.children.entries());
+		// Sort: folders first, then files, alphabetically within each group
+		return entries.sort((a, b) => {
+			if (a[1].type !== b[1].type) {
+				return a[1].type === "folder" ? -1 : 1;
+			}
+			return a[0].localeCompare(b[0]);
+		});
+	}, [tree.children]);
+
+	return (
+		<div className="space-y-0.5">
+			{sortedChildren.map(([name, child]) => (
+				<FileTreeNode
+					key={name}
+					node={child}
+					selectedFile={selectedFile}
+					onSelect={onSelect}
+					depth={0}
+					expandedFolders={expandedFolders}
+					setExpandedFolders={setExpandedFolders}
+				/>
+			))}
+		</div>
 	);
 }
 
@@ -928,7 +1124,7 @@ export function DiffViewer({
 		[comments],
 	);
 
-	const [selectedFile, setSelectedFile] = useState<string | null>(null);
+	const [selectedFile, setSelectedFile] = useState<DiffFile | null>(null);
 	const [filterExtension, setFilterExtension] = useState<string>("all");
 
 	// Filter files by extension
@@ -958,11 +1154,9 @@ export function DiffViewer({
 		);
 	}
 
-	const handleFileSelect = (filePath: string) => {
-		setSelectedFile(selectedFile === filePath ? null : filePath);
-		// Scroll to file in main view
+	const scrollToFile = (file: DiffFile) => {
 		const element = document.getElementById(
-			`diff-file-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`,
+			`diff-file-${file.path.replace(/[^a-zA-Z0-9]/g, "-")}`,
 		);
 		element?.scrollIntoView({ behavior: "smooth" });
 	};
@@ -1009,15 +1203,15 @@ export function DiffViewer({
 
 				{/* File list */}
 				<ScrollArea className="flex-1">
-					<div className="p-2 space-y-0.5">
-						{filteredFiles.map((file) => (
-							<FileTreeItem
-								key={file.path}
-								file={file}
-								isSelected={selectedFile === file.path}
-								onSelect={() => handleFileSelect(file.path)}
-							/>
-						))}
+					<div className="p-2">
+						<FileTree
+							files={filteredFiles}
+							selectedFile={selectedFile}
+							onSelect={(file) => {
+								setSelectedFile(file);
+								scrollToFile(file);
+							}}
+						/>
 					</div>
 				</ScrollArea>
 			</div>
