@@ -46,7 +46,7 @@ export function App() {
 		<Switch>
 			<Route path="/" component={RootRedirect} />
 			<Route path="/onboarding" component={OnboardingPage} />
-			<Route path="/dashboard" component={Dashboard} />
+			<Route path="/dashboard" nest component={Dashboard} />
 			<Route path="/testbench" component={ToolTestbench} />
 			{/* Fallback for unknown routes */}
 			<Route>

@@ -1,55 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect } from "react";
+import { Route, Switch, useLocation } from "wouter";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import type { Channel } from "@/shared/schemas/channel";
-import type {
-	MergeStrategy,
-	RewindTarget,
-	Workflow,
-} from "@/shared/schemas/workflow";
-import { ChannelView } from "./components/ChannelView";
+import { ChannelViewContainer } from "./components/ChannelView";
 import { AppSidebar } from "./components/Sidebar";
 import {
 	ShellApprovalDialogContainer,
-	WorkflowView,
+	WorkflowViewContainer,
 } from "./components/WorkflowView";
 import { useDiscussionsStore, useWorkflowsStore } from "./store";
-import type { ViewType } from "./types";
+
+/** Empty state shown when no channel or workflow is selected */
+function DashboardEmptyState() {
+	return (
+		<div className="flex items-center justify-center h-full">
+			<p className="text-muted-foreground">
+				Select a channel or workflow to get started
+			</p>
+		</div>
+	);
+}
 
 export function Dashboard() {
-	const [selectedView, setSelectedView] = useState<ViewType>("channel");
-	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [, setLocation] = useLocation();
 
 	// Discussions store
-	const {
-		channels,
-		channelsLoading,
-		conversations: channelConversations,
-		fetchChannels,
-		createChannel,
-		selectChannel,
-		fetchHistory: fetchChannelHistory,
-		sendMessage: sendChannelMessage,
-	} = useDiscussionsStore();
+	const { channels, fetchChannels, createChannel } = useDiscussionsStore();
 
 	// Workflows store
-	const {
-		workflows,
-		workflowsLoading,
-		conversations: workflowConversations,
-		scopeCards,
-		researchCards,
-		plans,
-		reviewCards,
-		fetchWorkflows,
-		createWorkflow,
-		selectWorkflow,
-		fetchHistory: fetchWorkflowHistory,
-		approveArtifact,
-		approveWithMerge,
-		requestChanges,
-		requestFixes,
-		rewindWorkflow,
-	} = useWorkflowsStore();
+	const { workflows, fetchWorkflows, createWorkflow } = useWorkflowsStore();
 
 	// Fetch channels and workflows on mount
 	useEffect(() => {
@@ -57,227 +35,44 @@ export function Dashboard() {
 		fetchWorkflows();
 	}, [fetchChannels, fetchWorkflows]);
 
-	// Fetch channel history when selecting a channel
-	useEffect(() => {
-		if (selectedView === "channel" && selectedId) {
-			// Fetch history if we haven't already
-			const conversation = channelConversations.get(selectedId);
-			if (!conversation) {
-				fetchChannelHistory(selectedId);
-			}
-		}
-	}, [selectedView, selectedId, channelConversations, fetchChannelHistory]);
-
-	// Fetch workflow history when selecting a workflow
-	useEffect(() => {
-		if (selectedView === "workflow" && selectedId) {
-			// Fetch history if we haven't already
-			const conversation = workflowConversations.get(selectedId);
-			if (!conversation) {
-				fetchWorkflowHistory(selectedId);
-			}
-		}
-	}, [selectedView, selectedId, workflowConversations, fetchWorkflowHistory]);
-
-	const handleSelectChannel = useCallback(
-		(channelId: string) => {
-			setSelectedView("channel");
-			setSelectedId(channelId);
-			selectChannel(channelId);
-		},
-		[selectChannel],
-	);
-
-	const handleSelectWorkflow = useCallback(
-		(workflowId: string) => {
-			setSelectedView("workflow");
-			setSelectedId(workflowId);
-			selectWorkflow(workflowId);
-		},
-		[selectWorkflow],
-	);
-
 	const handleCreateChannel = useCallback(
 		async (name: string, description?: string) => {
 			const channel = await createChannel(name, description);
-			// Auto-select the new channel
-			handleSelectChannel(channel.id);
+			// Navigate to the new channel
+			setLocation(`/dashboard/channel/${channel.id}`);
 		},
-		[createChannel, handleSelectChannel],
+		[createChannel, setLocation],
 	);
 
 	const handleCreateWorkflow = useCallback(
 		async (prompt: string) => {
 			const workflow = await createWorkflow(prompt);
-			// Auto-select the new workflow
-			handleSelectWorkflow(workflow.id);
+			// Navigate to the new workflow
+			setLocation(`/dashboard/workflow/${workflow.id}`);
 		},
-		[createWorkflow, handleSelectWorkflow],
+		[createWorkflow, setLocation],
 	);
-
-	const handleSendChannelMessage = useCallback(
-		async (content: string) => {
-			if (selectedView === "channel" && selectedId) {
-				await sendChannelMessage(selectedId, content);
-			}
-		},
-		[selectedView, selectedId, sendChannelMessage],
-	);
-
-	const handleApproveScope = useCallback(
-		async (path: "quick" | "full") => {
-			if (selectedId) {
-				await approveArtifact(selectedId, path);
-			}
-		},
-		[selectedId, approveArtifact],
-	);
-
-	const handleApprove = useCallback(async () => {
-		if (selectedId) {
-			await approveArtifact(selectedId);
-		}
-	}, [selectedId, approveArtifact]);
-
-	const handleRequestChanges = useCallback(
-		async (feedback: string) => {
-			if (selectedId) {
-				await requestChanges(selectedId, feedback);
-			}
-		},
-		[selectedId, requestChanges],
-	);
-
-	const handleApproveWithMerge = useCallback(
-		async (mergeOptions: {
-			mergeStrategy: MergeStrategy;
-			commitMessage: string;
-		}) => {
-			if (selectedId) {
-				await approveWithMerge(selectedId, mergeOptions);
-			}
-		},
-		[selectedId, approveWithMerge],
-	);
-
-	const handleRewindWorkflow = useCallback(
-		async (targetStage: RewindTarget) => {
-			if (selectedId) {
-				await rewindWorkflow(selectedId, targetStage);
-			}
-		},
-		[selectedId, rewindWorkflow],
-	);
-
-	const handleRequestFixes = useCallback(
-		async (commentIds: string[], summary?: string) => {
-			if (selectedId) {
-				await requestFixes(selectedId, commentIds, summary);
-			}
-		},
-		[selectedId, requestFixes],
-	);
-
-	const handleWorkflowArchived = useCallback(() => {
-		setSelectedId(null);
-	}, []);
-
-	const selectedChannel = useMemo((): Channel | null => {
-		if (selectedView !== "channel" || !selectedId) return null;
-		return channels.find((c) => c.id === selectedId) ?? null;
-	}, [selectedView, selectedId, channels]);
-
-	const selectedWorkflow = useMemo((): Workflow | null => {
-		if (selectedView !== "workflow" || !selectedId) return null;
-		return workflows.find((w) => w.id === selectedId) ?? null;
-	}, [selectedView, selectedId, workflows]);
-
-	// Get conversation state for selected channel
-	const selectedChannelConversation = useMemo(() => {
-		if (selectedView !== "channel" || !selectedId) return undefined;
-		return channelConversations.get(selectedId);
-	}, [selectedView, selectedId, channelConversations]);
-
-	// Get conversation state for selected workflow
-	const selectedWorkflowConversation = useMemo(() => {
-		if (selectedView !== "workflow" || !selectedId) return undefined;
-		return workflowConversations.get(selectedId);
-	}, [selectedView, selectedId, workflowConversations]);
-
-	// Get scope cards for selected workflow
-	const selectedScopeCards = useMemo(() => {
-		if (selectedView !== "workflow" || !selectedId) return [];
-		return scopeCards.get(selectedId) ?? [];
-	}, [selectedView, selectedId, scopeCards]);
-
-	// Get research cards for selected workflow
-	const selectedResearchCards = useMemo(() => {
-		if (selectedView !== "workflow" || !selectedId) return [];
-		return researchCards.get(selectedId) ?? [];
-	}, [selectedView, selectedId, researchCards]);
-
-	// Get plans for selected workflow
-	const selectedPlans = useMemo(() => {
-		if (selectedView !== "workflow" || !selectedId) return [];
-		return plans.get(selectedId) ?? [];
-	}, [selectedView, selectedId, plans]);
-
-	// Get review cards for selected workflow
-	const selectedReviewCards = useMemo(() => {
-		if (selectedView !== "workflow" || !selectedId) return [];
-		return reviewCards.get(selectedId) ?? [];
-	}, [selectedView, selectedId, reviewCards]);
 
 	return (
 		<SidebarProvider>
 			<AppSidebar
 				channels={channels}
 				workflows={workflows}
-				selectedView={selectedView}
-				selectedId={selectedId}
-				onSelectChannel={handleSelectChannel}
-				onSelectWorkflow={handleSelectWorkflow}
 				onCreateChannel={handleCreateChannel}
 				onCreateWorkflow={handleCreateWorkflow}
 			/>
 			<SidebarInset className="flex flex-col h-svh overflow-hidden">
-				{selectedView === "channel" && selectedChannel ? (
-					<ChannelView
-						channel={selectedChannel}
-						messages={selectedChannelConversation?.messages ?? []}
-						streamingMessage={selectedChannelConversation?.streamingMessage}
-						isLoading={
-							selectedChannelConversation?.isLoading ?? channelsLoading
-						}
-						onSendMessage={handleSendChannelMessage}
-					/>
-				) : selectedView === "workflow" && selectedWorkflow ? (
-					<WorkflowView
-						workflow={selectedWorkflow}
-						messages={selectedWorkflowConversation?.messages ?? []}
-						streamingMessage={selectedWorkflowConversation?.streamingMessage}
-						isLoading={
-							selectedWorkflowConversation?.isLoading ?? workflowsLoading
-						}
-						scopeCards={selectedScopeCards}
-						researchCards={selectedResearchCards}
-						plans={selectedPlans}
-						reviewCards={selectedReviewCards}
-						onApproveScope={handleApproveScope}
-						onApprove={handleApprove}
-						onApproveWithMerge={handleApproveWithMerge}
-						onRequestChanges={handleRequestChanges}
-						onRequestFixes={handleRequestFixes}
-						onRewind={handleRewindWorkflow}
-						onArchived={handleWorkflowArchived}
-					/>
-				) : (
-					<div className="flex items-center justify-center h-full">
-						<p className="text-muted-foreground">
-							Select a channel or workflow to get started
-						</p>
-					</div>
-				)}
+				<Switch>
+					<Route path="/channel/:id">
+						{(params) => <ChannelViewContainer channelId={params.id} />}
+					</Route>
+					<Route path="/workflow/:id">
+						{(params) => <WorkflowViewContainer workflowId={params.id} />}
+					</Route>
+					<Route path="/">
+						<DashboardEmptyState />
+					</Route>
+				</Switch>
 			</SidebarInset>
 
 			{/* Global shell approval dialog - renders when there are pending approvals */}

@@ -1,5 +1,6 @@
 import { Hash, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link, useLocation } from "wouter";
 import {
 	SidebarGroup,
 	SidebarGroupAction,
@@ -10,25 +11,19 @@ import {
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import type { Channel } from "@/shared/schemas/channel";
-import type { ViewType } from "../../types";
 import { CreateChannelDialog } from "./CreateChannelDialog";
 
 interface DiscussionsSectionProps {
 	channels: Channel[];
-	selectedView: ViewType;
-	selectedId: string | null;
-	onSelectChannel: (channelId: string) => void;
 	onCreateChannel: (name: string, description?: string) => Promise<void>;
 }
 
 export function DiscussionsSection({
 	channels,
-	selectedView,
-	selectedId,
-	onSelectChannel,
 	onCreateChannel,
 }: DiscussionsSectionProps) {
 	const [dialogOpen, setDialogOpen] = useState(false);
+	const [location] = useLocation();
 
 	const sortedChannels = useMemo(
 		() =>
@@ -58,21 +53,25 @@ export function DiscussionsSection({
 								</div>
 							</SidebarMenuItem>
 						) : (
-							sortedChannels.map((channel) => (
-								<SidebarMenuItem key={channel.id}>
-									<SidebarMenuButton
-										onClick={() => onSelectChannel(channel.id)}
-										isActive={
-											selectedView === "channel" && selectedId === channel.id
-										}
-										tooltip={`#${channel.name}`}
-									>
-										<Hash className="size-4" />
-										<span>{channel.name}</span>
-									</SidebarMenuButton>
-									{/* TODO: Implement unread count tracking */}
-								</SidebarMenuItem>
-							))
+							sortedChannels.map((channel) => {
+								const href = `/channel/${channel.id}`;
+								const isActive = location === `/dashboard${href}`;
+								return (
+									<SidebarMenuItem key={channel.id}>
+										<SidebarMenuButton
+											asChild
+											isActive={isActive}
+											tooltip={`#${channel.name}`}
+										>
+											<Link href={href}>
+												<Hash className="size-4" />
+												<span>{channel.name}</span>
+											</Link>
+										</SidebarMenuButton>
+										{/* TODO: Implement unread count tracking */}
+									</SidebarMenuItem>
+								);
+							})
 						)}
 					</SidebarMenu>
 				</SidebarGroupContent>

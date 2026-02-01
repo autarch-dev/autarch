@@ -1,5 +1,6 @@
 import { CheckCircle2, Circle, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link, useLocation } from "wouter";
 import {
 	SidebarGroup,
 	SidebarGroupAction,
@@ -12,26 +13,21 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import type { Workflow } from "@/shared/schemas/workflow";
-import type { ViewType } from "../../types";
 import { CreateWorkflowDialog } from "./CreateWorkflowDialog";
 import { priorityBorders, statusColors } from "./constants";
 
 interface WorkflowsSectionProps {
 	workflows: Workflow[];
-	selectedView: ViewType;
-	selectedId: string | null;
-	onSelectWorkflow: (workflowId: string) => void;
 	onCreateWorkflow?: (title: string) => Promise<void>;
 }
 
 export function WorkflowsSection({
 	workflows,
-	selectedView,
-	selectedId,
-	onSelectWorkflow,
 	onCreateWorkflow,
 }: WorkflowsSectionProps) {
 	const [dialogOpen, setDialogOpen] = useState(false);
+	const [location] = useLocation();
+
 	const activeWorkflows = useMemo(
 		() =>
 			workflows
@@ -74,26 +70,30 @@ export function WorkflowsSection({
 				</SidebarGroupAction>
 				<SidebarGroupContent>
 					<SidebarMenu>
-						{activeWorkflows.map((workflow) => (
-							<SidebarMenuItem key={workflow.id}>
-								<SidebarMenuButton
-									onClick={() => onSelectWorkflow(workflow.id)}
-									isActive={
-										selectedView === "workflow" && selectedId === workflow.id
-									}
-									tooltip={workflow.title}
-									className={cn("flex-1", priorityBorders[workflow.priority])}
-								>
-									<Circle
-										className={cn(
-											"size-3 shrink-0 fill-current",
-											statusColors[workflow.status],
-										)}
-									/>
-									<span className="truncate">{workflow.title}</span>
-								</SidebarMenuButton>
-							</SidebarMenuItem>
-						))}
+						{activeWorkflows.map((workflow) => {
+							const href = `/workflow/${workflow.id}`;
+							const isActive = location === `/dashboard${href}`;
+							return (
+								<SidebarMenuItem key={workflow.id}>
+									<SidebarMenuButton
+										asChild
+										isActive={isActive}
+										tooltip={workflow.title}
+										className={cn("flex-1", priorityBorders[workflow.priority])}
+									>
+										<Link href={href}>
+											<Circle
+												className={cn(
+													"size-3 shrink-0 fill-current",
+													statusColors[workflow.status],
+												)}
+											/>
+											<span className="truncate">{workflow.title}</span>
+										</Link>
+									</SidebarMenuButton>
+								</SidebarMenuItem>
+							);
+						})}
 					</SidebarMenu>
 				</SidebarGroupContent>
 			</SidebarGroup>
@@ -106,24 +106,27 @@ export function WorkflowsSection({
 						<SidebarGroupLabel>Completed</SidebarGroupLabel>
 						<SidebarGroupContent>
 							<SidebarMenu>
-								{completedWorkflows.map((workflow) => (
-									<SidebarMenuItem key={workflow.id}>
-										<SidebarMenuButton
-											onClick={() => onSelectWorkflow(workflow.id)}
-											isActive={
-												selectedView === "workflow" &&
-												selectedId === workflow.id
-											}
-											tooltip={workflow.title}
-											className="flex-1"
-										>
-											<CheckCircle2 className="size-3 shrink-0 text-green-500" />
-											<span className="truncate line-through decoration-muted-foreground/50">
-												{workflow.title}
-											</span>
-										</SidebarMenuButton>
-									</SidebarMenuItem>
-								))}
+								{completedWorkflows.map((workflow) => {
+									const href = `/workflow/${workflow.id}`;
+									const isActive = location === `/dashboard${href}`;
+									return (
+										<SidebarMenuItem key={workflow.id}>
+											<SidebarMenuButton
+												asChild
+												isActive={isActive}
+												tooltip={workflow.title}
+												className="flex-1"
+											>
+												<Link href={href}>
+													<CheckCircle2 className="size-3 shrink-0 text-green-500" />
+													<span className="truncate line-through decoration-muted-foreground/50">
+														{workflow.title}
+													</span>
+												</Link>
+											</SidebarMenuButton>
+										</SidebarMenuItem>
+									);
+								})}
 							</SidebarMenu>
 						</SidebarGroupContent>
 					</SidebarGroup>

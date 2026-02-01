@@ -8,3 +8,4 @@ export { ScopeCardApproval } from "./ScopeCardApproval";
 export { ShellApprovalCard, ShellApprovalDialog } from "./ShellApprovalCard";
 export { ShellApprovalDialogContainer } from "./ShellApprovalDialogContainer";
 export { WorkflowView } from "./WorkflowView";
+export { WorkflowViewContainer } from "./WorkflowViewContainer";

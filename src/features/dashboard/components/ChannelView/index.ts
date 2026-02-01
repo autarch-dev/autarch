@@ -1,4 +1,5 @@
 export { ChannelView } from "./ChannelView";
+export { ChannelViewContainer } from "./ChannelViewContainer";
 export {
 	ChannelMessageBubble,
 	MessageBubble,
