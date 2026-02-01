@@ -15,6 +15,7 @@ import {
 	cleanupWorkflow,
 	findRepoRoot,
 	getCurrentBranch,
+	getDiff,
 	getWorktreePath,
 	mergeWorkflowBranch,
 } from "@/backend/git";
@@ -343,6 +344,29 @@ export class WorkflowOrchestrator {
 					.replace(/[^a-z0-9]+/g, "-")
 					.replace(/^-|-$/g, "");
 				trailers["Autarch-Workflow-Name"] = slug;
+			}
+
+			// Capture diff content before merge (branch will be deleted after)
+			const reviewCard =
+				await this.artifactRepo.getLatestReviewCard(workflowId);
+			if (reviewCard) {
+				try {
+					const diffContent = await getDiff(
+						projectRoot,
+						baseBranch,
+						workflowBranch,
+					);
+					await this.artifactRepo.updateReviewCardDiffContent(
+						reviewCard.id,
+						diffContent,
+					);
+				} catch (err) {
+					log.workflow.warn(
+						`Failed to capture diff content at approval for workflow ${workflowId}`,
+						{ error: err },
+					);
+					// Continue approval without blocking
+				}
 			}
 
 			try {
