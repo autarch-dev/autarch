@@ -473,6 +473,7 @@ export class ArtifactRepository implements Repository {
 			recommendation: row.recommendation ?? undefined,
 			summary: row.summary ?? undefined,
 			suggestedCommitMessage: row.suggested_commit_message ?? undefined,
+			diffContent: row.diff_content ?? undefined,
 			comments,
 			status: row.status,
 			createdAt: row.created_at,
@@ -573,6 +574,20 @@ export class ArtifactRepository implements Repository {
 		await this.db
 			.updateTable("review_cards")
 			.set({ status })
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
+	 * Update the diff content of a review card (captures diff at approval time before branch deletion)
+	 */
+	async updateReviewCardDiffContent(
+		id: string,
+		diffContent: string,
+	): Promise<void> {
+		await this.db
+			.updateTable("review_cards")
+			.set({ diff_content: diffContent })
 			.where("id", "=", id)
 			.execute();
 	}

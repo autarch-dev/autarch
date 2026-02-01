@@ -210,6 +210,8 @@ export const ReviewCardSchema = z.object({
 	summary: z.string().optional(),
 	/** Suggested commit message from review agent - undefined until completeReview is called */
 	suggestedCommitMessage: z.string().optional(),
+	/** Persisted diff content - captured at approval time before branch deletion */
+	diffContent: z.string().optional(),
 	/** Comments added during review */
 	comments: z.array(ReviewCommentSchema),
 	status: ArtifactStatusSchema,

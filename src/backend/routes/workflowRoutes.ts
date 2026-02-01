@@ -475,6 +475,23 @@ export const workflowRoutes = {
 					);
 				}
 
+				// Check for persisted diff on approved reviews
+				const reviewCard = await repos.artifacts.getLatestReviewCard(
+					workflow.id,
+				);
+				if (reviewCard && reviewCard.status === "approved") {
+					// Approved reviews serve immutable persisted diffs
+					if (reviewCard.diffContent) {
+						return Response.json({ diff: reviewCard.diffContent });
+					}
+					// Legacy approved reviews without persisted diffs
+					return Response.json(
+						{ error: "Diff unavailable for historical approved review" },
+						{ status: 404 },
+					);
+				}
+
+				// Active review or no review card: use live git diff
 				if (!workflow.baseBranch) {
 					return Response.json(
 						{ error: "Workflow has no base branch set" },
