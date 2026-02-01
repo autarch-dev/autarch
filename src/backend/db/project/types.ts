@@ -390,6 +390,8 @@ export interface ReviewCardsTable {
 	summary: string | null;
 	/** Suggested commit message from review agent - nullable until completeReview is called */
 	suggested_commit_message: string | null;
+	/** Persisted diff content captured at approval time - null until approved */
+	diff_content: string | null;
 	status: ArtifactStatus;
 	created_at: number;
 }

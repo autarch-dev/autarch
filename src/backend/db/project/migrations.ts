@@ -37,6 +37,7 @@ export async function migrateProjectDb(
 	await addArchivedColumn(db);
 	await addSkippedStagesColumn(db);
 	await removeReviewCommentConstraints(db);
+	await addReviewCardDiffContentColumn(db);
 }
 
 // =============================================================================
@@ -985,6 +986,25 @@ async function addSkippedStagesColumn(
 			.addColumn("skipped_stages", "text", (col) =>
 				col.notNull().defaultTo("[]"),
 			)
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+}
+
+// =============================================================================
+// Review Card Diff Content Migration
+// =============================================================================
+
+async function addReviewCardDiffContentColumn(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	// Add diff_content column to review_cards table
+	// Stores the persisted diff content when a review is approved
+	try {
+		await db.schema
+			.alterTable("review_cards")
+			.addColumn("diff_content", "text")
 			.execute();
 	} catch {
 		// Column already exists, ignore
