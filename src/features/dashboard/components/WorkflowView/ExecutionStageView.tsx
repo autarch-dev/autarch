@@ -92,6 +92,43 @@ function StatusBadge({
 }
 
 /**
+ * Status-based container styling for pulse cards.
+ * Maps PulseStatus to Tailwind border and background classes.
+ */
+const STATUS_CONTAINER_STYLES = {
+	proposed: "border-gray-300 bg-gray-50/50",
+	running: "border-orange-500/50 bg-orange-500/5",
+	succeeded: "border-green-500/30 bg-green-500/5",
+	failed: "border-red-500/50 bg-red-500/10",
+	stopped: "border-gray-400/50 bg-gray-100/50",
+} as const;
+
+/**
+ * Get the style classes for a pulse size badge.
+ * Duplicated from PlanCardApproval for consistency.
+ */
+function _getSizeBadgeClasses(size: PulseDefinition["estimatedSize"]): string {
+	switch (size) {
+		case "small":
+			return "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30";
+		case "medium":
+			return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30";
+		case "large":
+			return "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30";
+		default:
+			return "bg-muted text-muted-foreground";
+	}
+}
+
+/**
+ * Get container classes for a pulse based on its status.
+ * Includes transition classes with reduced-motion accessibility support.
+ */
+function _getStatusContainerClasses(status: Pulse["status"]): string {
+	return `${STATUS_CONTAINER_STYLES[status]} transition-colors duration-200 motion-reduce:transition-none`;
+}
+
+/**
  * Collapsible item for preflight setup
  */
 function PreflightCollapsibleItem({
