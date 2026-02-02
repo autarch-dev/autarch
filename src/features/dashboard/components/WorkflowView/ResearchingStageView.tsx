@@ -105,8 +105,8 @@ export function ResearchingStageView({
 				);
 			})}
 
-			{/* Streaming message */}
-			{streamingMessage && (
+			{/* Streaming message (only if it belongs to this stage) */}
+			{streamingMessage && streamingMessage.agentRole === "research" && (
 				<StreamingMessageBubble message={streamingMessage} />
 			)}
 

@@ -101,8 +101,8 @@ export function ScopingStageView({
 				);
 			})}
 
-			{/* Streaming message */}
-			{streamingMessage && (
+			{/* Streaming message (only if it belongs to this stage) */}
+			{streamingMessage && streamingMessage.agentRole === "scoping" && (
 				<StreamingMessageBubble message={streamingMessage} />
 			)}
 

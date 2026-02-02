@@ -103,8 +103,8 @@ export function PlanningStageView({
 				);
 			})}
 
-			{/* Streaming message */}
-			{streamingMessage && (
+			{/* Streaming message (only if it belongs to this stage) */}
+			{streamingMessage && streamingMessage.agentRole === "planning" && (
 				<StreamingMessageBubble message={streamingMessage} />
 			)}
 
