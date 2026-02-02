@@ -279,6 +279,8 @@ export interface SessionsTable {
 	status: SessionStatus;
 	created_at: number;
 	updated_at: number;
+	/** Optional pulse ID to link execution sessions to their associated pulse */
+	pulse_id: string | null;
 }
 
 // =============================================================================

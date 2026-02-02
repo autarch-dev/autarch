@@ -38,6 +38,7 @@ export async function migrateProjectDb(
 	await addSkippedStagesColumn(db);
 	await removeReviewCommentConstraints(db);
 	await addReviewCardDiffContentColumn(db);
+	await addPulseIdToSessionsColumn(db);
 }
 
 // =============================================================================
@@ -1005,6 +1006,25 @@ async function addReviewCardDiffContentColumn(
 		await db.schema
 			.alterTable("review_cards")
 			.addColumn("diff_content", "text")
+			.execute();
+	} catch {
+		// Column already exists, ignore
+	}
+}
+
+// =============================================================================
+// Pulse ID to Sessions Migration
+// =============================================================================
+
+async function addPulseIdToSessionsColumn(
+	db: Kysely<ProjectDatabase>,
+): Promise<void> {
+	// Add pulse_id column to sessions table
+	// Links execution sessions to their associated pulse for grouping messages
+	try {
+		await db.schema
+			.alterTable("sessions")
+			.addColumn("pulse_id", "text")
 			.execute();
 	} catch {
 		// Column already exists, ignore
