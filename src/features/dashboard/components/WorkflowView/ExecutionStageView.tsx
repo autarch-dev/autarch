@@ -15,13 +15,18 @@ import {
 	Loader2,
 	XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import type { PreflightSetup, Pulse } from "@/shared/schemas/workflow";
+import type {
+	Plan,
+	PreflightSetup,
+	Pulse,
+	PulseDefinition,
+} from "@/shared/schemas/workflow";
 import { ChannelMessageBubble } from "../ChannelView/MessageBubble";
 import type { StageViewProps } from "./types";
 
@@ -34,6 +39,8 @@ export interface ExecutionStageViewProps extends StageViewProps {
 	pulses: Pulse[];
 	/** Preflight setup for this workflow (optional - quick path workflows skip this) */
 	preflightSetup?: PreflightSetup;
+	/** Plans for this workflow (used to retrieve pulse metadata via plannedPulseId) */
+	plans: Plan[];
 }
 
 /**
@@ -42,7 +49,7 @@ export interface ExecutionStageViewProps extends StageViewProps {
 function StatusBadge({
 	status,
 }: {
-	status: Pulse['status'] | PreflightSetup['status'];
+	status: Pulse["status"] | PreflightSetup["status"];
 }) {
 	switch (status) {
 		case "proposed":
@@ -176,7 +183,7 @@ function PulseCollapsibleItem({
 	const pulseMessages = messages.filter((msg) => msg.agentRole === "execution");
 	const pulseTitle = pulse.description.split("\n")[0];
 	const pulseDescription = pulse.description.split("\n").slice(1).join("\n");
-	
+
 	return (
 		<Collapsible open={isOpen} onOpenChange={setIsOpen}>
 			<CollapsibleTrigger asChild>
@@ -214,9 +221,7 @@ function PulseCollapsibleItem({
 						</div>
 					)}
 					{pulseDescription && (
-						<p className="text-sm text-muted-foreground">
-							{pulseDescription}
-						</p>
+						<p className="text-sm text-muted-foreground">{pulseDescription}</p>
 					)}
 					{pulseMessages.map((message) => (
 						<ChannelMessageBubble key={message.id} message={message} />
@@ -243,7 +248,31 @@ export function ExecutionStageView({
 	messages,
 	pulses,
 	preflightSetup,
+	plans,
 }: ExecutionStageViewProps) {
+	// Build lookup map from plannedPulseId to PulseDefinition from the latest approved plan
+	// Prefixed with underscore as it will be used in a future pulse for metadata display
+	const _pulseDefinitionMap = useMemo(() => {
+		const approvedPlans = plans.filter((plan) => plan.status === "approved");
+		if (approvedPlans.length === 0) {
+			return new Map<string, PulseDefinition>();
+		}
+
+		// Sort by createdAt descending and take the first (latest)
+		const sortedPlans = approvedPlans.sort((a, b) => b.createdAt - a.createdAt);
+		const latestPlan = sortedPlans[0];
+		if (!latestPlan) {
+			return new Map<string, PulseDefinition>();
+		}
+
+		// Build map from pulse id to PulseDefinition
+		const map = new Map<string, PulseDefinition>();
+		for (const pulse of latestPlan.pulses) {
+			map.set(pulse.id, pulse);
+		}
+		return map;
+	}, [plans]);
+
 	return (
 		<div className="flex flex-col gap-3 p-4">
 			{/* Preflight Setup - only render if it exists (quick path workflows skip this) */}
