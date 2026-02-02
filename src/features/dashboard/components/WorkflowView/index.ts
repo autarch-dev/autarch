@@ -7,5 +7,6 @@ export { default as ReviewCardApproval } from "./ReviewCardApproval";
 export { ScopeCardApproval } from "./ScopeCardApproval";
 export { ShellApprovalCard, ShellApprovalDialog } from "./ShellApprovalCard";
 export { ShellApprovalDialogContainer } from "./ShellApprovalDialogContainer";
+export type { StageViewProps } from "./types";
 export { WorkflowView } from "./WorkflowView";
 export { WorkflowViewContainer } from "./WorkflowViewContainer";
