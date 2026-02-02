@@ -96,13 +96,15 @@ function StatusBadge({
 }
 
 /**
- * Status-based container styling for pulse cards.
- * Maps PulseStatus to Tailwind border and background classes.
+ * Status-based container styling for pulse and preflight cards.
+ * Maps status values to Tailwind border and background classes.
+ * Includes both Pulse statuses and PreflightSetup statuses.
  */
 const STATUS_CONTAINER_STYLES = {
 	proposed: "border-gray-300 bg-gray-50/50",
 	running: "border-orange-500/50 bg-orange-500/5",
 	succeeded: "border-green-500/30 bg-green-500/5",
+	completed: "border-green-500/30 bg-green-500/5", // PreflightSetup equivalent of succeeded
 	failed: "border-red-500/50 bg-red-500/10",
 	stopped: "border-gray-400/50 bg-gray-100/50",
 } as const;
@@ -125,10 +127,12 @@ function getSizeBadgeClasses(size: PulseDefinition["estimatedSize"]): string {
 }
 
 /**
- * Get container classes for a pulse based on its status.
+ * Get container classes for a pulse or preflight based on its status.
  * Includes transition classes with reduced-motion accessibility support.
  */
-function getStatusContainerClasses(status: Pulse["status"]): string {
+function getStatusContainerClasses(
+	status: Pulse["status"] | PreflightSetup["status"],
+): string {
 	return `${STATUS_CONTAINER_STYLES[status]} transition-colors duration-200 motion-reduce:transition-none`;
 }
 
@@ -160,15 +164,15 @@ function PreflightCollapsibleItem({
 			<CollapsibleTrigger asChild>
 				<button
 					type="button"
-					className="flex w-full items-center justify-between rounded-lg border bg-card p-3 text-left hover:bg-accent/50 transition-colors"
+					className={`flex w-full items-center justify-between rounded-lg border p-3 text-left hover:bg-accent/30 transition-colors ${getStatusContainerClasses(preflightSetup.status)}`}
 				>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-3">
 						{isOpen ? (
 							<ChevronDown className="h-4 w-4 text-muted-foreground" />
 						) : (
 							<ChevronRight className="h-4 w-4 text-muted-foreground" />
 						)}
-						<span className="font-medium">Preflight Setup</span>
+						<span className="font-medium text-base">Preflight Setup</span>
 					</div>
 					<StatusBadge status={preflightSetup.status} />
 				</button>
