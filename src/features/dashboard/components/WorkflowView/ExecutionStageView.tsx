@@ -8,19 +8,23 @@
 
 import {
 	AlertTriangle,
+	ArrowRight,
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
 	Circle,
 	Loader2,
+	Ruler,
 	XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 import type {
 	Plan,
 	PreflightSetup,
@@ -107,7 +111,7 @@ const STATUS_CONTAINER_STYLES = {
  * Get the style classes for a pulse size badge.
  * Duplicated from PlanCardApproval for consistency.
  */
-function _getSizeBadgeClasses(size: PulseDefinition["estimatedSize"]): string {
+function getSizeBadgeClasses(size: PulseDefinition["estimatedSize"]): string {
 	switch (size) {
 		case "small":
 			return "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30";
@@ -203,10 +207,12 @@ function PulseCollapsibleItem({
 	pulse,
 	index,
 	messages,
+	pulseDefinitionMap,
 }: {
 	pulse: Pulse;
 	index: number;
 	messages: ExecutionStageViewProps["messages"];
+	pulseDefinitionMap: Map<string, PulseDefinition>;
 }) {
 	// Auto-expand based on status: running = true, completed/failed = false
 	const [isOpen, setIsOpen] = useState(pulse.status === "running");
@@ -254,6 +260,69 @@ function PulseCollapsibleItem({
 			</CollapsibleTrigger>
 			<CollapsibleContent>
 				<div className="mt-2 space-y-2 pl-6">
+					{/* Pulse Metadata from Plan */}
+					{(() => {
+						const pulseDef =
+							pulse.plannedPulseId &&
+							pulseDefinitionMap.get(pulse.plannedPulseId);
+						if (!pulseDef) return null;
+						return (
+							<div className="border rounded-lg p-3 bg-background mb-3">
+								{/* Size Estimate */}
+								<div className="flex items-center gap-2 mb-2">
+									<Badge
+										variant="outline"
+										className={cn(
+											"text-xs",
+											getSizeBadgeClasses(pulseDef.estimatedSize),
+										)}
+									>
+										<Ruler className="h-3 w-3 mr-1" />
+										{pulseDef.estimatedSize}
+									</Badge>
+								</div>
+
+								{/* Expected Files */}
+								<div className="text-xs">
+									<span className="text-muted-foreground font-medium">
+										Files:{" "}
+									</span>
+									<span className="flex flex-wrap gap-1.5 mt-1">
+										{pulseDef.expectedChanges.map((file) => (
+											<code
+												key={file}
+												className="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs"
+											>
+												{file}
+											</code>
+										))}
+									</span>
+								</div>
+
+								{/* Dependencies */}
+								{pulseDef.dependsOn && pulseDef.dependsOn.length > 0 && (
+									<div className="text-xs mt-2">
+										<span className="text-muted-foreground font-medium">
+											Depends on:{" "}
+										</span>
+										<span className="inline-flex items-center gap-1">
+											{pulseDef.dependsOn.map((dep, i) => (
+												<span key={dep} className="inline-flex items-center">
+													<code className="font-mono text-amber-600 dark:text-amber-400">
+														{dep}
+													</code>
+													{i < (pulseDef.dependsOn?.length ?? 0) - 1 && (
+														<ArrowRight className="h-3 w-3 mx-1 text-muted-foreground" />
+													)}
+												</span>
+											))}
+										</span>
+									</div>
+								)}
+							</div>
+						);
+					})()}
+
 					{pulse.hasUnresolvedIssues && (
 						<div className="flex items-center gap-2 rounded-md border border-yellow-500/20 bg-yellow-500/10 p-2">
 							<AlertTriangle className="h-4 w-4 text-yellow-500" />
@@ -293,8 +362,7 @@ export function ExecutionStageView({
 	plans,
 }: ExecutionStageViewProps) {
 	// Build lookup map from plannedPulseId to PulseDefinition from the latest approved plan
-	// Prefixed with underscore as it will be used in a future pulse for metadata display
-	const _pulseDefinitionMap = useMemo(() => {
+	const pulseDefinitionMap = useMemo(() => {
 		const approvedPlans = plans.filter((plan) => plan.status === "approved");
 		if (approvedPlans.length === 0) {
 			return new Map<string, PulseDefinition>();
@@ -332,6 +400,7 @@ export function ExecutionStageView({
 					pulse={pulse}
 					index={index}
 					messages={messages}
+					pulseDefinitionMap={pulseDefinitionMap}
 				/>
 			))}
 
