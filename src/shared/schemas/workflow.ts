@@ -356,6 +356,10 @@ export const WorkflowHistoryResponseSchema = z.object({
 	plans: z.array(PlanSchema),
 	/** All review cards for this workflow */
 	reviewCards: z.array(ReviewCardSchema),
+	/** All pulses for this workflow (execution units) */
+	pulses: z.array(PulseSchema).optional(),
+	/** Preflight setup for this workflow (if in execution stage) */
+	preflightSetup: PreflightSetupSchema.optional(),
 });
 export type WorkflowHistoryResponse = z.infer<
 	typeof WorkflowHistoryResponseSchema
