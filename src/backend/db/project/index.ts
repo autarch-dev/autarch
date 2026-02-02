@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Kysely } from "kysely";
 import { BunSqliteDialect } from "kysely-bun-sqlite";
-import { migrateProjectDb } from "./migrations";
+import { migrateProjectDb } from "./migrations/index";
 import type { ProjectDatabase } from "./types";
 
 const AUTARCH_DIR = ".autarch";
