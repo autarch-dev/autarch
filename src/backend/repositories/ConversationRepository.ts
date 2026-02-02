@@ -149,7 +149,7 @@ export class ConversationRepository implements Repository {
 	private async buildSessionMessages(
 		sessionId: string,
 	): Promise<ChannelMessage[]> {
-		// Get turns for this session with agent_role via JOIN (excluding hidden turns like nudges)
+		// Get turns for this session with agent_role and pulse_id via JOIN (excluding hidden turns like nudges)
 		const turns = await this.db
 			.selectFrom("turns")
 			.innerJoin("sessions", "sessions.id", "turns.session_id")
@@ -167,6 +167,7 @@ export class ConversationRepository implements Repository {
 				"turns.created_at",
 				"turns.completed_at",
 				"sessions.agent_role",
+				"sessions.pulse_id",
 			])
 			.where("turns.session_id", "=", sessionId)
 			.where("turns.hidden", "=", 0)
@@ -176,7 +177,11 @@ export class ConversationRepository implements Repository {
 		const messages: ChannelMessage[] = [];
 
 		for (const turn of turns) {
-			const message = await this.buildTurnMessage(turn, turn.agent_role);
+			const message = await this.buildTurnMessage(
+				turn,
+				turn.agent_role,
+				turn.pulse_id ?? undefined,
+			);
 			if (message) {
 				messages.push(message);
 			}
@@ -205,6 +210,7 @@ export class ConversationRepository implements Repository {
 			completed_at: number | null;
 		},
 		agentRole?: string | null,
+		pulseId?: string,
 	): Promise<ChannelMessage | null> {
 		// Get messages for this turn
 		const turnMessages = await this.db
@@ -286,6 +292,7 @@ export class ConversationRepository implements Repository {
 					: undefined,
 			cost,
 			agentRole: agentRole ?? undefined,
+			pulseId,
 		};
 	}
 

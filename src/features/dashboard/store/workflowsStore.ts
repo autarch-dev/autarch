@@ -98,6 +98,10 @@ export interface StreamingMessage {
 	/** User comment/feedback provided when submitting question answers */
 	questionsComment?: string;
 	isComplete: boolean;
+	/** Agent role from session (e.g., scoping, research, planning, execution) */
+	agentRole?: string;
+	/** Pulse ID for execution sessions (links message to specific pulse) */
+	pulseId?: string;
 }
 
 /** Per-workflow conversation state */
@@ -1236,6 +1240,8 @@ function handleTurnStarted(
 					tools: [],
 					questions: [],
 					isComplete: false,
+					agentRole: payload.agentRole,
+					pulseId: payload.pulseId,
 				},
 			});
 		}
@@ -1278,6 +1284,8 @@ function handleTurnCompleted(
 						? existing.streamingMessage.questions
 						: undefined,
 				cost: payload.cost,
+				agentRole: existing.streamingMessage.agentRole,
+				pulseId: existing.streamingMessage.pulseId,
 			};
 
 			conversations.set(workflowId, {
@@ -1755,7 +1763,7 @@ function handlePulseCompleted(
 			p.id === payload.pulseId
 				? {
 						...p,
-						status: "completed" as const,
+						status: "succeeded" as const,
 						hasUnresolvedIssues: payload.hasUnresolvedIssues,
 						completedAt: Date.now(),
 					}

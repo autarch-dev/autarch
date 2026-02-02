@@ -218,6 +218,8 @@ export const TurnStartedPayloadSchema = z.object({
 	role: TurnRoleSchema,
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
+	/** Pulse ID for execution sessions (links turn to specific pulse) */
+	pulseId: z.string().optional(),
 });
 export type TurnStartedPayload = z.infer<typeof TurnStartedPayloadSchema>;
 
@@ -236,6 +238,8 @@ export const TurnCompletedPayloadSchema = z.object({
 	cost: z.number().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
+	/** Pulse ID for execution sessions (links turn to specific pulse) */
+	pulseId: z.string().optional(),
 });
 export type TurnCompletedPayload = z.infer<typeof TurnCompletedPayloadSchema>;
 

@@ -51,6 +51,8 @@ export interface ActiveSession {
 	status: SessionStatus;
 	abortController: AbortController;
 	createdAt: number;
+	/** Pulse ID for execution sessions (links session to specific pulse) */
+	pulseId?: string;
 }
 
 // =============================================================================

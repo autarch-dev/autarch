@@ -112,6 +112,8 @@ export const ChannelMessageSchema = z.object({
 	cost: z.number().optional(),
 	/** Agent role from session (e.g., discussion, scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
+	/** Pulse ID for execution messages (links message to specific pulse) */
+	pulseId: z.string().optional(),
 });
 export type ChannelMessage = z.infer<typeof ChannelMessageSchema>;
 

@@ -226,10 +226,10 @@ function PulseCollapsibleItem({
 		setIsOpen(pulse.status === "running");
 	}, [pulse.status]);
 
-	// Filter messages for this pulse - messages where agentRole is "execution"
-	// Note: In a future enhancement, this could be filtered by session.pulseId matching pulse.id
-	// For now, we show all execution messages under all pulses (to be refined when session-pulse linking is complete)
-	const pulseMessages = messages.filter((msg) => msg.agentRole === "execution");
+	// Filter messages for this pulse by pulseId
+	const pulseMessages = messages.filter(
+		(msg) => msg.agentRole === "execution" && msg.pulseId === pulse.id,
+	);
 	const pulseTitle = pulse.description.split("\n")[0];
 	const pulseDescription = pulse.description.split("\n").slice(1).join("\n");
 

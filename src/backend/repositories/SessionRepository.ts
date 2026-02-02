@@ -29,6 +29,8 @@ export interface SessionRow {
 	status: SessionStatus;
 	createdAt: number;
 	updatedAt: number;
+	/** Pulse ID for execution sessions (links session to specific pulse) */
+	pulseId?: string;
 }
 
 export interface CreateSessionData {
@@ -63,6 +65,7 @@ export class SessionRepository implements Repository {
 			status: row.status,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
+			pulseId: row.pulse_id ?? undefined,
 		};
 	}
 

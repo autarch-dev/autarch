@@ -61,6 +61,7 @@ export class SessionManager {
 			contextType: context.contextType,
 			contextId: context.contextId,
 			agentRole: context.agentRole,
+			pulseId: context.pulseId,
 		});
 
 		// Build runtime session with AbortController
@@ -72,6 +73,7 @@ export class SessionManager {
 			status: "active",
 			abortController: new AbortController(),
 			createdAt: dbSession.createdAt,
+			pulseId: context.pulseId,
 		};
 
 		// Track in memory
@@ -183,6 +185,7 @@ export class SessionManager {
 			status: "active",
 			abortController: new AbortController(),
 			createdAt: dbSession.createdAt,
+			pulseId: dbSession.pulseId,
 		};
 
 		this.sessions.set(sessionId, session);

@@ -1034,6 +1034,7 @@ export class AgentRunner {
 					turnId: turn.id,
 					role,
 					agentRole: this.session.agentRole,
+					pulseId: this.session.pulseId,
 				}),
 			);
 		}
@@ -1074,6 +1075,7 @@ export class AgentRunner {
 				tokenCount: usage?.tokenCount,
 				cost,
 				agentRole: this.session.agentRole,
+				pulseId: this.session.pulseId,
 			}),
 		);
 	}
