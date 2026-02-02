@@ -300,7 +300,7 @@ export const PulseSchema = z.object({
 	id: z.string(),
 	workflowId: z.string(),
 	plannedPulseId: z.string(),
-	status: z.enum(["running", "completed", "failed"]),
+	status: z.enum(["proposed", "running", "succeeded", "failed", "stopped"]),
 	description: z.string(),
 	hasUnresolvedIssues: z.boolean(),
 	createdAt: z.number(),

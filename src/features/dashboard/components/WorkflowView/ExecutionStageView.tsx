@@ -11,6 +11,7 @@ import {
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
+	Circle,
 	Loader2,
 	XCircle,
 } from "lucide-react";
@@ -41,9 +42,16 @@ export interface ExecutionStageViewProps extends StageViewProps {
 function StatusBadge({
 	status,
 }: {
-	status: "running" | "completed" | "failed";
+	status: Pulse['status'] | PreflightSetup['status'];
 }) {
 	switch (status) {
+		case "proposed":
+			return (
+				<span className="flex items-center gap-1 text-gray-500">
+					<Circle className="h-4 w-4" />
+					<span className="text-xs">Proposed</span>
+				</span>
+			);
 		case "running":
 			return (
 				<span className="flex items-center gap-1 text-orange-500">
@@ -52,10 +60,11 @@ function StatusBadge({
 				</span>
 			);
 		case "completed":
+		case "succeeded":
 			return (
 				<span className="flex items-center gap-1 text-green-500">
 					<CheckCircle className="h-4 w-4" />
-					<span className="text-xs">Completed</span>
+					<span className="text-xs">Succeeded</span>
 				</span>
 			);
 		case "failed":
@@ -63,6 +72,13 @@ function StatusBadge({
 				<span className="flex items-center gap-1 text-red-500">
 					<XCircle className="h-4 w-4" />
 					<span className="text-xs">Failed</span>
+				</span>
+			);
+		case "stopped":
+			return (
+				<span className="flex items-center gap-1 text-gray-500">
+					<XCircle className="h-4 w-4" />
+					<span className="text-xs">Stopped</span>
 				</span>
 			);
 	}
@@ -158,7 +174,9 @@ function PulseCollapsibleItem({
 	// Note: In a future enhancement, this could be filtered by session.pulseId matching pulse.id
 	// For now, we show all execution messages under all pulses (to be refined when session-pulse linking is complete)
 	const pulseMessages = messages.filter((msg) => msg.agentRole === "execution");
-
+	const pulseTitle = pulse.description.split("\n")[0];
+	const pulseDescription = pulse.description.split("\n").slice(1).join("\n");
+	
 	return (
 		<Collapsible open={isOpen} onOpenChange={setIsOpen}>
 			<CollapsibleTrigger asChild>
@@ -172,7 +190,7 @@ function PulseCollapsibleItem({
 						) : (
 							<ChevronRight className="h-4 w-4 text-muted-foreground" />
 						)}
-						<span className="font-medium">{pulse.description}</span>
+						<span className="font-medium">{pulseTitle}</span>
 					</div>
 					<div className="flex items-center gap-2">
 						{pulse.hasUnresolvedIssues && (
@@ -194,6 +212,11 @@ function PulseCollapsibleItem({
 								This pulse has unresolved issues that need attention.
 							</span>
 						</div>
+					)}
+					{pulseDescription && (
+						<p className="text-sm text-muted-foreground">
+							{pulseDescription}
+						</p>
 					)}
 					{pulseMessages.map((message) => (
 						<ChannelMessageBubble key={message.id} message={message} />
