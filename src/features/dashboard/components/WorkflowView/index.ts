@@ -1,6 +1,8 @@
 export { statusConfig, workflowPhases } from "./config";
 export type { DiffFile, DiffHunk, DiffLine } from "./DiffViewer";
 export { DiffViewer, DiffViewerModal } from "./DiffViewer";
+export type { ExecutionStageViewProps } from "./ExecutionStageView";
+export { ExecutionStageView } from "./ExecutionStageView";
 export { PlanCardApproval } from "./PlanCardApproval";
 export { ResearchCardApproval } from "./ResearchCardApproval";
 export { ResearchingStageView } from "./ResearchingStageView";
