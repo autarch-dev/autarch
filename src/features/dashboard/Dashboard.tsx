@@ -39,18 +39,18 @@ export function Dashboard() {
 		async (name: string, description?: string) => {
 			const channel = await createChannel(name, description);
 			// Navigate to the new channel
-			setLocation(`/dashboard/channel/${channel.id}`);
+			setLocation(`/channel/${channel.id}`);
 		},
-		[createChannel, setLocation],
+		[setLocation, createChannel],
 	);
 
 	const handleCreateWorkflow = useCallback(
 		async (prompt: string) => {
 			const workflow = await createWorkflow(prompt);
 			// Navigate to the new workflow
-			setLocation(`/dashboard/workflow/${workflow.id}`);
+			setLocation(`/workflow/${workflow.id}`);
 		},
-		[createWorkflow, setLocation],
+		[setLocation, createWorkflow],
 	);
 
 	return (

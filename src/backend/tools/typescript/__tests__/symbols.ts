@@ -44,6 +44,7 @@ export class ClassSymbol {
 		return "classMethod";
 	}
 
+	// biome-ignore lint/correctness/noUnusedPrivateClassMembers: Test case.
 	private privateMethod(): void {}
 
 	public static staticMethod(): number {
