@@ -31,7 +31,11 @@ import type {
 	Pulse,
 	PulseDefinition,
 } from "@/shared/schemas/workflow";
-import { ChannelMessageBubble } from "../ChannelView/MessageBubble";
+import type { StreamingMessage } from "../../store/workflowsStore";
+import {
+	ChannelMessageBubble,
+	StreamingMessageBubble,
+} from "../ChannelView/MessageBubble";
 import type { StageViewProps } from "./types";
 
 /**
@@ -142,9 +146,11 @@ function getStatusContainerClasses(
 function PreflightCollapsibleItem({
 	preflightSetup,
 	messages,
+	streamingMessage,
 }: {
 	preflightSetup: PreflightSetup;
 	messages: ExecutionStageViewProps["messages"];
+	streamingMessage?: StreamingMessage | null;
 }) {
 	// Auto-expand based on status: running = true, completed/failed = false
 	const [isOpen, setIsOpen] = useState(preflightSetup.status === "running");
@@ -158,6 +164,9 @@ function PreflightCollapsibleItem({
 	const preflightMessages = messages.filter(
 		(msg) => msg.agentRole === "preflight",
 	);
+
+	// Check if streaming message is for preflight
+	const isStreamingPreflight = streamingMessage?.agentRole === "preflight";
 
 	return (
 		<Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -192,7 +201,11 @@ function PreflightCollapsibleItem({
 					{preflightMessages.map((message) => (
 						<ChannelMessageBubble key={message.id} message={message} />
 					))}
+					{isStreamingPreflight && (
+						<StreamingMessageBubble message={streamingMessage} />
+					)}
 					{preflightMessages.length === 0 &&
+						!isStreamingPreflight &&
 						preflightSetup.status === "running" && (
 							<p className="text-sm text-muted-foreground italic">
 								Setting up environment...
@@ -212,11 +225,13 @@ function PulseCollapsibleItem({
 	index,
 	messages,
 	pulseDefinitionMap,
+	streamingMessage,
 }: {
 	pulse: Pulse;
 	index: number;
 	messages: ExecutionStageViewProps["messages"];
 	pulseDefinitionMap: Map<string, PulseDefinition>;
+	streamingMessage?: StreamingMessage | null;
 }) {
 	// Auto-expand based on status: running = true, completed/failed = false
 	const [isOpen, setIsOpen] = useState(pulse.status === "running");
@@ -230,6 +245,11 @@ function PulseCollapsibleItem({
 	const pulseMessages = messages.filter(
 		(msg) => msg.agentRole === "execution" && msg.pulseId === pulse.id,
 	);
+
+	// Check if streaming message is for this pulse
+	const isStreamingThisPulse =
+		streamingMessage?.agentRole === "execution" &&
+		streamingMessage?.pulseId === pulse.id;
 
 	// Get pulse definition from plan for title/description
 	const pulseDef = pulse.plannedPulseId
@@ -343,11 +363,16 @@ function PulseCollapsibleItem({
 					{pulseMessages.map((message) => (
 						<ChannelMessageBubble key={message.id} message={message} />
 					))}
-					{pulseMessages.length === 0 && pulse.status === "running" && (
-						<p className="text-sm text-muted-foreground italic">
-							Executing pulse...
-						</p>
+					{isStreamingThisPulse && (
+						<StreamingMessageBubble message={streamingMessage} />
 					)}
+					{pulseMessages.length === 0 &&
+						!isStreamingThisPulse &&
+						pulse.status === "running" && (
+							<p className="text-sm text-muted-foreground italic">
+								Executing pulse...
+							</p>
+						)}
 				</div>
 			</CollapsibleContent>
 		</Collapsible>
@@ -363,6 +388,7 @@ function PulseCollapsibleItem({
  */
 export function ExecutionStageView({
 	messages,
+	streamingMessage,
 	pulses,
 	preflightSetup,
 	plans,
@@ -396,6 +422,7 @@ export function ExecutionStageView({
 				<PreflightCollapsibleItem
 					preflightSetup={preflightSetup}
 					messages={messages}
+					streamingMessage={streamingMessage}
 				/>
 			)}
 
@@ -407,6 +434,7 @@ export function ExecutionStageView({
 					index={index}
 					messages={messages}
 					pulseDefinitionMap={pulseDefinitionMap}
+					streamingMessage={streamingMessage}
 				/>
 			))}
 
