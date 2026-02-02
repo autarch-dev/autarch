@@ -36,6 +36,8 @@ export interface SessionContext {
 	contextType: SessionContextType;
 	contextId: string;
 	agentRole: _AgentRole;
+	/** Optional pulse ID to link execution sessions to their associated pulse */
+	pulseId?: string;
 }
 
 /**
