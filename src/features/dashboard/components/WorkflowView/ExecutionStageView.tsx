@@ -8,20 +8,29 @@
 
 import {
 	AlertTriangle,
+	ArrowRight,
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
 	Circle,
 	Loader2,
+	Ruler,
 	XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import type { PreflightSetup, Pulse } from "@/shared/schemas/workflow";
+import { cn } from "@/lib/utils";
+import type {
+	Plan,
+	PreflightSetup,
+	Pulse,
+	PulseDefinition,
+} from "@/shared/schemas/workflow";
 import { ChannelMessageBubble } from "../ChannelView/MessageBubble";
 import type { StageViewProps } from "./types";
 
@@ -34,6 +43,8 @@ export interface ExecutionStageViewProps extends StageViewProps {
 	pulses: Pulse[];
 	/** Preflight setup for this workflow (optional - quick path workflows skip this) */
 	preflightSetup?: PreflightSetup;
+	/** Plans for this workflow (used to retrieve pulse metadata via plannedPulseId) */
+	plans: Plan[];
 }
 
 /**
@@ -42,7 +53,7 @@ export interface ExecutionStageViewProps extends StageViewProps {
 function StatusBadge({
 	status,
 }: {
-	status: Pulse['status'] | PreflightSetup['status'];
+	status: Pulse["status"] | PreflightSetup["status"];
 }) {
 	switch (status) {
 		case "proposed":
@@ -85,6 +96,47 @@ function StatusBadge({
 }
 
 /**
+ * Status-based container styling for pulse and preflight cards.
+ * Maps status values to Tailwind border and background classes.
+ * Includes both Pulse statuses and PreflightSetup statuses.
+ */
+const STATUS_CONTAINER_STYLES = {
+	proposed: "border-gray-300 bg-gray-50/50",
+	running: "border-orange-500/50 bg-orange-500/5",
+	succeeded: "border-green-500/30 bg-green-500/5",
+	completed: "border-green-500/30 bg-green-500/5", // PreflightSetup equivalent of succeeded
+	failed: "border-red-500/50 bg-red-500/10",
+	stopped: "border-gray-400/50 bg-gray-100/50",
+} as const;
+
+/**
+ * Get the style classes for a pulse size badge.
+ * Duplicated from PlanCardApproval for consistency.
+ */
+function getSizeBadgeClasses(size: PulseDefinition["estimatedSize"]): string {
+	switch (size) {
+		case "small":
+			return "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30";
+		case "medium":
+			return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30";
+		case "large":
+			return "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30";
+		default:
+			return "bg-muted text-muted-foreground";
+	}
+}
+
+/**
+ * Get container classes for a pulse or preflight based on its status.
+ * Includes transition classes with reduced-motion accessibility support.
+ */
+function getStatusContainerClasses(
+	status: Pulse["status"] | PreflightSetup["status"],
+): string {
+	return `${STATUS_CONTAINER_STYLES[status]} transition-colors duration-200 motion-reduce:transition-none`;
+}
+
+/**
  * Collapsible item for preflight setup
  */
 function PreflightCollapsibleItem({
@@ -112,15 +164,15 @@ function PreflightCollapsibleItem({
 			<CollapsibleTrigger asChild>
 				<button
 					type="button"
-					className="flex w-full items-center justify-between rounded-lg border bg-card p-3 text-left hover:bg-accent/50 transition-colors"
+					className={`flex w-full items-center justify-between rounded-lg border p-3 text-left hover:bg-accent/30 transition-colors ${getStatusContainerClasses(preflightSetup.status)}`}
 				>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-3">
 						{isOpen ? (
 							<ChevronDown className="h-4 w-4 text-muted-foreground" />
 						) : (
 							<ChevronRight className="h-4 w-4 text-muted-foreground" />
 						)}
-						<span className="font-medium">Preflight Setup</span>
+						<span className="font-medium text-base">Preflight Setup</span>
 					</div>
 					<StatusBadge status={preflightSetup.status} />
 				</button>
@@ -157,10 +209,14 @@ function PreflightCollapsibleItem({
  */
 function PulseCollapsibleItem({
 	pulse,
+	index,
 	messages,
+	pulseDefinitionMap,
 }: {
 	pulse: Pulse;
+	index: number;
 	messages: ExecutionStageViewProps["messages"];
+	pulseDefinitionMap: Map<string, PulseDefinition>;
 }) {
 	// Auto-expand based on status: running = true, completed/failed = false
 	const [isOpen, setIsOpen] = useState(pulse.status === "running");
@@ -176,20 +232,23 @@ function PulseCollapsibleItem({
 	const pulseMessages = messages.filter((msg) => msg.agentRole === "execution");
 	const pulseTitle = pulse.description.split("\n")[0];
 	const pulseDescription = pulse.description.split("\n").slice(1).join("\n");
-	
+
 	return (
 		<Collapsible open={isOpen} onOpenChange={setIsOpen}>
 			<CollapsibleTrigger asChild>
 				<button
 					type="button"
-					className="flex w-full items-center justify-between rounded-lg border bg-card p-3 text-left hover:bg-accent/50 transition-colors"
+					className={`flex w-full items-center justify-between rounded-lg border p-3 text-left hover:bg-accent/30 transition-colors ${getStatusContainerClasses(pulse.status)}`}
 				>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-3">
 						{isOpen ? (
 							<ChevronDown className="h-4 w-4 text-muted-foreground" />
 						) : (
 							<ChevronRight className="h-4 w-4 text-muted-foreground" />
 						)}
+						<span className="flex items-center justify-center size-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+							{index + 1}
+						</span>
 						<span className="font-medium">{pulseTitle}</span>
 					</div>
 					<div className="flex items-center gap-2">
@@ -205,6 +264,69 @@ function PulseCollapsibleItem({
 			</CollapsibleTrigger>
 			<CollapsibleContent>
 				<div className="mt-2 space-y-2 pl-6">
+					{/* Pulse Metadata from Plan */}
+					{(() => {
+						const pulseDef =
+							pulse.plannedPulseId &&
+							pulseDefinitionMap.get(pulse.plannedPulseId);
+						if (!pulseDef) return null;
+						return (
+							<div className="border rounded-lg p-3 bg-background mb-3">
+								{/* Size Estimate */}
+								<div className="flex items-center gap-2 mb-2">
+									<Badge
+										variant="outline"
+										className={cn(
+											"text-xs",
+											getSizeBadgeClasses(pulseDef.estimatedSize),
+										)}
+									>
+										<Ruler className="h-3 w-3 mr-1" />
+										{pulseDef.estimatedSize}
+									</Badge>
+								</div>
+
+								{/* Expected Files */}
+								<div className="text-xs">
+									<span className="text-muted-foreground font-medium">
+										Files:{" "}
+									</span>
+									<span className="flex flex-wrap gap-1.5 mt-1">
+										{pulseDef.expectedChanges.map((file) => (
+											<code
+												key={file}
+												className="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs"
+											>
+												{file}
+											</code>
+										))}
+									</span>
+								</div>
+
+								{/* Dependencies */}
+								{pulseDef.dependsOn && pulseDef.dependsOn.length > 0 && (
+									<div className="text-xs mt-2">
+										<span className="text-muted-foreground font-medium">
+											Depends on:{" "}
+										</span>
+										<span className="inline-flex items-center gap-1">
+											{pulseDef.dependsOn.map((dep, i) => (
+												<span key={dep} className="inline-flex items-center">
+													<code className="font-mono text-amber-600 dark:text-amber-400">
+														{dep}
+													</code>
+													{i < (pulseDef.dependsOn?.length ?? 0) - 1 && (
+														<ArrowRight className="h-3 w-3 mx-1 text-muted-foreground" />
+													)}
+												</span>
+											))}
+										</span>
+									</div>
+								)}
+							</div>
+						);
+					})()}
+
 					{pulse.hasUnresolvedIssues && (
 						<div className="flex items-center gap-2 rounded-md border border-yellow-500/20 bg-yellow-500/10 p-2">
 							<AlertTriangle className="h-4 w-4 text-yellow-500" />
@@ -214,9 +336,7 @@ function PulseCollapsibleItem({
 						</div>
 					)}
 					{pulseDescription && (
-						<p className="text-sm text-muted-foreground">
-							{pulseDescription}
-						</p>
+						<p className="text-sm text-muted-foreground">{pulseDescription}</p>
 					)}
 					{pulseMessages.map((message) => (
 						<ChannelMessageBubble key={message.id} message={message} />
@@ -243,7 +363,30 @@ export function ExecutionStageView({
 	messages,
 	pulses,
 	preflightSetup,
+	plans,
 }: ExecutionStageViewProps) {
+	// Build lookup map from plannedPulseId to PulseDefinition from the latest approved plan
+	const pulseDefinitionMap = useMemo(() => {
+		const approvedPlans = plans.filter((plan) => plan.status === "approved");
+		if (approvedPlans.length === 0) {
+			return new Map<string, PulseDefinition>();
+		}
+
+		// Sort by createdAt descending and take the first (latest)
+		const sortedPlans = approvedPlans.sort((a, b) => b.createdAt - a.createdAt);
+		const latestPlan = sortedPlans[0];
+		if (!latestPlan) {
+			return new Map<string, PulseDefinition>();
+		}
+
+		// Build map from pulse id to PulseDefinition
+		const map = new Map<string, PulseDefinition>();
+		for (const pulse of latestPlan.pulses) {
+			map.set(pulse.id, pulse);
+		}
+		return map;
+	}, [plans]);
+
 	return (
 		<div className="flex flex-col gap-3 p-4">
 			{/* Preflight Setup - only render if it exists (quick path workflows skip this) */}
@@ -255,11 +398,13 @@ export function ExecutionStageView({
 			)}
 
 			{/* Pulses */}
-			{pulses.map((pulse) => (
+			{pulses.map((pulse, index) => (
 				<PulseCollapsibleItem
 					key={pulse.id}
 					pulse={pulse}
+					index={index}
 					messages={messages}
+					pulseDefinitionMap={pulseDefinitionMap}
 				/>
 			))}
 

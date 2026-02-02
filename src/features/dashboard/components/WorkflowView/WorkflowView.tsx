@@ -143,6 +143,7 @@ export function WorkflowView({
 						{...stageViewProps}
 						pulses={pulses}
 						preflightSetup={preflightSetup}
+						plans={plans}
 					/>
 				);
 
