@@ -30,6 +30,8 @@ import type {
 import type {
 	MergeStrategy,
 	Plan,
+	PreflightSetup,
+	Pulse,
 	ResearchCard,
 	ReviewCard,
 	ReviewCommentType,
@@ -124,6 +126,10 @@ interface WorkflowsState {
 	plans: Map<string, Plan[]>;
 	reviewCards: Map<string, ReviewCard[]>;
 
+	// Execution state per workflow
+	pulses: Map<string, Pulse[]>;
+	preflightSetups: Map<string, PreflightSetup>;
+
 	// Pending shell approvals (keyed by approvalId)
 	pendingShellApprovals: Map<string, PendingShellApproval>;
 
@@ -171,6 +177,13 @@ interface WorkflowsState {
 	// Actions - Archive
 	archiveWorkflow: (id: string) => Promise<void>;
 
+	// Actions - Execution State
+	setPulses: (workflowId: string, pulses: Pulse[]) => void;
+	setPreflightSetup: (
+		workflowId: string,
+		preflightSetup: PreflightSetup,
+	) => void;
+
 	// Actions - WebSocket event handling
 	handleWebSocketEvent: (event: WebSocketEvent) => void;
 
@@ -184,6 +197,8 @@ interface WorkflowsState {
 	getResearchCards: (workflowId: string) => ResearchCard[];
 	getPlans: (workflowId: string) => Plan[];
 	getReviewCards: (workflowId: string) => ReviewCard[];
+	getPulses: (workflowId: string) => Pulse[];
+	getPreflightSetup: (workflowId: string) => PreflightSetup | undefined;
 }
 
 // =============================================================================
@@ -201,6 +216,8 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	researchCards: new Map(),
 	plans: new Map(),
 	reviewCards: new Map(),
+	pulses: new Map(),
+	preflightSetups: new Map(),
 	pendingShellApprovals: new Map(),
 
 	// ===========================================================================
@@ -311,6 +328,17 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				const reviewCards = new Map(state.reviewCards);
 				reviewCards.set(workflowId, history.reviewCards);
 
+				// Store execution state (pulses and preflight setup)
+				const pulses = new Map(state.pulses);
+				if (history.pulses) {
+					pulses.set(workflowId, history.pulses);
+				}
+
+				const preflightSetups = new Map(state.preflightSetups);
+				if (history.preflightSetup) {
+					preflightSetups.set(workflowId, history.preflightSetup);
+				}
+
 				return {
 					conversations,
 					workflows,
@@ -318,6 +346,8 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 					researchCards,
 					plans,
 					reviewCards,
+					pulses,
+					preflightSetups,
 				};
 			});
 		} catch (error) {
@@ -608,6 +638,12 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 			const reviewCards = new Map(state.reviewCards);
 			reviewCards.delete(id);
 
+			const pulses = new Map(state.pulses);
+			pulses.delete(id);
+
+			const preflightSetups = new Map(state.preflightSetups);
+			preflightSetups.delete(id);
+
 			return {
 				workflows,
 				conversations,
@@ -615,6 +651,8 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				researchCards,
 				plans,
 				reviewCards,
+				pulses,
+				preflightSetups,
 			};
 		});
 	},
@@ -738,6 +776,34 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 
 	getReviewCards: (workflowId: string) => {
 		return get().reviewCards.get(workflowId) ?? [];
+	},
+
+	getPulses: (workflowId: string) => {
+		return get().pulses.get(workflowId) ?? [];
+	},
+
+	getPreflightSetup: (workflowId: string) => {
+		return get().preflightSetups.get(workflowId);
+	},
+
+	// ===========================================================================
+	// Execution State Setters
+	// ===========================================================================
+
+	setPulses: (workflowId: string, newPulses: Pulse[]) => {
+		set((state) => {
+			const pulses = new Map(state.pulses);
+			pulses.set(workflowId, newPulses);
+			return { pulses };
+		});
+	},
+
+	setPreflightSetup: (workflowId: string, preflightSetup: PreflightSetup) => {
+		set((state) => {
+			const preflightSetups = new Map(state.preflightSetups);
+			preflightSetups.set(workflowId, preflightSetup);
+			return { preflightSetups };
+		});
 	},
 }));
 
