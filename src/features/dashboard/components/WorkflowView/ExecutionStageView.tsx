@@ -124,7 +124,7 @@ function _getSizeBadgeClasses(size: PulseDefinition["estimatedSize"]): string {
  * Get container classes for a pulse based on its status.
  * Includes transition classes with reduced-motion accessibility support.
  */
-function _getStatusContainerClasses(status: Pulse["status"]): string {
+function getStatusContainerClasses(status: Pulse["status"]): string {
 	return `${STATUS_CONTAINER_STYLES[status]} transition-colors duration-200 motion-reduce:transition-none`;
 }
 
@@ -201,9 +201,11 @@ function PreflightCollapsibleItem({
  */
 function PulseCollapsibleItem({
 	pulse,
+	index,
 	messages,
 }: {
 	pulse: Pulse;
+	index: number;
 	messages: ExecutionStageViewProps["messages"];
 }) {
 	// Auto-expand based on status: running = true, completed/failed = false
@@ -226,14 +228,17 @@ function PulseCollapsibleItem({
 			<CollapsibleTrigger asChild>
 				<button
 					type="button"
-					className="flex w-full items-center justify-between rounded-lg border bg-card p-3 text-left hover:bg-accent/50 transition-colors"
+					className={`flex w-full items-center justify-between rounded-lg border p-3 text-left hover:bg-accent/30 transition-colors ${getStatusContainerClasses(pulse.status)}`}
 				>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-3">
 						{isOpen ? (
 							<ChevronDown className="h-4 w-4 text-muted-foreground" />
 						) : (
 							<ChevronRight className="h-4 w-4 text-muted-foreground" />
 						)}
+						<span className="flex items-center justify-center size-6 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+							{index + 1}
+						</span>
 						<span className="font-medium">{pulseTitle}</span>
 					</div>
 					<div className="flex items-center gap-2">
@@ -321,10 +326,11 @@ export function ExecutionStageView({
 			)}
 
 			{/* Pulses */}
-			{pulses.map((pulse) => (
+			{pulses.map((pulse, index) => (
 				<PulseCollapsibleItem
 					key={pulse.id}
 					pulse={pulse}
+					index={index}
 					messages={messages}
 				/>
 			))}
