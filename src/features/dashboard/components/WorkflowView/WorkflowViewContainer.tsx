@@ -28,6 +28,8 @@ export function WorkflowViewContainer({
 		researchCards,
 		plans,
 		reviewCards,
+		pulses,
+		preflightSetups,
 		selectWorkflow,
 		fetchHistory,
 		approveArtifact,
@@ -39,14 +41,6 @@ export function WorkflowViewContainer({
 
 	const workflow = workflows.find((w) => w.id === workflowId);
 	const conversation = conversations.get(workflowId);
-
-	// Extract execution state for this workflow
-	const pulses = useWorkflowsStore(
-		(state) => state.pulses.get(workflowId) ?? [],
-	);
-	const preflightSetup = useWorkflowsStore((state) =>
-		state.preflightSetups.get(workflowId),
-	);
 
 	// Select workflow and fetch history when workflowId changes
 	useEffect(() => {
@@ -61,6 +55,8 @@ export function WorkflowViewContainer({
 	const workflowResearchCards = researchCards.get(workflowId) ?? [];
 	const workflowPlans = plans.get(workflowId) ?? [];
 	const workflowReviewCards = reviewCards.get(workflowId) ?? [];
+	const workflowPulses = pulses.get(workflowId) ?? [];
+	const workflowPreflightSetup = preflightSetups.get(workflowId);
 
 	const handleApproveScope = useCallback(
 		async (path: "quick" | "full") => {
@@ -128,8 +124,8 @@ export function WorkflowViewContainer({
 			researchCards={workflowResearchCards}
 			plans={workflowPlans}
 			reviewCards={workflowReviewCards}
-			pulses={pulses}
-			preflightSetup={preflightSetup}
+			pulses={workflowPulses}
+			preflightSetup={workflowPreflightSetup}
 			onApproveScope={handleApproveScope}
 			onApprove={handleApprove}
 			onApproveWithMerge={handleApproveWithMerge}
