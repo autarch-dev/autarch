@@ -154,6 +154,7 @@ export class SessionRepository implements Repository {
 				status: "active",
 				created_at: now,
 				updated_at: now,
+				pulse_id: data.pulseId ?? null,
 			})
 			.execute();
 
