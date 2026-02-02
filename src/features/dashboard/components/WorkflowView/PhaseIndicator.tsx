@@ -24,7 +24,7 @@ export function PhaseIndicator({
 	const currentIndex = workflowPhases.indexOf(currentStatus);
 
 	return (
-		<div className="flex items-center gap-1 overflow-x-auto pb-2">
+		<div className="flex items-center overflow-x-auto px-1 py-2">
 			{workflowPhases.map((phase, idx) => {
 				const config = statusConfig[phase];
 				const Icon = config.icon;
@@ -36,33 +36,22 @@ export function PhaseIndicator({
 				const isViewed = phase === viewedStage;
 
 				return (
-					<div key={phase} className="flex items-center m-1">
-						{idx > 0 && (
-							<div
-								className={cn(
-									"w-6 h-0.5 mx-1",
-									isSkipped
-										? "bg-border/50"
-										: isComplete
-											? "bg-green-500"
-											: "bg-border",
-								)}
-							/>
-						)}
+					<div key={phase} className="flex items-center">
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<button
 									type="button"
 									disabled={!isEnabled}
 									className={cn(
-										"flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-colors",
+										"flex items-center gap-2 px-6 py-2 text-xs font-medium transition-colors border-y-2 border-transparent",
 										isSkipped && "opacity-50 italic",
 										isCurrent && config.bg,
 										isCurrent && config.color,
-										isComplete && "text-green-500",
-										isPending && "text-muted-foreground",
+										isCurrent && "font-bold",
+										isComplete && "bg-green-700/20 text-green-500",
+										isPending && "bg-muted-foreground/20 text-muted-foreground",
 										isEnabled ? "cursor-pointer" : "cursor-not-allowed",
-										isViewed && "ring-1 ring-current",
+										isViewed && "border-b-current"
 									)}
 									onClick={() => onStageClick?.(phase)}
 								>
