@@ -294,6 +294,10 @@ export const workflowRoutes = {
 				// Get all review cards
 				const reviewCards = await repos.artifacts.getAllReviewCards(workflowId);
 
+				// Get pulses and preflight setup
+				const pulses = await repos.pulses.getPulsesForWorkflow(workflowId);
+				const preflightSetup = await repos.pulses.getPreflightSetup(workflowId);
+
 				const response = {
 					workflow,
 					sessionId: activeSessionId,
@@ -303,6 +307,8 @@ export const workflowRoutes = {
 					researchCards,
 					plans,
 					reviewCards,
+					pulses,
+					preflightSetup: preflightSetup ?? undefined,
 				};
 
 				return Response.json(response);

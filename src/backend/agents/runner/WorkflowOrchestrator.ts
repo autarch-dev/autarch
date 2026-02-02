@@ -784,6 +784,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 			contextType: "workflow",
 			contextId: workflowId,
 			agentRole: "execution",
+			pulseId: startedPulse.id,
 		});
 
 		// Update workflow with new session
@@ -1053,6 +1054,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 			contextType: "workflow",
 			contextId: workflowId,
 			agentRole: "execution",
+			pulseId: firstPulse.id,
 		});
 
 		// Update workflow with new session
@@ -1165,6 +1167,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 					contextType: "workflow",
 					contextId: workflowId,
 					agentRole: "execution",
+					pulseId: nextPulse.id,
 				});
 
 				// Update workflow with new session
@@ -1281,6 +1284,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 					contextType: "workflow",
 					contextId: workflowId,
 					agentRole: "execution",
+					pulseId: nextPulse.id,
 				});
 
 				// Update workflow with new session

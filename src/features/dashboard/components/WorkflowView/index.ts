@@ -1,11 +1,18 @@
 export { statusConfig, workflowPhases } from "./config";
 export type { DiffFile, DiffHunk, DiffLine } from "./DiffViewer";
 export { DiffViewer, DiffViewerModal } from "./DiffViewer";
+export type { ExecutionStageViewProps } from "./ExecutionStageView";
+export { ExecutionStageView } from "./ExecutionStageView";
 export { PlanCardApproval } from "./PlanCardApproval";
+export { PlanningStageView } from "./PlanningStageView";
 export { ResearchCardApproval } from "./ResearchCardApproval";
+export { ResearchingStageView } from "./ResearchingStageView";
 export { default as ReviewCardApproval } from "./ReviewCardApproval";
+export { ReviewStageView } from "./ReviewStageView";
 export { ScopeCardApproval } from "./ScopeCardApproval";
+export { ScopingStageView } from "./ScopingStageView";
 export { ShellApprovalCard, ShellApprovalDialog } from "./ShellApprovalCard";
 export { ShellApprovalDialogContainer } from "./ShellApprovalDialogContainer";
+export type { StageViewProps } from "./types";
 export { WorkflowView } from "./WorkflowView";
 export { WorkflowViewContainer } from "./WorkflowViewContainer";

@@ -35,6 +35,8 @@ export interface CreateSessionData {
 	contextType: SessionContextType;
 	contextId: string;
 	agentRole: string;
+	/** Optional pulse ID to link execution sessions to their associated pulse */
+	pulseId?: string;
 }
 
 // =============================================================================
@@ -152,6 +154,7 @@ export class SessionRepository implements Repository {
 				status: "active",
 				created_at: now,
 				updated_at: now,
+				pulse_id: data.pulseId ?? null,
 			})
 			.execute();
 

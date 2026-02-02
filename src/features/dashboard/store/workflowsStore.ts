@@ -8,6 +8,12 @@
 import { create } from "zustand";
 import type { ChannelMessage, MessageQuestion } from "@/shared/schemas/channel";
 import type {
+	PreflightCompletedPayload,
+	PreflightFailedPayload,
+	PreflightStartedPayload,
+	PulseCompletedPayload,
+	PulseFailedPayload,
+	PulseStartedPayload,
 	QuestionsAnsweredPayload,
 	QuestionsAskedPayload,
 	QuestionsSubmittedPayload,
@@ -30,6 +36,8 @@ import type {
 import type {
 	MergeStrategy,
 	Plan,
+	PreflightSetup,
+	Pulse,
 	ResearchCard,
 	ReviewCard,
 	ReviewCommentType,
@@ -124,6 +132,10 @@ interface WorkflowsState {
 	plans: Map<string, Plan[]>;
 	reviewCards: Map<string, ReviewCard[]>;
 
+	// Execution state per workflow
+	pulses: Map<string, Pulse[]>;
+	preflightSetups: Map<string, PreflightSetup>;
+
 	// Pending shell approvals (keyed by approvalId)
 	pendingShellApprovals: Map<string, PendingShellApproval>;
 
@@ -171,6 +183,13 @@ interface WorkflowsState {
 	// Actions - Archive
 	archiveWorkflow: (id: string) => Promise<void>;
 
+	// Actions - Execution State
+	setPulses: (workflowId: string, pulses: Pulse[]) => void;
+	setPreflightSetup: (
+		workflowId: string,
+		preflightSetup: PreflightSetup,
+	) => void;
+
 	// Actions - WebSocket event handling
 	handleWebSocketEvent: (event: WebSocketEvent) => void;
 
@@ -184,6 +203,8 @@ interface WorkflowsState {
 	getResearchCards: (workflowId: string) => ResearchCard[];
 	getPlans: (workflowId: string) => Plan[];
 	getReviewCards: (workflowId: string) => ReviewCard[];
+	getPulses: (workflowId: string) => Pulse[];
+	getPreflightSetup: (workflowId: string) => PreflightSetup | undefined;
 }
 
 // =============================================================================
@@ -201,6 +222,8 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	researchCards: new Map(),
 	plans: new Map(),
 	reviewCards: new Map(),
+	pulses: new Map(),
+	preflightSetups: new Map(),
 	pendingShellApprovals: new Map(),
 
 	// ===========================================================================
@@ -311,6 +334,17 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				const reviewCards = new Map(state.reviewCards);
 				reviewCards.set(workflowId, history.reviewCards);
 
+				// Store execution state (pulses and preflight setup)
+				const pulses = new Map(state.pulses);
+				if (history.pulses) {
+					pulses.set(workflowId, history.pulses);
+				}
+
+				const preflightSetups = new Map(state.preflightSetups);
+				if (history.preflightSetup) {
+					preflightSetups.set(workflowId, history.preflightSetup);
+				}
+
 				return {
 					conversations,
 					workflows,
@@ -318,6 +352,8 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 					researchCards,
 					plans,
 					reviewCards,
+					pulses,
+					preflightSetups,
 				};
 			});
 		} catch (error) {
@@ -608,6 +644,12 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 			const reviewCards = new Map(state.reviewCards);
 			reviewCards.delete(id);
 
+			const pulses = new Map(state.pulses);
+			pulses.delete(id);
+
+			const preflightSetups = new Map(state.preflightSetups);
+			preflightSetups.delete(id);
+
 			return {
 				workflows,
 				conversations,
@@ -615,6 +657,8 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				researchCards,
 				plans,
 				reviewCards,
+				pulses,
+				preflightSetups,
 			};
 		});
 	},
@@ -703,6 +747,28 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 			case "shell:approval_resolved":
 				handleShellApprovalResolved(event.payload, set, get);
 				break;
+
+			// Pulse events
+			case "pulse:started":
+				handlePulseStarted(event.payload, set, get);
+				break;
+			case "pulse:completed":
+				handlePulseCompleted(event.payload, set, get);
+				break;
+			case "pulse:failed":
+				handlePulseFailed(event.payload, set, get);
+				break;
+
+			// Preflight events
+			case "preflight:started":
+				handlePreflightStarted(event.payload, set, get);
+				break;
+			case "preflight:completed":
+				handlePreflightCompleted(event.payload, set, get);
+				break;
+			case "preflight:failed":
+				handlePreflightFailed(event.payload, set, get);
+				break;
 		}
 	},
 
@@ -738,6 +804,34 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 
 	getReviewCards: (workflowId: string) => {
 		return get().reviewCards.get(workflowId) ?? [];
+	},
+
+	getPulses: (workflowId: string) => {
+		return get().pulses.get(workflowId) ?? [];
+	},
+
+	getPreflightSetup: (workflowId: string) => {
+		return get().preflightSetups.get(workflowId);
+	},
+
+	// ===========================================================================
+	// Execution State Setters
+	// ===========================================================================
+
+	setPulses: (workflowId: string, newPulses: Pulse[]) => {
+		set((state) => {
+			const pulses = new Map(state.pulses);
+			pulses.set(workflowId, newPulses);
+			return { pulses };
+		});
+	},
+
+	setPreflightSetup: (workflowId: string, preflightSetup: PreflightSetup) => {
+		set((state) => {
+			const preflightSetups = new Map(state.preflightSetups);
+			preflightSetups.set(workflowId, preflightSetup);
+			return { preflightSetups };
+		});
 	},
 }));
 
@@ -1597,6 +1691,180 @@ function handleShellApprovalResolved(
 		);
 
 		return { pendingShellApprovals };
+	});
+}
+
+function handlePulseStarted(
+	payload: PulseStartedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const pulses = new Map(state.pulses);
+		const workflowPulses = pulses.get(payload.workflowId) ?? [];
+
+		// Find and update the pulse, or add a new one if not found
+		const existingIndex = workflowPulses.findIndex(
+			(p) => p.id === payload.pulseId,
+		);
+
+		if (existingIndex >= 0) {
+			// Update existing pulse status to running
+			const updatedPulses = [...workflowPulses];
+			const existing = updatedPulses[existingIndex];
+			if (existing) {
+				updatedPulses[existingIndex] = {
+					...existing,
+					status: "running",
+					startedAt: Date.now(),
+				};
+			}
+			pulses.set(payload.workflowId, updatedPulses);
+		} else {
+			// Pulse not in state yet - create minimal entry
+			// Full data will come from history fetch
+			pulses.set(payload.workflowId, [
+				...workflowPulses,
+				{
+					id: payload.pulseId,
+					workflowId: payload.workflowId,
+					plannedPulseId: payload.pulseId,
+					status: "running",
+					description: payload.description ?? "",
+					hasUnresolvedIssues: false,
+					createdAt: Date.now(),
+					startedAt: Date.now(),
+				},
+			]);
+		}
+
+		return { pulses };
+	});
+}
+
+function handlePulseCompleted(
+	payload: PulseCompletedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const pulses = new Map(state.pulses);
+		const workflowPulses = pulses.get(payload.workflowId) ?? [];
+
+		const updatedPulses = workflowPulses.map((p) =>
+			p.id === payload.pulseId
+				? {
+						...p,
+						status: "completed" as const,
+						hasUnresolvedIssues: payload.hasUnresolvedIssues,
+						completedAt: Date.now(),
+					}
+				: p,
+		);
+
+		pulses.set(payload.workflowId, updatedPulses);
+		return { pulses };
+	});
+}
+
+function handlePulseFailed(
+	payload: PulseFailedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const pulses = new Map(state.pulses);
+		const workflowPulses = pulses.get(payload.workflowId) ?? [];
+
+		const updatedPulses = workflowPulses.map((p) =>
+			p.id === payload.pulseId
+				? {
+						...p,
+						status: "failed" as const,
+						completedAt: Date.now(),
+					}
+				: p,
+		);
+
+		pulses.set(payload.workflowId, updatedPulses);
+		return { pulses };
+	});
+}
+
+function handlePreflightStarted(
+	payload: PreflightStartedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const preflightSetups = new Map(state.preflightSetups);
+		const existing = preflightSetups.get(payload.workflowId);
+
+		if (existing) {
+			// Update existing preflight setup status to running
+			preflightSetups.set(payload.workflowId, {
+				...existing,
+				status: "running",
+				startedAt: Date.now(),
+			});
+		} else {
+			// Create minimal entry - full data will come from history fetch
+			preflightSetups.set(payload.workflowId, {
+				id: `preflight_${payload.workflowId}`,
+				workflowId: payload.workflowId,
+				sessionId: "",
+				status: "running",
+				verificationCommands: [],
+				createdAt: Date.now(),
+				startedAt: Date.now(),
+			});
+		}
+
+		return { preflightSetups };
+	});
+}
+
+function handlePreflightCompleted(
+	payload: PreflightCompletedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const preflightSetups = new Map(state.preflightSetups);
+		const existing = preflightSetups.get(payload.workflowId);
+
+		if (existing) {
+			preflightSetups.set(payload.workflowId, {
+				...existing,
+				status: "completed",
+				progressMessage: payload.summary,
+				completedAt: Date.now(),
+			});
+		}
+
+		return { preflightSetups };
+	});
+}
+
+function handlePreflightFailed(
+	payload: PreflightFailedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const preflightSetups = new Map(state.preflightSetups);
+		const existing = preflightSetups.get(payload.workflowId);
+
+		if (existing) {
+			preflightSetups.set(payload.workflowId, {
+				...existing,
+				status: "failed",
+				errorMessage: payload.error,
+				completedAt: Date.now(),
+			});
+		}
+
+		return { preflightSetups };
 	});
 }
 
