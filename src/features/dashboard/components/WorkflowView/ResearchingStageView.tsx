@@ -34,6 +34,12 @@ export function ResearchingStageView({
 }: ResearchingStageViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
+	// Filter messages for this stage
+	const stageMessages = useMemo(
+		() => messages.filter((msg) => msg.agentRole === "research"),
+		[messages],
+	);
+
 	// Build artifactsByTurn map grouping research cards by their turnId
 	const artifactsByTurn = useMemo(() => {
 		const map = new Map<string, ResearchCard>();
@@ -56,7 +62,7 @@ export function ResearchingStageView({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll on content changes
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages, streamingMessage?.segments]);
+	}, [stageMessages, streamingMessage?.segments]);
 
 	const renderResearchCard = (researchCard: ResearchCard) => {
 		return (
@@ -89,7 +95,7 @@ export function ResearchingStageView({
 			)}
 
 			{/* Messages with interleaved artifacts */}
-			{messages.map((message) => {
+			{stageMessages.map((message) => {
 				const researchCard = artifactsByTurn.get(message.turnId);
 				return (
 					<div key={message.id}>

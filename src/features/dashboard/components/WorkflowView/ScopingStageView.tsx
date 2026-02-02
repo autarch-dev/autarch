@@ -37,6 +37,12 @@ export function ScopingStageView({
 }: ScopingStageViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
+	// Filter messages for this stage
+	const stageMessages = useMemo(
+		() => messages.filter((msg) => msg.agentRole === "scoping"),
+		[messages],
+	);
+
 	// Build artifactsByTurn map grouping scope cards by their turnId
 	const artifactsByTurn = useMemo(() => {
 		const map = new Map<string, ScopeCard>();
@@ -54,7 +60,7 @@ export function ScopingStageView({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll on content changes
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages, streamingMessage?.segments]);
+	}, [stageMessages, streamingMessage?.segments]);
 
 	const renderScopeCard = (scopeCard: ScopeCard) => {
 		return (
@@ -85,7 +91,7 @@ export function ScopingStageView({
 			</Card>
 
 			{/* Messages with interleaved artifacts */}
-			{messages.map((message) => {
+			{stageMessages.map((message) => {
 				const scopeCard = artifactsByTurn.get(message.turnId);
 				return (
 					<div key={message.id}>

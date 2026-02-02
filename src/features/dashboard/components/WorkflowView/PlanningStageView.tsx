@@ -34,6 +34,12 @@ export function PlanningStageView({
 }: PlanningStageViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
+	// Filter messages for this stage
+	const stageMessages = useMemo(
+		() => messages.filter((msg) => msg.agentRole === "planning"),
+		[messages],
+	);
+
 	// Build artifactsByTurn map grouping plan artifacts by their turnId
 	const artifactsByTurn = useMemo(() => {
 		const map = new Map<string, Plan>();
@@ -56,7 +62,7 @@ export function PlanningStageView({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Auto-scroll on content changes
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages, streamingMessage?.segments]);
+	}, [stageMessages, streamingMessage?.segments]);
 
 	const renderPlanCard = (plan: Plan) => {
 		return (
@@ -87,7 +93,7 @@ export function PlanningStageView({
 			)}
 
 			{/* Messages with interleaved artifacts */}
-			{messages.map((message) => {
+			{stageMessages.map((message) => {
 				const plan = artifactsByTurn.get(message.turnId);
 				return (
 					<div key={message.id}>
