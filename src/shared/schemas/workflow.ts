@@ -293,6 +293,47 @@ export function getNextStage(
 }
 
 // =============================================================================
+// Pulse (execution unit)
+// =============================================================================
+
+export const PulseSchema = z.object({
+	id: z.string(),
+	workflowId: z.string(),
+	plannedPulseId: z.string(),
+	status: z.enum(["running", "completed", "failed"]),
+	description: z.string(),
+	hasUnresolvedIssues: z.boolean(),
+	createdAt: z.number(),
+	startedAt: z.number().optional(),
+	completedAt: z.number().optional(),
+});
+export type Pulse = z.infer<typeof PulseSchema>;
+
+// =============================================================================
+// Preflight Setup
+// =============================================================================
+
+export const VerificationCommandSchema = z.object({
+	command: z.string(),
+	source: z.enum(["build", "lint", "test"]),
+});
+export type VerificationCommand = z.infer<typeof VerificationCommandSchema>;
+
+export const PreflightSetupSchema = z.object({
+	id: z.string(),
+	workflowId: z.string(),
+	sessionId: z.string(),
+	status: z.enum(["running", "completed", "failed"]),
+	progressMessage: z.string().optional(),
+	errorMessage: z.string().optional(),
+	verificationCommands: z.array(VerificationCommandSchema),
+	createdAt: z.number(),
+	startedAt: z.number().optional(),
+	completedAt: z.number().optional(),
+});
+export type PreflightSetup = z.infer<typeof PreflightSetupSchema>;
+
+// =============================================================================
 // Workflow History Response
 // =============================================================================
 
