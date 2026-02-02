@@ -40,6 +40,14 @@ export function WorkflowViewContainer({
 	const workflow = workflows.find((w) => w.id === workflowId);
 	const conversation = conversations.get(workflowId);
 
+	// Extract execution state for this workflow
+	const pulses = useWorkflowsStore(
+		(state) => state.pulses.get(workflowId) ?? [],
+	);
+	const preflightSetup = useWorkflowsStore((state) =>
+		state.preflightSetups.get(workflowId),
+	);
+
 	// Select workflow and fetch history when workflowId changes
 	useEffect(() => {
 		selectWorkflow(workflowId);
@@ -120,6 +128,8 @@ export function WorkflowViewContainer({
 			researchCards={workflowResearchCards}
 			plans={workflowPlans}
 			reviewCards={workflowReviewCards}
+			pulses={pulses}
+			preflightSetup={preflightSetup}
 			onApproveScope={handleApproveScope}
 			onApprove={handleApprove}
 			onApproveWithMerge={handleApproveWithMerge}
