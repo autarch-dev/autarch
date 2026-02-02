@@ -1219,7 +1219,10 @@ function handleTurnStarted(
 	set: SetState,
 	get: GetState,
 ): void {
-	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	// Use contextId directly if available, otherwise fall back to session lookup
+	const workflowId =
+		(payload.contextType === "workflow" ? payload.contextId : undefined) ??
+		findWorkflowBySession(payload.sessionId, get);
 	if (!workflowId) return;
 
 	// Only create streaming state for assistant turns
@@ -1227,24 +1230,31 @@ function handleTurnStarted(
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(workflowId);
-		if (existing) {
-			conversations.set(workflowId, {
-				...existing,
-				streamingMessage: {
-					turnId: payload.turnId,
-					role: payload.role,
-					segments: [{ index: 0, content: "", isComplete: false }],
-					activeSegmentIndex: 0,
-					thought: "",
-					tools: [],
-					questions: [],
-					isComplete: false,
-					agentRole: payload.agentRole,
-					pulseId: payload.pulseId,
-				},
-			});
-		}
+		// Get existing or create minimal state (handles page refresh during active session)
+		const existing = conversations.get(workflowId) ?? {
+			sessionId: payload.sessionId,
+			sessionStatus: "active" as const,
+			messages: [],
+			isLoading: false,
+		};
+
+		conversations.set(workflowId, {
+			...existing,
+			sessionId: payload.sessionId,
+			sessionStatus: "active",
+			streamingMessage: {
+				turnId: payload.turnId,
+				role: payload.role,
+				segments: [{ index: 0, content: "", isComplete: false }],
+				activeSegmentIndex: 0,
+				thought: "",
+				tools: [],
+				questions: [],
+				isComplete: false,
+				agentRole: payload.agentRole,
+				pulseId: payload.pulseId,
+			},
+		});
 		return { conversations };
 	});
 }
@@ -1254,7 +1264,10 @@ function handleTurnCompleted(
 	set: SetState,
 	get: GetState,
 ): void {
-	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	// Use contextId directly if available, otherwise fall back to session lookup
+	const workflowId =
+		(payload.contextType === "workflow" ? payload.contextId : undefined) ??
+		findWorkflowBySession(payload.sessionId, get);
 	if (!workflowId) return;
 
 	set((state) => {
@@ -1303,7 +1316,10 @@ function handleMessageDelta(
 	set: SetState,
 	get: GetState,
 ): void {
-	const workflowId = findWorkflowBySession(payload.sessionId, get);
+	// Use contextId directly if available, otherwise fall back to session lookup
+	const workflowId =
+		(payload.contextType === "workflow" ? payload.contextId : undefined) ??
+		findWorkflowBySession(payload.sessionId, get);
 	if (!workflowId) return;
 
 	const segmentIndex = payload.segmentIndex ?? 0;
@@ -1311,37 +1327,77 @@ function handleMessageDelta(
 	set((state) => {
 		const conversations = new Map(state.conversations);
 		const existing = conversations.get(workflowId);
-		if (existing?.streamingMessage?.turnId === payload.turnId) {
-			// Get or create the segment at the given index
-			const segments = [...existing.streamingMessage.segments];
 
-			// Ensure we have a segment at this index
-			while (segments.length <= segmentIndex) {
+		// If no streaming message exists for this turn, create one
+		// This handles reconnection after page refresh during an active turn
+		if (!existing?.streamingMessage || existing.streamingMessage.turnId !== payload.turnId) {
+			const baseConversation = existing ?? {
+				sessionId: payload.sessionId,
+				sessionStatus: "active" as const,
+				messages: [],
+				isLoading: false,
+			};
+
+			// Create streaming message with the delta content
+			const segments = [];
+			for (let i = 0; i <= segmentIndex; i++) {
 				segments.push({
-					index: segments.length,
-					content: "",
+					index: i,
+					content: i === segmentIndex ? payload.delta : "",
 					isComplete: false,
 				});
 			}
 
-			// Append delta to the segment
-			const segment = segments[segmentIndex];
-			if (segment) {
-				segments[segmentIndex] = {
-					...segment,
-					content: segment.content + payload.delta,
-				};
-			}
-
 			conversations.set(workflowId, {
-				...existing,
+				...baseConversation,
+				sessionId: payload.sessionId,
+				sessionStatus: "active",
 				streamingMessage: {
-					...existing.streamingMessage,
+					turnId: payload.turnId,
+					role: "assistant",
 					segments,
 					activeSegmentIndex: segmentIndex,
+					thought: "",
+					tools: [],
+					questions: [],
+					isComplete: false,
+					agentRole: payload.agentRole,
+					pulseId: payload.pulseId,
 				},
 			});
+			return { conversations };
 		}
+
+		// Existing streaming message - append delta
+		// Get or create the segment at the given index
+		const segments = [...existing.streamingMessage.segments];
+
+		// Ensure we have a segment at this index
+		while (segments.length <= segmentIndex) {
+			segments.push({
+				index: segments.length,
+				content: "",
+				isComplete: false,
+			});
+		}
+
+		// Append delta to the segment
+		const segment = segments[segmentIndex];
+		if (segment) {
+			segments[segmentIndex] = {
+				...segment,
+				content: segment.content + payload.delta,
+			};
+		}
+
+		conversations.set(workflowId, {
+			...existing,
+			streamingMessage: {
+				...existing.streamingMessage,
+				segments,
+				activeSegmentIndex: segmentIndex,
+			},
+		});
 		return { conversations };
 	});
 }

@@ -216,6 +216,10 @@ export const TurnStartedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	role: TurnRoleSchema,
+	/** Context type (channel or workflow) */
+	contextType: z.enum(["channel", "workflow"]).optional(),
+	/** Context ID (channel ID or workflow ID) - enables direct routing without session lookup */
+	contextId: z.string().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
 	/** Pulse ID for execution sessions (links turn to specific pulse) */
@@ -236,6 +240,10 @@ export const TurnCompletedPayloadSchema = z.object({
 	tokenCount: z.number().optional(),
 	/** Calculated cost for this turn (if available) */
 	cost: z.number().optional(),
+	/** Context type (channel or workflow) */
+	contextType: z.enum(["channel", "workflow"]).optional(),
+	/** Context ID (channel ID or workflow ID) - enables direct routing without session lookup */
+	contextId: z.string().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
 	/** Pulse ID for execution sessions (links turn to specific pulse) */
@@ -259,6 +267,14 @@ export const TurnMessageDeltaPayloadSchema = z.object({
 	turnId: z.string(),
 	segmentIndex: z.number().default(0), // Index of the current text segment (increments after tool calls)
 	delta: z.string(),
+	/** Context type (channel or workflow) */
+	contextType: z.enum(["channel", "workflow"]).optional(),
+	/** Context ID (channel ID or workflow ID) - enables direct routing without session lookup */
+	contextId: z.string().optional(),
+	/** Agent role from session - enables streaming message creation on reconnect */
+	agentRole: z.string().optional(),
+	/** Pulse ID for execution sessions - enables streaming message creation on reconnect */
+	pulseId: z.string().optional(),
 });
 export type TurnMessageDeltaPayload = z.infer<
 	typeof TurnMessageDeltaPayloadSchema

@@ -776,12 +776,17 @@ export class AgentRunner {
 					currentSegmentBuffer += part.text;
 
 					// Broadcast delta to UI with segment index
+					// Include contextId/agentRole/pulseId to enable streaming message creation on reconnect
 					broadcast(
 						createTurnMessageDeltaEvent({
 							sessionId: this.session.id,
 							turnId: turn.id,
 							segmentIndex: currentSegmentIndex,
 							delta: part.text,
+							contextType: this.session.contextType,
+							contextId: this.session.contextId,
+							agentRole: this.session.agentRole,
+							pulseId: this.session.pulseId,
 						}),
 					);
 
@@ -1033,6 +1038,8 @@ export class AgentRunner {
 					sessionId: this.session.id,
 					turnId: turn.id,
 					role,
+					contextType: this.session.contextType,
+					contextId: this.session.contextId,
 					agentRole: this.session.agentRole,
 					pulseId: this.session.pulseId,
 				}),
@@ -1074,6 +1081,8 @@ export class AgentRunner {
 				turnId,
 				tokenCount: usage?.tokenCount,
 				cost,
+				contextType: this.session.contextType,
+				contextId: this.session.contextId,
 				agentRole: this.session.agentRole,
 				pulseId: this.session.pulseId,
 			}),
