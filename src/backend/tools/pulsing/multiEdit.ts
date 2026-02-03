@@ -13,6 +13,11 @@ import {
 	type ToolResult,
 } from "../types";
 import { clearTSProjectCache, getDiagnostics } from "./diagnostics";
+import {
+	buildContextOutput,
+	mergeLineRanges,
+	trackMultiEditPositions,
+} from "./editContext";
 import { executePostWriteHooks } from "./hooks";
 
 // =============================================================================
@@ -195,6 +200,9 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				};
 			}
 
+			// Track replacement positions using shared helper that handles cumulative offset
+			const replacementRanges = trackMultiEditPositions(content, input.edits);
+
 			// Apply all edits
 			let newContent = content;
 			for (const edit of input.edits) {
@@ -236,8 +244,19 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				diagnosticOutput = `\n\n⚠️ Type errors:\n${diagnostics}`;
 			}
 
+			// Extract context using shared helper with range merging
+			const mergedRanges = mergeLineRanges(replacementRanges);
+			const combinedContext = buildContextOutput(
+				normalizedPath,
+				newContent,
+				mergedRanges,
+			);
+
 			// Build output with hook output appended if non-empty
 			let output = `Applied ${input.edits.length} edits to ${normalizedPath}${diagnosticOutput}`;
+			if (combinedContext) {
+				output += `\n\n${combinedContext}`;
+			}
 			if (hookResult.output) {
 				output += `\n\n${hookResult.output}`;
 			}

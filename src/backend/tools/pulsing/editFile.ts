@@ -13,6 +13,11 @@ import {
 	type ToolResult,
 } from "../types";
 import { clearTSProjectCache, getDiagnostics } from "./diagnostics";
+import {
+	buildContextOutput,
+	calculateReplacementPositions,
+	positionsToLineRanges,
+} from "./editContext";
 import { executePostWriteHooks } from "./hooks";
 
 // =============================================================================
@@ -170,6 +175,24 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				};
 			}
 
+			// Extract context for the applied replacements using tracked positions
+			// Calculate positions based on original content, adjusted for the new content
+			const replacementPositions = calculateReplacementPositions(
+				content,
+				input.oldString,
+				input.newString,
+				input.replaceAll,
+			);
+			const lineRanges = positionsToLineRanges(
+				newContent,
+				replacementPositions,
+			);
+			const contextOutput = buildContextOutput(
+				normalizedPath,
+				newContent,
+				lineRanges,
+			);
+
 			// Check for type errors if it's a TypeScript file
 			let diagnosticOutput = "";
 			const diagnostics = await getDiagnostics(context, fullPath);
@@ -179,6 +202,9 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 
 			// Build output with hook output appended if non-empty
 			let output = `Applied ${occurrences} edit${occurrences > 1 ? "s" : ""} to ${normalizedPath}${diagnosticOutput}`;
+			if (contextOutput) {
+				output += `\n\n${contextOutput}`;
+			}
 			if (hookResult.output) {
 				output += `\n\n${hookResult.output}`;
 			}
