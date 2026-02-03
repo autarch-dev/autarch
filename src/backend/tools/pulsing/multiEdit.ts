@@ -123,7 +123,6 @@ function validateEdits(
  * Find all occurrence positions of a substring in a string
  * Returns array of starting positions (0-indexed)
  */
-// biome-ignore lint/correctness/noUnusedVariables: Staged for context output implementation
 function findAllOccurrencePositions(content: string, search: string): number[] {
 	const positions: number[] = [];
 	let pos = content.indexOf(search, 0);
@@ -137,7 +136,6 @@ function findAllOccurrencePositions(content: string, search: string): number[] {
 /**
  * Get 1-based line number for a position in content
  */
-// biome-ignore lint/correctness/noUnusedVariables: Staged for context output implementation
 function getLineNumber(content: string, position: number): number {
 	return content.substring(0, position).split("\n").length;
 }
@@ -258,9 +256,23 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				};
 			}
 
-			// Apply all edits
+			// Apply all edits, tracking replacement positions for context output
 			let newContent = content;
+			const replacementRanges: Array<{ startLine: number; endLine: number }> =
+				[];
 			for (const edit of input.edits) {
+				// Track positions before applying each edit (line numbers reference current content state)
+				const positions = findAllOccurrencePositions(
+					newContent,
+					edit.oldString,
+				);
+				for (const position of positions) {
+					const startLine = getLineNumber(newContent, position);
+					const endLine = startLine + edit.newString.split("\n").length - 1;
+					replacementRanges.push({ startLine, endLine });
+				}
+
+				// Apply the edit
 				if (edit.replaceAll) {
 					newContent = newContent.split(edit.oldString).join(edit.newString);
 				} else {
