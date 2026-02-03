@@ -34,6 +34,7 @@ import { shellApprovalService } from "@/backend/services/shell-approval";
 import { ids } from "@/backend/utils";
 import { broadcast } from "@/backend/ws";
 import {
+	createPreflightStartedEvent,
 	createWorkflowApprovalNeededEvent,
 	createWorkflowCompletedEvent,
 	createWorkflowCreatedEvent,
@@ -567,6 +568,14 @@ ${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
 				previousStage: "scoping",
 				newStage: "in_progress",
 				sessionId: session.id,
+			}),
+		);
+
+		// Broadcast preflight started event
+		broadcast(
+			createPreflightStartedEvent({
+				workflowId,
+				worktreePath: pulsingResult.worktreePath ?? "",
 			}),
 		);
 
@@ -1506,6 +1515,14 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 				);
 			}
 
+			// Broadcast preflight started event
+			broadcast(
+				createPreflightStartedEvent({
+					workflowId,
+					worktreePath: pulsingResult.worktreePath ?? "",
+				}),
+			);
+
 			// Build the initial message for the PREFLIGHT agent
 			const message = `## Preflight Environment Setup
 
@@ -2039,6 +2056,15 @@ When ready, submit your plan using the \`submit_plan\` tool.`;
 
 		// Build initial message for preflight agent
 		const worktreePath = pulsingResult.worktreePath;
+
+		// Broadcast preflight started event
+		broadcast(
+			createPreflightStartedEvent({
+				workflowId,
+				worktreePath: worktreePath ?? "",
+			}),
+		);
+
 		const initialMessage = `## Preflight Environment Setup
 
 You are preparing the development environment in an isolated worktree before code execution begins.

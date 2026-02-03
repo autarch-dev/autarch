@@ -27,6 +27,12 @@ import type {
 	PulseRepository,
 } from "@/backend/repositories/PulseRepository";
 import type { WorkflowRepository } from "@/backend/repositories/WorkflowRepository";
+import { broadcast } from "@/backend/ws";
+import {
+	createPulseCompletedEvent,
+	createPulseFailedEvent,
+	createPulseStartedEvent,
+} from "@/shared/schemas/events";
 
 // =============================================================================
 // Types
@@ -209,6 +215,16 @@ export class PulseOrchestrator {
 
 		log.workflow.info(`Started pulse ${pulse.id} on branch ${pulseBranch}`);
 
+		// Broadcast pulse started event to UI
+		broadcast(
+			createPulseStartedEvent({
+				workflowId,
+				pulseId: pulse.id,
+				description: pulse.description,
+				pulseBranch,
+			}),
+		);
+
 		return this.pulseRepo.getPulse(pulse.id);
 	}
 
@@ -303,6 +319,17 @@ export class PulseOrchestrator {
 
 			log.workflow.info(`Completed pulse ${pulseId}: ${commitSha.slice(0, 8)}`);
 
+			// Broadcast pulse completed event to UI
+			broadcast(
+				createPulseCompletedEvent({
+					workflowId: pulse.workflowId,
+					pulseId,
+					commitSha,
+					commitMessage,
+					hasUnresolvedIssues,
+				}),
+			);
+
 			return {
 				success: true,
 				commitSha,
@@ -330,6 +357,16 @@ export class PulseOrchestrator {
 		const pulse = await this.pulseRepo.getPulse(pulseId);
 		if (!pulse || !pulse.worktreePath) {
 			await this.pulseRepo.failPulse(pulseId, reason);
+			// Broadcast pulse failed event
+			if (pulse) {
+				broadcast(
+					createPulseFailedEvent({
+						workflowId: pulse.workflowId,
+						pulseId,
+						reason,
+					}),
+				);
+			}
 			return;
 		}
 
@@ -347,6 +384,16 @@ export class PulseOrchestrator {
 
 		await this.pulseRepo.failPulse(pulseId, reason, recoveryCommitSha);
 		log.workflow.info(`Failed pulse ${pulseId}: ${reason}`);
+
+		// Broadcast pulse failed event
+		broadcast(
+			createPulseFailedEvent({
+				workflowId: pulse.workflowId,
+				pulseId,
+				reason,
+				recoveryCheckpointSha: recoveryCommitSha,
+			}),
+		);
 	}
 
 	/**

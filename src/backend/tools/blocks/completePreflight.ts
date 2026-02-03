@@ -5,6 +5,8 @@
 import { z } from "zod";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
+import { broadcast } from "@/backend/ws";
+import { createPreflightCompletedEvent } from "@/shared/schemas/events";
 import { getShellArgs } from "../pulsing/shell";
 import type { ToolDefinition, ToolResult } from "../types";
 
@@ -142,6 +144,15 @@ Provide:
 
 			log.workflow.info(
 				`Preflight complete for workflow ${context.workflowId}: ${input.summary}`,
+			);
+
+			// Broadcast preflight completed event to UI
+			broadcast(
+				createPreflightCompletedEvent({
+					workflowId: context.workflowId,
+					summary: input.summary,
+					baselinesRecorded: input.baselinesRecorded,
+				}),
 			);
 
 			// Build output message with warning if baselines failed

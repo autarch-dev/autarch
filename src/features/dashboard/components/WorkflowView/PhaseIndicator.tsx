@@ -51,7 +51,7 @@ export function PhaseIndicator({
 										isComplete && "bg-green-700/20 text-green-500",
 										isPending && "bg-muted-foreground/20 text-muted-foreground",
 										isEnabled ? "cursor-pointer" : "cursor-not-allowed",
-										isViewed && "border-b-current"
+										isViewed && "border-b-current",
 									)}
 									onClick={() => onStageClick?.(phase)}
 								>

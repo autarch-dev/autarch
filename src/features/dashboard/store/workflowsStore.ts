@@ -1330,7 +1330,10 @@ function handleMessageDelta(
 
 		// If no streaming message exists for this turn, create one
 		// This handles reconnection after page refresh during an active turn
-		if (!existing?.streamingMessage || existing.streamingMessage.turnId !== payload.turnId) {
+		if (
+			!existing?.streamingMessage ||
+			existing.streamingMessage.turnId !== payload.turnId
+		) {
 			const baseConversation = existing ?? {
 				sessionId: payload.sessionId,
 				sessionStatus: "active" as const,
