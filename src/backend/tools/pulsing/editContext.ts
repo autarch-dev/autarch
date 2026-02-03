@@ -287,7 +287,6 @@ export function trackMultiEditPositions(
 ): LineRange[] {
 	const allPositions: ReplacementPosition[] = [];
 	let currentContent = originalContent;
-	let cumulativeCharOffset = 0;
 
 	for (const edit of edits) {
 		// Find positions of oldString in current content state
@@ -311,20 +310,18 @@ export function trackMultiEditPositions(
 		const newStringLineCount = edit.newString.split("\n").length;
 
 		// Track each replacement position
-		// The position in final content = position in current content + cumulative offset from previous edits
-		// Plus the offset from earlier replacements in THIS edit
+		// Positions are found in currentContent (after previous edits), which is already
+		// in the correct coordinate system. We only need thisEditOffset to account for
+		// earlier replacements within THIS edit (for replaceAll).
 		let thisEditOffset = 0;
 		for (const posInCurrent of positionsToUse) {
-			const finalPos = posInCurrent + cumulativeCharOffset + thisEditOffset;
+			const finalPos = posInCurrent + thisEditOffset;
 			allPositions.push({
 				charPosition: finalPos,
 				newStringLineCount,
 			});
 			thisEditOffset += lengthDiff;
 		}
-
-		// Update cumulative offset for next edit
-		cumulativeCharOffset += lengthDiff * positionsToUse.length;
 
 		// Apply the edit to get the next content state
 		if (edit.replaceAll) {
