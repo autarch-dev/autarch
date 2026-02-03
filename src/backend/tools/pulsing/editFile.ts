@@ -13,6 +13,11 @@ import {
 	type ToolResult,
 } from "../types";
 import { clearTSProjectCache, getDiagnostics } from "./diagnostics";
+import {
+	buildContextOutput,
+	calculateReplacementPositions,
+	positionsToLineRanges,
+} from "./editContext";
 import { executePostWriteHooks } from "./hooks";
 
 // =============================================================================
@@ -58,65 +63,6 @@ function countOccurrences(content: string, search: string): number {
 		pos = content.indexOf(search, pos + search.length);
 	}
 	return count;
-}
-
-/**
- * Find all occurrence positions of a substring in a string
- * Returns array of starting positions (0-indexed)
- */
-function findAllOccurrencePositions(content: string, search: string): number[] {
-	const positions: number[] = [];
-	let pos = content.indexOf(search, 0);
-	while (pos !== -1) {
-		positions.push(pos);
-		pos = content.indexOf(search, pos + search.length);
-	}
-	return positions;
-}
-
-/**
- * Get 1-based line number for a position in content
- */
-function getLineNumber(content: string, position: number): number {
-	return content.substring(0, position).split("\n").length;
-}
-
-/**
- * Extract context lines with file boundary handling
- * @param lines Array of file lines (0-indexed)
- * @param startLine 1-based start line of the target region
- * @param endLine 1-based end line of the target region
- * @param contextSize Number of context lines before and after
- * @returns Extracted lines and actual 1-based start/end after boundary clamping
- */
-function extractContextLines(
-	lines: string[],
-	startLine: number,
-	endLine: number,
-	contextSize: number,
-): { lines: string[]; actualStart: number; actualEnd: number } {
-	const actualStart = Math.max(1, startLine - contextSize);
-	const actualEnd = Math.min(lines.length, endLine + contextSize);
-	// Convert to 0-indexed for array slice
-	const extractedLines = lines.slice(actualStart - 1, actualEnd);
-	return { lines: extractedLines, actualStart, actualEnd };
-}
-
-/**
- * Format context output with markdown header
- * @param filePath Path to the file
- * @param startLine 1-based start line
- * @param endLine 1-based end line
- * @param contextLines Array of lines to include
- * @returns Formatted markdown string
- */
-function formatContextOutput(
-	filePath: string,
-	startLine: number,
-	endLine: number,
-	contextLines: string[],
-): string {
-	return `### ${filePath}:${startLine}-${endLine}\n${contextLines.join("\n")}`;
 }
 
 // =============================================================================
@@ -229,43 +175,23 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				};
 			}
 
-			// Extract context for the applied replacements
-			let contextOutput = "";
-			if (occurrences > 0) {
-				const lines = newContent.split("\n");
-				const positions = findAllOccurrencePositions(
-					newContent,
-					input.newString,
-				);
-				const contextBlocks: string[] = [];
-				const contextSize = 5;
-
-				for (const pos of positions) {
-					const startLine = getLineNumber(newContent, pos);
-					const newStringLineCount = input.newString.split("\n").length;
-					const endLine = startLine + newStringLineCount - 1;
-
-					const extracted = extractContextLines(
-						lines,
-						startLine,
-						endLine,
-						contextSize,
-					);
-
-					const formatted = formatContextOutput(
-						normalizedPath,
-						extracted.actualStart,
-						extracted.actualEnd,
-						extracted.lines,
-					);
-
-					contextBlocks.push(formatted);
-				}
-
-				if (contextBlocks.length > 0) {
-					contextOutput = contextBlocks.join("\n\n");
-				}
-			}
+			// Extract context for the applied replacements using tracked positions
+			// Calculate positions based on original content, adjusted for the new content
+			const replacementPositions = calculateReplacementPositions(
+				content,
+				input.oldString,
+				input.newString,
+				input.replaceAll,
+			);
+			const lineRanges = positionsToLineRanges(
+				newContent,
+				replacementPositions,
+			);
+			const contextOutput = buildContextOutput(
+				normalizedPath,
+				newContent,
+				lineRanges,
+			);
 
 			// Check for type errors if it's a TypeScript file
 			let diagnosticOutput = "";

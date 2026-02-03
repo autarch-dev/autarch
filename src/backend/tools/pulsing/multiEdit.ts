@@ -13,6 +13,11 @@ import {
 	type ToolResult,
 } from "../types";
 import { clearTSProjectCache, getDiagnostics } from "./diagnostics";
+import {
+	buildContextOutput,
+	mergeLineRanges,
+	trackMultiEditPositions,
+} from "./editContext";
 import { executePostWriteHooks } from "./hooks";
 
 // =============================================================================
@@ -119,65 +124,6 @@ function validateEdits(
 	return { valid: true };
 }
 
-/**
- * Find all occurrence positions of a substring in a string
- * Returns array of starting positions (0-indexed)
- */
-function findAllOccurrencePositions(content: string, search: string): number[] {
-	const positions: number[] = [];
-	let pos = content.indexOf(search, 0);
-	while (pos !== -1) {
-		positions.push(pos);
-		pos = content.indexOf(search, pos + search.length);
-	}
-	return positions;
-}
-
-/**
- * Get 1-based line number for a position in content
- */
-function getLineNumber(content: string, position: number): number {
-	return content.substring(0, position).split("\n").length;
-}
-
-/**
- * Extract context lines with file boundary handling
- * @param lines Array of file lines (0-indexed)
- * @param startLine 1-based start line of the target region
- * @param endLine 1-based end line of the target region
- * @param contextSize Number of context lines before and after
- * @returns Extracted lines and actual 1-based start/end after boundary clamping
- */
-function extractContextLines(
-	lines: string[],
-	startLine: number,
-	endLine: number,
-	contextSize: number,
-): { lines: string[]; actualStart: number; actualEnd: number } {
-	const actualStart = Math.max(1, startLine - contextSize);
-	const actualEnd = Math.min(lines.length, endLine + contextSize);
-	// Convert to 0-indexed for array slice
-	const extractedLines = lines.slice(actualStart - 1, actualEnd);
-	return { lines: extractedLines, actualStart, actualEnd };
-}
-
-/**
- * Format context output with markdown header
- * @param filePath Path to the file
- * @param startLine 1-based start line
- * @param endLine 1-based end line
- * @param contextLines Array of lines to include
- * @returns Formatted markdown string
- */
-function formatContextOutput(
-	filePath: string,
-	startLine: number,
-	endLine: number,
-	contextLines: string[],
-): string {
-	return `### ${filePath}:${startLine}-${endLine}\n${contextLines.join("\n")}`;
-}
-
 // =============================================================================
 // Tool Definition
 // =============================================================================
@@ -254,23 +200,12 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				};
 			}
 
-			// Apply all edits, tracking replacement positions for context output
-			let newContent = content;
-			const replacementRanges: Array<{ startLine: number; endLine: number }> =
-				[];
-			for (const edit of input.edits) {
-				// Track positions before applying each edit (line numbers reference current content state)
-				const positions = findAllOccurrencePositions(
-					newContent,
-					edit.oldString,
-				);
-				for (const position of positions) {
-					const startLine = getLineNumber(newContent, position);
-					const endLine = startLine + edit.newString.split("\n").length - 1;
-					replacementRanges.push({ startLine, endLine });
-				}
+			// Track replacement positions using shared helper that handles cumulative offset
+			const replacementRanges = trackMultiEditPositions(content, input.edits);
 
-				// Apply the edit
+			// Apply all edits
+			let newContent = content;
+			for (const edit of input.edits) {
 				if (edit.replaceAll) {
 					newContent = newContent.split(edit.oldString).join(edit.newString);
 				} else {
@@ -309,67 +244,13 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				diagnosticOutput = `\n\n⚠️ Type errors:\n${diagnostics}`;
 			}
 
-			// Extract context with range merging
-			let combinedContext = "";
-			if (replacementRanges.length > 0) {
-				// Sort ranges by startLine ascending
-				const sortedRanges = [...replacementRanges].sort(
-					(a, b) => a.startLine - b.startLine,
-				);
-
-				// Merge consecutive ranges where gap <= 10 lines
-				const mergedRanges: Array<{ startLine: number; endLine: number }> = [];
-				let currentRange: { startLine: number; endLine: number } | null = null;
-
-				for (const range of sortedRanges) {
-					if (currentRange === null) {
-						currentRange = {
-							startLine: range.startLine,
-							endLine: range.endLine,
-						};
-					} else if (currentRange.endLine + 10 >= range.startLine) {
-						// Merge: extend currentRange.endLine to include range
-						currentRange.endLine = Math.max(
-							currentRange.endLine,
-							range.endLine,
-						);
-					} else {
-						// No merge: push currentRange and start new one
-						mergedRanges.push(currentRange);
-						currentRange = {
-							startLine: range.startLine,
-							endLine: range.endLine,
-						};
-					}
-				}
-				if (currentRange !== null) {
-					mergedRanges.push(currentRange);
-				}
-
-				// Split final content into lines for context extraction
-				const contentLines = newContent.split("\n");
-
-				// Extract and format context for each merged range
-				const contextBlocks: string[] = [];
-				for (const range of mergedRanges) {
-					const extracted = extractContextLines(
-						contentLines,
-						range.startLine,
-						range.endLine,
-						5,
-					);
-					const formatted = formatContextOutput(
-						normalizedPath,
-						extracted.actualStart,
-						extracted.actualEnd,
-						extracted.lines,
-					);
-					contextBlocks.push(formatted);
-				}
-
-				// Combine all context blocks with double newline separator
-				combinedContext = contextBlocks.join("\n\n");
-			}
+			// Extract context using shared helper with range merging
+			const mergedRanges = mergeLineRanges(replacementRanges);
+			const combinedContext = buildContextOutput(
+				normalizedPath,
+				newContent,
+				mergedRanges,
+			);
 
 			// Build output with hook output appended if non-empty
 			let output = `Applied ${input.edits.length} edits to ${normalizedPath}${diagnosticOutput}`;
