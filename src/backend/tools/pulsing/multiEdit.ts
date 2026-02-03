@@ -148,7 +148,6 @@ function getLineNumber(content: string, position: number): number {
  * @param contextSize Number of context lines before and after
  * @returns Extracted lines and actual 1-based start/end after boundary clamping
  */
-// biome-ignore lint/correctness/noUnusedVariables: Staged for context output implementation
 function extractContextLines(
 	lines: string[],
 	startLine: number,
@@ -170,7 +169,6 @@ function extractContextLines(
  * @param contextLines Array of lines to include
  * @returns Formatted markdown string
  */
-// biome-ignore lint/correctness/noUnusedVariables: Staged for context output implementation
 function formatContextOutput(
 	filePath: string,
 	startLine: number,
@@ -311,8 +309,73 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				diagnosticOutput = `\n\n⚠️ Type errors:\n${diagnostics}`;
 			}
 
+			// Extract context with range merging
+			let combinedContext = "";
+			if (replacementRanges.length > 0) {
+				// Sort ranges by startLine ascending
+				const sortedRanges = [...replacementRanges].sort(
+					(a, b) => a.startLine - b.startLine,
+				);
+
+				// Merge consecutive ranges where gap <= 10 lines
+				const mergedRanges: Array<{ startLine: number; endLine: number }> = [];
+				let currentRange: { startLine: number; endLine: number } | null = null;
+
+				for (const range of sortedRanges) {
+					if (currentRange === null) {
+						currentRange = {
+							startLine: range.startLine,
+							endLine: range.endLine,
+						};
+					} else if (currentRange.endLine + 10 >= range.startLine) {
+						// Merge: extend currentRange.endLine to include range
+						currentRange.endLine = Math.max(
+							currentRange.endLine,
+							range.endLine,
+						);
+					} else {
+						// No merge: push currentRange and start new one
+						mergedRanges.push(currentRange);
+						currentRange = {
+							startLine: range.startLine,
+							endLine: range.endLine,
+						};
+					}
+				}
+				if (currentRange !== null) {
+					mergedRanges.push(currentRange);
+				}
+
+				// Split final content into lines for context extraction
+				const contentLines = newContent.split("\n");
+
+				// Extract and format context for each merged range
+				const contextBlocks: string[] = [];
+				for (const range of mergedRanges) {
+					const extracted = extractContextLines(
+						contentLines,
+						range.startLine,
+						range.endLine,
+						5,
+					);
+					const formatted = formatContextOutput(
+						normalizedPath,
+						extracted.actualStart,
+						extracted.actualEnd,
+						extracted.lines,
+					);
+					contextBlocks.push(formatted);
+				}
+
+				// Combine all context blocks with double newline separator
+				combinedContext = contextBlocks.join("\n\n");
+			}
+
 			// Build output with hook output appended if non-empty
 			let output = `Applied ${input.edits.length} edits to ${normalizedPath}${diagnosticOutput}`;
+			if (combinedContext) {
+				output += `\n\n${combinedContext}`;
+			}
 			if (hookResult.output) {
 				output += `\n\n${hookResult.output}`;
 			}
