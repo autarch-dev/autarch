@@ -64,7 +64,6 @@ function countOccurrences(content: string, search: string): number {
  * Find all occurrence positions of a substring in a string
  * Returns array of starting positions (0-indexed)
  */
-// biome-ignore lint/correctness/noUnusedVariables: Helper for context output (used in subsequent pulse)
 function findAllOccurrencePositions(content: string, search: string): number[] {
 	const positions: number[] = [];
 	let pos = content.indexOf(search, 0);
@@ -78,7 +77,6 @@ function findAllOccurrencePositions(content: string, search: string): number[] {
 /**
  * Get 1-based line number for a position in content
  */
-// biome-ignore lint/correctness/noUnusedVariables: Helper for context output (used in subsequent pulse)
 function getLineNumber(content: string, position: number): number {
 	return content.substring(0, position).split("\n").length;
 }
@@ -91,7 +89,6 @@ function getLineNumber(content: string, position: number): number {
  * @param contextSize Number of context lines before and after
  * @returns Extracted lines and actual 1-based start/end after boundary clamping
  */
-// biome-ignore lint/correctness/noUnusedVariables: Helper for context output (used in subsequent pulse)
 function extractContextLines(
 	lines: string[],
 	startLine: number,
@@ -113,7 +110,6 @@ function extractContextLines(
  * @param contextLines Array of lines to include
  * @returns Formatted markdown string
  */
-// biome-ignore lint/correctness/noUnusedVariables: Helper for context output (used in subsequent pulse)
 function formatContextOutput(
 	filePath: string,
 	startLine: number,
@@ -233,6 +229,44 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				};
 			}
 
+			// Extract context for the applied replacements
+			let contextOutput = "";
+			if (occurrences > 0) {
+				const lines = newContent.split("\n");
+				const positions = findAllOccurrencePositions(
+					newContent,
+					input.newString,
+				);
+				const contextBlocks: string[] = [];
+				const contextSize = 5;
+
+				for (const pos of positions) {
+					const startLine = getLineNumber(newContent, pos);
+					const newStringLineCount = input.newString.split("\n").length;
+					const endLine = startLine + newStringLineCount - 1;
+
+					const extracted = extractContextLines(
+						lines,
+						startLine,
+						endLine,
+						contextSize,
+					);
+
+					const formatted = formatContextOutput(
+						normalizedPath,
+						extracted.actualStart,
+						extracted.actualEnd,
+						extracted.lines,
+					);
+
+					contextBlocks.push(formatted);
+				}
+
+				if (contextBlocks.length > 0) {
+					contextOutput = contextBlocks.join("\n\n");
+				}
+			}
+
 			// Check for type errors if it's a TypeScript file
 			let diagnosticOutput = "";
 			const diagnostics = await getDiagnostics(context, fullPath);
@@ -242,6 +276,9 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 
 			// Build output with hook output appended if non-empty
 			let output = `Applied ${occurrences} edit${occurrences > 1 ? "s" : ""} to ${normalizedPath}${diagnosticOutput}`;
+			if (contextOutput) {
+				output += `\n\n${contextOutput}`;
+			}
 			if (hookResult.output) {
 				output += `\n\n${hookResult.output}`;
 			}
