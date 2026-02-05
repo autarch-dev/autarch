@@ -601,6 +601,60 @@ export type ShellApprovalResolvedEvent = z.infer<
 >;
 
 // =============================================================================
+// Knowledge Extraction Events
+// =============================================================================
+
+// knowledge:extraction_started - Knowledge extraction has begun for a workflow
+export const KnowledgeExtractionStartedPayloadSchema = z.object({
+	workflowId: z.string(),
+});
+export type KnowledgeExtractionStartedPayload = z.infer<
+	typeof KnowledgeExtractionStartedPayloadSchema
+>;
+
+export const KnowledgeExtractionStartedEventSchema = z.object({
+	type: z.literal("knowledge:extraction_started"),
+	payload: KnowledgeExtractionStartedPayloadSchema,
+});
+export type KnowledgeExtractionStartedEvent = z.infer<
+	typeof KnowledgeExtractionStartedEventSchema
+>;
+
+// knowledge:extraction_completed - Knowledge extraction finished successfully
+export const KnowledgeExtractionCompletedPayloadSchema = z.object({
+	workflowId: z.string(),
+	itemCount: z.number(),
+});
+export type KnowledgeExtractionCompletedPayload = z.infer<
+	typeof KnowledgeExtractionCompletedPayloadSchema
+>;
+
+export const KnowledgeExtractionCompletedEventSchema = z.object({
+	type: z.literal("knowledge:extraction_completed"),
+	payload: KnowledgeExtractionCompletedPayloadSchema,
+});
+export type KnowledgeExtractionCompletedEvent = z.infer<
+	typeof KnowledgeExtractionCompletedEventSchema
+>;
+
+// knowledge:extraction_failed - Knowledge extraction encountered an error
+export const KnowledgeExtractionFailedPayloadSchema = z.object({
+	workflowId: z.string(),
+	error: z.string(),
+});
+export type KnowledgeExtractionFailedPayload = z.infer<
+	typeof KnowledgeExtractionFailedPayloadSchema
+>;
+
+export const KnowledgeExtractionFailedEventSchema = z.object({
+	type: z.literal("knowledge:extraction_failed"),
+	payload: KnowledgeExtractionFailedPayloadSchema,
+});
+export type KnowledgeExtractionFailedEvent = z.infer<
+	typeof KnowledgeExtractionFailedEventSchema
+>;
+
+// =============================================================================
 // WebSocket Event Union
 // =============================================================================
 
@@ -646,6 +700,10 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	// Shell approval events
 	ShellApprovalNeededEventSchema,
 	ShellApprovalResolvedEventSchema,
+	// Knowledge extraction events
+	KnowledgeExtractionStartedEventSchema,
+	KnowledgeExtractionCompletedEventSchema,
+	KnowledgeExtractionFailedEventSchema,
 ]);
 
 export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
@@ -842,4 +900,23 @@ export function createShellApprovalResolvedEvent(
 	payload: ShellApprovalResolvedPayload,
 ): ShellApprovalResolvedEvent {
 	return { type: "shell:approval_resolved", payload };
+}
+
+// Knowledge extraction events
+export function createKnowledgeExtractionStartedEvent(
+	payload: KnowledgeExtractionStartedPayload,
+): KnowledgeExtractionStartedEvent {
+	return { type: "knowledge:extraction_started", payload };
+}
+
+export function createKnowledgeExtractionCompletedEvent(
+	payload: KnowledgeExtractionCompletedPayload,
+): KnowledgeExtractionCompletedEvent {
+	return { type: "knowledge:extraction_completed", payload };
+}
+
+export function createKnowledgeExtractionFailedEvent(
+	payload: KnowledgeExtractionFailedPayload,
+): KnowledgeExtractionFailedEvent {
+	return { type: "knowledge:extraction_failed", payload };
 }
