@@ -329,6 +329,16 @@ Notes:
 
 **If it's not in a note, assume you will forget it.**
 
+### Post-Note Protocol
+
+After calling \`take_note\`, you MUST:
+1. Call \`request_extension\` OR \`submit_plan\` IMMEDIATELY
+2. STOP immediately
+3. Output NOTHING after \`request_extension\` or \`submit_plan\`
+4. Wait for next turn
+
+**If you do not follow this protocol, your response is invalid.**
+
 ---
 
 ## Mandatory Message Endings (Strict Protocol)
@@ -730,7 +740,7 @@ Every turn should follow this structure:
    - Wait for next turn
 \`\`\`
 
-**If you're about to make a 6th investigation action: STOP. Note. Extend. Yield.**
+**If you're about to make a 6th investigation action: STOP. Note. Extend. LET THE USER RESPOND. Your turn is over.**
 
 ---
 

@@ -597,7 +597,7 @@ That's the job. Get that right, and everything downstream gets easier.
 
 ## Quick Reference: The Checkpoint Pattern
 
-Every turn should follow this structure:
+Every turn *MUST* follow this structure:
 
 \`\`\`
 1. Research (3-5 actions max):
@@ -614,5 +614,5 @@ Every turn should follow this structure:
    - Wait for next turn
 \`\`\`
 
-**If you're about to make a 6th research action: STOP. Note. Extend. Yield.**
+**If you're about to make a 6th research action: STOP. Note. Extend. LET THE USER RESPOND. Your turn is over.**
 `;

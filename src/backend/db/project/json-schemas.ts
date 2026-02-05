@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { log } from "@/backend/logger";
 
 // =============================================================================
 // Scope Cards
@@ -188,7 +189,12 @@ export function stringifyJson<T extends z.ZodTypeAny>(
 	schema: T,
 	fieldName: string,
 ): string {
+	if (typeof data === "string") {
+		return JSON.stringify(data);
+	}
+
 	const result = schema.safeParse(data);
+
 	if (!result.success) {
 		throw new Error(
 			`${fieldName}: Schema validation failed before stringify - ${result.error.message}`,
@@ -197,6 +203,7 @@ export function stringifyJson<T extends z.ZodTypeAny>(
 			},
 		);
 	}
+
 	return JSON.stringify(result.data);
 }
 
