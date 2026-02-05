@@ -12,7 +12,7 @@
 		"test": "bun test --concurrent"
 	},
 	"dependencies": {
-		"@ai-sdk/anthropic": "^3.0.12",
+		"@ai-sdk/anthropic": "^3.0.37",
 		"@ai-sdk/google": "^3.0.7",
 		"@ai-sdk/openai": "^3.0.9",
 		"@ai-sdk/xai": "^3.0.22",
@@ -32,7 +32,7 @@
 		"@radix-ui/react-tooltip": "^1.2.8",
 		"@tailwindcss/typography": "^0.5.19",
 		"@zip.js/zip.js": "^2.8.15",
-		"ai": "^6.0.33",
+		"ai": "^6.0.72",
 		"bun-plugin-tailwind": "^0.1.2",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",

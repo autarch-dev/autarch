@@ -52,6 +52,7 @@ export const RECOMMENDED_MODELS = {
 // Models mapped to their provider
 export const ALL_MODELS = [
 	// Anthropic
+	{ value: "claude-opus-4-6", label: "Claude Opus 4.6", provider: "anthropic" },
 	{ value: "claude-opus-4-5", label: "Claude Opus 4.5", provider: "anthropic" },
 	{
 		value: "claude-haiku-4-5",

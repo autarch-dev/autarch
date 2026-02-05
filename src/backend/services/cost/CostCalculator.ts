@@ -33,6 +33,7 @@ export class CostCalculator {
 		}
 
 		switch (model.data) {
+			case "claude-opus-4-6":
 			case "claude-opus-4-5": {
 				const inputCost = (promptTokens / 1_000_000) * 5.0;
 				const outputCost = (completionTokens / 1_000_000) * 25.0;
