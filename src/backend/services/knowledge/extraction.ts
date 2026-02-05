@@ -16,7 +16,7 @@ import { log } from "@/backend/logger";
 import { ArtifactRepository } from "@/backend/repositories/ArtifactRepository";
 import { ConversationRepository } from "@/backend/repositories/ConversationRepository";
 import { SessionRepository } from "@/backend/repositories/SessionRepository";
-import { embed } from "@/backend/services/embedding/provider";
+import { embedBatch } from "@/backend/services/embedding/provider";
 import { broadcast } from "@/backend/ws";
 import {
 	createKnowledgeExtractionCompletedEvent,
@@ -320,29 +320,60 @@ export async function extractKnowledge(
 		const items = await extractKnowledgeItems(data);
 		log.knowledge.debug(`Extracted ${items.length} knowledge items`);
 
-		// 6. Store items with embeddings
-		let storedCount = 0;
-		for (const item of items) {
-			try {
-				// Generate embedding for the knowledge item
-				const embeddingText = `${item.title}\n\n${item.content}`;
-				const embeddingVector = await embed(embeddingText);
-				const embeddingBuffer = Buffer.from(embeddingVector.buffer);
+		// 6. Generate embeddings for all items in batch
+		const embeddingTexts = items.map(
+			(item) => `${item.title}\n\n${item.content}`,
+		);
 
-				// Store with embedding
-				await knowledgeRepo.createWithEmbedding(
-					{
-						workflowId,
-						title: item.title,
-						content: item.content,
-						category: item.category as KnowledgeCategory,
-						tags: item.tags,
-					},
-					embeddingBuffer,
+		let embeddings: (Float32Array | null)[] = [];
+		if (items.length > 0) {
+			try {
+				const embeddingResults = await embedBatch(embeddingTexts);
+				embeddings = embeddingResults;
+			} catch (error) {
+				// Batch embedding failed - log warning and store all items without embeddings
+				log.knowledge.warn(
+					"Embedding batch generation failed, storing items without embeddings:",
+					error,
 				);
+				embeddings = items.map(() => null);
+			}
+		}
+
+		// 7. Store items with embeddings in transaction
+		let storedCount = 0;
+		for (let i = 0; i < items.length; i++) {
+			const item = items[i];
+			const embedding = embeddings[i];
+
+			// Safety guard (shouldn't happen in practice)
+			if (!item) {
+				continue;
+			}
+
+			try {
+				const itemData = {
+					workflowId,
+					title: item.title,
+					content: item.content,
+					category: item.category as KnowledgeCategory,
+					tags: item.tags,
+				};
+
+				if (embedding) {
+					// Store with embedding
+					const embeddingBuffer = Buffer.from(embedding.buffer);
+					await knowledgeRepo.createWithEmbedding(itemData, embeddingBuffer);
+				} else {
+					// Embedding generation failed for this item - store without embedding
+					log.knowledge.warn(
+						`Storing knowledge item without embedding: id=${i}, title="${item.title}"`,
+					);
+					await knowledgeRepo.create(itemData);
+				}
 				storedCount++;
 			} catch (error) {
-				// Log individual item failures but continue processing
+				// Log individual item storage failures but continue processing
 				log.knowledge.warn(
 					`Failed to store knowledge item "${item.title}":`,
 					error,
@@ -350,7 +381,7 @@ export async function extractKnowledge(
 			}
 		}
 
-		// 7. Return count
+		// 8. Return count
 		log.knowledge.success(
 			`Knowledge extraction completed: ${storedCount} items stored for workflow ${workflowId}`,
 		);
