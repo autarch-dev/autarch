@@ -47,4 +47,7 @@ export const log = {
 
 	/** Git operations */
 	git: createLogger("git"),
+
+	/** Knowledge extraction and storage */
+	knowledge: createLogger("knowledge"),
 };
