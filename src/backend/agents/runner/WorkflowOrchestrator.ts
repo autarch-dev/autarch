@@ -29,6 +29,7 @@ import {
 	type PulseRepository,
 	type WorkflowRepository,
 } from "@/backend/repositories";
+import { extractKnowledge } from "@/backend/services/knowledge";
 import { PulseOrchestrator } from "@/backend/services/pulsing";
 import { shellApprovalService } from "@/backend/services/shell-approval";
 import { ids } from "@/backend/utils";
@@ -917,6 +918,15 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 			shellApprovalService.cleanupWorkflow(workflowId);
 
 			broadcast(createWorkflowCompletedEvent({ workflowId }));
+
+			// Fire-and-forget knowledge extraction - never blocks workflow completion
+			const projectRoot = findRepoRoot(process.cwd());
+			extractKnowledge(workflowId, projectRoot).catch((err) =>
+				log.knowledge.error("Extraction failed", {
+					workflowId,
+					error: err.message,
+				}),
+			);
 
 			return {
 				transitioned: true,
