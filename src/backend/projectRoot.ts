@@ -114,8 +114,7 @@ export function initProjectRoot(): string {
 		return cachedProjectRoot;
 	} catch {
 		if (targetDir !== null) {
-			log.server.error(`Not a git repository: ${targetDir}`);
-			process.exit(1);
+			throw new Error(`Not a git repository: ${targetDir}`);
 		}
 		throw new Error("Not a git repository (or any parent up to root)");
 	}

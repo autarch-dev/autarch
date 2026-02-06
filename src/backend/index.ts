@@ -59,8 +59,10 @@ let projectRoot: string;
 try {
 	projectRoot = initProjectRoot();
 	log.server.info(`Project root: ${projectRoot}`);
-} catch {
-	log.server.error("Please run autarch from a git repository");
+} catch (error) {
+	const message =
+		error instanceof Error ? error.message : "Unknown error finding git root";
+	log.server.error(message);
 	process.exit(1);
 }
 
