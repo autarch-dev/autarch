@@ -224,7 +224,10 @@ orchestration for human review.`,
 							{ stdout, stderr, exit_code: exitCode },
 						);
 
-						if (!comparison.areEquivalent) {
+						if (
+							!comparison.areEquivalent &&
+							!comparison.isStrictlyImprovement
+						) {
 							// Log new issues for visibility
 							log.workflow.error(
 								`New issues detected for command '${command}':`,
@@ -239,12 +242,17 @@ orchestration for human review.`,
 								success: false,
 								output: `Verification failed with new issues:\n${issueDetails}`,
 							};
+						} else if (comparison.isStrictlyImprovement) {
+							// Outputs are equivalent - continue to next command
+							log.workflow.info(
+								`Verification command '${command}' passed (LLM determined differences were strictly positive)`,
+							);
+						} else {
+							// Outputs are equivalent - continue to next command
+							log.workflow.info(
+								`Verification command '${command}' passed (outputs equivalent)`,
+							);
 						}
-
-						// Outputs are equivalent - continue to next command
-						log.workflow.info(
-							`Verification command '${command}' passed (outputs equivalent)`,
-						);
 					} catch (error) {
 						const errorMessage =
 							error instanceof Error ? error.message : "Unknown error";

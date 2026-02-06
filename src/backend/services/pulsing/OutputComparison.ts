@@ -24,6 +24,7 @@ export interface CommandOutput {
 
 export interface ComparisonResult {
 	areEquivalent: boolean;
+	isStrictlyImprovement: boolean;
 	newIssues: string[];
 }
 
@@ -153,6 +154,7 @@ export class OutputComparisonService {
 				);
 				return {
 					areEquivalent: false,
+					isStrictlyImprovement: false,
 					newIssues: [
 						`Command failed (exit code ${current.exit_code}) when baseline succeeded`,
 					],
@@ -171,7 +173,11 @@ export class OutputComparisonService {
 
 		// Fast-path: if normalized outputs are identical, they're equivalent
 		if (normalizedBaseline === normalizedCurrent) {
-			return { areEquivalent: true, newIssues: [] };
+			return {
+				areEquivalent: true,
+				isStrictlyImprovement: false,
+				newIssues: [],
+			};
 		}
 
 		// Outputs differ - check cache then use LLM
@@ -261,6 +267,11 @@ export class OutputComparisonService {
 				.describe(
 					"Whether the outputs represent equivalent outcomes (same errors, failures, warnings)",
 				),
+			isStrictlyImprovement: z
+				.boolean()
+				.describe(
+					"Whether the outputs represent _only_ improved outcomes (no regressions, no errors, failures, or warnings)",
+				),
 			newIssues: z
 				.array(z.string())
 				.describe(
@@ -331,6 +342,7 @@ exit_code: ${current.exit_code}`;
 		);
 		return {
 			areEquivalent: false,
+			isStrictlyImprovement: false,
 			newIssues: [
 				"LLM comparison unavailable - outputs differ and could not be verified. " +
 					"Review the output differences manually.",

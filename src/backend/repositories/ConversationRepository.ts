@@ -319,7 +319,7 @@ export class ConversationRepository implements Repository {
 				`tool[${tc.id}].input_json`,
 				{
 					error: "Failed to parse tool input.",
-				}
+				},
 			),
 			output: parseJsonOptional(
 				tc.output_json,
