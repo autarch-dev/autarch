@@ -8,6 +8,7 @@
 
 import {
 	Calendar,
+	FileText,
 	MoreHorizontal,
 	Pencil,
 	TableIcon,
@@ -47,6 +48,7 @@ import type { RoadmapConversationState } from "../store/roadmapStore";
 import { PlanningConversation } from "./PlanningConversation";
 import { TableView } from "./TableView";
 import { TimelineView } from "./TimelineView";
+import { VisionDocument as VisionDocumentView } from "./VisionDocument";
 
 // =============================================================================
 // Status Config
@@ -90,6 +92,7 @@ interface RoadmapViewProps {
 	dependencies: RoadmapDependency[];
 	conversation?: RoadmapConversationState;
 	onUpdateTitle: (title: string) => Promise<void>;
+	onUpdateVision: (content: string) => Promise<void>;
 	onDelete: () => Promise<void>;
 	onSendMessage: (content: string) => void;
 	onUpdateMilestone: (
@@ -122,10 +125,11 @@ export function RoadmapView({
 	roadmap,
 	milestones,
 	initiatives,
-	vision: _vision,
+	vision,
 	dependencies,
 	conversation,
 	onUpdateTitle,
+	onUpdateVision,
 	onDelete,
 	onSendMessage,
 	onUpdateMilestone,
@@ -276,6 +280,10 @@ export function RoadmapView({
 								<TableIcon className="size-4 mr-1.5" />
 								Table
 							</TabsTrigger>
+							<TabsTrigger value="vision">
+								<FileText className="size-4 mr-1.5" />
+								Vision
+							</TabsTrigger>
 						</TabsList>
 					</div>
 
@@ -298,6 +306,13 @@ export function RoadmapView({
 							onUpdateInitiative={onUpdateInitiative}
 							onCreateMilestone={onCreateMilestone}
 							onCreateInitiative={onCreateInitiative}
+						/>
+					</TabsContent>
+
+					<TabsContent value="vision" className="flex-1 min-h-0 p-4">
+						<VisionDocumentView
+							vision={vision}
+							onUpdateVision={onUpdateVision}
 						/>
 					</TabsContent>
 				</Tabs>

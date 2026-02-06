@@ -33,6 +33,7 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 		updateMilestone,
 		createInitiative,
 		updateInitiative,
+		updateVision,
 	} = useRoadmapStore();
 
 	const roadmap = roadmaps.find((r) => r.id === roadmapId);
@@ -107,6 +108,13 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 		[roadmapId, createInitiative],
 	);
 
+	const handleUpdateVision = useCallback(
+		async (content: string) => {
+			await updateVision(roadmapId, content);
+		},
+		[roadmapId, updateVision],
+	);
+
 	if (roadmapsLoading && !roadmap) {
 		return (
 			<div className="flex items-center justify-center h-full">
@@ -132,6 +140,7 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 			dependencies={details?.dependencies ?? []}
 			conversation={conversation}
 			onUpdateTitle={handleUpdateTitle}
+			onUpdateVision={handleUpdateVision}
 			onDelete={handleDelete}
 			onSendMessage={handleSendMessage}
 			onUpdateMilestone={handleUpdateMilestone}
