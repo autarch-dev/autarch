@@ -15,6 +15,7 @@ export const ModelScenario = z.enum([
 	"planning",
 	"execution",
 	"review",
+	"roadmap_planning",
 ]);
 export type ModelScenario = z.infer<typeof ModelScenario>;
 
@@ -113,6 +114,7 @@ export const ModelPreferencesSchema = z.object({
 	planning: z.string().optional(),
 	execution: z.string().optional(),
 	review: z.string().optional(),
+	roadmap_planning: z.string().optional(),
 });
 export type ModelPreferences = z.infer<typeof ModelPreferencesSchema>;
 
@@ -144,6 +146,7 @@ export const MODEL_SCENARIO_LABELS: Record<ModelScenario, string> = {
 	planning: "Planning Agent",
 	execution: "Pulsing (Execution) Agent",
 	review: "Review Agent",
+	roadmap_planning: "Roadmap Planning",
 };
 
 /** Descriptions for model scenarios shown in settings UI */
@@ -155,6 +158,7 @@ export const MODEL_SCENARIO_DESCRIPTIONS: Record<ModelScenario, string> = {
 	planning: "Creates detailed implementation plans",
 	execution: "Executes tasks and writes code",
 	review: "Reviews work and provides feedback",
+	roadmap_planning: "AI-assisted roadmap creation and planning",
 };
 
 /** Labels for integrations shown in settings UI */

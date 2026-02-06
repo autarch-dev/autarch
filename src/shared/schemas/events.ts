@@ -159,7 +159,11 @@ export type ChannelDeletedEvent = z.infer<typeof ChannelDeletedEventSchema>;
 // Session Events
 // =============================================================================
 
-export const SessionContextTypeSchema = z.enum(["channel", "workflow"]);
+export const SessionContextTypeSchema = z.enum([
+	"channel",
+	"workflow",
+	"roadmap",
+]);
 export type SessionContextType = z.infer<typeof SessionContextTypeSchema>;
 
 // session:started
@@ -216,9 +220,9 @@ export const TurnStartedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	role: TurnRoleSchema,
-	/** Context type (channel or workflow) */
-	contextType: z.enum(["channel", "workflow"]).optional(),
-	/** Context ID (channel ID or workflow ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, or roadmap) */
+	contextType: z.enum(["channel", "workflow", "roadmap"]).optional(),
+	/** Context ID (channel ID, workflow ID, or roadmap ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
@@ -240,9 +244,9 @@ export const TurnCompletedPayloadSchema = z.object({
 	tokenCount: z.number().optional(),
 	/** Calculated cost for this turn (if available) */
 	cost: z.number().optional(),
-	/** Context type (channel or workflow) */
-	contextType: z.enum(["channel", "workflow"]).optional(),
-	/** Context ID (channel ID or workflow ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, or roadmap) */
+	contextType: z.enum(["channel", "workflow", "roadmap"]).optional(),
+	/** Context ID (channel ID, workflow ID, or roadmap ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
@@ -267,9 +271,9 @@ export const TurnMessageDeltaPayloadSchema = z.object({
 	turnId: z.string(),
 	segmentIndex: z.number().default(0), // Index of the current text segment (increments after tool calls)
 	delta: z.string(),
-	/** Context type (channel or workflow) */
-	contextType: z.enum(["channel", "workflow"]).optional(),
-	/** Context ID (channel ID or workflow ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, or roadmap) */
+	contextType: z.enum(["channel", "workflow", "roadmap"]).optional(),
+	/** Context ID (channel ID, workflow ID, or roadmap ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session - enables streaming message creation on reconnect */
 	agentRole: z.string().optional(),
@@ -655,6 +659,50 @@ export type KnowledgeExtractionFailedEvent = z.infer<
 >;
 
 // =============================================================================
+// Roadmap Events
+// =============================================================================
+
+import { RoadmapStatusSchema } from "./roadmap";
+
+// roadmap:created
+export const RoadmapCreatedPayloadSchema = z.object({
+	roadmapId: z.string(),
+	title: z.string(),
+	status: RoadmapStatusSchema,
+});
+export type RoadmapCreatedPayload = z.infer<typeof RoadmapCreatedPayloadSchema>;
+
+export const RoadmapCreatedEventSchema = z.object({
+	type: z.literal("roadmap:created"),
+	payload: RoadmapCreatedPayloadSchema,
+});
+export type RoadmapCreatedEvent = z.infer<typeof RoadmapCreatedEventSchema>;
+
+// roadmap:updated
+export const RoadmapUpdatedPayloadSchema = z.object({
+	roadmapId: z.string(),
+});
+export type RoadmapUpdatedPayload = z.infer<typeof RoadmapUpdatedPayloadSchema>;
+
+export const RoadmapUpdatedEventSchema = z.object({
+	type: z.literal("roadmap:updated"),
+	payload: RoadmapUpdatedPayloadSchema,
+});
+export type RoadmapUpdatedEvent = z.infer<typeof RoadmapUpdatedEventSchema>;
+
+// roadmap:deleted
+export const RoadmapDeletedPayloadSchema = z.object({
+	roadmapId: z.string(),
+});
+export type RoadmapDeletedPayload = z.infer<typeof RoadmapDeletedPayloadSchema>;
+
+export const RoadmapDeletedEventSchema = z.object({
+	type: z.literal("roadmap:deleted"),
+	payload: RoadmapDeletedPayloadSchema,
+});
+export type RoadmapDeletedEvent = z.infer<typeof RoadmapDeletedEventSchema>;
+
+// =============================================================================
 // WebSocket Event Union
 // =============================================================================
 
@@ -704,6 +752,10 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	KnowledgeExtractionStartedEventSchema,
 	KnowledgeExtractionCompletedEventSchema,
 	KnowledgeExtractionFailedEventSchema,
+	// Roadmap events
+	RoadmapCreatedEventSchema,
+	RoadmapUpdatedEventSchema,
+	RoadmapDeletedEventSchema,
 ]);
 
 export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
@@ -919,4 +971,23 @@ export function createKnowledgeExtractionFailedEvent(
 	payload: KnowledgeExtractionFailedPayload,
 ): KnowledgeExtractionFailedEvent {
 	return { type: "knowledge:extraction_failed", payload };
+}
+
+// Roadmap events
+export function createRoadmapCreatedEvent(
+	payload: RoadmapCreatedPayload,
+): RoadmapCreatedEvent {
+	return { type: "roadmap:created", payload };
+}
+
+export function createRoadmapUpdatedEvent(
+	payload: RoadmapUpdatedPayload,
+): RoadmapUpdatedEvent {
+	return { type: "roadmap:updated", payload };
+}
+
+export function createRoadmapDeletedEvent(
+	payload: RoadmapDeletedPayload,
+): RoadmapDeletedEvent {
+	return { type: "roadmap:deleted", payload };
 }

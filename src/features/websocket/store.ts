@@ -44,7 +44,7 @@ export interface StreamingTurn {
 /** State of an active session */
 export interface SessionState {
 	id: string;
-	contextType: "channel" | "workflow";
+	contextType: "channel" | "workflow" | "roadmap";
 	contextId: string;
 	agentRole: string;
 	status: "active" | "completed" | "error";

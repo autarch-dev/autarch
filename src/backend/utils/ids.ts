@@ -40,4 +40,9 @@ export const ids = {
 	reviewCard: () => generateId("review"),
 	reviewComment: () => generateId("comment"),
 	knowledge: () => generateId("knowledge"),
+	roadmap: () => generateId("roadmap"),
+	milestone: () => generateId("milestone"),
+	initiative: () => generateId("initiative"),
+	vision: () => generateId("vision"),
+	dep: () => generateId("dep"),
 } as const;

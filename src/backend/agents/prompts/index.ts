@@ -9,6 +9,7 @@ export { planningPrompt } from "./planning";
 export { preflightPrompt } from "./preflight";
 export { getResearchPrompt } from "./research";
 export { reviewPrompt } from "./review";
+export { roadmapPlanningPrompt } from "./roadmapPlanning";
 export { scopingPrompt } from "./scoping";
 
 import type { AgentPromptOptions, AgentRole } from "../types";
@@ -19,6 +20,7 @@ import { planningPrompt } from "./planning";
 import { preflightPrompt } from "./preflight";
 import { getResearchPrompt } from "./research";
 import { reviewPrompt } from "./review";
+import { roadmapPlanningPrompt } from "./roadmapPlanning";
 import { scopingPrompt } from "./scoping";
 
 /** Map of role to system prompt */
@@ -31,6 +33,7 @@ export const agentPrompts = {
 	preflight: () => preflightPrompt,
 	execution: () => executionPrompt,
 	review: () => reviewPrompt,
+	roadmap_planning: () => roadmapPlanningPrompt,
 } as const satisfies Record<AgentRole, (options: AgentPromptOptions) => string>;
 
 /** Get the system prompt for an agent role */
