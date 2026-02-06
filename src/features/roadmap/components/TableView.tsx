@@ -82,6 +82,7 @@ interface TableViewProps {
 		milestoneId: string,
 		data: { title: string },
 	) => Promise<void>;
+	onSelectInitiative?: (initiative: Initiative) => void;
 }
 
 // =============================================================================
@@ -457,6 +458,7 @@ export function TableView({
 	onUpdateInitiative,
 	onCreateMilestone,
 	onCreateInitiative,
+	onSelectInitiative,
 }: TableViewProps) {
 	// -------------------------------------------------------------------------
 	// State
@@ -736,6 +738,7 @@ export function TableView({
 										onCreateInitiative={() =>
 											handleCreateInitiative(milestone.id)
 										}
+										onSelectInitiative={onSelectInitiative}
 									/>
 								);
 							})
@@ -764,6 +767,7 @@ function MilestoneGroup({
 	onUpdateMilestone,
 	onUpdateInitiative,
 	onCreateInitiative,
+	onSelectInitiative,
 }: {
 	milestone: Milestone;
 	initiatives: Initiative[];
@@ -787,6 +791,7 @@ function MilestoneGroup({
 		>,
 	) => Promise<void>;
 	onCreateInitiative: () => void;
+	onSelectInitiative?: (initiative: Initiative) => void;
 }) {
 	// Calculate milestone progress from initiatives
 	const milestoneProgress = useMemo(() => {
@@ -881,6 +886,7 @@ function MilestoneGroup({
 							dependencyNames={depNames}
 							hasDependencies={hasInitDeps}
 							onUpdate={onUpdateInitiative}
+							onSelect={onSelectInitiative}
 						/>
 					);
 				})}
@@ -913,6 +919,7 @@ function InitiativeRow({
 	dependencyNames,
 	hasDependencies: hasDeps,
 	onUpdate,
+	onSelect,
 }: {
 	initiative: Initiative;
 	dependencyNames: string[];
@@ -923,9 +930,10 @@ function InitiativeRow({
 			Pick<Initiative, "title" | "status" | "priority" | "progress">
 		>,
 	) => Promise<void>;
+	onSelect?: (initiative: Initiative) => void;
 }) {
 	return (
-		<TableRow>
+		<TableRow className="cursor-pointer" onClick={() => onSelect?.(initiative)}>
 			<TableCell>
 				<div className="flex items-center gap-1.5 pl-7">
 					{hasDeps && (

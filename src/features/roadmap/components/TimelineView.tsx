@@ -41,6 +41,7 @@ interface TimelineViewProps {
 	milestones: Milestone[];
 	initiatives: Initiative[];
 	dependencies: RoadmapDependency[];
+	onSelectInitiative?: (initiative: Initiative) => void;
 }
 
 interface TimeColumn {
@@ -250,6 +251,7 @@ export function TimelineView({
 	milestones,
 	initiatives,
 	dependencies,
+	onSelectInitiative,
 }: TimelineViewProps) {
 	const [granularity, setGranularity] = useState<TimeGranularity>("month");
 	const [collapsedMilestones, setCollapsedMilestones] = useState<Set<string>>(
@@ -663,9 +665,13 @@ export function TimelineView({
 											</>
 										)}
 										{!isMilestone && initiative && (
-											<span className="text-xs text-muted-foreground truncate pl-5">
+											<button
+												type="button"
+												className="text-xs text-muted-foreground truncate pl-5 bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80 text-left"
+												onClick={() => onSelectInitiative?.(initiative)}
+											>
 												{initiative.title}
-											</span>
+											</button>
 										)}
 									</div>
 
@@ -695,6 +701,7 @@ export function TimelineView({
 														? MILESTONE_COLORS[colorIndex]
 														: INITIATIVE_COLORS[colorIndex],
 													isMilestone ? "h-6" : "h-4",
+													!isMilestone && "cursor-pointer hover:opacity-80",
 												)}
 												style={{
 													left: finalBarStart * columnWidth,
@@ -704,6 +711,19 @@ export function TimelineView({
 													),
 												}}
 												title={row.item.title}
+												{...(!isMilestone && initiative
+													? {
+															onClick: () => onSelectInitiative?.(initiative),
+															onKeyDown: (e: React.KeyboardEvent) => {
+																if (e.key === "Enter" || e.key === " ") {
+																	e.preventDefault();
+																	onSelectInitiative?.(initiative);
+																}
+															},
+															role: "button" as const,
+															tabIndex: 0,
+														}
+													: {})}
 											>
 												{isMilestone &&
 													(finalBarEnd - finalBarStart) * columnWidth > 60 && (

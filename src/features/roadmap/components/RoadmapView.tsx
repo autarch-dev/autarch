@@ -14,7 +14,7 @@ import {
 	TableIcon,
 	Trash2,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +45,7 @@ import type {
 	VisionDocument,
 } from "@/shared/schemas/roadmap";
 import type { RoadmapConversationState } from "../store/roadmapStore";
+import { InitiativeDetail } from "./InitiativeDetail";
 import { PlanningConversation } from "./PlanningConversation";
 import { TableView } from "./TableView";
 import { TimelineView } from "./TimelineView";
@@ -104,7 +105,15 @@ interface RoadmapViewProps {
 	onUpdateInitiative: (
 		initiativeId: string,
 		data: Partial<
-			Pick<Initiative, "title" | "status" | "priority" | "progress">
+			Pick<
+				Initiative,
+				| "title"
+				| "description"
+				| "status"
+				| "priority"
+				| "progress"
+				| "progressMode"
+			>
 		>,
 	) => Promise<void>;
 	onCreateMilestone: (data: {
@@ -140,6 +149,9 @@ export function RoadmapView({
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [editTitle, setEditTitle] = useState(roadmap.title);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [selectedInitiative, setSelectedInitiative] =
+		useState<Initiative | null>(null);
+	const [isDetailOpen, setIsDetailOpen] = useState(false);
 	const titleInputRef = useRef<HTMLInputElement>(null);
 
 	const status = statusConfig[roadmap.status];
@@ -154,6 +166,18 @@ export function RoadmapView({
 	// Show planning conversation when roadmap is draft and has a session
 	const showPlanningConversation =
 		roadmap.status === "draft" && conversation?.sessionId != null;
+
+	const handleSelectInitiative = useCallback((initiative: Initiative) => {
+		setSelectedInitiative(initiative);
+		setIsDetailOpen(true);
+	}, []);
+
+	const handleDetailOpenChange = useCallback((open: boolean) => {
+		setIsDetailOpen(open);
+		if (!open) {
+			setSelectedInitiative(null);
+		}
+	}, []);
 
 	const handleTitleClick = () => {
 		setEditTitle(roadmap.title);
@@ -293,6 +317,7 @@ export function RoadmapView({
 							milestones={milestones}
 							initiatives={initiatives}
 							dependencies={dependencies}
+							onSelectInitiative={handleSelectInitiative}
 						/>
 					</TabsContent>
 
@@ -306,6 +331,7 @@ export function RoadmapView({
 							onUpdateInitiative={onUpdateInitiative}
 							onCreateMilestone={onCreateMilestone}
 							onCreateInitiative={onCreateInitiative}
+							onSelectInitiative={handleSelectInitiative}
 						/>
 					</TabsContent>
 
@@ -317,6 +343,15 @@ export function RoadmapView({
 					</TabsContent>
 				</Tabs>
 			)}
+
+			{/* Initiative Detail Side Panel */}
+			<InitiativeDetail
+				initiative={selectedInitiative}
+				roadmapId={roadmap.id}
+				open={isDetailOpen}
+				onOpenChange={handleDetailOpenChange}
+				onUpdateInitiative={onUpdateInitiative}
+			/>
 
 			{/* Delete Confirmation Dialog */}
 			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

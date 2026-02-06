@@ -1,5 +1,7 @@
 export { CreateRoadmapDialog } from "./CreateRoadmapDialog";
+export { InitiativeDetail } from "./InitiativeDetail";
 export { PlanningConversation } from "./PlanningConversation";
+export { ProgressControls } from "./ProgressControls";
 export { RoadmapView } from "./RoadmapView";
 export { RoadmapViewContainer } from "./RoadmapViewContainer";
 export { TableView } from "./TableView";
