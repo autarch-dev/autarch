@@ -13,6 +13,7 @@ import { z } from "zod";
 import {
 	checkoutInWorktree,
 	cleanupWorkflow,
+	findRepoRoot,
 	getCurrentBranch,
 	getDiff,
 	getWorktreePath,
