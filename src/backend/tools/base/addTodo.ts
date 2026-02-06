@@ -72,6 +72,8 @@ export const addTodoTool: ToolDefinition<AddTodoInput> = {
 			};
 		}
 
+		const sessionId = context.sessionId;
+
 		// Get database connection
 		const db = await getProjectDb(context.projectRoot);
 
@@ -87,9 +89,7 @@ export const addTodoTool: ToolDefinition<AddTodoInput> = {
 			// For workflows, also scope by session
 			const result =
 				contextType === "workflow"
-					? await query
-							.where("session_id", "=", context.sessionId)
-							.executeTakeFirst()
+					? await query.where("session_id", "=", sessionId).executeTakeFirst()
 					: await query.executeTakeFirst();
 
 			maxSortOrder = result?.max_sort != null ? Number(result.max_sort) : 0;
@@ -97,32 +97,34 @@ export const addTodoTool: ToolDefinition<AddTodoInput> = {
 			maxSortOrder = 0;
 		}
 
-		// Insert each todo item
+		// Insert all todo items in a transaction for atomicity
 		const now = Date.now();
 		const addedItems: Array<{ id: string; title: string }> = [];
 
 		try {
-			for (const [i, item] of input.items.entries()) {
-				const todoId = ids.todo();
-				const sortOrder = maxSortOrder + 1 + i;
+			await db.transaction().execute(async (trx) => {
+				for (const [i, item] of input.items.entries()) {
+					const todoId = ids.todo();
+					const sortOrder = maxSortOrder + 1 + i;
 
-				await db
-					.insertInto("session_todos")
-					.values({
-						id: todoId,
-						session_id: context.sessionId,
-						context_type: contextType,
-						context_id: contextId,
-						title: item.title,
-						description: item.description,
-						checked: 0,
-						sort_order: sortOrder,
-						created_at: now,
-					})
-					.execute();
+					await trx
+						.insertInto("session_todos")
+						.values({
+							id: todoId,
+							session_id: sessionId,
+							context_type: contextType,
+							context_id: contextId,
+							title: item.title,
+							description: item.description,
+							checked: 0,
+							sort_order: sortOrder,
+							created_at: now,
+						})
+						.execute();
 
-				addedItems.push({ id: todoId, title: item.title });
-			}
+					addedItems.push({ id: todoId, title: item.title });
+				}
+			});
 		} catch (err) {
 			return {
 				success: false,

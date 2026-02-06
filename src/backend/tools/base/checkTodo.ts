@@ -42,17 +42,19 @@ export const checkTodoTool: ToolDefinition<CheckTodoInput> = {
 		const checkedIds: string[] = [];
 
 		try {
-			for (const todoId of input.ids) {
-				const result = await db
-					.updateTable("session_todos")
-					.set({ checked: 1 })
-					.where("id", "=", todoId)
-					.executeTakeFirst();
+			await db.transaction().execute(async (trx) => {
+				for (const todoId of input.ids) {
+					const result = await trx
+						.updateTable("session_todos")
+						.set({ checked: 1 })
+						.where("id", "=", todoId)
+						.executeTakeFirst();
 
-				if (result.numUpdatedRows > 0n) {
-					checkedIds.push(todoId);
+					if (result.numUpdatedRows > 0n) {
+						checkedIds.push(todoId);
+					}
 				}
-			}
+			});
 		} catch (err) {
 			return {
 				success: false,
