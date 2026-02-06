@@ -14,6 +14,7 @@ import {
 	type RegisteredTool,
 	registerTool,
 	reviewTools,
+	todoTools,
 } from "../tools";
 import {
 	askQuestionsTool,
@@ -41,6 +42,7 @@ const DISCUSSION_TOOLS: RegisteredTool[] = [...baseTools, ...typescriptTools];
 /** Scoping agent: base tools + submit_scope + ask_questions */
 const SCOPING_TOOLS: RegisteredTool[] = [
 	...baseTools,
+	...todoTools,
 	...typescriptTools,
 	registerTool(submitScopeTool),
 	registerTool(askQuestionsTool),
@@ -50,6 +52,7 @@ const SCOPING_TOOLS: RegisteredTool[] = [
 /** Research agent: base tools + submit_research + request_extension + ask_questions */
 const RESEARCH_TOOLS: RegisteredTool[] = [
 	...baseTools,
+	...todoTools,
 	...typescriptTools,
 	registerTool(submitResearchTool),
 	registerTool(requestExtensionTool),
@@ -59,6 +62,7 @@ const RESEARCH_TOOLS: RegisteredTool[] = [
 /** Planning agent: base tools + submit_plan */
 const PLANNING_TOOLS: RegisteredTool[] = [
 	...baseTools,
+	...todoTools,
 	...typescriptTools,
 	registerTool(submitPlanTool),
 	registerTool(requestExtensionTool),
@@ -74,6 +78,7 @@ const PREFLIGHT_TOOLS: RegisteredTool[] = [
 /** Execution (Pulsing) agent: base tools + pulsing tools + complete_pulse + request_extension */
 const EXECUTION_TOOLS: RegisteredTool[] = [
 	...baseTools,
+	...todoTools,
 	...pulsingTools,
 	...typescriptTools,
 	registerTool(completePulseTool),
@@ -83,6 +88,7 @@ const EXECUTION_TOOLS: RegisteredTool[] = [
 /** Review agent: base tools + review tools */
 const REVIEW_TOOLS: RegisteredTool[] = [
 	...baseTools,
+	...todoTools,
 	...reviewTools,
 	...typescriptTools,
 	registerTool(requestExtensionTool),
