@@ -16,6 +16,7 @@ import {
 	InitiativePrioritySchema,
 	InitiativeStatusSchema,
 	ProgressModeSchema,
+	type RoadmapDependency,
 	RoadmapDependencyNodeTypeSchema,
 	RoadmapStatusSchema,
 } from "@/shared/schemas/roadmap";
@@ -168,6 +169,57 @@ async function verifyNodeOwnership(
 		return verifyMilestoneOwnership(roadmapId, nodeId);
 	}
 	return verifyInitiativeOwnership(roadmapId, nodeId);
+}
+
+/**
+ * Check if adding a dependency from source to target would create a cycle.
+ * Uses DFS from the target node to see if the source node is reachable
+ * through existing dependencies.
+ */
+function wouldCreateCycle(
+	sourceType: string,
+	sourceId: string,
+	targetType: string,
+	targetId: string,
+	existingDeps: RoadmapDependency[],
+): boolean {
+	const sourceKey = `${sourceType}:${sourceId}`;
+	const targetKey = `${targetType}:${targetId}`;
+
+	// Build adjacency list: source depends on target means edge source -> target
+	const graph = new Map<string, string[]>();
+	for (const dep of existingDeps) {
+		const from = `${dep.sourceType}:${dep.sourceId}`;
+		const to = `${dep.targetType}:${dep.targetId}`;
+		const neighbors = graph.get(from) || [];
+		neighbors.push(to);
+		graph.set(from, neighbors);
+	}
+
+	// Add the proposed edge
+	const neighbors = graph.get(sourceKey) || [];
+	neighbors.push(targetKey);
+	graph.set(sourceKey, neighbors);
+
+	// DFS from sourceKey to see if we can reach sourceKey again (cycle)
+	const visited = new Set<string>();
+	const stack = [targetKey];
+	while (stack.length > 0) {
+		// biome-ignore lint/style/noNonNullAssertion: length check guarantees element exists
+		const current = stack.pop()!;
+		if (current === sourceKey) {
+			return true;
+		}
+		if (visited.has(current)) {
+			continue;
+		}
+		visited.add(current);
+		for (const neighbor of graph.get(current) || []) {
+			stack.push(neighbor);
+		}
+	}
+
+	return false;
 }
 
 /**
@@ -737,7 +789,26 @@ export const roadmapRoutes = {
 					);
 				}
 
+				// Check for circular dependencies via DFS from target to see if source is reachable
 				const repos = getRepositories();
+				const existingDeps = await repos.roadmaps.listDependencies(params.id);
+				if (
+					wouldCreateCycle(
+						parsed.data.sourceType,
+						parsed.data.sourceId,
+						parsed.data.targetType,
+						parsed.data.targetId,
+						existingDeps,
+					)
+				) {
+					return Response.json(
+						{
+							error: "Adding this dependency would create a circular reference",
+						},
+						{ status: 400 },
+					);
+				}
+
 				const dependency = await repos.roadmaps.createDependency(parsed.data);
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));

@@ -142,6 +142,7 @@ export async function createRoadmapToolContext(
 	sessionId: string,
 	toolResultMap: Map<string, boolean>,
 	turnId?: string,
+	agentRole?: string,
 ): Promise<ToolContext> {
 	return {
 		projectRoot,
@@ -149,5 +150,6 @@ export async function createRoadmapToolContext(
 		sessionId,
 		toolResultMap,
 		turnId,
+		agentRole,
 	};
 }

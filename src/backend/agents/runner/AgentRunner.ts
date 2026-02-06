@@ -1011,6 +1011,7 @@ export class AgentRunner {
 				this.session.id,
 				toolResultMap,
 				turnId,
+				this.session.agentRole,
 			);
 		}
 		return await createWorkflowToolContext(

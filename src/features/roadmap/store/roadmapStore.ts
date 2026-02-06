@@ -425,9 +425,29 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 			const roadmapDetails = new Map(state.roadmapDetails);
 			const existing = roadmapDetails.get(roadmapId);
 			if (existing) {
+				// Collect IDs of initiatives belonging to this milestone
+				const orphanedInitiativeIds = new Set(
+					existing.initiatives
+						.filter((i) => i.milestoneId === milestoneId)
+						.map((i) => i.id),
+				);
+
+				// Remove dependencies referencing the milestone or its child initiatives
+				const isOrphaned = (type: string, id: string) =>
+					(type === "milestone" && id === milestoneId) ||
+					(type === "initiative" && orphanedInitiativeIds.has(id));
+
 				roadmapDetails.set(roadmapId, {
 					...existing,
 					milestones: existing.milestones.filter((m) => m.id !== milestoneId),
+					initiatives: existing.initiatives.filter(
+						(i) => i.milestoneId !== milestoneId,
+					),
+					dependencies: existing.dependencies.filter(
+						(d) =>
+							!isOrphaned(d.sourceType, d.sourceId) &&
+							!isOrphaned(d.targetType, d.targetId),
+					),
 				});
 			}
 			return { roadmapDetails };

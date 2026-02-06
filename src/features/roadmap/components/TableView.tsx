@@ -934,7 +934,7 @@ function InitiativeRow({
 }) {
 	return (
 		<TableRow className="cursor-pointer" onClick={() => onSelect?.(initiative)}>
-			<TableCell>
+			<TableCell onClick={(e) => e.stopPropagation()}>
 				<div className="flex items-center gap-1.5 pl-7">
 					{hasDeps && (
 						<GitBranch className="size-3.5 text-amber-500 shrink-0" />
@@ -945,13 +945,13 @@ function InitiativeRow({
 					/>
 				</div>
 			</TableCell>
-			<TableCell>
+			<TableCell onClick={(e) => e.stopPropagation()}>
 				<StatusSelect
 					value={initiative.status}
 					onSave={(status) => onUpdate(initiative.id, { status })}
 				/>
 			</TableCell>
-			<TableCell>
+			<TableCell onClick={(e) => e.stopPropagation()}>
 				<PrioritySelect
 					value={initiative.priority}
 					onSave={(priority) => onUpdate(initiative.id, { priority })}
