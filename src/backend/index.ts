@@ -3,8 +3,8 @@ import open from "open";
 import index from "../index.html";
 import { initSessionManager, initWorkflowOrchestrator } from "./agents/runner";
 import { getProjectDb } from "./db/project";
-import { findRepoRoot } from "./git";
 import { log } from "./logger";
+import { initProjectRoot } from "./projectRoot";
 import { initRepositories } from "./repositories";
 import { agentRoutes, settingsRoutes } from "./routes";
 import { startWatching } from "./services/embedding";
@@ -54,12 +54,15 @@ const server = serve({
 serverRef = server;
 
 // Find project root first - required for agent system
+// Accepts an optional positional CLI argument for the target project directory
 let projectRoot: string;
 try {
-	projectRoot = findRepoRoot(process.cwd());
+	projectRoot = initProjectRoot();
 	log.server.info(`Project root: ${projectRoot}`);
-} catch {
-	log.server.error("Please run autarch from a git repository");
+} catch (error) {
+	const message =
+		error instanceof Error ? error.message : "Unknown error finding git root";
+	log.server.error(message);
 	process.exit(1);
 }
 

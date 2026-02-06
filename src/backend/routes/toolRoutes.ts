@@ -11,8 +11,8 @@
  */
 
 import { z } from "zod";
-import { findRepoRoot } from "../git";
 import { log } from "../logger";
+import { getProjectRoot } from "../projectRoot";
 import { getTool, getToolNames } from "../tools";
 import type { ToolContext } from "../tools/types";
 
@@ -148,7 +148,7 @@ export const toolRoutes = {
 				);
 			}
 
-			const projectRoot = findRepoRoot(process.cwd());
+			const projectRoot = getProjectRoot();
 			const context = await createTestbenchContext(projectRoot);
 
 			try {

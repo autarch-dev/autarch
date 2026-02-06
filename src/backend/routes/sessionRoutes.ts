@@ -6,8 +6,8 @@
 
 import { z } from "zod";
 import { AgentRunner, getSessionManager } from "../agents/runner";
-import { findRepoRoot } from "../git";
 import { log } from "../logger";
+import { getProjectRoot } from "../projectRoot";
 import { getRepositories } from "../repositories";
 
 // =============================================================================
@@ -84,7 +84,7 @@ export const sessionRoutes = {
 					);
 				}
 
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				const repos = getRepositories();
 
 				const runner = new AgentRunner(session, {

@@ -13,7 +13,6 @@ import { z } from "zod";
 import {
 	checkoutInWorktree,
 	cleanupWorkflow,
-	findRepoRoot,
 	getCurrentBranch,
 	getDiff,
 	getWorktreePath,
@@ -21,6 +20,7 @@ import {
 } from "@/backend/git";
 import { getModelForScenario } from "@/backend/llm/models";
 import { log } from "@/backend/logger";
+import { getProjectRoot } from "@/backend/projectRoot";
 import {
 	type ArtifactRepository,
 	type ConversationRepository,
@@ -96,7 +96,7 @@ export class WorkflowOrchestrator {
 	) {
 		this.pulseOrchestrator = new PulseOrchestrator({
 			pulseRepo: this.pulseRepo,
-			projectRoot: findRepoRoot(process.cwd()),
+			projectRoot: getProjectRoot(),
 			workflowRepo: this.workflowRepo,
 		});
 	}
@@ -150,7 +150,7 @@ export class WorkflowOrchestrator {
 		const initialPrompt = prompt;
 
 		// Run the scoping agent with the initial prompt (non-blocking)
-		const projectRoot = findRepoRoot(process.cwd());
+		const projectRoot = getProjectRoot();
 		const runner = new AgentRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
@@ -332,7 +332,7 @@ export class WorkflowOrchestrator {
 			}
 
 			const workflowBranch = `autarch/${workflowId}`;
-			const projectRoot = findRepoRoot(process.cwd());
+			const projectRoot = getProjectRoot();
 			const worktreePath = getWorktreePath(projectRoot, workflowId);
 
 			// Build trailers for workflow provenance
@@ -470,7 +470,7 @@ export class WorkflowOrchestrator {
 			rationale?: string;
 		},
 	): Promise<void> {
-		const projectRoot = findRepoRoot(process.cwd());
+		const projectRoot = getProjectRoot();
 
 		// Capture base branch before pulsing initialization
 		const baseBranch = await getCurrentBranch(projectRoot);
@@ -661,7 +661,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 		const feedbackMessage = `**I've reviewed your scope card and have the following feedback:**\n\n${feedback}\n\nPlease revise the scope card based on this feedback and submit it again.`;
 
 		// Create runner and resume
-		const projectRoot = findRepoRoot(process.cwd());
+		const projectRoot = getProjectRoot();
 		const runner = new AgentRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
@@ -771,7 +771,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 
 		// Start the fix pulse first, before transitioning stage
 		// This ensures we don't leave the workflow in an inconsistent state if pulse creation fails
-		const projectRoot = findRepoRoot(process.cwd());
+		const projectRoot = getProjectRoot();
 		const worktreePath = getWorktreePath(projectRoot, workflowId);
 
 		const startedPulse = await this.pulseOrchestrator.startNextPulse(
@@ -920,7 +920,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 			broadcast(createWorkflowCompletedEvent({ workflowId }));
 
 			// Fire-and-forget knowledge extraction - never blocks workflow completion
-			const projectRoot = findRepoRoot(process.cwd());
+			const projectRoot = getProjectRoot();
 			extractKnowledge(workflowId, projectRoot).catch((err) =>
 				log.knowledge.error("Extraction failed", {
 					workflowId,
@@ -970,7 +970,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 		);
 
 		if (initialMessage) {
-			const projectRoot = findRepoRoot(process.cwd());
+			const projectRoot = getProjectRoot();
 
 			// For execution stage, include worktree path
 			const worktreePath =
@@ -1051,7 +1051,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 			await this.sessionManager.stopSession(workflow.currentSessionId);
 		}
 
-		const projectRoot = findRepoRoot(process.cwd());
+		const projectRoot = getProjectRoot();
 		const worktreePath = getWorktreePath(projectRoot, workflowId);
 
 		// Start the first pulse
@@ -1171,7 +1171,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 				await this.sessionManager.stopSession(workflow.currentSessionId);
 			}
 
-			const projectRoot = findRepoRoot(process.cwd());
+			const projectRoot = getProjectRoot();
 			const worktreePath = getWorktreePath(projectRoot, workflowId);
 
 			// Start the next pulse
@@ -1288,7 +1288,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 				await this.sessionManager.stopSession(workflow.currentSessionId);
 			}
 
-			const projectRoot = findRepoRoot(process.cwd());
+			const projectRoot = getProjectRoot();
 			const worktreePath = getWorktreePath(projectRoot, workflowId);
 
 			// Start the next pulse
@@ -1493,7 +1493,7 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 			}
 
 			// Capture base branch before pulsing initialization
-			const projectRoot = findRepoRoot(process.cwd());
+			const projectRoot = getProjectRoot();
 			const baseBranch = await getCurrentBranch(projectRoot);
 			await this.workflowRepo.setBaseBranch(workflowId, baseBranch);
 			log.workflow.info(
@@ -1840,13 +1840,13 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 
 		// Review rewind is special - no git/pulse cleanup needed (keep execution results)
 		if (targetStage === "review") {
-			const projectRoot = findRepoRoot(process.cwd());
+			const projectRoot = getProjectRoot();
 			await this.rewindToReviewImpl(workflowId, projectRoot);
 			return;
 		}
 
 		// 2. Cleanup git worktree and branch (needed for non-review rewinds)
-		const projectRoot = findRepoRoot(process.cwd());
+		const projectRoot = getProjectRoot();
 		try {
 			await cleanupWorkflow(projectRoot, workflowId, { deleteBranch: true });
 		} catch (error) {

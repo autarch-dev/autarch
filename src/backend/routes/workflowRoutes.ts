@@ -12,8 +12,9 @@ import {
 	RewindTargetSchema,
 } from "@/shared/schemas/workflow";
 import { getSessionManager, getWorkflowOrchestrator } from "../agents/runner";
-import { findRepoRoot, getDiff } from "../git";
+import { getDiff } from "../git";
 import { log } from "../logger";
+import { getProjectRoot } from "../projectRoot";
 import { getRepositories } from "../repositories";
 import {
 	getMergeStrategy,
@@ -529,7 +530,7 @@ export const workflowRoutes = {
 				// Construct the workflow branch name (autarch/{workflowId})
 				const workflowBranch = `autarch/${params.id}`;
 				const diffContent = await getDiff(
-					process.cwd(),
+					getProjectRoot(),
 					workflow.baseBranch,
 					workflowBranch,
 				);
@@ -692,7 +693,7 @@ export const workflowRoutes = {
 	"/api/settings/merge-strategy": {
 		async GET() {
 			try {
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				const strategy = await getMergeStrategy(projectRoot);
 				return Response.json({ strategy });
 			} catch (error) {
@@ -720,7 +721,7 @@ export const workflowRoutes = {
 					);
 				}
 
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				await setMergeStrategy(projectRoot, parsed.data.strategy);
 
 				log.api.success(`Set merge strategy to: ${parsed.data.strategy}`);
@@ -738,7 +739,7 @@ export const workflowRoutes = {
 	"/api/settings/hooks": {
 		async GET() {
 			try {
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				const hooks = await getPostWriteHooks(projectRoot);
 				return Response.json({ hooks });
 			} catch (error) {
@@ -766,7 +767,7 @@ export const workflowRoutes = {
 					);
 				}
 
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				await setPostWriteHooks(projectRoot, parsed.data.hooks);
 
 				log.api.success("Updated post-write hooks configuration");
@@ -784,7 +785,7 @@ export const workflowRoutes = {
 	"/api/settings/persistent-approvals": {
 		async GET() {
 			try {
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				const approvals = await getPersistentShellApprovals(projectRoot);
 				return Response.json({ approvals });
 			} catch (error) {
@@ -811,7 +812,7 @@ export const workflowRoutes = {
 					);
 				}
 
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				await removePersistentShellApproval(projectRoot, parsed.data.command);
 
 				log.api.success(

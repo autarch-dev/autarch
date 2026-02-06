@@ -5,8 +5,8 @@
  */
 
 import { z } from "zod";
-import { findRepoRoot } from "../git";
 import { log } from "../logger";
+import { getProjectRoot } from "../projectRoot";
 import {
 	getPendingApproval,
 	resolveApproval,
@@ -86,7 +86,7 @@ export const shellApprovalRoutes = {
 				}
 
 				// Get project root for persistent approval storage
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 
 				// Resolve the approval
 				await resolveApproval(
@@ -145,7 +145,7 @@ export const shellApprovalRoutes = {
 				}
 
 				// Get project root for signature compatibility
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 
 				// Resolve the denial
 				await resolveApproval(
