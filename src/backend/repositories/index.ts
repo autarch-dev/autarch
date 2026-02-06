@@ -13,6 +13,7 @@ import { ArtifactRepository } from "./ArtifactRepository";
 import { ChannelRepository } from "./ChannelRepository";
 import { ConversationRepository } from "./ConversationRepository";
 import { PulseRepository } from "./PulseRepository";
+import { RoadmapRepository } from "./RoadmapRepository";
 import { SessionRepository } from "./SessionRepository";
 import type { Repositories } from "./types";
 import { WorkflowRepository } from "./WorkflowRepository";
@@ -23,6 +24,7 @@ export { ChannelRepository } from "./ChannelRepository";
 export { ConversationRepository } from "./ConversationRepository";
 export type { PreflightSetup, Pulse } from "./PulseRepository";
 export { PulseRepository } from "./PulseRepository";
+export { RoadmapRepository } from "./RoadmapRepository";
 export { SessionRepository } from "./SessionRepository";
 // Re-export types
 export type { ProjectDb, Repositories } from "./types";
@@ -46,6 +48,7 @@ export function initRepositories(db: Kysely<ProjectDatabase>): Repositories {
 		artifacts: new ArtifactRepository(db),
 		conversations: new ConversationRepository(db),
 		pulses: new PulseRepository(db),
+		roadmaps: new RoadmapRepository(db),
 	};
 	return repositoriesInstance;
 }
