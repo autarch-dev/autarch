@@ -160,6 +160,43 @@ This will persist the entire roadmap structure and activate it.`,
 			await db.transaction().execute(async (trx) => {
 				const now = Date.now();
 
+				// 0. Clear existing roadmap entities to support idempotent re-submission
+				// Delete dependencies referencing this roadmap's milestones/initiatives
+				const existingMilestones = await trx
+					.selectFrom("milestones")
+					.select("id")
+					.where("roadmap_id", "=", roadmapId)
+					.execute();
+				const existingInitiatives = await trx
+					.selectFrom("initiatives")
+					.select("id")
+					.where("roadmap_id", "=", roadmapId)
+					.execute();
+				const existingNodeIds = [
+					...existingMilestones.map((m) => m.id),
+					...existingInitiatives.map((i) => i.id),
+				];
+				if (existingNodeIds.length > 0) {
+					await trx
+						.deleteFrom("dependencies")
+						.where((eb) =>
+							eb.or([
+								eb("source_id", "in", existingNodeIds),
+								eb("target_id", "in", existingNodeIds),
+							]),
+						)
+						.execute();
+				}
+				// Delete existing initiatives and milestones
+				await trx
+					.deleteFrom("initiatives")
+					.where("roadmap_id", "=", roadmapId)
+					.execute();
+				await trx
+					.deleteFrom("milestones")
+					.where("roadmap_id", "=", roadmapId)
+					.execute();
+
 				// 1. Upsert vision document
 				const existingVision = await trx
 					.selectFrom("vision_documents")

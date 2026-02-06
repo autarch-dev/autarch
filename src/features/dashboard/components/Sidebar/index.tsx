@@ -18,7 +18,11 @@ interface AppSidebarProps {
 	roadmaps: Roadmap[];
 	onCreateChannel: (name: string, description?: string) => Promise<void>;
 	onCreateWorkflow?: (title: string) => Promise<void>;
-	onCreateRoadmap: (title: string, mode: "ai" | "blank") => Promise<void>;
+	onCreateRoadmap: (
+		title: string,
+		mode: "ai" | "blank",
+		prompt?: string,
+	) => Promise<void>;
 }
 
 export function AppSidebar({

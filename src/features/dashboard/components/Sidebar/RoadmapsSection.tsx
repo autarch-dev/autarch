@@ -23,7 +23,11 @@ const roadmapStatusColors = {
 
 interface RoadmapsSectionProps {
 	roadmaps: Roadmap[];
-	onCreateRoadmap: (title: string, mode: "ai" | "blank") => Promise<void>;
+	onCreateRoadmap: (
+		title: string,
+		mode: "ai" | "blank",
+		prompt?: string,
+	) => Promise<void>;
 }
 
 export function RoadmapsSection({

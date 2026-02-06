@@ -115,7 +115,11 @@ interface RoadmapState {
 
 	// Actions - Roadmap CRUD
 	fetchRoadmaps: () => Promise<void>;
-	createRoadmap: (title: string, mode: "ai" | "blank") => Promise<Roadmap>;
+	createRoadmap: (
+		title: string,
+		mode: "ai" | "blank",
+		prompt?: string,
+	) => Promise<Roadmap>;
 	selectRoadmap: (roadmapId: string | null) => void;
 	updateRoadmap: (
 		roadmapId: string,
@@ -234,11 +238,15 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 		}
 	},
 
-	createRoadmap: async (title: string, mode: "ai" | "blank") => {
+	createRoadmap: async (
+		title: string,
+		mode: "ai" | "blank",
+		prompt?: string,
+	) => {
 		const response = await fetch("/api/roadmaps", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ title, mode }),
+			body: JSON.stringify({ title, mode, prompt }),
 		});
 
 		if (!response.ok) {

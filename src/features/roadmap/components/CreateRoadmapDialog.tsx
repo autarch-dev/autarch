@@ -22,7 +22,11 @@ interface CreateRoadmapFormData {
 interface CreateRoadmapDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onCreate: (title: string, mode: "ai" | "blank") => Promise<void>;
+	onCreate: (
+		title: string,
+		mode: "ai" | "blank",
+		prompt?: string,
+	) => Promise<void>;
 }
 
 export function CreateRoadmapDialog({
@@ -58,7 +62,11 @@ export function CreateRoadmapDialog({
 		setError(null);
 
 		try {
-			await onCreate(data.title.trim(), selectedMode);
+			await onCreate(
+				data.title.trim(),
+				selectedMode,
+				selectedMode === "ai" ? data.prompt.trim() || undefined : undefined,
+			);
 			reset();
 			onOpenChange(false);
 		} catch (err) {

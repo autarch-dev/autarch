@@ -59,8 +59,8 @@ export function Dashboard() {
 	);
 
 	const handleCreateRoadmap = useCallback(
-		async (title: string, mode: "ai" | "blank") => {
-			const roadmap = await createRoadmap(title, mode);
+		async (title: string, mode: "ai" | "blank", prompt?: string) => {
+			const roadmap = await createRoadmap(title, mode, prompt);
 			// Navigate to the new roadmap
 			setLocation(`/roadmap/${roadmap.id}`);
 		},

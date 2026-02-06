@@ -19,7 +19,8 @@ import {
 	RoadmapDependencyNodeTypeSchema,
 	RoadmapStatusSchema,
 } from "@/shared/schemas/roadmap";
-import { getSessionManager } from "../agents/runner";
+import { AgentRunner, getSessionManager } from "../agents/runner";
+import { findRepoRoot } from "../git";
 import { log } from "../logger";
 import { getRepositories } from "../repositories";
 import { broadcast } from "../ws";
@@ -31,6 +32,7 @@ import { broadcast } from "../ws";
 const CreateRoadmapRequestSchema = z.object({
 	title: z.string().min(1),
 	mode: z.enum(["ai", "blank"]),
+	prompt: z.string().optional(),
 });
 
 const UpdateRoadmapRequestSchema = z.object({
@@ -130,10 +132,52 @@ function parseParams<T extends z.ZodTypeAny>(
 }
 
 /**
+ * Verify a milestone belongs to the specified roadmap.
+ * Returns the milestone if valid, or null if not found / doesn't belong.
+ */
+async function verifyMilestoneOwnership(
+	roadmapId: string,
+	milestoneId: string,
+): Promise<boolean> {
+	const repos = getRepositories();
+	const milestone = await repos.roadmaps.getMilestone(milestoneId);
+	return milestone !== null && milestone.roadmapId === roadmapId;
+}
+
+/**
+ * Verify an initiative belongs to the specified roadmap.
+ */
+async function verifyInitiativeOwnership(
+	roadmapId: string,
+	initiativeId: string,
+): Promise<boolean> {
+	const repos = getRepositories();
+	const initiative = await repos.roadmaps.getInitiative(initiativeId);
+	return initiative !== null && initiative.roadmapId === roadmapId;
+}
+
+/**
+ * Verify a dependency node (milestone or initiative) belongs to the specified roadmap.
+ */
+async function verifyNodeOwnership(
+	roadmapId: string,
+	nodeType: string,
+	nodeId: string,
+): Promise<boolean> {
+	if (nodeType === "milestone") {
+		return verifyMilestoneOwnership(roadmapId, nodeId);
+	}
+	return verifyInitiativeOwnership(roadmapId, nodeId);
+}
+
+/**
  * Start an AI planning session for a roadmap.
  * Creates session, updates current_session_id on roadmap.
  */
-async function startAiSession(roadmapId: string): Promise<string> {
+async function startAiSession(
+	roadmapId: string,
+	initialPrompt?: string,
+): Promise<string> {
 	const sessionManager = getSessionManager();
 	const session = await sessionManager.startSession({
 		contextType: "roadmap",
@@ -145,6 +189,26 @@ async function startAiSession(roadmapId: string): Promise<string> {
 	await repos.roadmaps.updateRoadmap(roadmapId, {
 		currentSessionId: session.id,
 	});
+
+	// Send the initial prompt as the first message to kick off the AI agent
+	if (initialPrompt) {
+		const projectRoot = findRepoRoot(process.cwd());
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			conversationRepo: repos.conversations,
+		});
+
+		runner.run(initialPrompt).catch((error) => {
+			log.agent.error(
+				`Agent run failed for roadmap session ${session.id}:`,
+				error,
+			);
+			sessionManager.errorSession(
+				session.id,
+				error instanceof Error ? error.message : "Unknown error",
+			);
+		});
+	}
 
 	return session.id;
 }
@@ -190,7 +254,7 @@ export const roadmapRoutes = {
 				});
 
 				if (parsed.data.mode === "ai") {
-					await startAiSession(roadmap.id);
+					await startAiSession(roadmap.id, parsed.data.prompt);
 				}
 
 				broadcast(
@@ -348,6 +412,13 @@ export const roadmapRoutes = {
 				);
 			}
 			try {
+				if (!(await verifyMilestoneOwnership(params.id, params.milestoneId))) {
+					return Response.json(
+						{ error: "Milestone not found in this roadmap" },
+						{ status: 404 },
+					);
+				}
+
 				const body = await req.json();
 				const parsed = UpdateMilestoneRequestSchema.safeParse(body);
 				if (!parsed.success) {
@@ -387,6 +458,13 @@ export const roadmapRoutes = {
 				);
 			}
 			try {
+				if (!(await verifyMilestoneOwnership(params.id, params.milestoneId))) {
+					return Response.json(
+						{ error: "Milestone not found in this roadmap" },
+						{ status: 404 },
+					);
+				}
+
 				const repos = getRepositories();
 				await repos.roadmaps.deleteMilestone(params.milestoneId);
 
@@ -452,6 +530,15 @@ export const roadmapRoutes = {
 				);
 			}
 			try {
+				if (
+					!(await verifyInitiativeOwnership(params.id, params.initiativeId))
+				) {
+					return Response.json(
+						{ error: "Initiative not found in this roadmap" },
+						{ status: 404 },
+					);
+				}
+
 				const body = await req.json();
 				const parsed = UpdateInitiativeRequestSchema.safeParse(body);
 				if (!parsed.success) {
@@ -491,6 +578,15 @@ export const roadmapRoutes = {
 				);
 			}
 			try {
+				if (
+					!(await verifyInitiativeOwnership(params.id, params.initiativeId))
+				) {
+					return Response.json(
+						{ error: "Initiative not found in this roadmap" },
+						{ status: 404 },
+					);
+				}
+
 				const repos = getRepositories();
 				await repos.roadmaps.deleteInitiative(params.initiativeId);
 
@@ -588,6 +684,28 @@ export const roadmapRoutes = {
 					);
 				}
 
+				// Verify both source and target belong to this roadmap
+				const [sourceOwned, targetOwned] = await Promise.all([
+					verifyNodeOwnership(
+						params.id,
+						parsed.data.sourceType,
+						parsed.data.sourceId,
+					),
+					verifyNodeOwnership(
+						params.id,
+						parsed.data.targetType,
+						parsed.data.targetId,
+					),
+				]);
+				if (!sourceOwned || !targetOwned) {
+					return Response.json(
+						{
+							error: "Source or target entity not found in this roadmap",
+						},
+						{ status: 400 },
+					);
+				}
+
 				const repos = getRepositories();
 				const dependency = await repos.roadmaps.createDependency(parsed.data);
 
@@ -615,7 +733,18 @@ export const roadmapRoutes = {
 				);
 			}
 			try {
+				// Verify the dependency belongs to this roadmap by checking
+				// that it appears in the roadmap's dependency list
 				const repos = getRepositories();
+				const roadmapDeps = await repos.roadmaps.listDependencies(params.id);
+				const depBelongs = roadmapDeps.some((dep) => dep.id === params.depId);
+				if (!depBelongs) {
+					return Response.json(
+						{ error: "Dependency not found in this roadmap" },
+						{ status: 404 },
+					);
+				}
+
 				await repos.roadmaps.deleteDependency(params.depId);
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));

@@ -281,56 +281,55 @@ export class RoadmapRepository implements Repository {
 	 * Delete a roadmap and all associated data (milestones, initiatives, vision, dependencies)
 	 */
 	async deleteRoadmap(id: string): Promise<void> {
-		// Delete dependencies that reference initiatives or milestones in this roadmap
-		const milestones = await this.db
-			.selectFrom("milestones")
-			.select("id")
-			.where("roadmap_id", "=", id)
-			.execute();
-
-		const milestoneIds = milestones.map((m) => m.id);
-
-		const initiatives = await this.db
-			.selectFrom("initiatives")
-			.select("id")
-			.where("roadmap_id", "=", id)
-			.execute();
-
-		const initiativeIds = initiatives.map((i) => i.id);
-
-		const allNodeIds = [...milestoneIds, ...initiativeIds];
-		if (allNodeIds.length > 0) {
-			await this.db
-				.deleteFrom("dependencies")
-				.where((eb) =>
-					eb.or([
-						eb("source_id", "in", allNodeIds),
-						eb("target_id", "in", allNodeIds),
-					]),
-				)
+		await this.db.transaction().execute(async (trx) => {
+			// Delete dependencies that reference initiatives or milestones in this roadmap
+			const milestones = await trx
+				.selectFrom("milestones")
+				.select("id")
+				.where("roadmap_id", "=", id)
 				.execute();
-		}
 
-		// Delete initiatives
-		await this.db
-			.deleteFrom("initiatives")
-			.where("roadmap_id", "=", id)
-			.execute();
+			const milestoneIds = milestones.map((m) => m.id);
 
-		// Delete milestones
-		await this.db
-			.deleteFrom("milestones")
-			.where("roadmap_id", "=", id)
-			.execute();
+			const initiatives = await trx
+				.selectFrom("initiatives")
+				.select("id")
+				.where("roadmap_id", "=", id)
+				.execute();
 
-		// Delete vision document
-		await this.db
-			.deleteFrom("vision_documents")
-			.where("roadmap_id", "=", id)
-			.execute();
+			const initiativeIds = initiatives.map((i) => i.id);
 
-		// Delete roadmap
-		await this.db.deleteFrom("roadmaps").where("id", "=", id).execute();
+			const allNodeIds = [...milestoneIds, ...initiativeIds];
+			if (allNodeIds.length > 0) {
+				await trx
+					.deleteFrom("dependencies")
+					.where((eb) =>
+						eb.or([
+							eb("source_id", "in", allNodeIds),
+							eb("target_id", "in", allNodeIds),
+						]),
+					)
+					.execute();
+			}
+
+			// Delete initiatives
+			await trx
+				.deleteFrom("initiatives")
+				.where("roadmap_id", "=", id)
+				.execute();
+
+			// Delete milestones
+			await trx.deleteFrom("milestones").where("roadmap_id", "=", id).execute();
+
+			// Delete vision document
+			await trx
+				.deleteFrom("vision_documents")
+				.where("roadmap_id", "=", id)
+				.execute();
+
+			// Delete roadmap
+			await trx.deleteFrom("roadmaps").where("id", "=", id).execute();
+		});
 	}
 
 	// ===========================================================================
@@ -429,36 +428,38 @@ export class RoadmapRepository implements Repository {
 	 * Delete a milestone and cascade delete its initiatives
 	 */
 	async deleteMilestone(id: string): Promise<void> {
-		// Delete dependencies referencing initiatives under this milestone
-		const initiatives = await this.db
-			.selectFrom("initiatives")
-			.select("id")
-			.where("milestone_id", "=", id)
-			.execute();
-
-		const initiativeIds = initiatives.map((i) => i.id);
-		const allNodeIds = [id, ...initiativeIds];
-
-		if (allNodeIds.length > 0) {
-			await this.db
-				.deleteFrom("dependencies")
-				.where((eb) =>
-					eb.or([
-						eb("source_id", "in", allNodeIds),
-						eb("target_id", "in", allNodeIds),
-					]),
-				)
+		await this.db.transaction().execute(async (trx) => {
+			// Delete dependencies referencing initiatives under this milestone
+			const initiatives = await trx
+				.selectFrom("initiatives")
+				.select("id")
+				.where("milestone_id", "=", id)
 				.execute();
-		}
 
-		// Delete initiatives under this milestone
-		await this.db
-			.deleteFrom("initiatives")
-			.where("milestone_id", "=", id)
-			.execute();
+			const initiativeIds = initiatives.map((i) => i.id);
+			const allNodeIds = [id, ...initiativeIds];
 
-		// Delete the milestone
-		await this.db.deleteFrom("milestones").where("id", "=", id).execute();
+			if (allNodeIds.length > 0) {
+				await trx
+					.deleteFrom("dependencies")
+					.where((eb) =>
+						eb.or([
+							eb("source_id", "in", allNodeIds),
+							eb("target_id", "in", allNodeIds),
+						]),
+					)
+					.execute();
+			}
+
+			// Delete initiatives under this milestone
+			await trx
+				.deleteFrom("initiatives")
+				.where("milestone_id", "=", id)
+				.execute();
+
+			// Delete the milestone
+			await trx.deleteFrom("milestones").where("id", "=", id).execute();
+		});
 	}
 
 	// ===========================================================================
