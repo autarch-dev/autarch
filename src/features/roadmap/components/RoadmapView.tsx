@@ -1,0 +1,321 @@
+/**
+ * RoadmapView - Main presentational component for a roadmap
+ *
+ * Renders the roadmap header (editable title, status badge, actions),
+ * tab-based content switching (Timeline/Table), and a progress summary bar.
+ * Timeline and Table views are placeholders for now.
+ */
+
+import {
+	Calendar,
+	MoreHorizontal,
+	Pencil,
+	TableIcon,
+	Trash2,
+} from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+import type {
+	Initiative,
+	Milestone,
+	Roadmap,
+	RoadmapDependency,
+	RoadmapStatus,
+	VisionDocument,
+} from "@/shared/schemas/roadmap";
+import type { RoadmapConversationState } from "../store/roadmapStore";
+
+// =============================================================================
+// Status Config
+// =============================================================================
+
+const statusConfig: Record<
+	RoadmapStatus,
+	{ label: string; color: string; bg: string }
+> = {
+	draft: {
+		label: "Draft",
+		color: "text-amber-700 dark:text-amber-400",
+		bg: "bg-amber-100 dark:bg-amber-950",
+	},
+	active: {
+		label: "Active",
+		color: "text-blue-700 dark:text-blue-400",
+		bg: "bg-blue-100 dark:bg-blue-950",
+	},
+	completed: {
+		label: "Completed",
+		color: "text-green-700 dark:text-green-400",
+		bg: "bg-green-100 dark:bg-green-950",
+	},
+	archived: {
+		label: "Archived",
+		color: "text-gray-700 dark:text-gray-400",
+		bg: "bg-gray-100 dark:bg-gray-950",
+	},
+};
+
+// =============================================================================
+// Props
+// =============================================================================
+
+interface RoadmapViewProps {
+	roadmap: Roadmap;
+	milestones: Milestone[];
+	initiatives: Initiative[];
+	vision?: VisionDocument;
+	dependencies: RoadmapDependency[];
+	conversation?: RoadmapConversationState;
+	onUpdateTitle: (title: string) => Promise<void>;
+	onDelete: () => Promise<void>;
+}
+
+// =============================================================================
+// Component
+// =============================================================================
+
+export function RoadmapView({
+	roadmap,
+	milestones,
+	initiatives,
+	vision: _vision,
+	dependencies: _dependencies,
+	conversation,
+	onUpdateTitle,
+	onDelete,
+}: RoadmapViewProps) {
+	const [isEditingTitle, setIsEditingTitle] = useState(false);
+	const [editTitle, setEditTitle] = useState(roadmap.title);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const titleInputRef = useRef<HTMLInputElement>(null);
+
+	const status = statusConfig[roadmap.status];
+
+	// Calculate overall progress (average of initiative progress values)
+	const overallProgress = useMemo(() => {
+		if (initiatives.length === 0) return 0;
+		const total = initiatives.reduce((sum, i) => sum + i.progress, 0);
+		return Math.round(total / initiatives.length);
+	}, [initiatives]);
+
+	// Check if roadmap has an active AI planning session
+	const hasActiveSession =
+		roadmap.status === "draft" && conversation?.sessionStatus === "active";
+
+	const handleTitleClick = () => {
+		setEditTitle(roadmap.title);
+		setIsEditingTitle(true);
+		// Focus input on next render
+		setTimeout(() => titleInputRef.current?.focus(), 0);
+	};
+
+	const handleTitleSubmit = async () => {
+		const trimmed = editTitle.trim();
+		if (trimmed && trimmed !== roadmap.title) {
+			await onUpdateTitle(trimmed);
+		}
+		setIsEditingTitle(false);
+	};
+
+	const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === "Enter") {
+			handleTitleSubmit();
+		} else if (e.key === "Escape") {
+			setEditTitle(roadmap.title);
+			setIsEditingTitle(false);
+		}
+	};
+
+	return (
+		<div className="flex flex-col h-full">
+			{/* Header */}
+			<header className="px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+				<div className="flex items-start justify-between">
+					<div className="flex-1 min-w-0">
+						<div className="flex items-center gap-2 mb-1">
+							<SidebarTrigger className="-ml-1" />
+							<Separator orientation="vertical" className="h-4" />
+							{isEditingTitle ? (
+								<Input
+									ref={titleInputRef}
+									value={editTitle}
+									onChange={(e) => setEditTitle(e.target.value)}
+									onBlur={handleTitleSubmit}
+									onKeyDown={handleTitleKeyDown}
+									className="h-7 text-base font-semibold px-1"
+								/>
+							) : (
+								<button
+									type="button"
+									className="font-semibold truncate cursor-pointer hover:text-foreground/80 text-left bg-transparent border-none p-0 text-base"
+									onClick={handleTitleClick}
+									title="Click to edit title"
+								>
+									{roadmap.title}
+								</button>
+							)}
+						</div>
+						{roadmap.description && (
+							<p className="text-sm text-muted-foreground ml-9">
+								{roadmap.description}
+							</p>
+						)}
+					</div>
+					<div className="flex items-center gap-2 ml-4">
+						<Badge variant="secondary" className={cn(status.bg, status.color)}>
+							{status.label}
+						</Badge>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button variant="ghost" size="icon-sm">
+									<MoreHorizontal className="size-4" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuItem onClick={handleTitleClick}>
+									<Pencil className="size-4 mr-2" />
+									Edit Title
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									onClick={() => setIsDeleteDialogOpen(true)}
+									className="text-destructive focus:text-destructive"
+								>
+									<Trash2 className="size-4 mr-2" />
+									Delete
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</div>
+				</div>
+
+				{/* Progress Summary Bar */}
+				{initiatives.length > 0 && (
+					<div className="mt-3 ml-9">
+						<div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+							<span>
+								Overall Progress ({initiatives.length}{" "}
+								{initiatives.length === 1 ? "initiative" : "initiatives"})
+							</span>
+							<span>{overallProgress}%</span>
+						</div>
+						<div className="h-2 rounded-full bg-muted overflow-hidden">
+							<div
+								className="h-full rounded-full bg-primary transition-all duration-300"
+								style={{ width: `${overallProgress}%` }}
+							/>
+						</div>
+					</div>
+				)}
+			</header>
+
+			{/* Content */}
+			{hasActiveSession ? (
+				<div className="flex-1 flex items-center justify-center">
+					<div className="text-center space-y-2">
+						<p className="text-muted-foreground">
+							AI planning session in progress...
+						</p>
+						<p className="text-sm text-muted-foreground">
+							The conversation panel will be available here.
+						</p>
+					</div>
+				</div>
+			) : (
+				<Tabs defaultValue="timeline" className="flex-1 flex flex-col min-h-0">
+					<div className="px-4 pt-3">
+						<TabsList>
+							<TabsTrigger value="timeline">
+								<Calendar className="size-4 mr-1.5" />
+								Timeline
+							</TabsTrigger>
+							<TabsTrigger value="table">
+								<TableIcon className="size-4 mr-1.5" />
+								Table
+							</TabsTrigger>
+						</TabsList>
+					</div>
+
+					<TabsContent value="timeline" className="flex-1 min-h-0 p-4">
+						<div className="flex items-center justify-center h-full rounded-lg border border-dashed">
+							<div className="text-center space-y-2">
+								<Calendar className="size-8 mx-auto text-muted-foreground" />
+								<p className="text-muted-foreground">
+									Timeline view coming soon
+								</p>
+								<p className="text-sm text-muted-foreground">
+									{milestones.length} milestones · {initiatives.length}{" "}
+									initiatives
+								</p>
+							</div>
+						</div>
+					</TabsContent>
+
+					<TabsContent value="table" className="flex-1 min-h-0 p-4">
+						<div className="flex items-center justify-center h-full rounded-lg border border-dashed">
+							<div className="text-center space-y-2">
+								<TableIcon className="size-8 mx-auto text-muted-foreground" />
+								<p className="text-muted-foreground">Table view coming soon</p>
+								<p className="text-sm text-muted-foreground">
+									{milestones.length} milestones · {initiatives.length}{" "}
+									initiatives
+								</p>
+							</div>
+						</div>
+					</TabsContent>
+				</Tabs>
+			)}
+
+			{/* Delete Confirmation Dialog */}
+			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Delete Roadmap</DialogTitle>
+						<DialogDescription>
+							Delete this roadmap and all its milestones, initiatives, and
+							dependencies? This action cannot be undone.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setIsDeleteDialogOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={() => {
+								onDelete().catch((error) => {
+									console.error("Failed to delete roadmap:", error);
+								});
+								setIsDeleteDialogOpen(false);
+							}}
+						>
+							Delete
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</div>
+	);
+}

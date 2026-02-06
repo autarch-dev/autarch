@@ -2,27 +2,64 @@
  * RoadmapViewContainer - Container component for RoadmapView
  *
  * Owns data fetching and state management for a specific roadmap,
- * driven by URL parameter. Placeholder until full view is implemented.
+ * driven by URL parameter. Connects to useRoadmapStore and passes
+ * extracted data to the presentational RoadmapView component.
  */
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useRoadmapStore } from "../store/roadmapStore";
+import { RoadmapView } from "./RoadmapView";
 
 interface RoadmapViewContainerProps {
 	roadmapId: string;
 }
 
 export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
-	const { roadmaps, roadmapsLoading, selectRoadmap, fetchRoadmapDetails } =
-		useRoadmapStore();
+	const [, setLocation] = useLocation();
+
+	const {
+		roadmaps,
+		roadmapsLoading,
+		roadmapDetails,
+		conversations,
+		selectRoadmap,
+		fetchRoadmapDetails,
+		fetchHistory,
+		updateRoadmap,
+		deleteRoadmap,
+	} = useRoadmapStore();
 
 	const roadmap = roadmaps.find((r) => r.id === roadmapId);
+	const details = roadmapDetails.get(roadmapId);
+	const conversation = conversations.get(roadmapId);
 
-	// Select roadmap and fetch details when roadmapId changes
+	// Select roadmap and fetch details + history when roadmapId changes
 	useEffect(() => {
 		selectRoadmap(roadmapId);
 		fetchRoadmapDetails(roadmapId);
-	}, [roadmapId, selectRoadmap, fetchRoadmapDetails]);
+		if (!conversation) {
+			fetchHistory(roadmapId);
+		}
+	}, [
+		roadmapId,
+		conversation,
+		selectRoadmap,
+		fetchRoadmapDetails,
+		fetchHistory,
+	]);
+
+	const handleUpdateTitle = useCallback(
+		async (title: string) => {
+			await updateRoadmap(roadmapId, { title });
+		},
+		[roadmapId, updateRoadmap],
+	);
+
+	const handleDelete = useCallback(async () => {
+		await deleteRoadmap(roadmapId);
+		setLocation("/dashboard");
+	}, [roadmapId, deleteRoadmap, setLocation]);
 
 	if (roadmapsLoading && !roadmap) {
 		return (
@@ -41,13 +78,15 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 	}
 
 	return (
-		<div className="flex items-center justify-center h-full">
-			<div className="text-center space-y-2">
-				<h2 className="text-lg font-semibold">{roadmap.title}</h2>
-				<p className="text-sm text-muted-foreground">
-					Status: {roadmap.status}
-				</p>
-			</div>
-		</div>
+		<RoadmapView
+			roadmap={roadmap}
+			milestones={details?.milestones ?? []}
+			initiatives={details?.initiatives ?? []}
+			vision={details?.vision}
+			dependencies={details?.dependencies ?? []}
+			conversation={conversation}
+			onUpdateTitle={handleUpdateTitle}
+			onDelete={handleDelete}
+		/>
 	);
 }
