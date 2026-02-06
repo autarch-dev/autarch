@@ -20,6 +20,7 @@ import { stepCountIs, streamText } from "ai";
 import {
 	convertToAISDKTools,
 	createChannelToolContext,
+	createRoadmapToolContext,
 	createWorkflowToolContext,
 	getModelForScenario,
 } from "@/backend/llm";
@@ -68,6 +69,7 @@ const TERMINAL_TOOLS: Record<string, string[]> = {
 	planning: ["submit_plan", "request_extension", "ask_questions"],
 	execution: ["complete_pulse", "request_extension"],
 	review: ["complete_review", "request_extension"],
+	roadmap_planning: ["submit_roadmap", "request_extension", "ask_questions"],
 	// discussion and basic agents don't require terminal tools
 	discussion: [],
 	basic: [],
@@ -121,6 +123,15 @@ As a reminder, every message MUST end with exactly one of:
 
 Please continue and ensure your next response ends with one of these tools.
 If no work remains, call \`complete_review\` and yield to the user.`,
+
+	roadmap_planning: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`submit_roadmap\` — if you have enough information to generate the roadmap
+- \`ask_questions\` — if you need more information from the user
+- \`request_extension\` — if you need another turn to explore or synthesize
+
+Please continue planning the roadmap. If you have enough information, call \`submit_roadmap\` to finalize.`,
 };
 
 // =============================================================================
@@ -991,6 +1002,15 @@ export class AgentRunner {
 				this.session.contextId,
 				this.session.id,
 				toolResultMap,
+			);
+		}
+		if (this.session.contextType === "roadmap") {
+			return await createRoadmapToolContext(
+				this.config.projectRoot,
+				this.session.contextId,
+				this.session.id,
+				toolResultMap,
+				turnId,
 			);
 		}
 		return await createWorkflowToolContext(

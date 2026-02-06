@@ -16,5 +16,6 @@ export {
 	type ConvertToAISDKToolsOptions,
 	convertToAISDKTools,
 	createChannelToolContext,
+	createRoadmapToolContext,
 	createWorkflowToolContext,
 } from "./tools";
