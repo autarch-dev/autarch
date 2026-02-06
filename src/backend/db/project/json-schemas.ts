@@ -6,7 +6,6 @@
  */
 
 import { z } from "zod";
-import { log } from "@/backend/logger";
 
 // =============================================================================
 // Scope Cards
