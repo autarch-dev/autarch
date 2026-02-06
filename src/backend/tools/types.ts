@@ -139,6 +139,11 @@ export type ReviewToolName =
 	| "complete_review";
 
 /**
+ * Todo tools (todo list management)
+ */
+export type TodoToolName = "add_todo" | "check_todo";
+
+/**
  * Block-based structured output tools (stage completion)
  */
 export type BlockToolName =
@@ -156,7 +161,8 @@ export type ToolName =
 	| PulsingToolName
 	| PreflightToolName
 	| ReviewToolName
-	| BlockToolName;
+	| BlockToolName
+	| TodoToolName;
 
 // =============================================================================
 // Common Parameters

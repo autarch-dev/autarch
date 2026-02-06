@@ -40,6 +40,7 @@ export interface ProjectDatabase {
 	preflight_command_baselines: PreflightCommandBaselinesTable;
 	sessions: SessionsTable;
 	session_notes: SessionNotesTable;
+	session_todos: SessionTodosTable;
 	turns: TurnsTable;
 	turn_messages: TurnMessagesTable;
 	turn_tools: TurnToolsTable;
@@ -293,6 +294,22 @@ export interface SessionNotesTable {
 	context_type: SessionContextType;
 	context_id: string;
 	content: string;
+	created_at: number;
+}
+
+// =============================================================================
+// Session Todos
+// =============================================================================
+
+export interface SessionTodosTable {
+	id: string;
+	session_id: string;
+	context_type: SessionContextType;
+	context_id: string;
+	title: string;
+	description: string;
+	checked: number;
+	sort_order: number;
 	created_at: number;
 }
 

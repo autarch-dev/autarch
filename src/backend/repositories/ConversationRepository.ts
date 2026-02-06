@@ -908,6 +908,47 @@ export class ConversationRepository implements Repository {
 	}
 
 	// ===========================================================================
+	// Todos
+	// ===========================================================================
+
+	/**
+	 * Get todos for a context
+	 */
+	async getTodos(
+		contextType: SessionContextType,
+		contextId: string,
+		sessionId?: string,
+	): Promise<
+		{
+			id: string;
+			title: string;
+			description: string;
+			checked: number;
+			sortOrder: number;
+		}[]
+	> {
+		let query = this.db
+			.selectFrom("session_todos")
+			.select(["id", "title", "description", "checked", "sort_order"])
+			.where("context_type", "=", contextType)
+			.where("context_id", "=", contextId);
+
+		if (sessionId) {
+			query = query.where("session_id", "=", sessionId);
+		}
+
+		const todos = await query.orderBy("sort_order", "asc").execute();
+
+		return todos.map((t) => ({
+			id: t.id,
+			title: t.title,
+			description: t.description,
+			checked: t.checked,
+			sortOrder: t.sort_order,
+		}));
+	}
+
+	// ===========================================================================
 	// Context Loading for AgentRunner
 	// ===========================================================================
 

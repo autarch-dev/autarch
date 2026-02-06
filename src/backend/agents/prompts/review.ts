@@ -271,6 +271,22 @@ Notes:
 
 ---
 
+## Todo List Tools
+
+Use \`add_todo\` and \`check_todo\` to track structured review tasks with checkable progress.
+
+- \`add_todo\` accepts a list of items, each with a **title** (short readable label) and **description** (detailed context). You can add multiple items at once.
+- \`check_todo\` marks items as completed by ID. IDs are shown in parentheses in your todo list.
+- Your todo list is automatically shown every turn under **"## Your Todo List"** — no need to view it manually.
+
+### Todos vs Notes
+
+Use **todos** for structured task tracking with visible progress — e.g., "files to review", "areas to inspect", "issues to verify". Use **notes** for freeform knowledge persistence — e.g., "discovered X pattern", "key finding about Y".
+
+**Todos track what you need to DO; notes track what you need to KNOW.**
+
+---
+
 ## Working Iteratively (The Core Loop)
 
 Review happens across **multiple turns**. This is expected and REQUIRED for non-trivial diffs.

@@ -24,6 +24,7 @@ export {
 	semanticSearchTool,
 	takeNoteInputSchema,
 	takeNoteTool,
+	todoTools,
 	webCodeSearchInputSchema,
 	webCodeSearchTool,
 } from "./base";
@@ -88,6 +89,7 @@ export type {
 	PulsingToolName,
 	RegisteredTool,
 	ReviewToolName,
+	TodoToolName,
 	ToolContext,
 	ToolDefinition,
 	ToolName,
@@ -104,7 +106,7 @@ export {
 // Tool Registry
 // =============================================================================
 
-import { baseTools } from "./base";
+import { baseTools, todoTools } from "./base";
 import { blockTools } from "./blocks";
 import { preflightTools } from "./preflight";
 import { pulsingTools } from "./pulsing";
@@ -123,6 +125,7 @@ for (const tool of [
 	...reviewTools,
 	...blockTools,
 	...typescriptTools,
+	...todoTools,
 ]) {
 	toolRegistry[tool.name] = tool;
 }
