@@ -6,7 +6,7 @@
  * extracted data to the presentational RoadmapView component.
  */
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useRoadmapStore } from "../store/roadmapStore";
 import { RoadmapView } from "./RoadmapView";
@@ -40,20 +40,25 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 	const details = roadmapDetails.get(roadmapId);
 	const conversation = conversations.get(roadmapId);
 
-	// Select roadmap and fetch details + history when roadmapId changes
+	// Track which roadmapId we've already fetched history for, so we don't
+	// include `conversation` in the dependency array (which changes on every
+	// WebSocket event and would cause a re-fetch storm during streaming).
+	const historyFetchedRef = useRef<string | null>(null);
+
+	// Select roadmap and fetch details when roadmapId changes
 	useEffect(() => {
 		selectRoadmap(roadmapId);
 		fetchRoadmapDetails(roadmapId);
-		if (!conversation) {
+	}, [roadmapId, selectRoadmap, fetchRoadmapDetails]);
+
+	// Fetch history once per roadmapId, only if no conversation exists yet
+	useEffect(() => {
+		if (historyFetchedRef.current === roadmapId) return;
+		if (!conversations.get(roadmapId)) {
+			historyFetchedRef.current = roadmapId;
 			fetchHistory(roadmapId);
 		}
-	}, [
-		roadmapId,
-		conversation,
-		selectRoadmap,
-		fetchRoadmapDetails,
-		fetchHistory,
-	]);
+	}, [roadmapId, conversations, fetchHistory]);
 
 	const handleUpdateTitle = useCallback(
 		async (title: string) => {

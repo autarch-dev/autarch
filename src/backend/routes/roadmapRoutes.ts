@@ -191,24 +191,25 @@ async function startAiSession(
 	});
 
 	// Send the initial prompt as the first message to kick off the AI agent
-	if (initialPrompt) {
-		const projectRoot = findRepoRoot(process.cwd());
-		const runner = new AgentRunner(session, {
-			projectRoot,
-			conversationRepo: repos.conversations,
-		});
+	const prompt =
+		initialPrompt ||
+		"Generate a roadmap based on the existing vision and milestones";
+	const projectRoot = findRepoRoot(process.cwd());
+	const runner = new AgentRunner(session, {
+		projectRoot,
+		conversationRepo: repos.conversations,
+	});
 
-		runner.run(initialPrompt).catch((error) => {
-			log.agent.error(
-				`Agent run failed for roadmap session ${session.id}:`,
-				error,
-			);
-			sessionManager.errorSession(
-				session.id,
-				error instanceof Error ? error.message : "Unknown error",
-			);
-		});
-	}
+	runner.run(prompt).catch((error) => {
+		log.agent.error(
+			`Agent run failed for roadmap session ${session.id}:`,
+			error,
+		);
+		sessionManager.errorSession(
+			session.id,
+			error instanceof Error ? error.message : "Unknown error",
+		);
+	});
 
 	return session.id;
 }
