@@ -28,6 +28,8 @@ export const addTodoInputSchema = z.object({
 				title: z.string().describe("Short label for the todo item"),
 				description: z
 					.string()
+					.optional()
+					.default("")
 					.describe("Detailed context about what this item involves"),
 			}),
 		)
