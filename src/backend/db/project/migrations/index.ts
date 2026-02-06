@@ -34,6 +34,7 @@ import { migrate as migrate0028SkippedStagesColumn } from "./0028-skipped-stages
 import { migrate as migrate0029RemoveReviewCommentConstraints } from "./0029-remove-review-comment-constraints";
 import { migrate as migrate0030ReviewCardDiffContentColumn } from "./0030-review-card-diff-content-column";
 import { migrate as migrate0031PulseIdSessionsColumn } from "./0031-pulse-id-sessions-column";
+import { migrate as migrate0032Roadmaps } from "./0032-roadmaps";
 
 /**
  * Run all migrations for the project database.
@@ -78,4 +79,7 @@ export async function migrateProjectDb(
 	await migrate0029RemoveReviewCommentConstraints(db);
 	await migrate0030ReviewCardDiffContentColumn(db);
 	await migrate0031PulseIdSessionsColumn(db);
+
+	// Roadmap tables (0032)
+	await migrate0032Roadmaps(db);
 }
