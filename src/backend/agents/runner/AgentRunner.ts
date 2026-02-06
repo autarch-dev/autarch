@@ -27,7 +27,7 @@ import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import { getCostCalculator } from "@/backend/services/cost";
 import { isExaKeyConfigured } from "@/backend/services/globalSettings";
-import { type ToolContext, ToolResultSchema } from "@/backend/tools/types";
+import type { ToolContext } from "@/backend/tools/types";
 import { broadcast } from "@/backend/ws";
 import {
 	createTurnCompletedEvent,
@@ -700,8 +700,11 @@ export class AgentRunner {
 		// Get the model for this agent's scenario
 		const { model, modelId } = await getModelForScenario(agentConfig.role);
 
+		// Create a store to maintain tool results
+		const toolResultMap = new Map<string, boolean>();
+
 		// Create tool context based on session type (include turnId for artifact tracking)
-		const toolContext = await this.createToolContext(turn.id);
+		const toolContext = await this.createToolContext(toolResultMap, turn.id);
 
 		// Check if Exa API key is configured for web search tools
 		const hasExaKey = await isExaKeyConfigured();
@@ -859,15 +862,19 @@ export class AgentRunner {
 					// Check the result's success field for application-level success
 					const toolCall = activeToolCalls.get(part.toolCallId);
 					if (toolCall) {
-						// Parse output as ToolResult to check success field
-						const parsed = ToolResultSchema.safeParse(part.output);
-						const success = !parsed.success || parsed.data.success;
+						const success = toolResultMap.get(part.toolCallId);
+
 						if (success) {
 							log.tools.success(`Tool completed: ${toolCall.toolName}`);
+						} else if (typeof success === "undefined") {
+							log.tools.warn(
+								`Failed to locate tool call result for ${toolCall.toolName} (${toolCall.id})`,
+							);
 						} else {
 							log.tools.warn(`Tool returned failure: ${toolCall.toolName}`);
 						}
-						await this.recordToolComplete(toolCall, part.output, success);
+
+						await this.recordToolComplete(toolCall, part.output, !!success);
 						options.onToolCompleted?.(toolCall);
 					}
 					break;
@@ -974,18 +981,23 @@ export class AgentRunner {
 	/**
 	 * Create the appropriate tool context based on session type
 	 */
-	private async createToolContext(turnId?: string): Promise<ToolContext> {
+	private async createToolContext(
+		toolResultMap: Map<string, boolean>,
+		turnId?: string,
+	): Promise<ToolContext> {
 		if (this.session.contextType === "channel") {
 			return await createChannelToolContext(
 				this.config.projectRoot,
 				this.session.contextId,
 				this.session.id,
+				toolResultMap,
 			);
 		}
 		return await createWorkflowToolContext(
 			this.config.projectRoot,
 			this.session.contextId,
 			this.session.id,
+			toolResultMap,
 			turnId,
 			this.config.worktreePath,
 			this.session.agentRole,

@@ -74,6 +74,8 @@ export function convertToAISDKTools(
 					};
 					// Execute our tool and convert result to AI SDK format
 					const result = await t.execute(input, extendedContext);
+					// Store the `success` before it gets clobbered
+					context.toolResultMap.set(options.toolCallId, result.success);
 					return formatToolResult(result);
 				},
 			}),
@@ -98,11 +100,13 @@ export async function createChannelToolContext(
 	projectRoot: string,
 	channelId: string,
 	sessionId: string,
+	toolResultMap: Map<string, boolean>,
 ): Promise<ToolContext> {
 	return {
 		projectRoot,
 		channelId,
 		sessionId,
+		toolResultMap,
 	};
 }
 
@@ -113,6 +117,7 @@ export async function createWorkflowToolContext(
 	projectRoot: string,
 	workflowId: string,
 	sessionId: string,
+	toolResultMap: Map<string, boolean>,
 	turnId?: string,
 	worktreePath?: string,
 	agentRole?: string,
@@ -121,6 +126,7 @@ export async function createWorkflowToolContext(
 		projectRoot,
 		workflowId,
 		sessionId,
+		toolResultMap,
 		turnId,
 		worktreePath,
 		agentRole,

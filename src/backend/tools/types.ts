@@ -21,6 +21,12 @@ export const ToolResultSchema = z.object({
 });
 
 /**
+ * Result returned from tool execution.
+ * All tool outputs are plain text strings.
+ */
+export type ToolResult = z.infer<typeof ToolResultSchema>;
+
+/**
  * Context passed to every tool execution
  */
 export interface ToolContext {
@@ -30,6 +36,8 @@ export interface ToolContext {
 	workflowId?: string;
 	/** Current session ID */
 	sessionId?: string;
+	/** Stores whether a specific tool completed successfully */
+	toolResultMap: Map<string, boolean>;
 	/** Current turn ID (for artifact timeline ordering) */
 	turnId?: string;
 	/** Path to isolated worktree (for pulsing agent) */
@@ -41,12 +49,6 @@ export interface ToolContext {
 	/** Role of the agent (e.g., "preflight", "execution") */
 	agentRole?: string;
 }
-
-/**
- * Result returned from tool execution.
- * All tool outputs are plain text strings.
- */
-export type ToolResult = z.infer<typeof ToolResultSchema>;
 
 /**
  * Tool definition with typed input schema.
