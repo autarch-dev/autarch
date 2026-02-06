@@ -12,8 +12,8 @@ import {
 } from "@/shared/schemas/events";
 import type { AnswerQuestionsResponse } from "@/shared/schemas/questions";
 import { AgentRunner, getSessionManager } from "../agents/runner";
-import { findRepoRoot } from "../git";
 import { log } from "../logger";
+import { getProjectRoot } from "../projectRoot";
 import { getRepositories } from "../repositories";
 import { broadcast } from "../ws";
 
@@ -86,7 +86,7 @@ export const questionRoutes = {
 					);
 				}
 
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				const repos = getRepositories();
 
 				// Get the question via repository
@@ -202,7 +202,7 @@ export const questionRoutes = {
 					);
 				}
 
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				const repos = getRepositories();
 
 				let sessionId: string | null = null;

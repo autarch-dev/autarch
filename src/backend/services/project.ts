@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { basename, relative } from "node:path";
 import type { BunFile } from "bun";
 import type { ProjectInfo } from "@/shared/schemas/project";
-import { findRepoRoot } from "../git";
+import { getProjectRoot } from "../projectRoot";
 import { isGitIgnored } from "../tools/base/utils";
 
 // =============================================================================
@@ -80,10 +80,10 @@ export async function findProjectIcon(
 // =============================================================================
 
 /**
- * Get project information for the current working directory.
+ * Get project information for the configured project directory.
  */
 export async function getProjectInfo(): Promise<ProjectInfo> {
-	const projectRoot = findRepoRoot(process.cwd());
+	const projectRoot = getProjectRoot();
 	const name = basename(projectRoot);
 	const displayPath = projectRoot.replace(homedir(), "~");
 	const iconPath = await findProjectIcon(projectRoot);
@@ -100,7 +100,7 @@ export async function getProjectInfo(): Promise<ProjectInfo> {
  * Get the icon file for the current project, if one exists.
  */
 export async function getProjectIconFile(): Promise<BunFile | null> {
-	const projectRoot = findRepoRoot(process.cwd());
+	const projectRoot = getProjectRoot();
 	const iconPath = await findProjectIcon(projectRoot);
 
 	if (!iconPath) {
