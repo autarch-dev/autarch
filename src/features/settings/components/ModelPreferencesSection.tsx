@@ -68,6 +68,7 @@ export function ModelPreferencesSection() {
 		"planning",
 		"execution",
 		"review",
+		"roadmap_planning",
 	];
 
 	return (
