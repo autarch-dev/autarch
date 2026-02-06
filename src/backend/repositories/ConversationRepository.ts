@@ -93,6 +93,13 @@ export interface CreateNoteData {
 	content: string;
 }
 
+export interface CreateTodoData {
+	sessionId: string;
+	contextType: SessionContextType;
+	contextId: string;
+	items: Array<{ title: string; description: string }>;
+}
+
 // =============================================================================
 // Repository
 // =============================================================================
@@ -319,7 +326,7 @@ export class ConversationRepository implements Repository {
 				`tool[${tc.id}].input_json`,
 				{
 					error: "Failed to parse tool input.",
-				}
+				},
 			),
 			output: parseJsonOptional(
 				tc.output_json,
@@ -905,6 +912,103 @@ export class ConversationRepository implements Repository {
 			.execute();
 
 		return noteId;
+	}
+
+	// ===========================================================================
+	// Todos
+	// ===========================================================================
+
+	/**
+	 * Get todos for a context
+	 */
+	async getTodos(
+		contextType: SessionContextType,
+		contextId: string,
+		sessionId?: string,
+	): Promise<
+		{
+			id: string;
+			title: string;
+			description: string;
+			checked: number;
+			sortOrder: number;
+		}[]
+	> {
+		let query = this.db
+			.selectFrom("session_todos")
+			.select(["id", "title", "description", "checked", "sort_order"])
+			.where("context_type", "=", contextType)
+			.where("context_id", "=", contextId);
+
+		if (sessionId) {
+			query = query.where("session_id", "=", sessionId);
+		}
+
+		const todos = await query.orderBy("sort_order", "asc").execute();
+
+		return todos.map((t) => ({
+			id: t.id,
+			title: t.title,
+			description: t.description,
+			checked: t.checked,
+			sortOrder: t.sort_order,
+		}));
+	}
+
+	/**
+	 * Add todo items
+	 */
+	async addTodos(data: CreateTodoData): Promise<string[]> {
+		let query = this.db
+			.selectFrom("session_todos")
+			.select(this.db.fn.max("sort_order").as("max_sort"))
+			.where("context_type", "=", data.contextType)
+			.where("context_id", "=", data.contextId);
+
+		if (data.contextType === "workflow") {
+			query = query.where("session_id", "=", data.sessionId);
+		}
+
+		const result = await query.executeTakeFirst();
+		let sortOrder = result?.max_sort != null ? result.max_sort + 1 : 0;
+
+		const generatedIds: string[] = [];
+		const now = Date.now();
+
+		for (const item of data.items) {
+			const todoId = ids.todo();
+			generatedIds.push(todoId);
+
+			await this.db
+				.insertInto("session_todos")
+				.values({
+					id: todoId,
+					session_id: data.sessionId,
+					context_type: data.contextType,
+					context_id: data.contextId,
+					title: item.title,
+					description: item.description,
+					checked: 0,
+					sort_order: sortOrder,
+					created_at: now,
+				})
+				.execute();
+
+			sortOrder++;
+		}
+
+		return generatedIds;
+	}
+
+	/**
+	 * Mark a todo item as checked
+	 */
+	async checkTodoItem(todoId: string): Promise<void> {
+		await this.db
+			.updateTable("session_todos")
+			.set({ checked: 1 })
+			.where("id", "=", todoId)
+			.execute();
 	}
 
 	// ===========================================================================
