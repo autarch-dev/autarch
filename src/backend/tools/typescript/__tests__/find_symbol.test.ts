@@ -20,6 +20,7 @@ describe("find_symbol - class symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -42,6 +43,7 @@ describe("find_symbol - class symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -62,6 +64,7 @@ describe("find_symbol - class symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -89,6 +92,7 @@ describe("find_symbol - function symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -110,6 +114,7 @@ describe("find_symbol - function symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -130,6 +135,7 @@ describe("find_symbol - function symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -157,6 +163,7 @@ describe("find_symbol - interface symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -179,6 +186,7 @@ describe("find_symbol - interface symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -199,6 +207,7 @@ describe("find_symbol - interface symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -226,6 +235,7 @@ describe("find_symbol - type alias symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -247,6 +257,7 @@ describe("find_symbol - type alias symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -267,6 +278,7 @@ describe("find_symbol - type alias symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -294,6 +306,7 @@ describe("find_symbol - variable symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -315,6 +328,7 @@ describe("find_symbol - variable symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -335,6 +349,7 @@ describe("find_symbol - variable symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -356,6 +371,7 @@ describe("find_symbol - variable symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -383,6 +399,7 @@ describe("find_symbol - type filter mismatches", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -403,6 +420,7 @@ describe("find_symbol - type filter mismatches", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -423,6 +441,7 @@ describe("find_symbol - type filter mismatches", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -443,6 +462,7 @@ describe("find_symbol - type filter mismatches", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -463,6 +483,7 @@ describe("find_symbol - type filter mismatches", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -489,6 +510,7 @@ describe("find_symbol - includeReferences flag", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -510,6 +532,7 @@ describe("find_symbol - includeReferences flag", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -531,6 +554,7 @@ describe("find_symbol - includeReferences flag", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -553,6 +577,7 @@ describe("find_symbol - includeReferences flag", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -575,6 +600,7 @@ describe("find_symbol - includeReferences flag", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -603,6 +629,7 @@ describe("find_symbol - non-existent symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -623,6 +650,7 @@ describe("find_symbol - non-existent symbols", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -649,6 +677,7 @@ describe("find_symbol - edge cases", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -669,6 +698,7 @@ describe("find_symbol - edge cases", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -695,6 +725,7 @@ describe("find_symbol - output format verification", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -715,6 +746,7 @@ describe("find_symbol - output format verification", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -736,6 +768,7 @@ describe("find_symbol - output format verification", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -756,6 +789,7 @@ describe("find_symbol - output format verification", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -776,6 +810,7 @@ describe("find_symbol - output format verification", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -802,6 +837,7 @@ describe("find_symbol - class methods", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -822,6 +858,7 @@ describe("find_symbol - class methods", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -842,6 +879,7 @@ describe("find_symbol - class methods", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -865,6 +903,7 @@ describe("find_symbol - class methods", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -891,6 +930,7 @@ describe("find_symbol - multiple definitions", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -911,6 +951,7 @@ describe("find_symbol - multiple definitions", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -932,6 +973,7 @@ describe("find_symbol - multiple definitions", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 

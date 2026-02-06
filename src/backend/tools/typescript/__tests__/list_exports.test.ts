@@ -22,6 +22,7 @@ describe("list_exports - basic success", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -52,6 +53,7 @@ describe("list_exports - no TypeScript project error", () => {
 			{
 				worktreePath: emptyTempDir,
 				projectRoot: emptyTempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -78,6 +80,7 @@ describe("list_exports - malformed glob pattern", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -103,6 +106,7 @@ describe("list_exports - no matches found", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -128,6 +132,7 @@ describe("list_exports - output format validation", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -147,6 +152,7 @@ describe("list_exports - output format validation", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -170,6 +176,7 @@ describe("list_exports - output format validation", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -189,6 +196,7 @@ describe("list_exports - output format validation", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 

@@ -64,6 +64,7 @@ async function createTestbenchContext(
 ): Promise<ToolContext> {
 	return {
 		projectRoot,
+		toolResultMap: new Map<string, boolean>(),
 	};
 }
 

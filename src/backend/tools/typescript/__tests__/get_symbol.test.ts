@@ -22,6 +22,7 @@ describe("get_symbol - basic success", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -47,6 +48,7 @@ describe("get_symbol - basic success", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -66,6 +68,7 @@ describe("get_symbol - basic success", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -93,6 +96,7 @@ describe("get_symbol - error handling", () => {
 			{
 				worktreePath: emptyDir,
 				projectRoot: emptyDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -117,6 +121,7 @@ describe("get_symbol - symbol not found", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -136,6 +141,7 @@ describe("get_symbol - symbol not found", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -160,6 +166,7 @@ describe("get_symbol - multiple definitions", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -181,6 +188,7 @@ describe("get_symbol - multiple definitions", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -206,6 +214,7 @@ describe("get_symbol - output format validation", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -227,6 +236,7 @@ describe("get_symbol - output format validation", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -249,6 +259,7 @@ describe("get_symbol - output format validation", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
@@ -269,6 +280,7 @@ describe("get_symbol - output format validation", () => {
 			{
 				worktreePath: tempDir,
 				projectRoot: tempDir,
+				toolResultMap: new Map<string, boolean>(),
 			},
 		);
 
