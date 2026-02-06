@@ -10,9 +10,9 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { CreateRoadmapDialog } from "@/features/roadmap";
 import { cn } from "@/lib/utils";
 import type { Roadmap } from "@/shared/schemas/roadmap";
-import { CreateRoadmapDialog } from "./CreateRoadmapDialog";
 
 const roadmapStatusColors = {
 	draft: "text-muted-foreground",
