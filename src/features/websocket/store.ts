@@ -3,6 +3,7 @@ import {
 	useDiscussionsStore,
 	useWorkflowsStore,
 } from "@/features/dashboard/store";
+import { useRoadmapStore } from "@/features/roadmap";
 import {
 	type IndexingProgressPayload,
 	type SessionStartedPayload,
@@ -198,6 +199,10 @@ function handleEvent(
 	// This handles workflow events and session/turn events for workflows
 	useWorkflowsStore.getState().handleWebSocketEvent(event);
 
+	// Forward relevant events to the roadmap store
+	// This handles roadmap events and session/turn events for roadmaps
+	useRoadmapStore.getState().handleWebSocketEvent(event);
+
 	switch (event.type) {
 		// Indexing events
 		case "indexing:progress":
@@ -217,6 +222,13 @@ function handleEvent(
 		case "channel:created":
 		case "channel:deleted":
 			// Handled by discussionsStore
+			break;
+
+		// Roadmap events - handled by roadmapStore via forwarding above
+		case "roadmap:created":
+		case "roadmap:updated":
+		case "roadmap:deleted":
+			// Handled by roadmapStore
 			break;
 
 		// Session events - update local tracking for streaming UI
