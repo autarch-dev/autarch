@@ -46,6 +46,7 @@ import type {
 import type { RoadmapConversationState } from "../store/roadmapStore";
 import { PlanningConversation } from "./PlanningConversation";
 import { TableView } from "./TableView";
+import { TimelineView } from "./TimelineView";
 
 // =============================================================================
 // Status Config
@@ -279,18 +280,12 @@ export function RoadmapView({
 					</div>
 
 					<TabsContent value="timeline" className="flex-1 min-h-0 p-4">
-						<div className="flex items-center justify-center h-full rounded-lg border border-dashed">
-							<div className="text-center space-y-2">
-								<Calendar className="size-8 mx-auto text-muted-foreground" />
-								<p className="text-muted-foreground">
-									Timeline view coming soon
-								</p>
-								<p className="text-sm text-muted-foreground">
-									{milestones.length} milestones · {initiatives.length}{" "}
-									initiatives
-								</p>
-							</div>
-						</div>
+						<TimelineView
+							roadmapId={roadmap.id}
+							milestones={milestones}
+							initiatives={initiatives}
+							dependencies={dependencies}
+						/>
 					</TabsContent>
 
 					<TabsContent value="table" className="flex-1 min-h-0 p-4">
