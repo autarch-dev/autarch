@@ -131,7 +131,7 @@ interface InitiativeDetailProps {
 				| "progress"
 				| "progressMode"
 			>
-		>,
+		> & { workflowId?: string | null },
 	) => Promise<void>;
 }
 
@@ -260,39 +260,17 @@ export function InitiativeDetail({
 	const handleLinkWorkflow = useCallback(
 		async (workflowId: string) => {
 			if (!initiative) return;
-			// Link the workflow - we need to update via the store
-			// The updateInitiative in the store doesn't support workflowId directly
-			// through the current prop chain, but we'll update it via fetch
-			const response = await fetch(
-				`/api/roadmaps/${initiative.roadmapId}/initiatives/${initiative.id}`,
-				{
-					method: "PUT",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ workflowId }),
-				},
-			);
-			if (response.ok) {
-				// Trigger a refetch to get updated initiative
-				window.location.reload();
-			}
+			await onUpdateInitiative(initiative.id, { workflowId });
 		},
-		[initiative],
+		[initiative, onUpdateInitiative],
 	);
 
 	const handleUnlinkWorkflow = useCallback(async () => {
 		if (!initiative) return;
-		const response = await fetch(
-			`/api/roadmaps/${initiative.roadmapId}/initiatives/${initiative.id}`,
-			{
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ workflowId: null }),
-			},
-		);
-		if (response.ok) {
-			window.location.reload();
-		}
-	}, [initiative]);
+		await onUpdateInitiative(initiative.id, {
+			workflowId: null,
+		});
+	}, [initiative, onUpdateInitiative]);
 
 	const handleCreateAndLinkWorkflow = useCallback(async () => {
 		if (!initiative) return;

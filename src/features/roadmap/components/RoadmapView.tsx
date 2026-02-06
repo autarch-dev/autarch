@@ -114,7 +114,7 @@ interface RoadmapViewProps {
 				| "progress"
 				| "progressMode"
 			>
-		>,
+		> & { workflowId?: string | null },
 	) => Promise<void>;
 	onCreateMilestone: (data: {
 		title: string;

@@ -169,7 +169,7 @@ interface RoadmapState {
 				| "milestoneId"
 				| "sortOrder"
 			>
-		>,
+		> & { workflowId?: string | null },
 	) => Promise<void>;
 	deleteInitiative: (roadmapId: string, initiativeId: string) => Promise<void>;
 
@@ -325,7 +325,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 			roadmapDetails.set(roadmapId, {
 				milestones: data.milestones ?? [],
 				initiatives: data.initiatives ?? [],
-				vision: data.vision,
+				vision: data.visionDocument,
 				dependencies: data.dependencies ?? [],
 			});
 
@@ -338,10 +338,14 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 	// ===========================================================================
 
 	createMilestone: async (roadmapId, data) => {
+		// Compute sortOrder from existing milestones if not provided
+		const existing = get().roadmapDetails.get(roadmapId);
+		const sortOrder = existing ? existing.milestones.length : 0;
+
 		const response = await fetch(`/api/roadmaps/${roadmapId}/milestones`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(data),
+			body: JSON.stringify({ ...data, sortOrder }),
 		});
 
 		if (!response.ok) {
@@ -427,10 +431,16 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 	// ===========================================================================
 
 	createInitiative: async (roadmapId, milestoneId, data) => {
+		// Compute sortOrder from existing initiatives in this milestone
+		const existing = get().roadmapDetails.get(roadmapId);
+		const sortOrder = existing
+			? existing.initiatives.filter((i) => i.milestoneId === milestoneId).length
+			: 0;
+
 		const response = await fetch(`/api/roadmaps/${roadmapId}/initiatives`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ ...data, milestoneId }),
+			body: JSON.stringify({ ...data, milestoneId, sortOrder }),
 		});
 
 		if (!response.ok) {
