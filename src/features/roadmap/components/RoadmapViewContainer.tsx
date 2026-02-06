@@ -28,6 +28,7 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 		fetchHistory,
 		updateRoadmap,
 		deleteRoadmap,
+		sendMessage,
 	} = useRoadmapStore();
 
 	const roadmap = roadmaps.find((r) => r.id === roadmapId);
@@ -61,6 +62,13 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 		setLocation("/dashboard");
 	}, [roadmapId, deleteRoadmap, setLocation]);
 
+	const handleSendMessage = useCallback(
+		(content: string) => {
+			sendMessage(roadmapId, content);
+		},
+		[roadmapId, sendMessage],
+	);
+
 	if (roadmapsLoading && !roadmap) {
 		return (
 			<div className="flex items-center justify-center h-full">
@@ -87,6 +95,7 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 			conversation={conversation}
 			onUpdateTitle={handleUpdateTitle}
 			onDelete={handleDelete}
+			onSendMessage={handleSendMessage}
 		/>
 	);
 }

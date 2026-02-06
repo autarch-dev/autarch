@@ -44,6 +44,7 @@ import type {
 	VisionDocument,
 } from "@/shared/schemas/roadmap";
 import type { RoadmapConversationState } from "../store/roadmapStore";
+import { PlanningConversation } from "./PlanningConversation";
 
 // =============================================================================
 // Status Config
@@ -88,6 +89,7 @@ interface RoadmapViewProps {
 	conversation?: RoadmapConversationState;
 	onUpdateTitle: (title: string) => Promise<void>;
 	onDelete: () => Promise<void>;
+	onSendMessage: (content: string) => void;
 }
 
 // =============================================================================
@@ -103,6 +105,7 @@ export function RoadmapView({
 	conversation,
 	onUpdateTitle,
 	onDelete,
+	onSendMessage,
 }: RoadmapViewProps) {
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [editTitle, setEditTitle] = useState(roadmap.title);
@@ -118,9 +121,9 @@ export function RoadmapView({
 		return Math.round(total / initiatives.length);
 	}, [initiatives]);
 
-	// Check if roadmap has an active AI planning session
-	const hasActiveSession =
-		roadmap.status === "draft" && conversation?.sessionStatus === "active";
+	// Show planning conversation when roadmap is draft and has a session
+	const showPlanningConversation =
+		roadmap.status === "draft" && conversation?.sessionId != null;
 
 	const handleTitleClick = () => {
 		setEditTitle(roadmap.title);
@@ -229,17 +232,12 @@ export function RoadmapView({
 			</header>
 
 			{/* Content */}
-			{hasActiveSession ? (
-				<div className="flex-1 flex items-center justify-center">
-					<div className="text-center space-y-2">
-						<p className="text-muted-foreground">
-							AI planning session in progress...
-						</p>
-						<p className="text-sm text-muted-foreground">
-							The conversation panel will be available here.
-						</p>
-					</div>
-				</div>
+			{showPlanningConversation && conversation ? (
+				<PlanningConversation
+					roadmapId={roadmap.id}
+					conversation={conversation}
+					onSendMessage={onSendMessage}
+				/>
 			) : (
 				<Tabs defaultValue="timeline" className="flex-1 flex flex-col min-h-0">
 					<div className="px-4 pt-3">
