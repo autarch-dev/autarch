@@ -1,3 +1,4 @@
+export { RoadmapViewContainer } from "./components/RoadmapViewContainer";
 export type {
 	RoadmapConversationState,
 	RoadmapDetails,

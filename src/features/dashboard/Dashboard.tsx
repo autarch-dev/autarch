@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { RoadmapViewContainer, useRoadmapStore } from "@/features/roadmap";
 import { ChannelViewContainer } from "./components/ChannelView";
 import { AppSidebar } from "./components/Sidebar";
 import {
@@ -29,11 +30,15 @@ export function Dashboard() {
 	// Workflows store
 	const { workflows, fetchWorkflows, createWorkflow } = useWorkflowsStore();
 
-	// Fetch channels and workflows on mount
+	// Roadmaps store
+	const { roadmaps, fetchRoadmaps, createRoadmap } = useRoadmapStore();
+
+	// Fetch channels, workflows, and roadmaps on mount
 	useEffect(() => {
 		fetchChannels();
 		fetchWorkflows();
-	}, [fetchChannels, fetchWorkflows]);
+		fetchRoadmaps();
+	}, [fetchChannels, fetchWorkflows, fetchRoadmaps]);
 
 	const handleCreateChannel = useCallback(
 		async (name: string, description?: string) => {
@@ -53,13 +58,24 @@ export function Dashboard() {
 		[setLocation, createWorkflow],
 	);
 
+	const handleCreateRoadmap = useCallback(
+		async (title: string, mode: "ai" | "blank") => {
+			const roadmap = await createRoadmap(title, mode);
+			// Navigate to the new roadmap
+			setLocation(`/roadmap/${roadmap.id}`);
+		},
+		[setLocation, createRoadmap],
+	);
+
 	return (
 		<SidebarProvider>
 			<AppSidebar
 				channels={channels}
 				workflows={workflows}
+				roadmaps={roadmaps}
 				onCreateChannel={handleCreateChannel}
 				onCreateWorkflow={handleCreateWorkflow}
+				onCreateRoadmap={handleCreateRoadmap}
 			/>
 			<SidebarInset className="flex flex-col h-svh overflow-clip">
 				<Switch>
@@ -68,6 +84,9 @@ export function Dashboard() {
 					</Route>
 					<Route path="/workflow/:id">
 						{(params) => <WorkflowViewContainer workflowId={params.id} />}
+					</Route>
+					<Route path="/roadmap/:id">
+						{(params) => <RoadmapViewContainer roadmapId={params.id} />}
 					</Route>
 					<Route path="/">
 						<DashboardEmptyState />
