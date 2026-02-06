@@ -37,6 +37,7 @@ export const ids = {
 	baseline: () => generateId("baseline"),
 	question: () => generateId("question"),
 	note: () => generateId("note"),
+	todo: () => generateId("todo"),
 	reviewCard: () => generateId("review"),
 	reviewComment: () => generateId("comment"),
 	knowledge: () => generateId("knowledge"),
