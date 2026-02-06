@@ -20,6 +20,7 @@ import {
 	stringifyJson,
 	ToolInputJsonSchema,
 	ToolOutputJsonSchema,
+	tryParseJson,
 } from "@/backend/db/project/json-schemas";
 import type {
 	QuestionsTable,
@@ -312,10 +313,13 @@ export class ConversationRepository implements Repository {
 			id: tc.id,
 			index: tc.tool_index,
 			name: tc.tool_name,
-			input: parseJson(
+			input: tryParseJson(
 				tc.input_json,
 				ToolInputJsonSchema,
 				`tool[${tc.id}].input_json`,
+				{
+					error: "Failed to parse tool input.",
+				}
 			),
 			output: parseJsonOptional(
 				tc.output_json,

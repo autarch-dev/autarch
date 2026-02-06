@@ -163,6 +163,19 @@ export function parseJson<T extends z.ZodTypeAny>(
 	return result.data;
 }
 
+export function tryParseJson<T extends z.ZodTypeAny>(
+	json: string | null,
+	schema: T,
+	fieldName: string,
+	defaultValue: z.infer<T>,
+): z.infer<T> {
+	try {
+		return parseJson(json, schema, fieldName);
+	} catch {
+		return defaultValue;
+	}
+}
+
 /**
  * Safely parse optional JSON from database with schema validation.
  * Returns undefined if json is null, throws on parse/validation error.

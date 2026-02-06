@@ -887,7 +887,7 @@ export class AgentRunner {
 						log.tools.error(`Tool failed: ${toolCall.toolName}`, part.error);
 						await this.recordToolComplete(
 							toolCall,
-							{ error: part.error },
+							JSON.stringify(part.error),
 							false,
 						);
 						options.onToolCompleted?.(toolCall);
