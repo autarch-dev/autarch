@@ -383,6 +383,11 @@ export const roadmapRoutes = {
 				}
 
 				const repos = getRepositories();
+				const roadmap = await repos.roadmaps.getRoadmap(params.id);
+				if (!roadmap) {
+					return Response.json({ error: "Roadmap not found" }, { status: 404 });
+				}
+
 				const milestone = await repos.roadmaps.createMilestone({
 					roadmapId: params.id,
 					...parsed.data,
@@ -501,6 +506,20 @@ export const roadmapRoutes = {
 				}
 
 				const repos = getRepositories();
+				const roadmap = await repos.roadmaps.getRoadmap(params.id);
+				if (!roadmap) {
+					return Response.json({ error: "Roadmap not found" }, { status: 404 });
+				}
+
+				if (
+					!(await verifyMilestoneOwnership(params.id, parsed.data.milestoneId))
+				) {
+					return Response.json(
+						{ error: "Milestone not found in this roadmap" },
+						{ status: 400 },
+					);
+				}
+
 				const initiative = await repos.roadmaps.createInitiative({
 					roadmapId: params.id,
 					...parsed.data,

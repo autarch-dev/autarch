@@ -581,16 +581,18 @@ export class RoadmapRepository implements Repository {
 	 * Delete an initiative and its dependencies
 	 */
 	async deleteInitiative(id: string): Promise<void> {
-		// Delete dependencies referencing this initiative
-		await this.db
-			.deleteFrom("dependencies")
-			.where((eb) =>
-				eb.or([eb("source_id", "=", id), eb("target_id", "=", id)]),
-			)
-			.execute();
+		await this.db.transaction().execute(async (trx) => {
+			// Delete dependencies referencing this initiative
+			await trx
+				.deleteFrom("dependencies")
+				.where((eb) =>
+					eb.or([eb("source_id", "=", id), eb("target_id", "=", id)]),
+				)
+				.execute();
 
-		// Delete the initiative
-		await this.db.deleteFrom("initiatives").where("id", "=", id).execute();
+			// Delete the initiative
+			await trx.deleteFrom("initiatives").where("id", "=", id).execute();
+		});
 	}
 
 	// ===========================================================================
