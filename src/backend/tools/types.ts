@@ -44,6 +44,8 @@ export interface ToolContext {
 	worktreePath?: string;
 	/** Current channel ID (if in a channel context) */
 	channelId?: string;
+	/** Current roadmap ID (if in a roadmap context) */
+	roadmapId?: string;
 	/** Unique identifier for this tool call (for approval tracking) */
 	toolCallId?: string;
 	/** Role of the agent (e.g., "preflight", "execution") */
@@ -150,6 +152,7 @@ export type BlockToolName =
 	| "submit_scope"
 	| "submit_research"
 	| "submit_plan"
+	| "submit_roadmap"
 	| "request_extension"
 	| "ask_questions"
 	| "complete_pulse"

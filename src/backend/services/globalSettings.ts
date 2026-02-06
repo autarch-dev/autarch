@@ -25,6 +25,7 @@ const SETTING_KEYS = {
 	MODEL_PLANNING: "model_planning",
 	MODEL_EXECUTION: "model_execution",
 	MODEL_REVIEW: "model_review",
+	MODEL_ROADMAP_PLANNING: "model_roadmap_planning",
 } as const;
 
 const PROVIDER_TO_KEY = {
@@ -45,6 +46,7 @@ const SCENARIO_TO_KEY = {
 	planning: SETTING_KEYS.MODEL_PLANNING,
 	execution: SETTING_KEYS.MODEL_EXECUTION,
 	review: SETTING_KEYS.MODEL_REVIEW,
+	roadmap_planning: SETTING_KEYS.MODEL_ROADMAP_PLANNING,
 } as const satisfies Record<
 	ModelScenario,
 	(typeof SETTING_KEYS)[keyof typeof SETTING_KEYS]
@@ -192,16 +194,25 @@ export async function clearExaApiKey(): Promise<void> {
  * Get all model preferences.
  */
 export async function getModelPreferences(): Promise<ModelPreferences> {
-	const [basic, discussion, scoping, research, planning, execution, review] =
-		await Promise.all([
-			getSetting(SETTING_KEYS.MODEL_BASIC),
-			getSetting(SETTING_KEYS.MODEL_DISCUSSION),
-			getSetting(SETTING_KEYS.MODEL_SCOPING),
-			getSetting(SETTING_KEYS.MODEL_RESEARCH),
-			getSetting(SETTING_KEYS.MODEL_PLANNING),
-			getSetting(SETTING_KEYS.MODEL_EXECUTION),
-			getSetting(SETTING_KEYS.MODEL_REVIEW),
-		]);
+	const [
+		basic,
+		discussion,
+		scoping,
+		research,
+		planning,
+		execution,
+		review,
+		roadmap_planning,
+	] = await Promise.all([
+		getSetting(SETTING_KEYS.MODEL_BASIC),
+		getSetting(SETTING_KEYS.MODEL_DISCUSSION),
+		getSetting(SETTING_KEYS.MODEL_SCOPING),
+		getSetting(SETTING_KEYS.MODEL_RESEARCH),
+		getSetting(SETTING_KEYS.MODEL_PLANNING),
+		getSetting(SETTING_KEYS.MODEL_EXECUTION),
+		getSetting(SETTING_KEYS.MODEL_REVIEW),
+		getSetting(SETTING_KEYS.MODEL_ROADMAP_PLANNING),
+	]);
 
 	return {
 		basic: basic ?? undefined,
@@ -211,6 +222,7 @@ export async function getModelPreferences(): Promise<ModelPreferences> {
 		planning: planning ?? undefined,
 		execution: execution ?? undefined,
 		review: review ?? undefined,
+		roadmap_planning: roadmap_planning ?? undefined,
 	};
 }
 

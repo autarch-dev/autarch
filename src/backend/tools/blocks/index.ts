@@ -42,6 +42,12 @@ export {
 } from "./submitResearch";
 
 export {
+	type SubmitRoadmapInput,
+	submitRoadmapInputSchema,
+	submitRoadmapTool,
+} from "./submitRoadmap";
+
+export {
 	type SubmitScopeInput,
 	submitScopeInputSchema,
 	submitScopeTool,
@@ -55,10 +61,12 @@ import { completePulseTool } from "./completePulse";
 import { requestExtensionTool } from "./requestExtension";
 import { submitPlanTool } from "./submitPlan";
 import { submitResearchTool } from "./submitResearch";
+import { submitRoadmapTool } from "./submitRoadmap";
 import { submitScopeTool } from "./submitScope";
 
 export const blockTools = [
 	registerTool(submitScopeTool),
+	registerTool(submitRoadmapTool),
 	registerTool(submitResearchTool),
 	registerTool(submitPlanTool),
 	registerTool(requestExtensionTool),

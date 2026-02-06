@@ -23,6 +23,7 @@ import {
 	requestExtensionTool,
 	submitPlanTool,
 	submitResearchTool,
+	submitRoadmapTool,
 	submitScopeTool,
 } from "../tools/blocks";
 import { typescriptTools } from "../tools/typescript";
@@ -94,6 +95,15 @@ const REVIEW_TOOLS: RegisteredTool[] = [
 	registerTool(requestExtensionTool),
 ];
 
+/** Roadmap planning agent: base tools + submit_roadmap + ask_questions + request_extension */
+const ROADMAP_PLANNING_TOOLS: RegisteredTool[] = [
+	...baseTools,
+	...typescriptTools,
+	registerTool(submitRoadmapTool),
+	registerTool(askQuestionsTool),
+	registerTool(requestExtensionTool),
+];
+
 // =============================================================================
 // Agent Registry
 // =============================================================================
@@ -157,6 +167,13 @@ export const agentRegistry = {
 		tools: REVIEW_TOOLS,
 		maxTokens: 4096,
 		temperature: 0.5,
+	},
+	roadmap_planning: {
+		role: "roadmap_planning",
+		systemPrompt: agentPrompts.roadmap_planning,
+		tools: ROADMAP_PLANNING_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
 	},
 } as const satisfies Record<AgentRole, AgentConfig>;
 

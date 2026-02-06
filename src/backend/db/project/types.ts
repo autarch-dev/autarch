@@ -48,6 +48,11 @@ export interface ProjectDatabase {
 	questions: QuestionsTable;
 	review_cards: ReviewCardsTable;
 	review_comments: ReviewCommentsTable;
+	roadmaps: RoadmapTable;
+	milestones: MilestoneTable;
+	initiatives: InitiativeTable;
+	vision_documents: VisionDocumentTable;
+	dependencies: DependencyTable;
 }
 
 // =============================================================================
@@ -442,5 +447,80 @@ export interface ReviewCommentsTable {
 	description: string;
 	/** Author of the comment: agent or user */
 	author: ReviewCommentAuthor;
+	created_at: number;
+}
+
+// =============================================================================
+// Roadmaps
+// =============================================================================
+
+export interface RoadmapTable {
+	id: string;
+	title: string;
+	description: string | null;
+	status: string;
+	current_session_id: string | null;
+	created_at: number;
+	updated_at: number;
+}
+
+// =============================================================================
+// Milestones
+// =============================================================================
+
+export interface MilestoneTable {
+	id: string;
+	roadmap_id: string;
+	title: string;
+	description: string | null;
+	start_date: number | null;
+	end_date: number | null;
+	sort_order: number;
+	created_at: number;
+	updated_at: number;
+}
+
+// =============================================================================
+// Initiatives
+// =============================================================================
+
+export interface InitiativeTable {
+	id: string;
+	milestone_id: string;
+	roadmap_id: string;
+	title: string;
+	description: string | null;
+	status: string;
+	priority: string;
+	progress: number;
+	progress_mode: string;
+	workflow_id: string | null;
+	sort_order: number;
+	created_at: number;
+	updated_at: number;
+}
+
+// =============================================================================
+// Vision Documents
+// =============================================================================
+
+export interface VisionDocumentTable {
+	id: string;
+	roadmap_id: string;
+	content: string;
+	created_at: number;
+	updated_at: number;
+}
+
+// =============================================================================
+// Dependencies
+// =============================================================================
+
+export interface DependencyTable {
+	id: string;
+	source_type: string;
+	source_id: string;
+	target_type: string;
+	target_id: string;
 	created_at: number;
 }

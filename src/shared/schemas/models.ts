@@ -47,6 +47,12 @@ export const RECOMMENDED_MODELS = {
 		google: "gemini-3-pro-preview",
 		xai: "grok-4-fast-reasoning",
 	},
+	roadmap_planning: {
+		anthropic: "claude-opus-4-5",
+		openai: "gpt-5.2",
+		google: "gemini-3-pro-preview",
+		xai: "grok-4-fast-reasoning",
+	},
 } as const satisfies Record<ModelScenario, Record<AIProvider, string>>;
 
 // Models mapped to their provider

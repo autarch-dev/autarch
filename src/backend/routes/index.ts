@@ -6,6 +6,7 @@
 
 export { channelRoutes } from "./channelRoutes";
 export { questionRoutes } from "./questionRoutes";
+export { roadmapRoutes } from "./roadmapRoutes";
 export { sessionRoutes } from "./sessionRoutes";
 export { settingsRoutes } from "./settings";
 export { shellApprovalRoutes } from "./shellApprovalRoutes";
@@ -15,6 +16,7 @@ export { workflowRoutes } from "./workflowRoutes";
 // Combined routes for easy import
 import { channelRoutes } from "./channelRoutes";
 import { questionRoutes } from "./questionRoutes";
+import { roadmapRoutes } from "./roadmapRoutes";
 import { sessionRoutes } from "./sessionRoutes";
 import { shellApprovalRoutes } from "./shellApprovalRoutes";
 import { toolRoutes } from "./toolRoutes";
@@ -31,4 +33,5 @@ export const agentRoutes = {
 	...questionRoutes,
 	...shellApprovalRoutes,
 	...toolRoutes,
+	...roadmapRoutes,
 };

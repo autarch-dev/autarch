@@ -132,3 +132,24 @@ export async function createWorkflowToolContext(
 		agentRole,
 	};
 }
+
+/**
+ * Create a tool context for a roadmap planning session.
+ */
+export async function createRoadmapToolContext(
+	projectRoot: string,
+	roadmapId: string,
+	sessionId: string,
+	toolResultMap: Map<string, boolean>,
+	turnId?: string,
+	agentRole?: string,
+): Promise<ToolContext> {
+	return {
+		projectRoot,
+		roadmapId,
+		sessionId,
+		toolResultMap,
+		turnId,
+		agentRole,
+	};
+}

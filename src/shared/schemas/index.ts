@@ -5,6 +5,7 @@ export * from "./hooks";
 export * from "./models";
 export * from "./project";
 export * from "./questions";
+export * from "./roadmap";
 export * from "./session";
 export * from "./settings";
 export * from "./workflow";
