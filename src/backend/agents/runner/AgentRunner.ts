@@ -197,6 +197,7 @@ export class AgentRunner {
 		// Tool summaries and notes are injected into the user message to avoid
 		// multiple system messages (which some LLMs don't support)
 		const notesContent = await this.buildNotesContent();
+		const todosContent = await this.buildTodosContent();
 		const contextParts: string[] = [];
 
 		if (toolSummaries.length > 0) {
@@ -205,6 +206,9 @@ export class AgentRunner {
 		}
 		if (notesContent) {
 			contextParts.push(notesContent);
+		}
+		if (todosContent) {
+			contextParts.push(todosContent);
 		}
 
 		const userMessageContent =
@@ -676,6 +680,52 @@ export class AgentRunner {
 			.join("\n\n");
 
 		return `## Your Notes\n\nYou have saved the following notes for yourself:\n\n${formattedNotes}`;
+	}
+
+	/**
+	 * Build formatted todo list content for context injection.
+	 *
+	 * Returns null if no todos exist.
+	 */
+	private async buildTodosContent(): Promise<string | null> {
+		const repo = this.config.conversationRepo;
+		let todos: Array<{
+			id: string;
+			title: string;
+			description: string;
+			checked: number;
+			sortOrder: number;
+		}>;
+
+		if (this.session.contextType === "channel") {
+			// For channels: todos persist across channel lifetime
+			todos = await repo.getTodos("channel", this.session.contextId);
+		} else {
+			// For workflows: todos are ephemeral per stage (session)
+			todos = await repo.getTodos(
+				"workflow",
+				this.session.contextId,
+				this.session.id,
+			);
+		}
+
+		if (todos.length === 0) {
+			return null;
+		}
+
+		// Format todos
+		const formattedTodos = todos
+			.map((item) => {
+				const checkbox = item.checked ? "[x]" : "[ ]";
+				const line = `- ${checkbox} (${item.id}) ${item.title}`;
+				if (item.description) {
+					return `${line}\n    ${item.description}`;
+				}
+				return line;
+			})
+			.join("\n");
+
+		return `## Your Todo List\n\n${formattedTodos}`;
 	}
 
 	// ===========================================================================
