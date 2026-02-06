@@ -8,7 +8,7 @@
  */
 
 import { Info } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -58,6 +58,15 @@ export function ProgressControls({
 	onUpdateProgressMode,
 }: ProgressControlsProps) {
 	const [localProgress, setLocalProgress] = useState(initiative.progress);
+
+	// Sync local slider state when initiative changes (e.g., prop update, switching initiatives).
+	// initiative.id is intentionally included to reset when switching between initiatives,
+	// even if two initiatives share the same progress value.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: initiative.id triggers reset on initiative switch
+	useEffect(() => {
+		setLocalProgress(initiative.progress);
+	}, [initiative.id, initiative.progress]);
+
 	const isAuto = initiative.progressMode === "auto";
 
 	const displayProgress =

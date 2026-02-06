@@ -704,6 +704,17 @@ export const roadmapRoutes = {
 					);
 				}
 
+				// Reject self-referencing dependencies
+				if (
+					parsed.data.sourceType === parsed.data.targetType &&
+					parsed.data.sourceId === parsed.data.targetId
+				) {
+					return Response.json(
+						{ error: "An entity cannot depend on itself" },
+						{ status: 400 },
+					);
+				}
+
 				// Verify both source and target belong to this roadmap
 				const [sourceOwned, targetOwned] = await Promise.all([
 					verifyNodeOwnership(

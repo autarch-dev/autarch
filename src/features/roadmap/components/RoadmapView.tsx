@@ -149,6 +149,8 @@ export function RoadmapView({
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [editTitle, setEditTitle] = useState(roadmap.title);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const [selectedInitiative, setSelectedInitiative] =
 		useState<Initiative | null>(null);
 	const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -254,7 +256,10 @@ export function RoadmapView({
 									Edit Title
 								</DropdownMenuItem>
 								<DropdownMenuItem
-									onClick={() => setIsDeleteDialogOpen(true)}
+									onClick={() => {
+										setDeleteError(null);
+										setIsDeleteDialogOpen(true);
+									}}
 									className="text-destructive focus:text-destructive"
 								>
 									<Trash2 className="size-4 mr-2" />
@@ -363,6 +368,9 @@ export function RoadmapView({
 							dependencies? This action cannot be undone.
 						</DialogDescription>
 					</DialogHeader>
+					{deleteError && (
+						<p className="text-sm text-destructive">{deleteError}</p>
+					)}
 					<DialogFooter>
 						<Button
 							variant="outline"
@@ -372,14 +380,26 @@ export function RoadmapView({
 						</Button>
 						<Button
 							variant="destructive"
-							onClick={() => {
-								onDelete().catch((error) => {
+							disabled={isDeleting}
+							onClick={async () => {
+								setIsDeleting(true);
+								setDeleteError(null);
+								try {
+									await onDelete();
+									setIsDeleteDialogOpen(false);
+								} catch (error) {
 									console.error("Failed to delete roadmap:", error);
-								});
-								setIsDeleteDialogOpen(false);
+									setDeleteError(
+										error instanceof Error
+											? error.message
+											: "Failed to delete roadmap",
+									);
+								} finally {
+									setIsDeleting(false);
+								}
 							}}
 						>
-							Delete
+							{isDeleting ? "Deleting…" : "Delete"}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
