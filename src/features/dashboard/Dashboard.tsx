@@ -61,7 +61,7 @@ export function Dashboard() {
 				onCreateChannel={handleCreateChannel}
 				onCreateWorkflow={handleCreateWorkflow}
 			/>
-			<SidebarInset className="flex flex-col h-svh overflow-hidden">
+			<SidebarInset className="flex flex-col h-svh overflow-clip">
 				<Switch>
 					<Route path="/channel/:id">
 						{(params) => <ChannelViewContainer channelId={params.id} />}
