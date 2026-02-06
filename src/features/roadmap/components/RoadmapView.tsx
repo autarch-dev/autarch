@@ -45,6 +45,7 @@ import type {
 } from "@/shared/schemas/roadmap";
 import type { RoadmapConversationState } from "../store/roadmapStore";
 import { PlanningConversation } from "./PlanningConversation";
+import { TableView } from "./TableView";
 
 // =============================================================================
 // Status Config
@@ -90,6 +91,26 @@ interface RoadmapViewProps {
 	onUpdateTitle: (title: string) => Promise<void>;
 	onDelete: () => Promise<void>;
 	onSendMessage: (content: string) => void;
+	onUpdateMilestone: (
+		milestoneId: string,
+		data: Partial<
+			Pick<Milestone, "title" | "description" | "startDate" | "endDate">
+		>,
+	) => Promise<void>;
+	onUpdateInitiative: (
+		initiativeId: string,
+		data: Partial<
+			Pick<Initiative, "title" | "status" | "priority" | "progress">
+		>,
+	) => Promise<void>;
+	onCreateMilestone: (data: {
+		title: string;
+		description?: string;
+	}) => Promise<void>;
+	onCreateInitiative: (
+		milestoneId: string,
+		data: { title: string },
+	) => Promise<void>;
 }
 
 // =============================================================================
@@ -101,11 +122,15 @@ export function RoadmapView({
 	milestones,
 	initiatives,
 	vision: _vision,
-	dependencies: _dependencies,
+	dependencies,
 	conversation,
 	onUpdateTitle,
 	onDelete,
 	onSendMessage,
+	onUpdateMilestone,
+	onUpdateInitiative,
+	onCreateMilestone,
+	onCreateInitiative,
 }: RoadmapViewProps) {
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [editTitle, setEditTitle] = useState(roadmap.title);
@@ -269,16 +294,16 @@ export function RoadmapView({
 					</TabsContent>
 
 					<TabsContent value="table" className="flex-1 min-h-0 p-4">
-						<div className="flex items-center justify-center h-full rounded-lg border border-dashed">
-							<div className="text-center space-y-2">
-								<TableIcon className="size-8 mx-auto text-muted-foreground" />
-								<p className="text-muted-foreground">Table view coming soon</p>
-								<p className="text-sm text-muted-foreground">
-									{milestones.length} milestones · {initiatives.length}{" "}
-									initiatives
-								</p>
-							</div>
-						</div>
+						<TableView
+							roadmapId={roadmap.id}
+							milestones={milestones}
+							initiatives={initiatives}
+							dependencies={dependencies}
+							onUpdateMilestone={onUpdateMilestone}
+							onUpdateInitiative={onUpdateInitiative}
+							onCreateMilestone={onCreateMilestone}
+							onCreateInitiative={onCreateInitiative}
+						/>
 					</TabsContent>
 				</Tabs>
 			)}

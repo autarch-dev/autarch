@@ -29,6 +29,10 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 		updateRoadmap,
 		deleteRoadmap,
 		sendMessage,
+		createMilestone,
+		updateMilestone,
+		createInitiative,
+		updateInitiative,
 	} = useRoadmapStore();
 
 	const roadmap = roadmaps.find((r) => r.id === roadmapId);
@@ -69,6 +73,40 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 		[roadmapId, sendMessage],
 	);
 
+	const handleUpdateMilestone = useCallback(
+		async (
+			milestoneId: string,
+			data: Parameters<typeof updateMilestone>[2],
+		) => {
+			await updateMilestone(roadmapId, milestoneId, data);
+		},
+		[roadmapId, updateMilestone],
+	);
+
+	const handleUpdateInitiative = useCallback(
+		async (
+			initiativeId: string,
+			data: Parameters<typeof updateInitiative>[2],
+		) => {
+			await updateInitiative(roadmapId, initiativeId, data);
+		},
+		[roadmapId, updateInitiative],
+	);
+
+	const handleCreateMilestone = useCallback(
+		async (data: { title: string; description?: string }) => {
+			await createMilestone(roadmapId, data);
+		},
+		[roadmapId, createMilestone],
+	);
+
+	const handleCreateInitiative = useCallback(
+		async (milestoneId: string, data: { title: string }) => {
+			await createInitiative(roadmapId, milestoneId, data);
+		},
+		[roadmapId, createInitiative],
+	);
+
 	if (roadmapsLoading && !roadmap) {
 		return (
 			<div className="flex items-center justify-center h-full">
@@ -96,6 +134,10 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 			onUpdateTitle={handleUpdateTitle}
 			onDelete={handleDelete}
 			onSendMessage={handleSendMessage}
+			onUpdateMilestone={handleUpdateMilestone}
+			onUpdateInitiative={handleUpdateInitiative}
+			onCreateMilestone={handleCreateMilestone}
+			onCreateInitiative={handleCreateInitiative}
 		/>
 	);
 }
