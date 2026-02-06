@@ -109,7 +109,7 @@ export class SessionManager {
 	): Promise<void> {
 		const session = this.sessions.get(sessionId);
 		if (!session) {
-			log.session.debug(`Session ${sessionId} not found (already stopped?)`);
+			log.session.info(`Session ${sessionId} not found (already stopped?)`);
 			return;
 		}
 
@@ -142,6 +142,8 @@ export class SessionManager {
 			);
 			log.session.error(`Session ${sessionId} failed: ${error}`);
 		}
+
+		log.session.info(`Session ${sessionId} stopped.`);
 	}
 
 	/**

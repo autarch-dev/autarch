@@ -1731,6 +1731,83 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 	}
 
 	// ===========================================================================
+	// Retry Operations
+	// ===========================================================================
+
+	/**
+	 * Retry the currently running pulse
+	 *
+	 * Stops the current session and restarts the pulse with a fresh agent session.
+	 * Git changes from the previous attempt are preserved.
+	 *
+	 * @param workflowId - The workflow to retry the pulse for
+	 */
+	async retryPulse(workflowId: string): Promise<void> {
+		const workflow = await this.workflowRepo.getById(workflowId);
+		if (!workflow) {
+			throw new Error(`Workflow not found: ${workflowId}`);
+		}
+
+		// Get the currently running pulse
+		const runningPulse = await this.pulseRepo.getRunningPulse(workflowId);
+		if (!runningPulse) {
+			throw new Error(`No running pulse found for workflow ${workflowId}`);
+		}
+
+		log.workflow.info(
+			`Retrying pulse ${runningPulse.id} for workflow ${workflowId}`,
+		);
+
+		// Stop current session if exists
+		if (workflow.currentSessionId) {
+			log.workflow.info(`Stopping session ${workflow.currentSessionId}`);
+			await this.sessionManager.stopSession(workflow.currentSessionId);
+			// Wait for in-flight DB operations to complete after abort signal
+			// TODO: Make stopSession properly await runner completion
+			await new Promise((resolve) => setTimeout(resolve, 500));
+		}
+
+		const projectRoot = findRepoRoot(process.cwd());
+		const worktreePath =
+			runningPulse.worktreePath ?? getWorktreePath(projectRoot, workflowId);
+
+		// Create fresh execution session for the pulse
+		const session = await this.sessionManager.startSession({
+			contextType: "workflow",
+			contextId: workflowId,
+			agentRole: "execution",
+			pulseId: runningPulse.id,
+		});
+
+		// Update workflow with new session
+		await this.workflowRepo.setCurrentSession(workflowId, session.id);
+
+		// Build initial message for this pulse (same as normal start)
+		const initialMessage = await this.buildPulseInitialMessage(
+			workflowId,
+			runningPulse,
+		);
+
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			conversationRepo: this.conversationRepo,
+			worktreePath,
+		});
+
+		// Run in background (non-blocking)
+		runner.run(initialMessage, { hidden: true }).catch((error) => {
+			log.workflow.error(
+				`Pulse retry failed for workflow ${workflowId}:`,
+				error,
+			);
+			this.errorWorkflow(
+				workflowId,
+				error instanceof Error ? error.message : "Pulse retry failed",
+			);
+		});
+	}
+
+	// ===========================================================================
 	// Rewind Operations
 	// ===========================================================================
 

@@ -464,6 +464,27 @@ export const workflowRoutes = {
 		},
 	},
 
+	"/api/workflows/:id/retry-pulse": {
+		async POST(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			try {
+				const orchestrator = getWorkflowOrchestrator();
+				await orchestrator.retryPulse(params.id);
+				log.api.success(`Retried pulse for workflow: ${params.id}`);
+				return Response.json({ success: true });
+			} catch (error) {
+				log.api.error("Failed to retry pulse:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
 	"/api/workflows/:id/diff": {
 		async GET(req: Request) {
 			const params = parseParams(req, IdParamSchema);
