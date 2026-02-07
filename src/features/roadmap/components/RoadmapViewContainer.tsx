@@ -31,8 +31,10 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 		sendMessage,
 		createMilestone,
 		updateMilestone,
+		deleteMilestone,
 		createInitiative,
 		updateInitiative,
+		deleteInitiative,
 		updateVision,
 	} = useRoadmapStore();
 
@@ -113,6 +115,20 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 		[roadmapId, createInitiative],
 	);
 
+	const handleDeleteMilestone = useCallback(
+		async (milestoneId: string) => {
+			await deleteMilestone(roadmapId, milestoneId);
+		},
+		[roadmapId, deleteMilestone],
+	);
+
+	const handleDeleteInitiative = useCallback(
+		async (initiativeId: string) => {
+			await deleteInitiative(roadmapId, initiativeId);
+		},
+		[roadmapId, deleteInitiative],
+	);
+
 	const handleUpdateVision = useCallback(
 		async (content: string) => {
 			await updateVision(roadmapId, content);
@@ -152,6 +168,8 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 			onUpdateInitiative={handleUpdateInitiative}
 			onCreateMilestone={handleCreateMilestone}
 			onCreateInitiative={handleCreateInitiative}
+			onDeleteMilestone={handleDeleteMilestone}
+			onDeleteInitiative={handleDeleteInitiative}
 		/>
 	);
 }

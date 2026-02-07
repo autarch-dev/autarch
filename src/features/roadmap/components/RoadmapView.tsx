@@ -117,6 +117,8 @@ interface RoadmapViewProps {
 		milestoneId: string,
 		data: { title: string },
 	) => Promise<void>;
+	onDeleteMilestone: (milestoneId: string) => Promise<void>;
+	onDeleteInitiative: (initiativeId: string) => Promise<void>;
 }
 
 // =============================================================================
@@ -138,6 +140,8 @@ export function RoadmapView({
 	onUpdateInitiative,
 	onCreateMilestone,
 	onCreateInitiative,
+	onDeleteMilestone,
+	onDeleteInitiative,
 }: RoadmapViewProps) {
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [editTitle, setEditTitle] = useState(roadmap.title);
@@ -330,6 +334,8 @@ export function RoadmapView({
 							onCreateMilestone={onCreateMilestone}
 							onCreateInitiative={onCreateInitiative}
 							onSelectInitiative={handleSelectInitiative}
+							onDeleteMilestone={onDeleteMilestone}
+							onDeleteInitiative={onDeleteInitiative}
 						/>
 					</TabsContent>
 
@@ -349,6 +355,11 @@ export function RoadmapView({
 				open={isDetailOpen}
 				onOpenChange={handleDetailOpenChange}
 				onUpdateInitiative={onUpdateInitiative}
+				onDeleteInitiative={async (initiativeId: string) => {
+					await onDeleteInitiative(initiativeId);
+					setSelectedInitiative(null);
+					setIsDetailOpen(false);
+				}}
 			/>
 
 			{/* Delete Confirmation Dialog */}

@@ -13,12 +13,28 @@ import {
 	ChevronDown,
 	ChevronRight,
 	GitBranch,
+	MoreHorizontal,
 	Plus,
 	Search,
+	Trash2,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -81,6 +97,8 @@ interface TableViewProps {
 		data: { title: string },
 	) => Promise<void>;
 	onSelectInitiative?: (initiative: Initiative) => void;
+	onDeleteMilestone: (milestoneId: string) => Promise<void>;
+	onDeleteInitiative: (initiativeId: string) => Promise<void>;
 }
 
 // =============================================================================
@@ -376,6 +394,8 @@ export function TableView({
 	onCreateMilestone,
 	onCreateInitiative,
 	onSelectInitiative,
+	onDeleteMilestone,
+	onDeleteInitiative,
 }: TableViewProps) {
 	// -------------------------------------------------------------------------
 	// State
@@ -387,6 +407,11 @@ export function TableView({
 	const [filterStatus, setFilterStatus] = useState<string>("all");
 	const [filterPriority, setFilterPriority] = useState<string>("all");
 	const [searchText, setSearchText] = useState("");
+	const [deleteTarget, setDeleteTarget] = useState<{
+		type: "milestone" | "initiative";
+		id: string;
+		title: string;
+	} | null>(null);
 
 	// -------------------------------------------------------------------------
 	// Handlers
@@ -654,6 +679,12 @@ export function TableView({
 											handleCreateInitiative(milestone.id)
 										}
 										onSelectInitiative={onSelectInitiative}
+										onRequestDeleteMilestone={(id, title) =>
+											setDeleteTarget({ type: "milestone", id, title })
+										}
+										onRequestDeleteInitiative={(id, title) =>
+											setDeleteTarget({ type: "initiative", id, title })
+										}
 									/>
 								);
 							})
@@ -661,6 +692,48 @@ export function TableView({
 					</TableBody>
 				</Table>
 			</div>
+
+			{/* Delete Confirmation Dialog */}
+			<Dialog
+				open={deleteTarget !== null}
+				onOpenChange={(open) => {
+					if (!open) setDeleteTarget(null);
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>
+							Delete{" "}
+							{deleteTarget?.type === "milestone" ? "Milestone" : "Initiative"}
+						</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to delete &ldquo;{deleteTarget?.title}
+							&rdquo;? This action cannot be undone.
+							{deleteTarget?.type === "milestone" &&
+								" All initiatives in this milestone will also be deleted."}
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setDeleteTarget(null)}>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={async () => {
+								if (!deleteTarget) return;
+								if (deleteTarget.type === "milestone") {
+									await onDeleteMilestone(deleteTarget.id);
+								} else {
+									await onDeleteInitiative(deleteTarget.id);
+								}
+								setDeleteTarget(null);
+							}}
+						>
+							Delete
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
@@ -683,6 +756,8 @@ function MilestoneGroup({
 	onUpdateInitiative,
 	onCreateInitiative,
 	onSelectInitiative,
+	onRequestDeleteMilestone,
+	onRequestDeleteInitiative,
 }: {
 	milestone: Milestone;
 	initiatives: Initiative[];
@@ -705,6 +780,8 @@ function MilestoneGroup({
 	) => Promise<void>;
 	onCreateInitiative: () => void;
 	onSelectInitiative?: (initiative: Initiative) => void;
+	onRequestDeleteMilestone: (id: string, title: string) => void;
+	onRequestDeleteInitiative: (id: string, title: string) => void;
 }) {
 	// Calculate milestone progress from initiatives
 	const milestoneProgress = useMemo(() => {
@@ -754,11 +831,35 @@ function MilestoneGroup({
 					</div>
 				</TableCell>
 				<TableCell>
-					{dependencyNames.length > 0 && (
-						<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">
-							{dependencyNames.join(", ")}
-						</span>
-					)}
+					<div className="flex items-center justify-between gap-1">
+						{dependencyNames.length > 0 && (
+							<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">
+								{dependencyNames.join(", ")}
+							</span>
+						)}
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-6 w-6 p-0 ml-auto"
+								>
+									<MoreHorizontal className="size-3.5" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuItem
+									className="text-destructive focus:text-destructive"
+									onClick={() =>
+										onRequestDeleteMilestone(milestone.id, milestone.title)
+									}
+								>
+									<Trash2 className="size-3.5 mr-2" />
+									Delete
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</div>
 				</TableCell>
 			</TableRow>
 
@@ -786,6 +887,7 @@ function MilestoneGroup({
 							hasDependencies={hasInitDeps}
 							onUpdate={onUpdateInitiative}
 							onSelect={onSelectInitiative}
+							onRequestDelete={onRequestDeleteInitiative}
 						/>
 					);
 				})}
@@ -819,6 +921,7 @@ function InitiativeRow({
 	hasDependencies: hasDeps,
 	onUpdate,
 	onSelect,
+	onRequestDelete,
 }: {
 	initiative: Initiative;
 	dependencyNames: string[];
@@ -830,6 +933,7 @@ function InitiativeRow({
 		>,
 	) => Promise<void>;
 	onSelect?: (initiative: Initiative) => void;
+	onRequestDelete: (id: string, title: string) => void;
 }) {
 	return (
 		<TableRow className="cursor-pointer" onClick={() => onSelect?.(initiative)}>
@@ -864,12 +968,30 @@ function InitiativeRow({
 					</span>
 				</div>
 			</TableCell>
-			<TableCell>
-				{dependencyNames.length > 0 && (
-					<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">
-						{dependencyNames.join(", ")}
-					</span>
-				)}
+			<TableCell onClick={(e) => e.stopPropagation()}>
+				<div className="flex items-center justify-between gap-1">
+					{dependencyNames.length > 0 && (
+						<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">
+							{dependencyNames.join(", ")}
+						</span>
+					)}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto">
+								<MoreHorizontal className="size-3.5" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem
+								className="text-destructive focus:text-destructive"
+								onClick={() => onRequestDelete(initiative.id, initiative.title)}
+							>
+								<Trash2 className="size-3.5 mr-2" />
+								Delete
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
 			</TableCell>
 		</TableRow>
 	);

@@ -13,10 +13,19 @@ import {
 	Link2Off,
 	Plus,
 	Sparkles,
+	Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -124,6 +133,7 @@ interface InitiativeDetailProps {
 			>
 		> & { workflowId?: string | null },
 	) => Promise<void>;
+	onDeleteInitiative: (initiativeId: string) => Promise<void>;
 }
 
 // =============================================================================
@@ -136,6 +146,7 @@ export function InitiativeDetail({
 	open,
 	onOpenChange,
 	onUpdateInitiative,
+	onDeleteInitiative,
 }: InitiativeDetailProps) {
 	// Workflow store for linking
 	const { workflows, fetchWorkflows, createWorkflow } = useWorkflowsStore();
@@ -145,6 +156,8 @@ export function InitiativeDetail({
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [isEditingDescription, setIsEditingDescription] = useState(false);
 	const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
 
 	// Sync local state when initiative changes
 	useEffect(() => {
@@ -536,7 +549,59 @@ export function InitiativeDetail({
 							</TooltipContent>
 						</Tooltip>
 					</div>
+
+					<Separator />
+
+					{/* Delete Initiative */}
+					<div className="space-y-1.5">
+						<Button
+							variant="destructive"
+							className="w-full"
+							onClick={() => setIsDeleteDialogOpen(true)}
+						>
+							<Trash2 className="size-3.5 mr-1.5" />
+							Delete Initiative
+						</Button>
+					</div>
 				</div>
+
+				{/* Delete Confirmation Dialog */}
+				<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+					<DialogContent>
+						<DialogHeader>
+							<DialogTitle>Delete Initiative</DialogTitle>
+							<DialogDescription>
+								Delete this initiative? This action cannot be undone.
+							</DialogDescription>
+						</DialogHeader>
+						<DialogFooter>
+							<Button
+								variant="outline"
+								onClick={() => setIsDeleteDialogOpen(false)}
+							>
+								Cancel
+							</Button>
+							<Button
+								variant="destructive"
+								disabled={isDeleting}
+								onClick={async () => {
+									setIsDeleting(true);
+									try {
+										await onDeleteInitiative(initiative.id);
+										setIsDeleteDialogOpen(false);
+										onOpenChange(false);
+									} catch (error) {
+										console.error("Failed to delete initiative:", error);
+									} finally {
+										setIsDeleting(false);
+									}
+								}}
+							>
+								{isDeleting ? "Deleting..." : "Delete"}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 			</SheetContent>
 		</Sheet>
 	);
