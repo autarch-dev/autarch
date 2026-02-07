@@ -46,6 +46,9 @@ export const takeNoteTool: ToolDefinition<TakeNoteInput> = {
 		} else if (context.workflowId) {
 			contextType = "workflow";
 			contextId = context.workflowId;
+		} else if (context.roadmapId) {
+			contextType = "roadmap";
+			contextId = context.roadmapId;
 		} else {
 			return {
 				success: false,

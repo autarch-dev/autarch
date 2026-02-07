@@ -671,16 +671,16 @@ export class AgentRunner {
 		const repo = this.config.conversationRepo;
 		let notes: Array<{ id: string; content: string; createdAt: number }>;
 
-		if (this.session.contextType === "channel") {
-			// For channels: notes persist across channel lifetime
-			notes = await repo.getNotes("channel", this.session.contextId);
-		} else {
+		if (this.session.contextType === "workflow") {
 			// For workflows: notes are ephemeral per stage (session)
 			notes = await repo.getNotes(
 				"workflow",
 				this.session.contextId,
 				this.session.id,
 			);
+		} else {
+			// For others: notes persist across context lifetime
+			notes = await repo.getNotes(this.session.contextType, this.session.contextId);
 		}
 
 		if (notes.length === 0) {
@@ -710,16 +710,16 @@ export class AgentRunner {
 			sortOrder: number;
 		}>;
 
-		if (this.session.contextType === "channel") {
-			// For channels: todos persist across channel lifetime
-			todos = await repo.getTodos("channel", this.session.contextId);
-		} else {
+		if (this.session.contextType === "workflow") {
 			// For workflows: todos are ephemeral per stage (session)
 			todos = await repo.getTodos(
 				"workflow",
 				this.session.contextId,
 				this.session.id,
 			);
+		} else {
+			// For others: todos persist across context lifetime
+			todos = await repo.getTodos(this.session.contextType, this.session.contextId);
 		}
 
 		if (todos.length === 0) {

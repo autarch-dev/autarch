@@ -59,6 +59,9 @@ export const addTodoTool: ToolDefinition<AddTodoInput> = {
 		} else if (context.workflowId) {
 			contextType = "workflow";
 			contextId = context.workflowId;
+		} else if (context.roadmapId) {
+			contextType = "roadmap";
+			contextId = context.roadmapId;
 		} else {
 			return {
 				success: false,
