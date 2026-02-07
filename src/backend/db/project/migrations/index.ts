@@ -36,6 +36,7 @@ import { migrate as migrate0030ReviewCardDiffContentColumn } from "./0030-review
 import { migrate as migrate0031PulseIdSessionsColumn } from "./0031-pulse-id-sessions-column";
 import { migrate as migrate0032Roadmaps } from "./0032-roadmaps";
 import { migrate as migrate0032SessionTodos } from "./0032-session-todos";
+import { migrate as migrateRoadmapEffortSizing } from "./0033-roadmap-effort-sizing";
 
 /**
  * Run all migrations for the project database.
@@ -84,4 +85,7 @@ export async function migrateProjectDb(
 
 	// Roadmap tables (0032)
 	await migrate0032Roadmaps(db);
+
+	// Roadmap effort sizing (0033)
+	await migrateRoadmapEffortSizing(db);
 }

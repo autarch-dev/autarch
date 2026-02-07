@@ -7,7 +7,7 @@
  */
 
 import {
-	Calendar,
+	BarChart3,
 	FileText,
 	MoreHorizontal,
 	Pencil,
@@ -98,21 +98,14 @@ interface RoadmapViewProps {
 	onSendMessage: (content: string) => void;
 	onUpdateMilestone: (
 		milestoneId: string,
-		data: Partial<
-			Pick<Milestone, "title" | "description" | "startDate" | "endDate">
-		>,
+		data: Partial<Pick<Milestone, "title" | "description">>,
 	) => Promise<void>;
 	onUpdateInitiative: (
 		initiativeId: string,
 		data: Partial<
 			Pick<
 				Initiative,
-				| "title"
-				| "description"
-				| "status"
-				| "priority"
-				| "progress"
-				| "progressMode"
+				"title" | "description" | "status" | "priority" | "progress" | "size"
 			>
 		> & { workflowId?: string | null },
 	) => Promise<void>;
@@ -124,6 +117,15 @@ interface RoadmapViewProps {
 		milestoneId: string,
 		data: { title: string },
 	) => Promise<void>;
+	onDeleteMilestone: (milestoneId: string) => Promise<void>;
+	onDeleteInitiative: (initiativeId: string) => Promise<void>;
+	onReorderMilestones: (
+		reorderedIds: { id: string; sortOrder: number }[],
+	) => void;
+	onReorderInitiatives: (
+		milestoneId: string,
+		reorderedIds: { id: string; sortOrder: number }[],
+	) => void;
 }
 
 // =============================================================================
@@ -145,6 +147,10 @@ export function RoadmapView({
 	onUpdateInitiative,
 	onCreateMilestone,
 	onCreateInitiative,
+	onDeleteMilestone,
+	onDeleteInitiative,
+	onReorderMilestones,
+	onReorderInitiatives,
 }: RoadmapViewProps) {
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [editTitle, setEditTitle] = useState(roadmap.title);
@@ -298,12 +304,12 @@ export function RoadmapView({
 					onSendMessage={onSendMessage}
 				/>
 			) : (
-				<Tabs defaultValue="timeline" className="flex-1 flex flex-col min-h-0">
+				<Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
 					<div className="px-4 pt-3">
 						<TabsList>
-							<TabsTrigger value="timeline">
-								<Calendar className="size-4 mr-1.5" />
-								Timeline
+							<TabsTrigger value="overview">
+								<BarChart3 className="size-4 mr-1.5" />
+								Overview
 							</TabsTrigger>
 							<TabsTrigger value="table">
 								<TableIcon className="size-4 mr-1.5" />
@@ -316,12 +322,10 @@ export function RoadmapView({
 						</TabsList>
 					</div>
 
-					<TabsContent value="timeline" className="flex-1 min-h-0 p-4">
+					<TabsContent value="overview" className="flex-1 min-h-0 p-4">
 						<TimelineView
-							roadmapId={roadmap.id}
 							milestones={milestones}
 							initiatives={initiatives}
-							dependencies={dependencies}
 							onSelectInitiative={handleSelectInitiative}
 						/>
 					</TabsContent>
@@ -337,6 +341,10 @@ export function RoadmapView({
 							onCreateMilestone={onCreateMilestone}
 							onCreateInitiative={onCreateInitiative}
 							onSelectInitiative={handleSelectInitiative}
+							onDeleteMilestone={onDeleteMilestone}
+							onDeleteInitiative={onDeleteInitiative}
+							onReorderMilestones={onReorderMilestones}
+							onReorderInitiatives={onReorderInitiatives}
 						/>
 					</TabsContent>
 
@@ -356,6 +364,11 @@ export function RoadmapView({
 				open={isDetailOpen}
 				onOpenChange={handleDetailOpenChange}
 				onUpdateInitiative={onUpdateInitiative}
+				onDeleteInitiative={async (initiativeId: string) => {
+					await onDeleteInitiative(initiativeId);
+					setSelectedInitiative(null);
+					setIsDetailOpen(false);
+				}}
 			/>
 
 			{/* Delete Confirmation Dialog */}

@@ -136,19 +136,12 @@ interface RoadmapState {
 		data: {
 			title: string;
 			description?: string;
-			startDate?: number;
-			endDate?: number;
 		},
 	) => Promise<Milestone>;
 	updateMilestone: (
 		roadmapId: string,
 		milestoneId: string,
-		data: Partial<
-			Pick<
-				Milestone,
-				"title" | "description" | "startDate" | "endDate" | "sortOrder"
-			>
-		>,
+		data: Partial<Pick<Milestone, "title" | "description" | "sortOrder">>,
 	) => Promise<void>;
 	deleteMilestone: (roadmapId: string, milestoneId: string) => Promise<void>;
 
@@ -156,7 +149,12 @@ interface RoadmapState {
 	createInitiative: (
 		roadmapId: string,
 		milestoneId: string,
-		data: { title: string; description?: string; priority?: string },
+		data: {
+			title: string;
+			description?: string;
+			priority?: string;
+			size?: Initiative["size"];
+		},
 	) => Promise<Initiative>;
 	updateInitiative: (
 		roadmapId: string,
@@ -169,7 +167,7 @@ interface RoadmapState {
 				| "status"
 				| "priority"
 				| "progress"
-				| "progressMode"
+				| "size"
 				| "milestoneId"
 				| "sortOrder"
 			>
@@ -468,7 +466,11 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 		const response = await fetch(`/api/roadmaps/${roadmapId}/initiatives`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ ...data, milestoneId, sortOrder }),
+			body: JSON.stringify({
+				...data,
+				milestoneId,
+				sortOrder,
+			}),
 		});
 
 		if (!response.ok) {

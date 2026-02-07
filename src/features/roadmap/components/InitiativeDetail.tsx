@@ -13,10 +13,19 @@ import {
 	Link2Off,
 	Plus,
 	Sparkles,
+	Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -53,13 +62,9 @@ import type {
 	Initiative,
 	InitiativePriority,
 	InitiativeStatus,
-	ProgressMode,
 } from "@/shared/schemas/roadmap";
 import type { WorkflowStatus } from "@/shared/schemas/workflow";
-import {
-	computeProgressFromWorkflow,
-	ProgressControls,
-} from "./ProgressControls";
+import { ProgressControls } from "./ProgressControls";
 
 // =============================================================================
 // Constants
@@ -78,6 +83,8 @@ const PRIORITY_OPTIONS: { value: InitiativePriority; label: string }[] = [
 	{ value: "high", label: "High" },
 	{ value: "critical", label: "Critical" },
 ];
+
+const FIBONACCI_SIZES = [1, 2, 3, 5, 8, 13, 21] as const;
 
 const STATUS_COLORS: Record<InitiativeStatus, string> = {
 	not_started: "text-muted-foreground bg-muted",
@@ -124,15 +131,11 @@ interface InitiativeDetailProps {
 		data: Partial<
 			Pick<
 				Initiative,
-				| "title"
-				| "description"
-				| "status"
-				| "priority"
-				| "progress"
-				| "progressMode"
+				"title" | "description" | "status" | "priority" | "progress" | "size"
 			>
 		> & { workflowId?: string | null },
 	) => Promise<void>;
+	onDeleteInitiative: (initiativeId: string) => Promise<void>;
 }
 
 // =============================================================================
@@ -145,6 +148,7 @@ export function InitiativeDetail({
 	open,
 	onOpenChange,
 	onUpdateInitiative,
+	onDeleteInitiative,
 }: InitiativeDetailProps) {
 	// Workflow store for linking
 	const { workflows, fetchWorkflows, createWorkflow } = useWorkflowsStore();
@@ -154,6 +158,8 @@ export function InitiativeDetail({
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [isEditingDescription, setIsEditingDescription] = useState(false);
 	const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
 
 	// Sync local state when initiative changes
 	useEffect(() => {
@@ -234,27 +240,18 @@ export function InitiativeDetail({
 		[initiative, onUpdateInitiative],
 	);
 
-	const handleProgressUpdate = useCallback(
-		(progress: number) => {
+	const handleSizeChange = useCallback(
+		async (value: string) => {
 			if (!initiative) return;
-			onUpdateInitiative(initiative.id, { progress });
+			if (value === "none") {
+				await onUpdateInitiative(initiative.id, { size: null });
+			} else {
+				await onUpdateInitiative(initiative.id, {
+					size: Number(value) as Initiative["size"],
+				});
+			}
 		},
 		[initiative, onUpdateInitiative],
-	);
-
-	const handleProgressModeChange = useCallback(
-		(progressMode: ProgressMode) => {
-			if (!initiative) return;
-			const update: Partial<Pick<Initiative, "progressMode" | "progress">> = {
-				progressMode,
-			};
-			// When switching to auto with a linked workflow, compute progress
-			if (progressMode === "auto" && linkedWorkflow) {
-				update.progress = computeProgressFromWorkflow(linkedWorkflow.status);
-			}
-			onUpdateInitiative(initiative.id, update);
-		},
-		[initiative, linkedWorkflow, onUpdateInitiative],
 	);
 
 	const handleLinkWorkflow = useCallback(
@@ -438,14 +435,35 @@ export function InitiativeDetail({
 						</div>
 					</div>
 
+					{/* Size */}
+					<div className="grid grid-cols-2 gap-4">
+						<div className="space-y-1.5">
+							<Label>Size</Label>
+							<Select
+								value={String(initiative.size ?? "none")}
+								onValueChange={handleSizeChange}
+							>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Unset" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="none">Unset</SelectItem>
+									{FIBONACCI_SIZES.map((size) => (
+										<SelectItem key={size} value={String(size)}>
+											{size}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+
 					<Separator />
 
 					{/* Progress Controls */}
 					<ProgressControls
 						initiative={initiative}
 						linkedWorkflowStatus={linkedWorkflow?.status}
-						onUpdateProgress={handleProgressUpdate}
-						onUpdateProgressMode={handleProgressModeChange}
 					/>
 
 					<Separator />
@@ -561,7 +579,59 @@ export function InitiativeDetail({
 							</TooltipContent>
 						</Tooltip>
 					</div>
+
+					<Separator />
+
+					{/* Delete Initiative */}
+					<div className="space-y-1.5">
+						<Button
+							variant="destructive"
+							className="w-full"
+							onClick={() => setIsDeleteDialogOpen(true)}
+						>
+							<Trash2 className="size-3.5 mr-1.5" />
+							Delete Initiative
+						</Button>
+					</div>
 				</div>
+
+				{/* Delete Confirmation Dialog */}
+				<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+					<DialogContent>
+						<DialogHeader>
+							<DialogTitle>Delete Initiative</DialogTitle>
+							<DialogDescription>
+								Delete this initiative? This action cannot be undone.
+							</DialogDescription>
+						</DialogHeader>
+						<DialogFooter>
+							<Button
+								variant="outline"
+								onClick={() => setIsDeleteDialogOpen(false)}
+							>
+								Cancel
+							</Button>
+							<Button
+								variant="destructive"
+								disabled={isDeleting}
+								onClick={async () => {
+									setIsDeleting(true);
+									try {
+										await onDeleteInitiative(initiative.id);
+										setIsDeleteDialogOpen(false);
+										onOpenChange(false);
+									} catch (error) {
+										console.error("Failed to delete initiative:", error);
+									} finally {
+										setIsDeleting(false);
+									}
+								}}
+							>
+								{isDeleting ? "Deleting..." : "Delete"}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 			</SheetContent>
 		</Sheet>
 	);

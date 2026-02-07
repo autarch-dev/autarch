@@ -1,61 +1,25 @@
 /**
- * TimelineView - Horizontal time-based visualization of roadmap milestones and initiatives
+ * TimelineView - Size-proportional overview visualization of roadmap milestones and initiatives
  *
- * Uses CSS Grid for layout with time on the X axis and milestones/initiatives stacked
- * on the Y axis. Features dependency arrows via SVG overlay, a today marker, zoom controls,
- * and support for unscheduled milestones.
+ * Renders a horizontal bar chart where milestone bar widths are proportional to their
+ * total initiative sizes. Milestones without any sized initiatives are shown in an
+ * "Unsized" section at the bottom.
  */
 
-import {
-	Calendar,
-	ChevronDown,
-	ChevronRight,
-	ZoomIn,
-	ZoomOut,
-} from "lucide-react";
-import {
-	useCallback,
-	useEffect,
-	useLayoutEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { BarChart3, ChevronDown, ChevronRight } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type {
-	Initiative,
-	Milestone,
-	RoadmapDependency,
-} from "@/shared/schemas/roadmap";
+import type { Initiative, Milestone } from "@/shared/schemas/roadmap";
 
 // =============================================================================
 // Types
 // =============================================================================
 
-type TimeGranularity = "week" | "month" | "quarter";
-
 interface TimelineViewProps {
-	roadmapId: string;
 	milestones: Milestone[];
 	initiatives: Initiative[];
-	dependencies: RoadmapDependency[];
 	onSelectInitiative?: (initiative: Initiative) => void;
-}
-
-interface TimeColumn {
-	label: string;
-	start: number;
-	end: number;
-}
-
-interface ArrowPosition {
-	id: string;
-	x1: number;
-	y1: number;
-	x2: number;
-	y2: number;
 }
 
 // =============================================================================
@@ -84,162 +48,21 @@ const INITIATIVE_COLORS = [
 	"bg-teal-400/70 dark:bg-teal-500/50",
 ];
 
-const COLUMN_MIN_WIDTH: Record<TimeGranularity, number> = {
-	week: 80,
-	month: 120,
-	quarter: 160,
-};
-
 const ROW_HEIGHT = 40;
 const INITIATIVE_ROW_HEIGHT = 32;
 const HEADER_HEIGHT = 48;
 const LABEL_WIDTH = 200;
 
-const MS_PER_DAY = 86400000;
-const MS_PER_WEEK = MS_PER_DAY * 7;
-
 // =============================================================================
-// Helpers: Time computation
-// =============================================================================
-
-function startOfDay(ts: number): number {
-	const d = new Date(ts);
-	d.setHours(0, 0, 0, 0);
-	return d.getTime();
-}
-
-function startOfWeek(ts: number): number {
-	const d = new Date(ts);
-	const day = d.getDay();
-	d.setDate(d.getDate() - day);
-	d.setHours(0, 0, 0, 0);
-	return d.getTime();
-}
-
-function startOfMonth(ts: number): number {
-	const d = new Date(ts);
-	d.setDate(1);
-	d.setHours(0, 0, 0, 0);
-	return d.getTime();
-}
-
-function startOfQuarter(ts: number): number {
-	const d = new Date(ts);
-	const quarter = Math.floor(d.getMonth() / 3);
-	d.setMonth(quarter * 3, 1);
-	d.setHours(0, 0, 0, 0);
-	return d.getTime();
-}
-
-function endOfWeek(ts: number): number {
-	return startOfWeek(ts) + MS_PER_WEEK;
-}
-
-function endOfMonth(ts: number): number {
-	const d = new Date(ts);
-	d.setMonth(d.getMonth() + 1, 1);
-	d.setHours(0, 0, 0, 0);
-	return d.getTime();
-}
-
-function endOfQuarter(ts: number): number {
-	const d = new Date(ts);
-	const quarter = Math.floor(d.getMonth() / 3);
-	d.setMonth((quarter + 1) * 3, 1);
-	d.setHours(0, 0, 0, 0);
-	return d.getTime();
-}
-
-function formatWeekLabel(ts: number): string {
-	const d = new Date(ts);
-	return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function formatMonthLabel(ts: number): string {
-	const d = new Date(ts);
-	return d.toLocaleDateString(undefined, {
-		month: "short",
-		year: "numeric",
-	});
-}
-
-function formatQuarterLabel(ts: number): string {
-	const d = new Date(ts);
-	const quarter = Math.floor(d.getMonth() / 3) + 1;
-	return `Q${quarter} ${d.getFullYear()}`;
-}
-
-function generateTimeColumns(
-	rangeStart: number,
-	rangeEnd: number,
-	granularity: TimeGranularity,
-): TimeColumn[] {
-	const columns: TimeColumn[] = [];
-
-	let current: number;
-	let getEnd: (ts: number) => number;
-	let getLabel: (ts: number) => string;
-
-	switch (granularity) {
-		case "week":
-			current = startOfWeek(rangeStart);
-			getEnd = endOfWeek;
-			getLabel = formatWeekLabel;
-			break;
-		case "month":
-			current = startOfMonth(rangeStart);
-			getEnd = endOfMonth;
-			getLabel = formatMonthLabel;
-			break;
-		case "quarter":
-			current = startOfQuarter(rangeStart);
-			getEnd = endOfQuarter;
-			getLabel = formatQuarterLabel;
-			break;
-	}
-
-	// Safety limit to prevent infinite loops
-	const maxColumns = 200;
-	while (current < rangeEnd && columns.length < maxColumns) {
-		const end = getEnd(current);
-		columns.push({
-			label: getLabel(current),
-			start: current,
-			end,
-		});
-		current = end;
-	}
-
-	return columns;
-}
-
-function getColumnPosition(
-	timestamp: number,
-	columns: TimeColumn[],
-): number | null {
-	if (columns.length === 0) return null;
-
-	const first = columns[0];
-	const last = columns[columns.length - 1];
-	if (!first || !last) return null;
-
-	const totalStart = first.start;
-	const totalEnd = last.end;
-	const totalRange = totalEnd - totalStart;
-
-	if (totalRange <= 0) return null;
-
-	const clamped = Math.max(totalStart, Math.min(totalEnd, timestamp));
-	// Returns a fractional column index (0-based)
-	return ((clamped - totalStart) / totalRange) * columns.length;
-}
-
-// =============================================================================
-// Helpers: Milestone color assignment
+// Helpers
 // =============================================================================
 
 function getMilestoneColorIndex(milestoneIndex: number): number {
 	return milestoneIndex % MILESTONE_COLORS.length;
+}
+
+function getMilestoneSize(initiatives: Initiative[]): number {
+	return initiatives.reduce((sum, i) => sum + (i.size ?? 0), 0);
 }
 
 // =============================================================================
@@ -247,42 +70,13 @@ function getMilestoneColorIndex(milestoneIndex: number): number {
 // =============================================================================
 
 export function TimelineView({
-	roadmapId: _roadmapId,
 	milestones,
 	initiatives,
-	dependencies,
 	onSelectInitiative,
 }: TimelineViewProps) {
-	const [granularity, setGranularity] = useState<TimeGranularity>("month");
 	const [collapsedMilestones, setCollapsedMilestones] = useState<Set<string>>(
 		new Set(),
 	);
-	const [arrows, setArrows] = useState<ArrowPosition[]>([]);
-
-	const gridRef = useRef<HTMLDivElement>(null);
-	const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-
-	// -------------------------------------------------------------------------
-	// Separate scheduled and unscheduled milestones
-	// -------------------------------------------------------------------------
-	const { scheduledMilestones, unscheduledMilestones } = useMemo(() => {
-		const scheduled: Milestone[] = [];
-		const unscheduled: Milestone[] = [];
-
-		const sorted = [...milestones].sort((a, b) => a.sortOrder - b.sortOrder);
-		for (const m of sorted) {
-			if (m.startDate != null && m.endDate != null) {
-				scheduled.push(m);
-			} else {
-				unscheduled.push(m);
-			}
-		}
-
-		return {
-			scheduledMilestones: scheduled,
-			unscheduledMilestones: unscheduled,
-		};
-	}, [milestones]);
 
 	// -------------------------------------------------------------------------
 	// Group initiatives by milestone
@@ -306,44 +100,38 @@ export function TimelineView({
 	}, [milestones, initiatives]);
 
 	// -------------------------------------------------------------------------
-	// Compute time range and columns
+	// Partition milestones into sized and unsized
 	// -------------------------------------------------------------------------
-	const timeColumns = useMemo(() => {
-		if (scheduledMilestones.length === 0) return [];
+	const { sizedMilestones, unsizedMilestones, maxMilestoneSize } =
+		useMemo(() => {
+			const sized: Milestone[] = [];
+			const unsized: Milestone[] = [];
 
-		let rangeStart = Number.POSITIVE_INFINITY;
-		let rangeEnd = Number.NEGATIVE_INFINITY;
+			const sorted = [...milestones].sort((a, b) => a.sortOrder - b.sortOrder);
+			for (const m of sorted) {
+				const milestoneInitiatives = initiativesByMilestone.get(m.id) ?? [];
+				const hasSizedInitiative = milestoneInitiatives.some(
+					(i) => i.size != null,
+				);
+				if (hasSizedInitiative) {
+					sized.push(m);
+				} else {
+					unsized.push(m);
+				}
+			}
 
-		for (const m of scheduledMilestones) {
-			if (m.startDate != null) rangeStart = Math.min(rangeStart, m.startDate);
-			if (m.endDate != null) rangeEnd = Math.max(rangeEnd, m.endDate);
-		}
+			let maxSize = 0;
+			for (const m of sized) {
+				const total = getMilestoneSize(initiativesByMilestone.get(m.id) ?? []);
+				if (total > maxSize) maxSize = total;
+			}
 
-		if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd)) return [];
-
-		// Add padding: one unit before and after
-		const paddingMs =
-			granularity === "week"
-				? MS_PER_WEEK
-				: granularity === "month"
-					? MS_PER_DAY * 30
-					: MS_PER_DAY * 90;
-
-		return generateTimeColumns(
-			rangeStart - paddingMs,
-			rangeEnd + paddingMs,
-			granularity,
-		);
-	}, [scheduledMilestones, granularity]);
-
-	// -------------------------------------------------------------------------
-	// Today marker position
-	// -------------------------------------------------------------------------
-	const todayPosition = useMemo(() => {
-		if (timeColumns.length === 0) return null;
-		const now = startOfDay(Date.now());
-		return getColumnPosition(now, timeColumns);
-	}, [timeColumns]);
+			return {
+				sizedMilestones: sized,
+				unsizedMilestones: unsized,
+				maxMilestoneSize: maxSize,
+			};
+		}, [milestones, initiativesByMilestone]);
 
 	// -------------------------------------------------------------------------
 	// Toggle milestone collapse
@@ -361,92 +149,16 @@ export function TimelineView({
 	}, []);
 
 	// -------------------------------------------------------------------------
-	// Zoom controls
-	// -------------------------------------------------------------------------
-	const zoomIn = useCallback(() => {
-		setGranularity((prev) => {
-			if (prev === "quarter") return "month";
-			if (prev === "month") return "week";
-			return prev;
-		});
-	}, []);
-
-	const zoomOut = useCallback(() => {
-		setGranularity((prev) => {
-			if (prev === "week") return "month";
-			if (prev === "month") return "quarter";
-			return prev;
-		});
-	}, []);
-
-	// -------------------------------------------------------------------------
-	// Ref registration helper
-	// -------------------------------------------------------------------------
-	const setItemRef = useCallback(
-		(id: string) => (el: HTMLDivElement | null) => {
-			if (el) {
-				itemRefs.current.set(id, el);
-			} else {
-				itemRefs.current.delete(id);
-			}
-		},
-		[],
-	);
-
-	// -------------------------------------------------------------------------
-	// Compute dependency arrows after layout
-	// -------------------------------------------------------------------------
-	const computeArrows = useCallback(() => {
-		if (!gridRef.current || dependencies.length === 0) {
-			setArrows([]);
-			return;
-		}
-
-		const gridRect = gridRef.current.getBoundingClientRect();
-		const newArrows: ArrowPosition[] = [];
-
-		for (const dep of dependencies) {
-			const sourceEl = itemRefs.current.get(dep.sourceId);
-			const targetEl = itemRefs.current.get(dep.targetId);
-
-			if (!sourceEl || !targetEl) continue;
-
-			const sourceRect = sourceEl.getBoundingClientRect();
-			const targetRect = targetEl.getBoundingClientRect();
-
-			newArrows.push({
-				id: dep.id,
-				x1: sourceRect.right - gridRect.left,
-				y1: sourceRect.top + sourceRect.height / 2 - gridRect.top,
-				x2: targetRect.left - gridRect.left,
-				y2: targetRect.top + targetRect.height / 2 - gridRect.top,
-			});
-		}
-
-		setArrows(newArrows);
-	}, [dependencies]);
-
-	useLayoutEffect(() => {
-		computeArrows();
-	}, [computeArrows]);
-
-	useEffect(() => {
-		const handleResize = () => computeArrows();
-		window.addEventListener("resize", handleResize);
-		return () => window.removeEventListener("resize", handleResize);
-	}, [computeArrows]);
-
-	// -------------------------------------------------------------------------
 	// Empty state
 	// -------------------------------------------------------------------------
 	if (milestones.length === 0) {
 		return (
 			<div className="flex items-center justify-center h-full rounded-lg border border-dashed">
 				<div className="text-center space-y-2">
-					<Calendar className="size-8 mx-auto text-muted-foreground" />
+					<BarChart3 className="size-8 mx-auto text-muted-foreground" />
 					<p className="text-muted-foreground">No milestones yet</p>
 					<p className="text-sm text-muted-foreground">
-						Create milestones with start and end dates to see the timeline view.
+						Create milestones and add sized initiatives to see the overview.
 					</p>
 				</div>
 			</div>
@@ -454,18 +166,18 @@ export function TimelineView({
 	}
 
 	// -------------------------------------------------------------------------
-	// Build row layout for scheduled milestones
+	// Build row layout for sized milestones
 	// -------------------------------------------------------------------------
-	const scheduledRows: Array<{
+	const sizedRows: Array<{
 		type: "milestone" | "initiative";
 		item: Milestone | Initiative;
 		milestoneIndex: number;
 	}> = [];
 
-	for (let mi = 0; mi < scheduledMilestones.length; mi++) {
-		const milestone = scheduledMilestones[mi];
+	for (let mi = 0; mi < sizedMilestones.length; mi++) {
+		const milestone = sizedMilestones[mi];
 		if (!milestone) continue;
-		scheduledRows.push({
+		sizedRows.push({
 			type: "milestone",
 			item: milestone,
 			milestoneIndex: mi,
@@ -475,7 +187,7 @@ export function TimelineView({
 			const milestoneInitiatives =
 				initiativesByMilestone.get(milestone.id) ?? [];
 			for (const initiative of milestoneInitiatives) {
-				scheduledRows.push({
+				sizedRows.push({
 					type: "initiative",
 					item: initiative,
 					milestoneIndex: mi,
@@ -484,60 +196,22 @@ export function TimelineView({
 		}
 	}
 
-	const columnWidth = COLUMN_MIN_WIDTH[granularity];
-	const totalGridWidth = timeColumns.length * columnWidth;
-
 	return (
 		<div className="flex flex-col gap-3 h-full">
 			{/* Toolbar */}
 			<div className="flex items-center gap-2">
-				<span className="text-sm text-muted-foreground">Zoom:</span>
-				<Button
-					variant="outline"
-					size="icon-sm"
-					onClick={zoomIn}
-					disabled={granularity === "week"}
-					title="Zoom in"
-				>
-					<ZoomIn className="size-4" />
-				</Button>
-				<Button
-					variant="outline"
-					size="icon-sm"
-					onClick={zoomOut}
-					disabled={granularity === "quarter"}
-					title="Zoom out"
-				>
-					<ZoomOut className="size-4" />
-				</Button>
-				<Badge variant="secondary" className="text-xs capitalize">
-					{granularity}
-				</Badge>
-
-				<div className="flex-1" />
-
-				<span className="text-xs text-muted-foreground">
-					{scheduledMilestones.length} scheduled ·{" "}
-					{unscheduledMilestones.length} unscheduled
-				</span>
+				<span className="text-sm font-medium">Overview</span>
 			</div>
 
-			{/* Timeline Grid */}
-			{scheduledMilestones.length > 0 && timeColumns.length > 0 && (
+			{/* Size-proportional bar chart */}
+			{sizedMilestones.length > 0 && (
 				<div className="flex-1 min-h-0 overflow-auto rounded-md border">
-					<div
-						ref={gridRef}
-						className="relative"
-						style={{
-							minWidth: LABEL_WIDTH + totalGridWidth,
-						}}
-					>
-						{/* Column Headers */}
+					<div className="relative">
+						{/* Header */}
 						<div
 							className="sticky top-0 z-20 flex border-b bg-background"
 							style={{ height: HEADER_HEIGHT }}
 						>
-							{/* Label spacer */}
 							<div
 								className="shrink-0 border-r bg-background flex items-center px-3"
 								style={{ width: LABEL_WIDTH }}
@@ -546,22 +220,15 @@ export function TimelineView({
 									Milestones
 								</span>
 							</div>
-							{/* Time columns */}
-							<div className="flex">
-								{timeColumns.map((col, i) => (
-									<div
-										key={`${col.label}-${i}`}
-										className="shrink-0 flex items-center justify-center border-r text-xs text-muted-foreground"
-										style={{ width: columnWidth, height: HEADER_HEIGHT }}
-									>
-										{col.label}
-									</div>
-								))}
+							<div className="flex-1 flex items-center px-3">
+								<span className="text-xs font-medium text-muted-foreground">
+									Size
+								</span>
 							</div>
 						</div>
 
 						{/* Rows */}
-						{scheduledRows.map((row) => {
+						{sizedRows.map((row) => {
 							const isMilestone = row.type === "milestone";
 							const rowHeight = isMilestone
 								? ROW_HEIGHT
@@ -570,55 +237,31 @@ export function TimelineView({
 							const milestone = isMilestone ? (row.item as Milestone) : null;
 							const initiative = !isMilestone ? (row.item as Initiative) : null;
 
-							// Compute bar position
-							const parentMilestone = isMilestone
-								? (row.item as Milestone)
-								: scheduledMilestones.find(
-										(m) => m.id === (row.item as Initiative).milestoneId,
-									);
+							// Compute bar width
+							let barWidthPercent = 0;
+							let sizeLabel = "";
 
-							const barStartTs = parentMilestone?.startDate;
-							const barEndTs = parentMilestone?.endDate;
-
-							const barStart =
-								barStartTs != null
-									? getColumnPosition(barStartTs, timeColumns)
-									: null;
-							const barEnd =
-								barEndTs != null
-									? getColumnPosition(barEndTs, timeColumns)
-									: null;
-
-							const hasBar = barStart != null && barEnd != null;
-
-							// For initiatives, position them proportionally within milestone span
-							let initiativeBarStart = barStart;
-							let initiativeBarEnd = barEnd;
-							if (!isMilestone && hasBar && initiative) {
+							if (isMilestone && milestone) {
 								const milestoneInitiatives =
+									initiativesByMilestone.get(milestone.id) ?? [];
+								const totalSize = getMilestoneSize(milestoneInitiatives);
+								barWidthPercent =
+									maxMilestoneSize > 0
+										? (totalSize / maxMilestoneSize) * 100
+										: 0;
+								sizeLabel = String(totalSize);
+							} else if (initiative) {
+								const parentInitiatives =
 									initiativesByMilestone.get(initiative.milestoneId) ?? [];
-								const initiativeIndex = milestoneInitiatives.findIndex(
-									(init) => init.id === initiative.id,
-								);
-								const totalInitiatives = milestoneInitiatives.length;
-
-								if (
-									totalInitiatives > 0 &&
-									barStart != null &&
-									barEnd != null
-								) {
-									const span = barEnd - barStart;
-									// Distribute initiatives evenly within the milestone span
-									const segmentSize = span / totalInitiatives;
-									initiativeBarStart = barStart + initiativeIndex * segmentSize;
-									initiativeBarEnd =
-										barStart + (initiativeIndex + 1) * segmentSize;
-								}
+								const parentTotalSize = getMilestoneSize(parentInitiatives);
+								const initiativeSize = initiative.size ?? 0;
+								barWidthPercent =
+									parentTotalSize > 0
+										? (initiativeSize / parentTotalSize) * 100
+										: 0;
+								sizeLabel =
+									initiative.size != null ? String(initiative.size) : "—";
 							}
-
-							const finalBarStart = isMilestone ? barStart : initiativeBarStart;
-							const finalBarEnd = isMilestone ? barEnd : initiativeBarEnd;
-							const hasFinalBar = finalBarStart != null && finalBarEnd != null;
 
 							return (
 								<div
@@ -675,28 +318,12 @@ export function TimelineView({
 										)}
 									</div>
 
-									{/* Grid area with bar */}
-									<div className="relative flex-1">
-										{/* Column grid lines */}
-										<div className="absolute inset-0 flex pointer-events-none">
-											{timeColumns.map((col, i) => (
-												<div
-													key={`grid-${col.label}-${i}`}
-													className="shrink-0 border-r border-border/30"
-													style={{
-														width: columnWidth,
-														height: rowHeight,
-													}}
-												/>
-											))}
-										</div>
-
-										{/* Bar */}
-										{hasFinalBar && (
+									{/* Bar area */}
+									<div className="relative flex-1 flex items-center px-3">
+										{barWidthPercent > 0 && (
 											<div
-												ref={setItemRef(row.item.id)}
 												className={cn(
-													"absolute top-1/2 -translate-y-1/2 rounded-md text-white text-xs flex items-center justify-center overflow-hidden",
+													"rounded-md text-white text-xs flex items-center overflow-hidden",
 													isMilestone
 														? MILESTONE_COLORS[colorIndex]
 														: INITIATIVE_COLORS[colorIndex],
@@ -704,13 +331,10 @@ export function TimelineView({
 													!isMilestone && "cursor-pointer hover:opacity-80",
 												)}
 												style={{
-													left: finalBarStart * columnWidth,
-													width: Math.max(
-														(finalBarEnd - finalBarStart) * columnWidth,
-														4,
-													),
+													width: `${barWidthPercent}%`,
+													minWidth: 4,
 												}}
-												title={row.item.title}
+												title={`${row.item.title} — ${sizeLabel}`}
 												{...(!isMilestone && initiative
 													? {
 															onClick: () => onSelectInitiative?.(initiative),
@@ -725,118 +349,56 @@ export function TimelineView({
 														}
 													: {})}
 											>
-												{isMilestone &&
-													(finalBarEnd - finalBarStart) * columnWidth > 60 && (
-														<span className="truncate px-1.5 text-xs font-medium">
-															{row.item.title}
-														</span>
-													)}
+												{barWidthPercent > 15 && (
+													<span className="truncate px-1.5 text-xs font-medium">
+														{sizeLabel}
+													</span>
+												)}
 											</div>
 										)}
-
-										{/* Placeholder for milestones without a visible bar (shouldn't happen in scheduled) */}
-										{!hasFinalBar && isMilestone && (
-											<div
-												ref={setItemRef(row.item.id)}
-												className="absolute top-1/2 -translate-y-1/2 left-2 h-6 w-16 rounded-md bg-muted border border-dashed border-border flex items-center justify-center"
+										{(barWidthPercent <= 15 || barWidthPercent === 0) && (
+											<span
+												className="text-xs text-muted-foreground ml-1"
+												style={{
+													marginLeft: barWidthPercent > 0 ? "4px" : undefined,
+												}}
 											>
-												<span className="text-xs text-muted-foreground">—</span>
-											</div>
+												{sizeLabel}
+											</span>
 										)}
 									</div>
 								</div>
 							);
 						})}
-
-						{/* Today Marker */}
-						{todayPosition != null && (
-							<div
-								className="absolute z-10 pointer-events-none"
-								style={{
-									left: LABEL_WIDTH + todayPosition * columnWidth,
-									top: 0,
-									bottom: 0,
-									width: 2,
-								}}
-							>
-								<div className="w-full h-full bg-red-500/70" />
-								<div className="absolute -top-0 -left-[9px] text-[9px] text-red-600 dark:text-red-400 font-medium bg-background px-1 rounded border border-red-300 dark:border-red-700 whitespace-nowrap">
-									Today
-								</div>
-							</div>
-						)}
-
-						{/* Dependency Arrows SVG Overlay */}
-						{arrows.length > 0 && (
-							<svg
-								className="absolute inset-0 pointer-events-none z-10"
-								role="img"
-								aria-label="Dependency arrows between milestones and initiatives"
-								style={{
-									width: "100%",
-									height: "100%",
-									overflow: "visible",
-								}}
-							>
-								<defs>
-									<marker
-										id="timeline-arrowhead"
-										markerWidth="8"
-										markerHeight="6"
-										refX="8"
-										refY="3"
-										orient="auto"
-									>
-										<path
-											d="M0,0 L8,3 L0,6 Z"
-											className="fill-slate-400 dark:fill-slate-500"
-										/>
-									</marker>
-								</defs>
-								{arrows.map((arrow) => (
-									<line
-										key={arrow.id}
-										x1={arrow.x1}
-										y1={arrow.y1}
-										x2={arrow.x2}
-										y2={arrow.y2}
-										className="stroke-slate-400 dark:stroke-slate-500"
-										strokeWidth={1.5}
-										markerEnd="url(#timeline-arrowhead)"
-									/>
-								))}
-							</svg>
-						)}
 					</div>
 				</div>
 			)}
 
-			{/* All milestones are unscheduled */}
-			{scheduledMilestones.length === 0 && unscheduledMilestones.length > 0 && (
+			{/* All milestones are unsized */}
+			{sizedMilestones.length === 0 && unsizedMilestones.length > 0 && (
 				<div className="flex items-center justify-center flex-1 rounded-lg border border-dashed">
 					<div className="text-center space-y-2">
-						<Calendar className="size-8 mx-auto text-muted-foreground" />
+						<BarChart3 className="size-8 mx-auto text-muted-foreground" />
 						<p className="text-muted-foreground">
-							No milestones have dates set
+							No milestones have sized initiatives
 						</p>
 						<p className="text-sm text-muted-foreground">
-							Add start and end dates to your milestones to see them on the
-							timeline.
+							Add sizes to your initiatives to see the overview chart.
 						</p>
 					</div>
 				</div>
 			)}
 
-			{/* Unscheduled Milestones Section */}
-			{unscheduledMilestones.length > 0 && (
+			{/* Unsized Milestones Section */}
+			{unsizedMilestones.length > 0 && (
 				<div className="rounded-md border">
 					<div className="px-3 py-2 border-b bg-muted/40">
 						<span className="text-xs font-medium text-muted-foreground">
-							Unscheduled ({unscheduledMilestones.length})
+							Unsized ({unsizedMilestones.length})
 						</span>
 					</div>
 					<div className="divide-y">
-						{unscheduledMilestones.map((milestone) => {
+						{unsizedMilestones.map((milestone) => {
 							const milestoneInitiatives =
 								initiativesByMilestone.get(milestone.id) ?? [];
 							return (
@@ -861,9 +423,6 @@ export function TimelineView({
 											? "initiative"
 											: "initiatives"}
 									</Badge>
-									<span className="text-xs text-muted-foreground">
-										No dates set
-									</span>
 								</div>
 							);
 						})}

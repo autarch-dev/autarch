@@ -14,8 +14,8 @@ import {
 } from "@/shared/schemas/events";
 import {
 	InitiativePrioritySchema,
+	InitiativeSizeSchema,
 	InitiativeStatusSchema,
-	ProgressModeSchema,
 	type RoadmapDependency,
 	RoadmapDependencyNodeTypeSchema,
 	RoadmapStatusSchema,
@@ -45,16 +45,12 @@ const UpdateRoadmapRequestSchema = z.object({
 const CreateMilestoneRequestSchema = z.object({
 	title: z.string().min(1),
 	description: z.string().optional(),
-	startDate: z.number().optional(),
-	endDate: z.number().optional(),
 	sortOrder: z.number(),
 });
 
 const UpdateMilestoneRequestSchema = z.object({
 	title: z.string().min(1).optional(),
 	description: z.string().optional(),
-	startDate: z.number().nullable().optional(),
-	endDate: z.number().nullable().optional(),
 	sortOrder: z.number().optional(),
 });
 
@@ -65,8 +61,8 @@ const CreateInitiativeRequestSchema = z.object({
 	status: InitiativeStatusSchema.optional(),
 	priority: InitiativePrioritySchema.optional(),
 	progress: z.number().min(0).max(100).optional(),
-	progressMode: ProgressModeSchema.optional(),
 	workflowId: z.string().optional(),
+	size: InitiativeSizeSchema.nullable().optional(),
 	sortOrder: z.number(),
 });
 
@@ -76,8 +72,8 @@ const UpdateInitiativeRequestSchema = z.object({
 	status: InitiativeStatusSchema.optional(),
 	priority: InitiativePrioritySchema.optional(),
 	progress: z.number().min(0).max(100).optional(),
-	progressMode: ProgressModeSchema.optional(),
 	workflowId: z.string().nullable().optional(),
+	size: InitiativeSizeSchema.nullable().optional(),
 	milestoneId: z.string().optional(),
 	sortOrder: z.number().optional(),
 });

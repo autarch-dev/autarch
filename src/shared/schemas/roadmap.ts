@@ -28,8 +28,16 @@ export const InitiativePrioritySchema = z.enum([
 ]);
 export type InitiativePriority = z.infer<typeof InitiativePrioritySchema>;
 
-export const ProgressModeSchema = z.enum(["auto", "manual"]);
-export type ProgressMode = z.infer<typeof ProgressModeSchema>;
+export const InitiativeSizeSchema = z.union([
+	z.literal(1),
+	z.literal(2),
+	z.literal(3),
+	z.literal(5),
+	z.literal(8),
+	z.literal(13),
+	z.literal(21),
+]);
+export type InitiativeSize = z.infer<typeof InitiativeSizeSchema>;
 
 // =============================================================================
 // Roadmap
@@ -55,8 +63,6 @@ export const MilestoneSchema = z.object({
 	roadmapId: z.string(),
 	title: z.string(),
 	description: z.string().optional(),
-	startDate: z.number().optional(),
-	endDate: z.number().optional(),
 	sortOrder: z.number(),
 	createdAt: z.number(),
 	updatedAt: z.number(),
@@ -76,8 +82,8 @@ export const InitiativeSchema = z.object({
 	status: InitiativeStatusSchema,
 	priority: InitiativePrioritySchema,
 	progress: z.number().min(0).max(100),
-	progressMode: ProgressModeSchema,
 	workflowId: z.string().optional(),
+	size: InitiativeSizeSchema.nullable().optional(),
 	sortOrder: z.number(),
 	createdAt: z.number(),
 	updatedAt: z.number(),

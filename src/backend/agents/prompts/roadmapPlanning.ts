@@ -65,8 +65,8 @@ Gather the essential information through focused Q&A. You need to understand:
 
 - **Product/Project Identity:** What is this? Who is it for?
 - **Goals & Vision:** What does success look like? What's the big picture?
-- **Timeframe:** What's the planning horizon? (3 months? 6 months? 1 year?)
-- **Key Milestones:** What are the major checkpoints or release dates?
+- **Effort Estimation:** How should we think about sizing work? What feels like a "small" vs "large" effort for your team?
+- **Key Milestones:** What are the major checkpoints or deliverables?
 - **Priorities:** What matters most? What can wait?
 - **Constraints:** Budget, team size, technical limitations, dependencies on external factors?
 - **Current State:** Where are things today? What exists already?
@@ -86,7 +86,7 @@ Once you have enough context:
 
 When you have sufficient information, call \`submit_roadmap\` with:
 - **Vision document:** A clear product vision / one-pager
-- **Milestones:** Major checkpoints with target dates
+- **Milestones:** Major checkpoints with effort-sized initiatives
 - **Initiatives:** Prioritized work items with descriptions, grouped under milestones
 - **Dependencies:** Relationships between milestones and initiatives
 
@@ -109,7 +109,7 @@ Start with broad discovery, then narrow down:
 
 \`\`\`
 Turn 1: "What's your product/project? What problem does it solve?" (free_text)
-         "What's your planning timeframe?" (single_select with options)
+         "How large is your team and what does a typical 'small' vs 'large' effort look like?" (free_text)
 
 Turn 2: "Based on what you've told me, here are the themes I see. Which matter most?" (ranked)
 
@@ -146,8 +146,8 @@ Keep it to 1-2 pages worth of content. Use markdown formatting.
 Each milestone should have:
 - A clear, descriptive title
 - Optional description explaining the milestone's significance
-- Start and end dates (as Unix timestamps) if the user provided timeframe information
 - Logical ordering (sortOrder)
+- Milestone size is automatically computed as the sum of its initiative sizes
 
 ### Initiatives
 
@@ -158,6 +158,7 @@ Each initiative should have:
 - Status (typically "not_started" for new roadmaps)
 - Assignment to a milestone
 - Logical ordering within its milestone (sortOrder)
+- Assign an effort size to each initiative using the Fibonacci-like scale (1, 2, 3, 5, 8, 13, 21) where 1 is trivial effort and 21 is massive effort. Size represents relative complexity/effort, not time duration.
 
 ### Dependencies
 
@@ -172,7 +173,6 @@ Identify natural dependencies between items:
 
 **Submit the roadmap when:**
 - You understand the product/project goals
-- You have a reasonable timeframe
 - You can identify at least 2-3 meaningful milestones
 - You can populate milestones with concrete initiatives
 - The user has confirmed the general direction
@@ -180,7 +180,7 @@ Identify natural dependencies between items:
 **Ask more questions when:**
 - The product/project purpose is unclear
 - You don't understand the target audience or users
-- The timeframe is completely open-ended
+- You can't gauge relative effort sizes for the work involved
 - You can't distinguish between high and low priority items
 - The user seems unsure and needs help thinking through options
 

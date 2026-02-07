@@ -7,18 +7,51 @@
  */
 
 import {
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import {
+	arrayMove,
+	SortableContext,
+	useSortable,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
 	ArrowDown,
 	ArrowUp,
 	ArrowUpDown,
 	ChevronDown,
 	ChevronRight,
 	GitBranch,
+	GripVertical,
+	MoreHorizontal,
 	Plus,
 	Search,
+	Trash2,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -64,14 +97,12 @@ interface TableViewProps {
 	dependencies: RoadmapDependency[];
 	onUpdateMilestone: (
 		milestoneId: string,
-		data: Partial<
-			Pick<Milestone, "title" | "description" | "startDate" | "endDate">
-		>,
+		data: Partial<Pick<Milestone, "title" | "description">>,
 	) => Promise<void>;
 	onUpdateInitiative: (
 		initiativeId: string,
 		data: Partial<
-			Pick<Initiative, "title" | "status" | "priority" | "progress">
+			Pick<Initiative, "title" | "status" | "priority" | "progress" | "size">
 		>,
 	) => Promise<void>;
 	onCreateMilestone: (data: {
@@ -83,6 +114,15 @@ interface TableViewProps {
 		data: { title: string },
 	) => Promise<void>;
 	onSelectInitiative?: (initiative: Initiative) => void;
+	onDeleteMilestone: (milestoneId: string) => Promise<void>;
+	onDeleteInitiative: (initiativeId: string) => Promise<void>;
+	onReorderMilestones: (
+		reorderedIds: { id: string; sortOrder: number }[],
+	) => void;
+	onReorderInitiatives: (
+		milestoneId: string,
+		reorderedIds: { id: string; sortOrder: number }[],
+	) => void;
 }
 
 // =============================================================================
@@ -132,18 +172,7 @@ const PRIORITY_SORT_ORDER: Record<InitiativePriority, number> = {
 	low: 3,
 };
 
-// =============================================================================
-// Helper: Format date from timestamp
-// =============================================================================
-
-function formatDate(timestamp?: number): string {
-	if (!timestamp) return "—";
-	return new Date(timestamp).toLocaleDateString(undefined, {
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-	});
-}
+const FIBONACCI_SIZES = [1, 2, 3, 5, 8, 13, 21] as const;
 
 // =============================================================================
 // Helper: Get dependency names for an item
@@ -240,81 +269,13 @@ function EditableTextCell({
 		<button
 			type="button"
 			className={cn(
-				"text-left bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80 truncate max-w-[200px]",
+				"text-left bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80 truncate",
 				className,
 			)}
 			onClick={handleStartEdit}
 			title="Click to edit"
 		>
 			{value}
-		</button>
-	);
-}
-
-// =============================================================================
-// Sub-component: Editable Date Cell
-// =============================================================================
-
-function EditableDateCell({
-	value,
-	onSave,
-}: {
-	value?: number;
-	onSave: (value: number | undefined) => void;
-}) {
-	const [isEditing, setIsEditing] = useState(false);
-	const [editValue, setEditValue] = useState(
-		value ? new Date(value).toISOString().split("T")[0] : "",
-	);
-
-	const handleStartEdit = () => {
-		setEditValue(value ? new Date(value).toISOString().split("T")[0] : "");
-		setIsEditing(true);
-	};
-
-	const handleSave = () => {
-		if (editValue) {
-			const timestamp = new Date(editValue).getTime();
-			if (!Number.isNaN(timestamp) && timestamp !== value) {
-				onSave(timestamp);
-			}
-		} else if (value) {
-			onSave(undefined);
-		}
-		setIsEditing(false);
-	};
-
-	const handleKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === "Enter") {
-			handleSave();
-		} else if (e.key === "Escape") {
-			setEditValue(value ? new Date(value).toISOString().split("T")[0] : "");
-			setIsEditing(false);
-		}
-	};
-
-	if (isEditing) {
-		return (
-			<Input
-				type="date"
-				value={editValue}
-				onChange={(e) => setEditValue(e.target.value)}
-				onBlur={handleSave}
-				onKeyDown={handleKeyDown}
-				className="h-7 text-sm w-[140px]"
-				autoFocus
-			/>
-		);
-	}
-
-	return (
-		<button
-			type="button"
-			className="text-left bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80 text-sm"
-			onClick={handleStartEdit}
-			title="Click to edit"
-		>
-			{formatDate(value)}
 		</button>
 	);
 }
@@ -459,6 +420,10 @@ export function TableView({
 	onCreateMilestone,
 	onCreateInitiative,
 	onSelectInitiative,
+	onDeleteMilestone,
+	onDeleteInitiative,
+	onReorderMilestones,
+	onReorderInitiatives,
 }: TableViewProps) {
 	// -------------------------------------------------------------------------
 	// State
@@ -470,6 +435,19 @@ export function TableView({
 	const [filterStatus, setFilterStatus] = useState<string>("all");
 	const [filterPriority, setFilterPriority] = useState<string>("all");
 	const [searchText, setSearchText] = useState("");
+	const [deleteTarget, setDeleteTarget] = useState<{
+		type: "milestone" | "initiative";
+		id: string;
+		title: string;
+	} | null>(null);
+
+	// -------------------------------------------------------------------------
+	// DnD Sensors
+	// -------------------------------------------------------------------------
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+		useSensor(KeyboardSensor),
+	);
 
 	// -------------------------------------------------------------------------
 	// Handlers
@@ -572,6 +550,53 @@ export function TableView({
 		[milestones],
 	);
 
+	// -------------------------------------------------------------------------
+	// DnD Handlers
+	// -------------------------------------------------------------------------
+	const handleMilestoneDragEnd = useCallback(
+		(event: DragEndEvent) => {
+			const { active, over } = event;
+			if (!over || active.id === over.id) return;
+
+			const oldIndex = sortedMilestones.findIndex((m) => m.id === active.id);
+			const newIndex = sortedMilestones.findIndex((m) => m.id === over.id);
+			if (oldIndex === -1 || newIndex === -1) return;
+
+			const reordered = arrayMove(sortedMilestones, oldIndex, newIndex);
+			const updates = reordered
+				.map((m, i) => ({ id: m.id, sortOrder: i }))
+				.filter((_u, i) => sortedMilestones[i]?.id !== reordered[i]?.id);
+			if (updates.length > 0) {
+				onReorderMilestones(updates);
+			}
+		},
+		[sortedMilestones, onReorderMilestones],
+	);
+
+	const handleInitiativeDragEnd = useCallback(
+		(milestoneId: string, currentInitiatives: Initiative[]) =>
+			(event: DragEndEvent) => {
+				const { active, over } = event;
+				if (!over || active.id === over.id) return;
+
+				const sorted = [...currentInitiatives].sort(
+					(a, b) => a.sortOrder - b.sortOrder,
+				);
+				const oldIndex = sorted.findIndex((i) => i.id === active.id);
+				const newIndex = sorted.findIndex((i) => i.id === over.id);
+				if (oldIndex === -1 || newIndex === -1) return;
+
+				const reordered = arrayMove(sorted, oldIndex, newIndex);
+				const updates = reordered
+					.map((item, i) => ({ id: item.id, sortOrder: i }))
+					.filter((_u, i) => sorted[i]?.id !== reordered[i]?.id);
+				if (updates.length > 0) {
+					onReorderInitiatives(milestoneId, updates);
+				}
+			},
+		[onReorderInitiatives],
+	);
+
 	// Check if any filters are active
 	const hasActiveFilters =
 		filterStatus !== "all" ||
@@ -656,7 +681,7 @@ export function TableView({
 				<Table>
 					<TableHeader className="sticky top-0 z-10 bg-background">
 						<TableRow>
-							<TableHead className="w-[250px]">
+							<TableHead className="w-[400px]">
 								<SortableHeader
 									label="Title"
 									field="title"
@@ -688,64 +713,127 @@ export function TableView({
 									onSort={handleSort}
 								/>
 							</TableHead>
-							<TableHead className="w-[120px]">Start Date</TableHead>
-							<TableHead className="w-[120px]">End Date</TableHead>
+							<TableHead className="w-[90px]">Size</TableHead>
 							<TableHead className="w-[180px]">Dependencies</TableHead>
 						</TableRow>
 					</TableHeader>
-					<TableBody>
-						{sortedMilestones.length === 0 ? (
-							<TableRow>
-								<TableCell
-									colSpan={7}
-									className="h-24 text-center text-muted-foreground"
-								>
-									No milestones yet. Create one to get started.
-								</TableCell>
-							</TableRow>
-						) : (
-							sortedMilestones.map((milestone) => {
-								const isCollapsed = collapsedMilestones.has(milestone.id);
-								const milestoneInitiatives =
-									initiativesByMilestone.get(milestone.id) ?? [];
-								const milestoneDepNames = getDependencyNames(
-									milestone.id,
-									"milestone",
-									dependencies,
-									milestones,
-									initiatives,
-								);
-								const hasMilestoneDeps = hasDependencies(
-									milestone.id,
-									"milestone",
-									dependencies,
-								);
+					<DndContext
+						sensors={sensors}
+						collisionDetection={closestCenter}
+						onDragEnd={handleMilestoneDragEnd}
+					>
+						<SortableContext
+							items={sortedMilestones.map((m) => m.id)}
+							strategy={verticalListSortingStrategy}
+						>
+							<TableBody>
+								{sortedMilestones.length === 0 ? (
+									<TableRow>
+										<TableCell
+											colSpan={6}
+											className="h-24 text-center text-muted-foreground"
+										>
+											No milestones yet. Create one to get started.
+										</TableCell>
+									</TableRow>
+								) : (
+									sortedMilestones.map((milestone) => {
+										const isCollapsed = collapsedMilestones.has(milestone.id);
+										const milestoneInitiatives =
+											initiativesByMilestone.get(milestone.id) ?? [];
+										const milestoneDepNames = getDependencyNames(
+											milestone.id,
+											"milestone",
+											dependencies,
+											milestones,
+											initiatives,
+										);
+										const hasMilestoneDeps = hasDependencies(
+											milestone.id,
+											"milestone",
+											dependencies,
+										);
 
-								return (
-									<MilestoneGroup
-										key={milestone.id}
-										milestone={milestone}
-										initiatives={milestoneInitiatives}
-										dependencies={dependencies}
-										allMilestones={milestones}
-										allInitiatives={initiatives}
-										dependencyNames={milestoneDepNames}
-										hasDependencies={hasMilestoneDeps}
-										isCollapsed={isCollapsed}
-										onToggle={() => toggleMilestone(milestone.id)}
-										onUpdateMilestone={onUpdateMilestone}
-										onUpdateInitiative={onUpdateInitiative}
-										onCreateInitiative={() =>
-											handleCreateInitiative(milestone.id)
-										}
-										onSelectInitiative={onSelectInitiative}
-									/>
-								);
-							})
-						)}
-					</TableBody>
+										return (
+											<MilestoneGroup
+												key={milestone.id}
+												milestone={milestone}
+												initiatives={milestoneInitiatives}
+												dependencies={dependencies}
+												allMilestones={milestones}
+												allInitiatives={initiatives}
+												dependencyNames={milestoneDepNames}
+												hasDependencies={hasMilestoneDeps}
+												isCollapsed={isCollapsed}
+												onToggle={() => toggleMilestone(milestone.id)}
+												onUpdateMilestone={onUpdateMilestone}
+												onUpdateInitiative={onUpdateInitiative}
+												onCreateInitiative={() =>
+													handleCreateInitiative(milestone.id)
+												}
+												onSelectInitiative={onSelectInitiative}
+												onRequestDeleteMilestone={(id, title) =>
+													setDeleteTarget({ type: "milestone", id, title })
+												}
+												onRequestDeleteInitiative={(id, title) =>
+													setDeleteTarget({ type: "initiative", id, title })
+												}
+												sensors={sensors}
+												onInitiativeDragEnd={handleInitiativeDragEnd(
+													milestone.id,
+													milestoneInitiatives,
+												)}
+											/>
+										);
+									})
+								)}
+							</TableBody>
+						</SortableContext>
+					</DndContext>
 				</Table>
 			</div>
+
+			{/* Delete Confirmation Dialog */}
+			<Dialog
+				open={deleteTarget !== null}
+				onOpenChange={(open) => {
+					if (!open) setDeleteTarget(null);
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>
+							Delete{" "}
+							{deleteTarget?.type === "milestone" ? "Milestone" : "Initiative"}
+						</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to delete &ldquo;{deleteTarget?.title}
+							&rdquo;? This action cannot be undone.
+							{deleteTarget?.type === "milestone" &&
+								" All initiatives in this milestone will also be deleted."}
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setDeleteTarget(null)}>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={async () => {
+								if (!deleteTarget) return;
+								if (deleteTarget.type === "milestone") {
+									await onDeleteMilestone(deleteTarget.id);
+								} else {
+									await onDeleteInitiative(deleteTarget.id);
+								}
+								setDeleteTarget(null);
+							}}
+						>
+							Delete
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
@@ -768,6 +856,10 @@ function MilestoneGroup({
 	onUpdateInitiative,
 	onCreateInitiative,
 	onSelectInitiative,
+	onRequestDeleteMilestone,
+	onRequestDeleteInitiative,
+	sensors,
+	onInitiativeDragEnd,
 }: {
 	milestone: Milestone;
 	initiatives: Initiative[];
@@ -780,19 +872,37 @@ function MilestoneGroup({
 	onToggle: () => void;
 	onUpdateMilestone: (
 		milestoneId: string,
-		data: Partial<
-			Pick<Milestone, "title" | "description" | "startDate" | "endDate">
-		>,
+		data: Partial<Pick<Milestone, "title" | "description">>,
 	) => Promise<void>;
 	onUpdateInitiative: (
 		initiativeId: string,
 		data: Partial<
-			Pick<Initiative, "title" | "status" | "priority" | "progress">
+			Pick<Initiative, "title" | "status" | "priority" | "progress" | "size">
 		>,
 	) => Promise<void>;
 	onCreateInitiative: () => void;
 	onSelectInitiative?: (initiative: Initiative) => void;
+	onRequestDeleteMilestone: (id: string, title: string) => void;
+	onRequestDeleteInitiative: (id: string, title: string) => void;
+	sensors: ReturnType<typeof useSensors>;
+	onInitiativeDragEnd: (event: DragEndEvent) => void;
 }) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: milestone.id });
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		opacity: isDragging ? 0.5 : undefined,
+		boxShadow: isDragging ? "0 4px 12px rgba(0, 0, 0, 0.15)" : undefined,
+	};
+
 	// Calculate milestone progress from initiatives
 	const milestoneProgress = useMemo(() => {
 		if (initiatives.length === 0) return 0;
@@ -800,12 +910,35 @@ function MilestoneGroup({
 		return Math.round(total / initiatives.length);
 	}, [initiatives]);
 
+	const milestoneSize = useMemo(() => {
+		return initiatives
+			.filter((i) => i.size != null)
+			.reduce((sum, i) => sum + (i.size ?? 0), 0);
+	}, [initiatives]);
+
+	const sortedInitiatives = useMemo(
+		() => [...initiatives].sort((a, b) => a.sortOrder - b.sortOrder),
+		[initiatives],
+	);
+
 	return (
 		<>
 			{/* Milestone Header Row */}
-			<TableRow className="bg-muted/60 hover:bg-muted/80 font-medium">
+			<TableRow
+				ref={setNodeRef}
+				style={style}
+				className="bg-muted/60 hover:bg-muted/80 font-medium"
+				{...attributes}
+			>
 				<TableCell>
 					<div className="flex items-center gap-1.5">
+						<button
+							type="button"
+							className="bg-transparent border-none p-0 cursor-grab text-muted-foreground hover:text-foreground"
+							{...listeners}
+						>
+							<GripVertical className="size-4" />
+						</button>
 						<button
 							type="button"
 							className="bg-transparent border-none p-0.5 cursor-pointer hover:text-foreground/80 rounded"
@@ -841,60 +974,88 @@ function MilestoneGroup({
 					</div>
 				</TableCell>
 				<TableCell>
-					<EditableDateCell
-						value={milestone.startDate}
-						onSave={(startDate) =>
-							onUpdateMilestone(milestone.id, { startDate })
-						}
-					/>
+					<span className="text-xs text-muted-foreground">
+						{milestoneSize > 0 ? milestoneSize : "—"}
+					</span>
 				</TableCell>
 				<TableCell>
-					<EditableDateCell
-						value={milestone.endDate}
-						onSave={(endDate) => onUpdateMilestone(milestone.id, { endDate })}
-					/>
-				</TableCell>
-				<TableCell>
-					{dependencyNames.length > 0 && (
-						<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">
-							{dependencyNames.join(", ")}
-						</span>
-					)}
+					<div className="flex items-center justify-between gap-1">
+						{dependencyNames.length > 0 && (
+							<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">
+								{dependencyNames.join(", ")}
+							</span>
+						)}
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-6 w-6 p-0 ml-auto"
+								>
+									<MoreHorizontal className="size-3.5" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuItem
+									className="text-destructive focus:text-destructive"
+									onClick={() =>
+										onRequestDeleteMilestone(milestone.id, milestone.title)
+									}
+								>
+									<Trash2 className="size-3.5 mr-2" />
+									Delete
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</div>
 				</TableCell>
 			</TableRow>
 
 			{/* Initiative Rows */}
-			{!isCollapsed &&
-				initiatives.map((initiative) => {
-					const depNames = getDependencyNames(
-						initiative.id,
-						"initiative",
-						dependencies,
-						allMilestones,
-						allInitiatives,
-					);
-					const hasInitDeps = hasDependencies(
-						initiative.id,
-						"initiative",
-						dependencies,
-					);
+			{!isCollapsed && (
+				<DndContext
+					sensors={sensors}
+					collisionDetection={closestCenter}
+					onDragEnd={onInitiativeDragEnd}
+				>
+					<SortableContext
+						items={sortedInitiatives.map((i) => i.id)}
+						strategy={verticalListSortingStrategy}
+					>
+						{sortedInitiatives.map((initiative) => {
+							const depNames = getDependencyNames(
+								initiative.id,
+								"initiative",
+								dependencies,
+								allMilestones,
+								allInitiatives,
+							);
+							const hasInitDeps = hasDependencies(
+								initiative.id,
+								"initiative",
+								dependencies,
+							);
 
-					return (
-						<InitiativeRow
-							key={initiative.id}
-							initiative={initiative}
-							dependencyNames={depNames}
-							hasDependencies={hasInitDeps}
-							onUpdate={onUpdateInitiative}
-							onSelect={onSelectInitiative}
-						/>
-					);
-				})}
+							return (
+								<InitiativeRow
+									key={initiative.id}
+									initiative={initiative}
+									dependencyNames={depNames}
+									hasDependencies={hasInitDeps}
+									onUpdate={onUpdateInitiative}
+									onSelect={onSelectInitiative}
+									onRequestDelete={onRequestDeleteInitiative}
+								/>
+							);
+						})}
+					</SortableContext>
+				</DndContext>
+			)}
 
 			{/* Add Initiative Button Row */}
 			{!isCollapsed && (
 				<TableRow className="hover:bg-transparent">
-					<TableCell colSpan={7}>
+					<TableCell colSpan={6}>
 						<button
 							type="button"
 							className="flex items-center gap-1 ml-7 text-xs text-muted-foreground hover:text-foreground bg-transparent border-none p-0 cursor-pointer"
@@ -920,6 +1081,7 @@ function InitiativeRow({
 	hasDependencies: hasDeps,
 	onUpdate,
 	onSelect,
+	onRequestDelete,
 }: {
 	initiative: Initiative;
 	dependencyNames: string[];
@@ -927,15 +1089,46 @@ function InitiativeRow({
 	onUpdate: (
 		initiativeId: string,
 		data: Partial<
-			Pick<Initiative, "title" | "status" | "priority" | "progress">
+			Pick<Initiative, "title" | "status" | "priority" | "progress" | "size">
 		>,
 	) => Promise<void>;
 	onSelect?: (initiative: Initiative) => void;
+	onRequestDelete: (id: string, title: string) => void;
 }) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: initiative.id });
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		opacity: isDragging ? 0.5 : undefined,
+		boxShadow: isDragging ? "0 4px 12px rgba(0, 0, 0, 0.15)" : undefined,
+	};
+
 	return (
-		<TableRow className="cursor-pointer" onClick={() => onSelect?.(initiative)}>
+		<TableRow
+			ref={setNodeRef}
+			style={style}
+			className="cursor-pointer"
+			onClick={() => onSelect?.(initiative)}
+			{...attributes}
+		>
 			<TableCell onClick={(e) => e.stopPropagation()}>
-				<div className="flex items-center gap-1.5 pl-7">
+				<div className="flex items-center gap-1.5 pl-3">
+					<button
+						type="button"
+						className="bg-transparent border-none p-0 cursor-grab text-muted-foreground hover:text-foreground"
+						onClick={(e) => e.stopPropagation()}
+						{...listeners}
+					>
+						<GripVertical className="size-4" />
+					</button>
 					{hasDeps && (
 						<GitBranch className="size-3.5 text-amber-500 shrink-0" />
 					)}
@@ -965,14 +1158,55 @@ function InitiativeRow({
 					</span>
 				</div>
 			</TableCell>
-			<TableCell className="text-sm text-muted-foreground">—</TableCell>
-			<TableCell className="text-sm text-muted-foreground">—</TableCell>
-			<TableCell>
-				{dependencyNames.length > 0 && (
-					<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">
-						{dependencyNames.join(", ")}
-					</span>
-				)}
+			<TableCell onClick={(e) => e.stopPropagation()}>
+				<Select
+					value={String(initiative.size ?? "none")}
+					onValueChange={(v) =>
+						onUpdate(initiative.id, {
+							size: v === "none" ? null : (Number(v) as Initiative["size"]),
+						})
+					}
+				>
+					<SelectTrigger
+						size="sm"
+						className="h-7 text-xs border-none shadow-none px-0 gap-1 w-auto"
+					>
+						<SelectValue placeholder="Unset" />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="none">Unset</SelectItem>
+						{FIBONACCI_SIZES.map((size) => (
+							<SelectItem key={size} value={String(size)}>
+								{size}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</TableCell>
+			<TableCell onClick={(e) => e.stopPropagation()}>
+				<div className="flex items-center justify-between gap-1">
+					{dependencyNames.length > 0 && (
+						<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">
+							{dependencyNames.join(", ")}
+						</span>
+					)}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto">
+								<MoreHorizontal className="size-3.5" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem
+								className="text-destructive focus:text-destructive"
+								onClick={() => onRequestDelete(initiative.id, initiative.title)}
+							>
+								<Trash2 className="size-3.5 mr-2" />
+								Delete
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
 			</TableCell>
 		</TableRow>
 	);
