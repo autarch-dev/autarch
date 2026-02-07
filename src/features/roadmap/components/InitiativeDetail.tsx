@@ -84,6 +84,8 @@ const PRIORITY_OPTIONS: { value: InitiativePriority; label: string }[] = [
 	{ value: "critical", label: "Critical" },
 ];
 
+const FIBONACCI_SIZES = [1, 2, 3, 5, 8, 13, 21] as const;
+
 const STATUS_COLORS: Record<InitiativeStatus, string> = {
 	not_started: "text-muted-foreground bg-muted",
 	in_progress: "text-blue-700 bg-blue-100 dark:text-blue-400 dark:bg-blue-950",
@@ -129,7 +131,7 @@ interface InitiativeDetailProps {
 		data: Partial<
 			Pick<
 				Initiative,
-				"title" | "description" | "status" | "priority" | "progress"
+				"title" | "description" | "status" | "priority" | "progress" | "size"
 			>
 		> & { workflowId?: string | null },
 	) => Promise<void>;
@@ -234,6 +236,20 @@ export function InitiativeDetail({
 		async (priority: InitiativePriority) => {
 			if (!initiative) return;
 			await onUpdateInitiative(initiative.id, { priority });
+		},
+		[initiative, onUpdateInitiative],
+	);
+
+	const handleSizeChange = useCallback(
+		async (value: string) => {
+			if (!initiative) return;
+			if (value === "none") {
+				await onUpdateInitiative(initiative.id, { size: null });
+			} else {
+				await onUpdateInitiative(initiative.id, {
+					size: Number(value) as Initiative["size"],
+				});
+			}
 		},
 		[initiative, onUpdateInitiative],
 	);
@@ -420,6 +436,29 @@ export function InitiativeDetail({
 									{PRIORITY_OPTIONS.map((opt) => (
 										<SelectItem key={opt.value} value={opt.value}>
 											{opt.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+
+					{/* Size */}
+					<div className="grid grid-cols-2 gap-4">
+						<div className="space-y-1.5">
+							<Label>Size</Label>
+							<Select
+								value={String(initiative.size ?? "none")}
+								onValueChange={handleSizeChange}
+							>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Unset" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="none">Unset</SelectItem>
+									{FIBONACCI_SIZES.map((size) => (
+										<SelectItem key={size} value={String(size)}>
+											{size}
 										</SelectItem>
 									))}
 								</SelectContent>

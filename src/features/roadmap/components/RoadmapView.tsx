@@ -105,7 +105,7 @@ interface RoadmapViewProps {
 		data: Partial<
 			Pick<
 				Initiative,
-				"title" | "description" | "status" | "priority" | "progress"
+				"title" | "description" | "status" | "priority" | "progress" | "size"
 			>
 		> & { workflowId?: string | null },
 	) => Promise<void>;
