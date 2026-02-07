@@ -131,8 +131,6 @@ export class RoadmapRepository implements Repository {
 			roadmapId: row.roadmap_id,
 			title: row.title,
 			description: row.description ?? undefined,
-			startDate: row.start_date ?? undefined,
-			endDate: row.end_date ?? undefined,
 			sortOrder: row.sort_order,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,

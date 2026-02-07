@@ -66,8 +66,6 @@ export const MilestoneSchema = z.object({
 	roadmapId: z.string(),
 	title: z.string(),
 	description: z.string().optional(),
-	startDate: z.number().optional(),
-	endDate: z.number().optional(),
 	sortOrder: z.number(),
 	createdAt: z.number(),
 	updatedAt: z.number(),

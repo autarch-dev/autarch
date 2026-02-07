@@ -7,7 +7,7 @@
  */
 
 import {
-	Calendar,
+	BarChart3,
 	FileText,
 	MoreHorizontal,
 	Pencil,
@@ -295,12 +295,12 @@ export function RoadmapView({
 					onSendMessage={onSendMessage}
 				/>
 			) : (
-				<Tabs defaultValue="timeline" className="flex-1 flex flex-col min-h-0">
+				<Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
 					<div className="px-4 pt-3">
 						<TabsList>
-							<TabsTrigger value="timeline">
-								<Calendar className="size-4 mr-1.5" />
-								Timeline
+							<TabsTrigger value="overview">
+								<BarChart3 className="size-4 mr-1.5" />
+								Overview
 							</TabsTrigger>
 							<TabsTrigger value="table">
 								<TableIcon className="size-4 mr-1.5" />
@@ -313,7 +313,7 @@ export function RoadmapView({
 						</TabsList>
 					</div>
 
-					<TabsContent value="timeline" className="flex-1 min-h-0 p-4">
+					<TabsContent value="overview" className="flex-1 min-h-0 p-4">
 						<TimelineView
 							roadmapId={roadmap.id}
 							milestones={milestones}
