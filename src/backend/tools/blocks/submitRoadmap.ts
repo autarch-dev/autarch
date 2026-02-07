@@ -27,14 +27,6 @@ export const submitRoadmapInputSchema = z.object({
 			z.object({
 				title: z.string().describe("Milestone title"),
 				description: z.string().optional().describe("Milestone description"),
-				startDate: z
-					.number()
-					.optional()
-					.describe("Start date as unix timestamp in milliseconds"),
-				endDate: z
-					.number()
-					.optional()
-					.describe("End date as unix timestamp in milliseconds"),
 				sortOrder: z.number().describe("Display order of this milestone"),
 				initiatives: z
 					.array(
@@ -52,6 +44,12 @@ export const submitRoadmapInputSchema = z.object({
 								.enum(["low", "medium", "high", "critical"])
 								.optional()
 								.describe("Priority level of the initiative"),
+							size: z
+								.number()
+								.optional()
+								.describe(
+									"Effort size using Fibonacci-like scale: 1, 2, 3, 5, 8, 13, or 21. Represents relative effort, not time.",
+								),
 							sortOrder: z
 								.number()
 								.describe("Display order within the milestone"),
@@ -237,8 +235,6 @@ This will persist the entire roadmap structure and activate it.`,
 							roadmap_id: roadmapId,
 							title: milestone.title,
 							description: milestone.description ?? null,
-							start_date: milestone.startDate ?? null,
-							end_date: milestone.endDate ?? null,
 							sort_order: milestone.sortOrder,
 							created_at: now,
 							updated_at: now,
@@ -262,8 +258,9 @@ This will persist the entire roadmap structure and activate it.`,
 								status: initiative.status ?? "not_started",
 								priority: initiative.priority ?? "medium",
 								progress: 0,
-								progress_mode: "manual",
+								progress_mode: "auto",
 								workflow_id: null,
+								size: initiative.size ?? null,
 								sort_order: initiative.sortOrder,
 								created_at: now,
 								updated_at: now,
