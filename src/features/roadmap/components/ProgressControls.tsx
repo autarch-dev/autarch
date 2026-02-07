@@ -40,7 +40,6 @@ export function computeProgressFromWorkflow(status: WorkflowStatus): number {
 interface ProgressControlsProps {
 	initiative: Initiative;
 	linkedWorkflowStatus?: WorkflowStatus;
-	onUpdateProgress: (progress: number) => void;
 }
 
 // =============================================================================

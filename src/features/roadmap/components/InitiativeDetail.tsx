@@ -254,14 +254,6 @@ export function InitiativeDetail({
 		[initiative, onUpdateInitiative],
 	);
 
-	const handleProgressUpdate = useCallback(
-		(progress: number) => {
-			if (!initiative) return;
-			onUpdateInitiative(initiative.id, { progress });
-		},
-		[initiative, onUpdateInitiative],
-	);
-
 	const handleLinkWorkflow = useCallback(
 		async (workflowId: string) => {
 			if (!initiative) return;
@@ -472,7 +464,6 @@ export function InitiativeDetail({
 					<ProgressControls
 						initiative={initiative}
 						linkedWorkflowStatus={linkedWorkflow?.status}
-						onUpdateProgress={handleProgressUpdate}
 					/>
 
 					<Separator />

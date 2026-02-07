@@ -28,9 +28,6 @@ export const InitiativePrioritySchema = z.enum([
 ]);
 export type InitiativePriority = z.infer<typeof InitiativePrioritySchema>;
 
-export const ProgressModeSchema = z.enum(["auto", "manual"]);
-export type ProgressMode = z.infer<typeof ProgressModeSchema>;
-
 export const InitiativeSizeSchema = z.union([
 	z.literal(1),
 	z.literal(2),

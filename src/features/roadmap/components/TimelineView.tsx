@@ -10,21 +10,15 @@ import { BarChart3, ChevronDown, ChevronRight } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type {
-	Initiative,
-	Milestone,
-	RoadmapDependency,
-} from "@/shared/schemas/roadmap";
+import type { Initiative, Milestone } from "@/shared/schemas/roadmap";
 
 // =============================================================================
 // Types
 // =============================================================================
 
 interface TimelineViewProps {
-	roadmapId: string;
 	milestones: Milestone[];
 	initiatives: Initiative[];
-	dependencies: RoadmapDependency[];
 	onSelectInitiative?: (initiative: Initiative) => void;
 }
 
@@ -76,10 +70,8 @@ function getMilestoneSize(initiatives: Initiative[]): number {
 // =============================================================================
 
 export function TimelineView({
-	roadmapId: _roadmapId,
 	milestones,
 	initiatives,
-	dependencies: _dependencies,
 	onSelectInitiative,
 }: TimelineViewProps) {
 	const [collapsedMilestones, setCollapsedMilestones] = useState<Set<string>>(
