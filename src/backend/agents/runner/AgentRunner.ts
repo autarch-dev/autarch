@@ -8,6 +8,8 @@
  * - Persisting turns, messages, tools, and thoughts
  */
 
+import * as fs from "node:fs/promises";
+import * as path from 'node:path';
 import type {
 	AssistantModelMessage,
 	ModelMessage,
@@ -822,6 +824,16 @@ export class AgentRunner {
 			tools,
 			stopWhen: stepCountIs(MAX_TOOL_STEPS),
 			abortSignal: signal,
+			experimental_repairToolCall: (async (options) => {
+				log.agent.error(`Dumping tool call info for ${options.toolCall.toolName} (${options.toolCall.toolCallId})`)
+				const targetFolder = path.join(this.config.projectRoot, ".autarch", "logs")
+				await fs.mkdir(targetFolder, { recursive: true });
+
+				const targetFile = path.join(targetFolder, `${options.toolCall.toolCallId}_input.txt`)
+				await fs.writeFile(targetFile, options.toolCall.input);
+
+				return null;
+			}),
 			// Note: maxTokens and temperature are passed via providerOptions or model config
 		});
 
