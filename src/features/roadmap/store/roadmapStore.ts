@@ -167,7 +167,6 @@ interface RoadmapState {
 				| "status"
 				| "priority"
 				| "progress"
-				| "progressMode"
 				| "size"
 				| "milestoneId"
 				| "sortOrder"

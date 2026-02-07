@@ -87,7 +87,6 @@ export const InitiativeSchema = z.object({
 	status: InitiativeStatusSchema,
 	priority: InitiativePrioritySchema,
 	progress: z.number().min(0).max(100),
-	progressMode: ProgressModeSchema,
 	workflowId: z.string().optional(),
 	size: InitiativeSizeSchema.nullable().optional(),
 	sortOrder: z.number(),

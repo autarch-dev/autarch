@@ -18,7 +18,6 @@ import type {
 	InitiativePriority,
 	InitiativeStatus,
 	Milestone,
-	ProgressMode,
 	Roadmap,
 	RoadmapDependency,
 	RoadmapDependencyNodeType,
@@ -65,7 +64,6 @@ export interface CreateInitiativeData {
 	status?: InitiativeStatus;
 	priority?: InitiativePriority;
 	progress?: number;
-	progressMode?: ProgressMode;
 	workflowId?: string;
 	size?: number | null;
 	sortOrder: number;
@@ -77,7 +75,6 @@ export interface UpdateInitiativeData {
 	status?: InitiativeStatus;
 	priority?: InitiativePriority;
 	progress?: number;
-	progressMode?: ProgressMode;
 	workflowId?: string | null;
 	size?: number | null;
 	milestoneId?: string;
@@ -155,7 +152,6 @@ export class RoadmapRepository implements Repository {
 			status: row.status as InitiativeStatus,
 			priority: row.priority as InitiativePriority,
 			progress: row.progress,
-			progressMode: row.progress_mode as ProgressMode,
 			workflowId: row.workflow_id ?? undefined,
 			size: (row.size as Initiative["size"]) ?? null,
 			sortOrder: row.sort_order,
@@ -480,7 +476,7 @@ export class RoadmapRepository implements Repository {
 				status: data.status ?? "not_started",
 				priority: data.priority ?? "medium",
 				progress: data.progress ?? 0,
-				progress_mode: data.progressMode ?? "manual",
+				progress_mode: "auto",
 				workflow_id: data.workflowId ?? null,
 				size: data.size ?? null,
 				sort_order: data.sortOrder,
@@ -554,8 +550,6 @@ export class RoadmapRepository implements Repository {
 		if (data.status !== undefined) updates.status = data.status;
 		if (data.priority !== undefined) updates.priority = data.priority;
 		if (data.progress !== undefined) updates.progress = data.progress;
-		if (data.progressMode !== undefined)
-			updates.progress_mode = data.progressMode;
 		if (data.workflowId !== undefined)
 			updates.workflow_id = data.workflowId ?? null;
 		if (data.size !== undefined) updates.size = data.size ?? null;

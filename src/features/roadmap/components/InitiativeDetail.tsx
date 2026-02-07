@@ -53,13 +53,9 @@ import type {
 	Initiative,
 	InitiativePriority,
 	InitiativeStatus,
-	ProgressMode,
 } from "@/shared/schemas/roadmap";
 import type { WorkflowStatus } from "@/shared/schemas/workflow";
-import {
-	computeProgressFromWorkflow,
-	ProgressControls,
-} from "./ProgressControls";
+import { ProgressControls } from "./ProgressControls";
 
 // =============================================================================
 // Constants
@@ -124,12 +120,7 @@ interface InitiativeDetailProps {
 		data: Partial<
 			Pick<
 				Initiative,
-				| "title"
-				| "description"
-				| "status"
-				| "priority"
-				| "progress"
-				| "progressMode"
+				"title" | "description" | "status" | "priority" | "progress"
 			>
 		> & { workflowId?: string | null },
 	) => Promise<void>;
@@ -240,21 +231,6 @@ export function InitiativeDetail({
 			onUpdateInitiative(initiative.id, { progress });
 		},
 		[initiative, onUpdateInitiative],
-	);
-
-	const handleProgressModeChange = useCallback(
-		(progressMode: ProgressMode) => {
-			if (!initiative) return;
-			const update: Partial<Pick<Initiative, "progressMode" | "progress">> = {
-				progressMode,
-			};
-			// When switching to auto with a linked workflow, compute progress
-			if (progressMode === "auto" && linkedWorkflow) {
-				update.progress = computeProgressFromWorkflow(linkedWorkflow.status);
-			}
-			onUpdateInitiative(initiative.id, update);
-		},
-		[initiative, linkedWorkflow, onUpdateInitiative],
 	);
 
 	const handleLinkWorkflow = useCallback(
@@ -445,7 +421,6 @@ export function InitiativeDetail({
 						initiative={initiative}
 						linkedWorkflowStatus={linkedWorkflow?.status}
 						onUpdateProgress={handleProgressUpdate}
-						onUpdateProgressMode={handleProgressModeChange}
 					/>
 
 					<Separator />
