@@ -98,9 +98,7 @@ interface RoadmapViewProps {
 	onSendMessage: (content: string) => void;
 	onUpdateMilestone: (
 		milestoneId: string,
-		data: Partial<
-			Pick<Milestone, "title" | "description" | "startDate" | "endDate">
-		>,
+		data: Partial<Pick<Milestone, "title" | "description">>,
 	) => Promise<void>;
 	onUpdateInitiative: (
 		initiativeId: string,

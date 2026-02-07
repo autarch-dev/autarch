@@ -48,16 +48,12 @@ export interface CreateMilestoneData {
 	roadmapId: string;
 	title: string;
 	description?: string;
-	startDate?: number;
-	endDate?: number;
 	sortOrder: number;
 }
 
 export interface UpdateMilestoneData {
 	title?: string;
 	description?: string;
-	startDate?: number | null;
-	endDate?: number | null;
 	sortOrder?: number;
 }
 
@@ -353,8 +349,8 @@ export class RoadmapRepository implements Repository {
 				roadmap_id: data.roadmapId,
 				title: data.title,
 				description: data.description ?? null,
-				start_date: data.startDate ?? null,
-				end_date: data.endDate ?? null,
+				start_date: null,
+				end_date: null,
 				sort_order: data.sortOrder,
 				created_at: now,
 				updated_at: now,
@@ -409,9 +405,6 @@ export class RoadmapRepository implements Repository {
 		if (data.title !== undefined) updates.title = data.title;
 		if (data.description !== undefined)
 			updates.description = data.description ?? null;
-		if (data.startDate !== undefined)
-			updates.start_date = data.startDate ?? null;
-		if (data.endDate !== undefined) updates.end_date = data.endDate ?? null;
 		if (data.sortOrder !== undefined) updates.sort_order = data.sortOrder;
 
 		await this.db

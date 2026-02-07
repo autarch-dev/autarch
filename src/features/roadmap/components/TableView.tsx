@@ -64,9 +64,7 @@ interface TableViewProps {
 	dependencies: RoadmapDependency[];
 	onUpdateMilestone: (
 		milestoneId: string,
-		data: Partial<
-			Pick<Milestone, "title" | "description" | "startDate" | "endDate">
-		>,
+		data: Partial<Pick<Milestone, "title" | "description">>,
 	) => Promise<void>;
 	onUpdateInitiative: (
 		initiativeId: string,
@@ -131,19 +129,6 @@ const PRIORITY_SORT_ORDER: Record<InitiativePriority, number> = {
 	medium: 2,
 	low: 3,
 };
-
-// =============================================================================
-// Helper: Format date from timestamp
-// =============================================================================
-
-function formatDate(timestamp?: number): string {
-	if (!timestamp) return "—";
-	return new Date(timestamp).toLocaleDateString(undefined, {
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-	});
-}
 
 // =============================================================================
 // Helper: Get dependency names for an item
@@ -240,81 +225,13 @@ function EditableTextCell({
 		<button
 			type="button"
 			className={cn(
-				"text-left bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80 truncate max-w-[200px]",
+				"text-left bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80 truncate",
 				className,
 			)}
 			onClick={handleStartEdit}
 			title="Click to edit"
 		>
 			{value}
-		</button>
-	);
-}
-
-// =============================================================================
-// Sub-component: Editable Date Cell
-// =============================================================================
-
-function EditableDateCell({
-	value,
-	onSave,
-}: {
-	value?: number;
-	onSave: (value: number | undefined) => void;
-}) {
-	const [isEditing, setIsEditing] = useState(false);
-	const [editValue, setEditValue] = useState(
-		value ? new Date(value).toISOString().split("T")[0] : "",
-	);
-
-	const handleStartEdit = () => {
-		setEditValue(value ? new Date(value).toISOString().split("T")[0] : "");
-		setIsEditing(true);
-	};
-
-	const handleSave = () => {
-		if (editValue) {
-			const timestamp = new Date(editValue).getTime();
-			if (!Number.isNaN(timestamp) && timestamp !== value) {
-				onSave(timestamp);
-			}
-		} else if (value) {
-			onSave(undefined);
-		}
-		setIsEditing(false);
-	};
-
-	const handleKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === "Enter") {
-			handleSave();
-		} else if (e.key === "Escape") {
-			setEditValue(value ? new Date(value).toISOString().split("T")[0] : "");
-			setIsEditing(false);
-		}
-	};
-
-	if (isEditing) {
-		return (
-			<Input
-				type="date"
-				value={editValue}
-				onChange={(e) => setEditValue(e.target.value)}
-				onBlur={handleSave}
-				onKeyDown={handleKeyDown}
-				className="h-7 text-sm w-[140px]"
-				autoFocus
-			/>
-		);
-	}
-
-	return (
-		<button
-			type="button"
-			className="text-left bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80 text-sm"
-			onClick={handleStartEdit}
-			title="Click to edit"
-		>
-			{formatDate(value)}
 		</button>
 	);
 }
@@ -656,7 +573,7 @@ export function TableView({
 				<Table>
 					<TableHeader className="sticky top-0 z-10 bg-background">
 						<TableRow>
-							<TableHead className="w-[250px]">
+							<TableHead className="w-[400px]">
 								<SortableHeader
 									label="Title"
 									field="title"
@@ -688,8 +605,6 @@ export function TableView({
 									onSort={handleSort}
 								/>
 							</TableHead>
-							<TableHead className="w-[120px]">Start Date</TableHead>
-							<TableHead className="w-[120px]">End Date</TableHead>
 							<TableHead className="w-[180px]">Dependencies</TableHead>
 						</TableRow>
 					</TableHeader>
@@ -697,7 +612,7 @@ export function TableView({
 						{sortedMilestones.length === 0 ? (
 							<TableRow>
 								<TableCell
-									colSpan={7}
+									colSpan={5}
 									className="h-24 text-center text-muted-foreground"
 								>
 									No milestones yet. Create one to get started.
@@ -780,9 +695,7 @@ function MilestoneGroup({
 	onToggle: () => void;
 	onUpdateMilestone: (
 		milestoneId: string,
-		data: Partial<
-			Pick<Milestone, "title" | "description" | "startDate" | "endDate">
-		>,
+		data: Partial<Pick<Milestone, "title" | "description">>,
 	) => Promise<void>;
 	onUpdateInitiative: (
 		initiativeId: string,
@@ -841,20 +754,6 @@ function MilestoneGroup({
 					</div>
 				</TableCell>
 				<TableCell>
-					<EditableDateCell
-						value={milestone.startDate}
-						onSave={(startDate) =>
-							onUpdateMilestone(milestone.id, { startDate })
-						}
-					/>
-				</TableCell>
-				<TableCell>
-					<EditableDateCell
-						value={milestone.endDate}
-						onSave={(endDate) => onUpdateMilestone(milestone.id, { endDate })}
-					/>
-				</TableCell>
-				<TableCell>
 					{dependencyNames.length > 0 && (
 						<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">
 							{dependencyNames.join(", ")}
@@ -894,7 +793,7 @@ function MilestoneGroup({
 			{/* Add Initiative Button Row */}
 			{!isCollapsed && (
 				<TableRow className="hover:bg-transparent">
-					<TableCell colSpan={7}>
+					<TableCell colSpan={5}>
 						<button
 							type="button"
 							className="flex items-center gap-1 ml-7 text-xs text-muted-foreground hover:text-foreground bg-transparent border-none p-0 cursor-pointer"
@@ -965,8 +864,6 @@ function InitiativeRow({
 					</span>
 				</div>
 			</TableCell>
-			<TableCell className="text-sm text-muted-foreground">—</TableCell>
-			<TableCell className="text-sm text-muted-foreground">—</TableCell>
 			<TableCell>
 				{dependencyNames.length > 0 && (
 					<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">

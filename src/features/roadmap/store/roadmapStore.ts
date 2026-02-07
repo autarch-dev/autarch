@@ -136,19 +136,12 @@ interface RoadmapState {
 		data: {
 			title: string;
 			description?: string;
-			startDate?: number;
-			endDate?: number;
 		},
 	) => Promise<Milestone>;
 	updateMilestone: (
 		roadmapId: string,
 		milestoneId: string,
-		data: Partial<
-			Pick<
-				Milestone,
-				"title" | "description" | "startDate" | "endDate" | "sortOrder"
-			>
-		>,
+		data: Partial<Pick<Milestone, "title" | "description" | "sortOrder">>,
 	) => Promise<void>;
 	deleteMilestone: (roadmapId: string, milestoneId: string) => Promise<void>;
 

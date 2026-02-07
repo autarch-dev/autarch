@@ -46,16 +46,12 @@ const UpdateRoadmapRequestSchema = z.object({
 const CreateMilestoneRequestSchema = z.object({
 	title: z.string().min(1),
 	description: z.string().optional(),
-	startDate: z.number().optional(),
-	endDate: z.number().optional(),
 	sortOrder: z.number(),
 });
 
 const UpdateMilestoneRequestSchema = z.object({
 	title: z.string().min(1).optional(),
 	description: z.string().optional(),
-	startDate: z.number().nullable().optional(),
-	endDate: z.number().nullable().optional(),
 	sortOrder: z.number().optional(),
 });
 
