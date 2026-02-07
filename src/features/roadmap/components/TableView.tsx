@@ -85,7 +85,7 @@ interface TableViewProps {
 	onUpdateInitiative: (
 		initiativeId: string,
 		data: Partial<
-			Pick<Initiative, "title" | "status" | "priority" | "progress">
+			Pick<Initiative, "title" | "status" | "priority" | "progress" | "size">
 		>,
 	) => Promise<void>;
 	onCreateMilestone: (data: {
@@ -147,6 +147,8 @@ const PRIORITY_SORT_ORDER: Record<InitiativePriority, number> = {
 	medium: 2,
 	low: 3,
 };
+
+const FIBONACCI_SIZES = [1, 2, 3, 5, 8, 13, 21] as const;
 
 // =============================================================================
 // Helper: Get dependency names for an item
@@ -630,6 +632,7 @@ export function TableView({
 									onSort={handleSort}
 								/>
 							</TableHead>
+							<TableHead className="w-[90px]">Size</TableHead>
 							<TableHead className="w-[180px]">Dependencies</TableHead>
 						</TableRow>
 					</TableHeader>
@@ -637,7 +640,7 @@ export function TableView({
 						{sortedMilestones.length === 0 ? (
 							<TableRow>
 								<TableCell
-									colSpan={5}
+									colSpan={6}
 									className="h-24 text-center text-muted-foreground"
 								>
 									No milestones yet. Create one to get started.
@@ -775,7 +778,7 @@ function MilestoneGroup({
 	onUpdateInitiative: (
 		initiativeId: string,
 		data: Partial<
-			Pick<Initiative, "title" | "status" | "priority" | "progress">
+			Pick<Initiative, "title" | "status" | "priority" | "progress" | "size">
 		>,
 	) => Promise<void>;
 	onCreateInitiative: () => void;
@@ -788,6 +791,12 @@ function MilestoneGroup({
 		if (initiatives.length === 0) return 0;
 		const total = initiatives.reduce((sum, i) => sum + i.progress, 0);
 		return Math.round(total / initiatives.length);
+	}, [initiatives]);
+
+	const milestoneSize = useMemo(() => {
+		return initiatives
+			.filter((i) => i.size != null)
+			.reduce((sum, i) => sum + (i.size ?? 0), 0);
 	}, [initiatives]);
 
 	return (
@@ -829,6 +838,11 @@ function MilestoneGroup({
 							{milestoneProgress}%
 						</span>
 					</div>
+				</TableCell>
+				<TableCell>
+					<span className="text-xs text-muted-foreground">
+						{milestoneSize > 0 ? milestoneSize : "—"}
+					</span>
 				</TableCell>
 				<TableCell>
 					<div className="flex items-center justify-between gap-1">
@@ -895,7 +909,7 @@ function MilestoneGroup({
 			{/* Add Initiative Button Row */}
 			{!isCollapsed && (
 				<TableRow className="hover:bg-transparent">
-					<TableCell colSpan={5}>
+					<TableCell colSpan={6}>
 						<button
 							type="button"
 							className="flex items-center gap-1 ml-7 text-xs text-muted-foreground hover:text-foreground bg-transparent border-none p-0 cursor-pointer"
@@ -929,7 +943,7 @@ function InitiativeRow({
 	onUpdate: (
 		initiativeId: string,
 		data: Partial<
-			Pick<Initiative, "title" | "status" | "priority" | "progress">
+			Pick<Initiative, "title" | "status" | "priority" | "progress" | "size">
 		>,
 	) => Promise<void>;
 	onSelect?: (initiative: Initiative) => void;
@@ -967,6 +981,31 @@ function InitiativeRow({
 						{initiative.progress}%
 					</span>
 				</div>
+			</TableCell>
+			<TableCell onClick={(e) => e.stopPropagation()}>
+				<Select
+					value={String(initiative.size ?? "none")}
+					onValueChange={(v) =>
+						onUpdate(initiative.id, {
+							size: v === "none" ? null : (Number(v) as Initiative["size"]),
+						})
+					}
+				>
+					<SelectTrigger
+						size="sm"
+						className="h-7 text-xs border-none shadow-none px-0 gap-1 w-auto"
+					>
+						<SelectValue placeholder="Unset" />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="none">Unset</SelectItem>
+						{FIBONACCI_SIZES.map((size) => (
+							<SelectItem key={size} value={String(size)}>
+								{size}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
 			</TableCell>
 			<TableCell onClick={(e) => e.stopPropagation()}>
 				<div className="flex items-center justify-between gap-1">
