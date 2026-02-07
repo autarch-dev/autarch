@@ -9,7 +9,7 @@
  */
 
 import * as fs from "node:fs/promises";
-import * as path from 'node:path';
+import * as path from "node:path";
 import type {
 	AssistantModelMessage,
 	ModelMessage,
@@ -824,16 +824,38 @@ export class AgentRunner {
 			tools,
 			stopWhen: stepCountIs(MAX_TOOL_STEPS),
 			abortSignal: signal,
-			experimental_repairToolCall: (async (options) => {
-				log.agent.error(`Dumping tool call info for ${options.toolCall.toolName} (${options.toolCall.toolCallId})`)
-				const targetFolder = path.join(this.config.projectRoot, ".autarch", "logs")
+			experimental_repairToolCall: async (options) => {
+				log.agent.warn(
+					`Attempting repair of tool call ${options.toolCall.toolName} (${options.toolCall.toolCallId})`,
+				);
+
+				const targetFolder = path.join(
+					this.config.projectRoot,
+					".autarch",
+					"logs",
+				);
 				await fs.mkdir(targetFolder, { recursive: true });
 
-				const targetFile = path.join(targetFolder, `${options.toolCall.toolCallId}_input.txt`)
+				const targetFile = path.join(
+					targetFolder,
+					`${options.toolCall.toolCallId}_input.txt`,
+				);
 				await fs.writeFile(targetFile, options.toolCall.input);
 
-				return null;
-			}),
+				const { result, fixedCount } = this.fixUnescapedTabs(
+					options.toolCall.input,
+				);
+
+				if (fixedCount === 0) {
+					log.agent.error("No unescaped tabs fixed -- aborting early");
+					return null;
+				}
+
+				return {
+					...options.toolCall,
+					input: result,
+				};
+			},
 			// Note: maxTokens and temperature are passed via providerOptions or model config
 		});
 
@@ -1318,5 +1340,33 @@ export class AgentRunner {
 			thoughtIndex,
 			content,
 		);
+	}
+
+	private fixUnescapedTabs(jsonString: string) {
+		let result = "";
+		let inString = false;
+		let fixedCount = 0;
+
+		for (let i = 0; i < jsonString.length; i++) {
+			const char = jsonString[i];
+			const prevChar = i > 0 ? jsonString[i - 1] : null;
+
+			// Check if current char is escaped (previous char is \ and that \ isn't itself escaped)
+			const isEscaped =
+				prevChar === "\\" && (i < 2 || jsonString[i - 2] !== "\\");
+
+			if (char === '"' && !isEscaped) {
+				inString = !inString;
+			}
+
+			if (char === "\t" && inString && !isEscaped) {
+				fixedCount++;
+				result += "\\t";
+			} else {
+				result += char;
+			}
+		}
+
+		return { result, fixedCount };
 	}
 }
