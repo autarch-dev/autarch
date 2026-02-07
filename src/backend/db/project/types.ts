@@ -495,6 +495,7 @@ export interface InitiativeTable {
 	progress: number;
 	progress_mode: string;
 	workflow_id: string | null;
+	size: number | null;
 	sort_order: number;
 	created_at: number;
 	updated_at: number;

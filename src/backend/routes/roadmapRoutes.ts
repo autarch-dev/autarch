@@ -14,6 +14,7 @@ import {
 } from "@/shared/schemas/events";
 import {
 	InitiativePrioritySchema,
+	InitiativeSizeSchema,
 	InitiativeStatusSchema,
 	ProgressModeSchema,
 	type RoadmapDependency,
@@ -67,6 +68,7 @@ const CreateInitiativeRequestSchema = z.object({
 	progress: z.number().min(0).max(100).optional(),
 	progressMode: ProgressModeSchema.optional(),
 	workflowId: z.string().optional(),
+	size: InitiativeSizeSchema.nullable().optional(),
 	sortOrder: z.number(),
 });
 
@@ -78,6 +80,7 @@ const UpdateInitiativeRequestSchema = z.object({
 	progress: z.number().min(0).max(100).optional(),
 	progressMode: ProgressModeSchema.optional(),
 	workflowId: z.string().nullable().optional(),
+	size: InitiativeSizeSchema.nullable().optional(),
 	milestoneId: z.string().optional(),
 	sortOrder: z.number().optional(),
 });

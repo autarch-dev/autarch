@@ -71,6 +71,7 @@ export interface CreateInitiativeData {
 	progress?: number;
 	progressMode?: ProgressMode;
 	workflowId?: string;
+	size?: number | null;
 	sortOrder: number;
 }
 
@@ -82,6 +83,7 @@ export interface UpdateInitiativeData {
 	progress?: number;
 	progressMode?: ProgressMode;
 	workflowId?: string | null;
+	size?: number | null;
 	milestoneId?: string;
 	sortOrder?: number;
 }
@@ -159,6 +161,7 @@ export class RoadmapRepository implements Repository {
 			progress: row.progress,
 			progressMode: row.progress_mode as ProgressMode,
 			workflowId: row.workflow_id ?? undefined,
+			size: (row.size as Initiative["size"]) ?? null,
 			sortOrder: row.sort_order,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
@@ -486,6 +489,7 @@ export class RoadmapRepository implements Repository {
 				progress: data.progress ?? 0,
 				progress_mode: data.progressMode ?? "manual",
 				workflow_id: data.workflowId ?? null,
+				size: data.size ?? null,
 				sort_order: data.sortOrder,
 				created_at: now,
 				updated_at: now,
@@ -561,6 +565,7 @@ export class RoadmapRepository implements Repository {
 			updates.progress_mode = data.progressMode;
 		if (data.workflowId !== undefined)
 			updates.workflow_id = data.workflowId ?? null;
+		if (data.size !== undefined) updates.size = data.size ?? null;
 		if (data.milestoneId !== undefined) updates.milestone_id = data.milestoneId;
 		if (data.sortOrder !== undefined) updates.sort_order = data.sortOrder;
 

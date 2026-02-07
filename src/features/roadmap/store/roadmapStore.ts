@@ -156,7 +156,12 @@ interface RoadmapState {
 	createInitiative: (
 		roadmapId: string,
 		milestoneId: string,
-		data: { title: string; description?: string; priority?: string },
+		data: {
+			title: string;
+			description?: string;
+			priority?: string;
+			size?: Initiative["size"];
+		},
 	) => Promise<Initiative>;
 	updateInitiative: (
 		roadmapId: string,
@@ -170,6 +175,7 @@ interface RoadmapState {
 				| "priority"
 				| "progress"
 				| "progressMode"
+				| "size"
 				| "milestoneId"
 				| "sortOrder"
 			>
@@ -468,7 +474,11 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 		const response = await fetch(`/api/roadmaps/${roadmapId}/initiatives`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ ...data, milestoneId, sortOrder }),
+			body: JSON.stringify({
+				...data,
+				milestoneId,
+				sortOrder,
+			}),
 		});
 
 		if (!response.ok) {
