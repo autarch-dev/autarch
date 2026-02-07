@@ -360,10 +360,7 @@ export function TimelineView({
 											<span
 												className="text-xs text-muted-foreground ml-1"
 												style={{
-													marginLeft:
-														barWidthPercent > 0
-															? `calc(${barWidthPercent}% + 4px)`
-															: undefined,
+													marginLeft: barWidthPercent > 0 ? "4px" : undefined,
 												}}
 											>
 												{sizeLabel}
