@@ -10,6 +10,7 @@ import { getProjectDb } from "@/backend/db/project";
 import { ids } from "@/backend/utils";
 import { broadcast } from "@/backend/ws";
 import { createRoadmapUpdatedEvent } from "@/shared/schemas/events";
+import { InitiativeSizeSchema } from "@/shared/schemas/roadmap";
 import type { ToolDefinition, ToolResult } from "../types";
 
 // =============================================================================
@@ -44,12 +45,9 @@ export const submitRoadmapInputSchema = z.object({
 								.enum(["low", "medium", "high", "critical"])
 								.optional()
 								.describe("Priority level of the initiative"),
-							size: z
-								.number()
-								.optional()
-								.describe(
-									"Effort size using Fibonacci-like scale: 1, 2, 3, 5, 8, 13, or 21. Represents relative effort, not time.",
-								),
+							size: InitiativeSizeSchema.optional().describe(
+								"Effort size using Fibonacci-like scale: 1, 2, 3, 5, 8, 13, or 21. Represents relative effort, not time.",
+							),
 							sortOrder: z
 								.number()
 								.describe("Display order within the milestone"),
