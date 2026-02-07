@@ -136,6 +136,27 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 		[roadmapId, updateVision],
 	);
 
+	const handleReorderMilestones = useCallback(
+		(reorderedIds: { id: string; sortOrder: number }[]) => {
+			for (const item of reorderedIds) {
+				updateMilestone(roadmapId, item.id, { sortOrder: item.sortOrder });
+			}
+		},
+		[roadmapId, updateMilestone],
+	);
+
+	const handleReorderInitiatives = useCallback(
+		(
+			_milestoneId: string,
+			reorderedIds: { id: string; sortOrder: number }[],
+		) => {
+			for (const item of reorderedIds) {
+				updateInitiative(roadmapId, item.id, { sortOrder: item.sortOrder });
+			}
+		},
+		[roadmapId, updateInitiative],
+	);
+
 	if (roadmapsLoading && !roadmap) {
 		return (
 			<div className="flex items-center justify-center h-full">
@@ -170,6 +191,8 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 			onCreateInitiative={handleCreateInitiative}
 			onDeleteMilestone={handleDeleteMilestone}
 			onDeleteInitiative={handleDeleteInitiative}
+			onReorderMilestones={handleReorderMilestones}
+			onReorderInitiatives={handleReorderInitiatives}
 		/>
 	);
 }

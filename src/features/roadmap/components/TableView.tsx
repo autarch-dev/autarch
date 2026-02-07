@@ -7,12 +7,29 @@
  */
 
 import {
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import {
+	arrayMove,
+	SortableContext,
+	useSortable,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
 	ArrowDown,
 	ArrowUp,
 	ArrowUpDown,
 	ChevronDown,
 	ChevronRight,
 	GitBranch,
+	GripVertical,
 	MoreHorizontal,
 	Plus,
 	Search,
@@ -99,6 +116,13 @@ interface TableViewProps {
 	onSelectInitiative?: (initiative: Initiative) => void;
 	onDeleteMilestone: (milestoneId: string) => Promise<void>;
 	onDeleteInitiative: (initiativeId: string) => Promise<void>;
+	onReorderMilestones: (
+		reorderedIds: { id: string; sortOrder: number }[],
+	) => void;
+	onReorderInitiatives: (
+		milestoneId: string,
+		reorderedIds: { id: string; sortOrder: number }[],
+	) => void;
 }
 
 // =============================================================================
@@ -398,6 +422,8 @@ export function TableView({
 	onSelectInitiative,
 	onDeleteMilestone,
 	onDeleteInitiative,
+	onReorderMilestones,
+	onReorderInitiatives,
 }: TableViewProps) {
 	// -------------------------------------------------------------------------
 	// State
@@ -414,6 +440,14 @@ export function TableView({
 		id: string;
 		title: string;
 	} | null>(null);
+
+	// -------------------------------------------------------------------------
+	// DnD Sensors
+	// -------------------------------------------------------------------------
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+		useSensor(KeyboardSensor),
+	);
 
 	// -------------------------------------------------------------------------
 	// Handlers
@@ -514,6 +548,53 @@ export function TableView({
 	const sortedMilestones = useMemo(
 		() => [...milestones].sort((a, b) => a.sortOrder - b.sortOrder),
 		[milestones],
+	);
+
+	// -------------------------------------------------------------------------
+	// DnD Handlers
+	// -------------------------------------------------------------------------
+	const handleMilestoneDragEnd = useCallback(
+		(event: DragEndEvent) => {
+			const { active, over } = event;
+			if (!over || active.id === over.id) return;
+
+			const oldIndex = sortedMilestones.findIndex((m) => m.id === active.id);
+			const newIndex = sortedMilestones.findIndex((m) => m.id === over.id);
+			if (oldIndex === -1 || newIndex === -1) return;
+
+			const reordered = arrayMove(sortedMilestones, oldIndex, newIndex);
+			const updates = reordered
+				.map((m, i) => ({ id: m.id, sortOrder: i }))
+				.filter((_u, i) => sortedMilestones[i]?.id !== reordered[i]?.id);
+			if (updates.length > 0) {
+				onReorderMilestones(updates);
+			}
+		},
+		[sortedMilestones, onReorderMilestones],
+	);
+
+	const handleInitiativeDragEnd = useCallback(
+		(milestoneId: string, currentInitiatives: Initiative[]) =>
+			(event: DragEndEvent) => {
+				const { active, over } = event;
+				if (!over || active.id === over.id) return;
+
+				const sorted = [...currentInitiatives].sort(
+					(a, b) => a.sortOrder - b.sortOrder,
+				);
+				const oldIndex = sorted.findIndex((i) => i.id === active.id);
+				const newIndex = sorted.findIndex((i) => i.id === over.id);
+				if (oldIndex === -1 || newIndex === -1) return;
+
+				const reordered = arrayMove(sorted, oldIndex, newIndex);
+				const updates = reordered
+					.map((item, i) => ({ id: item.id, sortOrder: i }))
+					.filter((_u, i) => sorted[i]?.id !== reordered[i]?.id);
+				if (updates.length > 0) {
+					onReorderInitiatives(milestoneId, updates);
+				}
+			},
+		[onReorderInitiatives],
 	);
 
 	// Check if any filters are active
@@ -636,63 +717,79 @@ export function TableView({
 							<TableHead className="w-[180px]">Dependencies</TableHead>
 						</TableRow>
 					</TableHeader>
-					<TableBody>
-						{sortedMilestones.length === 0 ? (
-							<TableRow>
-								<TableCell
-									colSpan={6}
-									className="h-24 text-center text-muted-foreground"
-								>
-									No milestones yet. Create one to get started.
-								</TableCell>
-							</TableRow>
-						) : (
-							sortedMilestones.map((milestone) => {
-								const isCollapsed = collapsedMilestones.has(milestone.id);
-								const milestoneInitiatives =
-									initiativesByMilestone.get(milestone.id) ?? [];
-								const milestoneDepNames = getDependencyNames(
-									milestone.id,
-									"milestone",
-									dependencies,
-									milestones,
-									initiatives,
-								);
-								const hasMilestoneDeps = hasDependencies(
-									milestone.id,
-									"milestone",
-									dependencies,
-								);
+					<DndContext
+						sensors={sensors}
+						collisionDetection={closestCenter}
+						onDragEnd={handleMilestoneDragEnd}
+					>
+						<SortableContext
+							items={sortedMilestones.map((m) => m.id)}
+							strategy={verticalListSortingStrategy}
+						>
+							<TableBody>
+								{sortedMilestones.length === 0 ? (
+									<TableRow>
+										<TableCell
+											colSpan={6}
+											className="h-24 text-center text-muted-foreground"
+										>
+											No milestones yet. Create one to get started.
+										</TableCell>
+									</TableRow>
+								) : (
+									sortedMilestones.map((milestone) => {
+										const isCollapsed = collapsedMilestones.has(milestone.id);
+										const milestoneInitiatives =
+											initiativesByMilestone.get(milestone.id) ?? [];
+										const milestoneDepNames = getDependencyNames(
+											milestone.id,
+											"milestone",
+											dependencies,
+											milestones,
+											initiatives,
+										);
+										const hasMilestoneDeps = hasDependencies(
+											milestone.id,
+											"milestone",
+											dependencies,
+										);
 
-								return (
-									<MilestoneGroup
-										key={milestone.id}
-										milestone={milestone}
-										initiatives={milestoneInitiatives}
-										dependencies={dependencies}
-										allMilestones={milestones}
-										allInitiatives={initiatives}
-										dependencyNames={milestoneDepNames}
-										hasDependencies={hasMilestoneDeps}
-										isCollapsed={isCollapsed}
-										onToggle={() => toggleMilestone(milestone.id)}
-										onUpdateMilestone={onUpdateMilestone}
-										onUpdateInitiative={onUpdateInitiative}
-										onCreateInitiative={() =>
-											handleCreateInitiative(milestone.id)
-										}
-										onSelectInitiative={onSelectInitiative}
-										onRequestDeleteMilestone={(id, title) =>
-											setDeleteTarget({ type: "milestone", id, title })
-										}
-										onRequestDeleteInitiative={(id, title) =>
-											setDeleteTarget({ type: "initiative", id, title })
-										}
-									/>
-								);
-							})
-						)}
-					</TableBody>
+										return (
+											<MilestoneGroup
+												key={milestone.id}
+												milestone={milestone}
+												initiatives={milestoneInitiatives}
+												dependencies={dependencies}
+												allMilestones={milestones}
+												allInitiatives={initiatives}
+												dependencyNames={milestoneDepNames}
+												hasDependencies={hasMilestoneDeps}
+												isCollapsed={isCollapsed}
+												onToggle={() => toggleMilestone(milestone.id)}
+												onUpdateMilestone={onUpdateMilestone}
+												onUpdateInitiative={onUpdateInitiative}
+												onCreateInitiative={() =>
+													handleCreateInitiative(milestone.id)
+												}
+												onSelectInitiative={onSelectInitiative}
+												onRequestDeleteMilestone={(id, title) =>
+													setDeleteTarget({ type: "milestone", id, title })
+												}
+												onRequestDeleteInitiative={(id, title) =>
+													setDeleteTarget({ type: "initiative", id, title })
+												}
+												sensors={sensors}
+												onInitiativeDragEnd={handleInitiativeDragEnd(
+													milestone.id,
+													milestoneInitiatives,
+												)}
+											/>
+										);
+									})
+								)}
+							</TableBody>
+						</SortableContext>
+					</DndContext>
 				</Table>
 			</div>
 
@@ -761,6 +858,8 @@ function MilestoneGroup({
 	onSelectInitiative,
 	onRequestDeleteMilestone,
 	onRequestDeleteInitiative,
+	sensors,
+	onInitiativeDragEnd,
 }: {
 	milestone: Milestone;
 	initiatives: Initiative[];
@@ -785,7 +884,25 @@ function MilestoneGroup({
 	onSelectInitiative?: (initiative: Initiative) => void;
 	onRequestDeleteMilestone: (id: string, title: string) => void;
 	onRequestDeleteInitiative: (id: string, title: string) => void;
+	sensors: ReturnType<typeof useSensors>;
+	onInitiativeDragEnd: (event: DragEndEvent) => void;
 }) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: milestone.id });
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		opacity: isDragging ? 0.5 : undefined,
+		boxShadow: isDragging ? "0 4px 12px rgba(0, 0, 0, 0.15)" : undefined,
+	};
+
 	// Calculate milestone progress from initiatives
 	const milestoneProgress = useMemo(() => {
 		if (initiatives.length === 0) return 0;
@@ -799,12 +916,29 @@ function MilestoneGroup({
 			.reduce((sum, i) => sum + (i.size ?? 0), 0);
 	}, [initiatives]);
 
+	const sortedInitiatives = useMemo(
+		() => [...initiatives].sort((a, b) => a.sortOrder - b.sortOrder),
+		[initiatives],
+	);
+
 	return (
 		<>
 			{/* Milestone Header Row */}
-			<TableRow className="bg-muted/60 hover:bg-muted/80 font-medium">
+			<TableRow
+				ref={setNodeRef}
+				style={style}
+				className="bg-muted/60 hover:bg-muted/80 font-medium"
+				{...attributes}
+			>
 				<TableCell>
 					<div className="flex items-center gap-1.5">
+						<button
+							type="button"
+							className="bg-transparent border-none p-0 cursor-grab text-muted-foreground hover:text-foreground"
+							{...listeners}
+						>
+							<GripVertical className="size-4" />
+						</button>
 						<button
 							type="button"
 							className="bg-transparent border-none p-0.5 cursor-pointer hover:text-foreground/80 rounded"
@@ -878,33 +1012,45 @@ function MilestoneGroup({
 			</TableRow>
 
 			{/* Initiative Rows */}
-			{!isCollapsed &&
-				initiatives.map((initiative) => {
-					const depNames = getDependencyNames(
-						initiative.id,
-						"initiative",
-						dependencies,
-						allMilestones,
-						allInitiatives,
-					);
-					const hasInitDeps = hasDependencies(
-						initiative.id,
-						"initiative",
-						dependencies,
-					);
+			{!isCollapsed && (
+				<DndContext
+					sensors={sensors}
+					collisionDetection={closestCenter}
+					onDragEnd={onInitiativeDragEnd}
+				>
+					<SortableContext
+						items={sortedInitiatives.map((i) => i.id)}
+						strategy={verticalListSortingStrategy}
+					>
+						{sortedInitiatives.map((initiative) => {
+							const depNames = getDependencyNames(
+								initiative.id,
+								"initiative",
+								dependencies,
+								allMilestones,
+								allInitiatives,
+							);
+							const hasInitDeps = hasDependencies(
+								initiative.id,
+								"initiative",
+								dependencies,
+							);
 
-					return (
-						<InitiativeRow
-							key={initiative.id}
-							initiative={initiative}
-							dependencyNames={depNames}
-							hasDependencies={hasInitDeps}
-							onUpdate={onUpdateInitiative}
-							onSelect={onSelectInitiative}
-							onRequestDelete={onRequestDeleteInitiative}
-						/>
-					);
-				})}
+							return (
+								<InitiativeRow
+									key={initiative.id}
+									initiative={initiative}
+									dependencyNames={depNames}
+									hasDependencies={hasInitDeps}
+									onUpdate={onUpdateInitiative}
+									onSelect={onSelectInitiative}
+									onRequestDelete={onRequestDeleteInitiative}
+								/>
+							);
+						})}
+					</SortableContext>
+				</DndContext>
+			)}
 
 			{/* Add Initiative Button Row */}
 			{!isCollapsed && (
@@ -949,10 +1095,40 @@ function InitiativeRow({
 	onSelect?: (initiative: Initiative) => void;
 	onRequestDelete: (id: string, title: string) => void;
 }) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: initiative.id });
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+		opacity: isDragging ? 0.5 : undefined,
+		boxShadow: isDragging ? "0 4px 12px rgba(0, 0, 0, 0.15)" : undefined,
+	};
+
 	return (
-		<TableRow className="cursor-pointer" onClick={() => onSelect?.(initiative)}>
+		<TableRow
+			ref={setNodeRef}
+			style={style}
+			className="cursor-pointer"
+			onClick={() => onSelect?.(initiative)}
+			{...attributes}
+		>
 			<TableCell onClick={(e) => e.stopPropagation()}>
-				<div className="flex items-center gap-1.5 pl-7">
+				<div className="flex items-center gap-1.5 pl-3">
+					<button
+						type="button"
+						className="bg-transparent border-none p-0 cursor-grab text-muted-foreground hover:text-foreground"
+						onClick={(e) => e.stopPropagation()}
+						{...listeners}
+					>
+						<GripVertical className="size-4" />
+					</button>
 					{hasDeps && (
 						<GitBranch className="size-3.5 text-amber-500 shrink-0" />
 					)}

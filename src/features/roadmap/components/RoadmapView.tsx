@@ -119,6 +119,13 @@ interface RoadmapViewProps {
 	) => Promise<void>;
 	onDeleteMilestone: (milestoneId: string) => Promise<void>;
 	onDeleteInitiative: (initiativeId: string) => Promise<void>;
+	onReorderMilestones: (
+		reorderedIds: { id: string; sortOrder: number }[],
+	) => void;
+	onReorderInitiatives: (
+		milestoneId: string,
+		reorderedIds: { id: string; sortOrder: number }[],
+	) => void;
 }
 
 // =============================================================================
@@ -142,6 +149,8 @@ export function RoadmapView({
 	onCreateInitiative,
 	onDeleteMilestone,
 	onDeleteInitiative,
+	onReorderMilestones,
+	onReorderInitiatives,
 }: RoadmapViewProps) {
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [editTitle, setEditTitle] = useState(roadmap.title);
@@ -336,6 +345,8 @@ export function RoadmapView({
 							onSelectInitiative={handleSelectInitiative}
 							onDeleteMilestone={onDeleteMilestone}
 							onDeleteInitiative={onDeleteInitiative}
+							onReorderMilestones={onReorderMilestones}
+							onReorderInitiatives={onReorderInitiatives}
 						/>
 					</TabsContent>
 
