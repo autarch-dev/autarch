@@ -37,6 +37,7 @@ import { ids } from "@/backend/utils";
 import { broadcast } from "@/backend/ws";
 import {
 	createPreflightStartedEvent,
+	createRoadmapUpdatedEvent,
 	createWorkflowApprovalNeededEvent,
 	createWorkflowCompletedEvent,
 	createWorkflowCreatedEvent,
@@ -926,6 +927,32 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 			shellApprovalService.cleanupWorkflow(workflowId);
 
 			broadcast(createWorkflowCompletedEvent({ workflowId }));
+
+			// Fire-and-forget initiative auto-completion - never blocks workflow completion
+			(async () => {
+				const initiative =
+					await getRepositories().roadmaps.findInitiativeByWorkflowId(
+						workflowId,
+					);
+				if (!initiative) return;
+				if (
+					initiative.status !== "not_started" &&
+					initiative.status !== "in_progress"
+				)
+					return;
+				await getRepositories().roadmaps.updateInitiative(initiative.id, {
+					status: "completed",
+					progress: 100,
+				});
+				broadcast(
+					createRoadmapUpdatedEvent({ roadmapId: initiative.roadmapId }),
+				);
+			})().catch((error) =>
+				log.workflow.error("Initiative auto-completion failed", {
+					workflowId,
+					error: error instanceof Error ? error.message : String(error),
+				}),
+			);
 
 			// Fire-and-forget knowledge extraction - never blocks workflow completion
 			const projectRoot = getProjectRoot();
