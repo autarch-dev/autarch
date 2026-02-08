@@ -310,7 +310,7 @@ export class AgentRunner {
 		}
 
 		// Query tool names via repository
-		const toolNames = await this.config.conversationRepo.getToolNames(turnId);
+		const toolNames = await this.config.conversationRepo.getSucceededToolNames(turnId);
 		const hasTerminalTool = toolNames.some((name) =>
 			terminalTools.includes(name),
 		);
