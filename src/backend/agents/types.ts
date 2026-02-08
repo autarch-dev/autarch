@@ -10,7 +10,7 @@ import type { RegisteredTool } from "../tools/types";
  * Preflight is an internal role that uses the execution model,
  * so it's not exposed in user-facing model preferences
  */
-export type AgentRole = ModelScenario | "preflight";
+export type AgentRole = ModelScenario | "preflight" | "review_sub";
 
 export interface AgentPromptOptions {
 	hasWebCodeSearch?: boolean;
