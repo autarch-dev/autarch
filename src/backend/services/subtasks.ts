@@ -5,10 +5,17 @@
  * Not review-specific — designed for reuse by any agent that delegates work.
  */
 
+import { AgentRunner } from "@/backend/agents/runner/AgentRunner";
+import { getSessionManager } from "@/backend/agents/runner/SessionManager";
 import type { SubtasksTable } from "@/backend/db/project/types";
+import { log } from "@/backend/logger";
+import { getRepositories } from "@/backend/repositories";
 import type { ProjectDb } from "@/backend/repositories/types";
 import { broadcast } from "@/backend/ws/index";
-import { createSubtaskUpdatedEvent } from "@/shared/schemas/events";
+import {
+	createSubtaskUpdatedEvent,
+	createWorkflowErrorEvent,
+} from "@/shared/schemas/events";
 
 // =============================================================================
 // Types
@@ -46,6 +53,16 @@ export interface SubtaskTransitionResult {
 	 * Only true for exactly one caller when allDone is true. */
 	shouldResumeCoordinator: boolean;
 	parentSessionId: string;
+}
+
+/**
+ * Minimal context required by resumeCoordinatorSession.
+ * Avoids coupling to the full ToolContext type.
+ */
+export interface ResumeContext {
+	projectRoot: string;
+	worktreePath?: string;
+	workflowId?: string;
 }
 
 export interface MergedSubtaskResults {
@@ -487,4 +504,75 @@ export async function getMergedSubtaskResults(
 	}
 
 	return { completedFindings, failedTasks };
+}
+
+/**
+ * Resume a coordinator session with a merged message after all subtasks are done.
+ *
+ * Restores the coordinator session, creates an AgentRunner, and fires off the
+ * run in the background. Logs and broadcasts errors on failure. This is the
+ * single place that owns the "get session → build runner → run → handle errors"
+ * flow so that callers (spawnReviewTasks, submitSubReview) stay concise.
+ */
+export function resumeCoordinatorSession(
+	parentSessionId: string,
+	context: ResumeContext,
+	coordinatorMessage: string,
+): void {
+	const sessionManager = getSessionManager();
+
+	sessionManager
+		.getOrRestoreSession(parentSessionId)
+		.then((coordinatorSession) => {
+			if (coordinatorSession) {
+				const { conversations: conversationRepo } = getRepositories();
+				const runner = new AgentRunner(coordinatorSession, {
+					projectRoot: context.projectRoot,
+					conversationRepo,
+					worktreePath: context.worktreePath,
+				});
+
+				runner.run(coordinatorMessage).catch((err) => {
+					const resumeError =
+						err instanceof Error ? err.message : "unknown error";
+					log.tools.error(
+						`Failed to resume coordinator session ${parentSessionId}: ${resumeError}`,
+					);
+					if (context.workflowId) {
+						broadcast(
+							createWorkflowErrorEvent({
+								workflowId: context.workflowId,
+								error: `Failed to resume review coordinator after subtask completion: ${resumeError}`,
+							}),
+						);
+					}
+				});
+			} else {
+				log.tools.error(
+					`Coordinator session ${parentSessionId} not found — cannot resume`,
+				);
+				if (context.workflowId) {
+					broadcast(
+						createWorkflowErrorEvent({
+							workflowId: context.workflowId,
+							error: `Coordinator session ${parentSessionId} not found — cannot resume after subtask completion`,
+						}),
+					);
+				}
+			}
+		})
+		.catch((err) => {
+			const resumeError = err instanceof Error ? err.message : "unknown error";
+			log.tools.error(
+				`Failed to restore coordinator session ${parentSessionId}: ${resumeError}`,
+			);
+			if (context.workflowId) {
+				broadcast(
+					createWorkflowErrorEvent({
+						workflowId: context.workflowId,
+						error: `Failed to restore coordinator session ${parentSessionId}: ${resumeError}`,
+					}),
+				);
+			}
+		});
 }

@@ -7,17 +7,13 @@
  */
 
 import { z } from "zod";
-import { AgentRunner } from "@/backend/agents/runner/AgentRunner";
-import { getSessionManager } from "@/backend/agents/runner/SessionManager";
 import { getProjectDb } from "@/backend/db/project";
 import { log } from "@/backend/logger";
-import { getRepositories } from "@/backend/repositories";
 import {
 	completeSubtaskAndCheckDone,
 	getMergedSubtaskResults,
+	resumeCoordinatorSession,
 } from "@/backend/services/subtasks";
-import { broadcast } from "@/backend/ws";
-import { createWorkflowErrorEvent } from "@/shared/schemas/events";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -209,51 +205,10 @@ This is a terminal tool — your session ends after submission.`,
 					`All subtasks done for coordinator session ${parentSessionId} — resuming coordinator`,
 				);
 
-				// Build merged findings and resume coordinator
 				const merged = await getMergedSubtaskResults(db, parentSessionId);
 				const coordinatorMessage = formatCoordinatorMessage(merged);
 
-				const sessionManager = getSessionManager();
-				const coordinatorSession =
-					await sessionManager.getOrRestoreSession(parentSessionId);
-
-				if (coordinatorSession) {
-					const { conversations: conversationRepo } = getRepositories();
-					const runner = new AgentRunner(coordinatorSession, {
-						projectRoot: context.projectRoot,
-						conversationRepo,
-						worktreePath: context.worktreePath,
-					});
-
-					// Fire-and-forget: resume coordinator without blocking
-					runner.run(coordinatorMessage).catch((err) => {
-						const resumeError =
-							err instanceof Error ? err.message : "unknown error";
-						log.tools.error(
-							`Failed to resume coordinator session ${parentSessionId}: ${resumeError}`,
-						);
-						if (context.workflowId) {
-							broadcast(
-								createWorkflowErrorEvent({
-									workflowId: context.workflowId,
-									error: `Failed to resume review coordinator after subtask completion: ${resumeError}`,
-								}),
-							);
-						}
-					});
-				} else {
-					log.tools.error(
-						`Coordinator session ${parentSessionId} not found — cannot resume`,
-					);
-					if (context.workflowId) {
-						broadcast(
-							createWorkflowErrorEvent({
-								workflowId: context.workflowId,
-								error: `Coordinator session ${parentSessionId} not found — cannot resume after subtask completion`,
-							}),
-						);
-					}
-				}
+				resumeCoordinatorSession(parentSessionId, context, coordinatorMessage);
 			} else {
 				log.tools.debug(
 					`Subtask ${subtaskId} completed — other siblings still running`,

@@ -17,11 +17,10 @@ import {
 	createSubtask,
 	failSubtaskAndCheckDone,
 	getMergedSubtaskResults,
+	resumeCoordinatorSession,
 	startSubtask,
 } from "@/backend/services/subtasks";
 import { ids } from "@/backend/utils/ids";
-import { broadcast } from "@/backend/ws";
-import { createWorkflowErrorEvent } from "@/shared/schemas/events";
 import {
 	REASON_DESCRIPTION,
 	type ToolContext,
@@ -147,46 +146,7 @@ async function handleSubtaskFailure(
 		const merged = await getMergedSubtaskResults(db, parentSessionId);
 		const coordinatorMessage = formatCoordinatorMessage(merged);
 
-		const sessionManager = getSessionManager();
-		const coordinatorSession =
-			await sessionManager.getOrRestoreSession(parentSessionId);
-
-		if (coordinatorSession) {
-			const { conversations: conversationRepo } = getRepositories();
-			const runner = new AgentRunner(coordinatorSession, {
-				projectRoot: context.projectRoot,
-				conversationRepo,
-				worktreePath: context.worktreePath,
-			});
-
-			runner.run(coordinatorMessage).catch((err) => {
-				const resumeError =
-					err instanceof Error ? err.message : "unknown error";
-				log.tools.error(
-					`Failed to resume coordinator session ${parentSessionId}: ${resumeError}`,
-				);
-				if (context.workflowId) {
-					broadcast(
-						createWorkflowErrorEvent({
-							workflowId: context.workflowId,
-							error: `Failed to resume review coordinator after subtask completion: ${resumeError}`,
-						}),
-					);
-				}
-			});
-		} else {
-			log.tools.error(
-				`Coordinator session ${parentSessionId} not found — cannot resume`,
-			);
-			if (context.workflowId) {
-				broadcast(
-					createWorkflowErrorEvent({
-						workflowId: context.workflowId,
-						error: `Coordinator session ${parentSessionId} not found — cannot resume after subtask completion`,
-					}),
-				);
-			}
-		}
+		resumeCoordinatorSession(parentSessionId, context, coordinatorMessage);
 	}
 }
 
