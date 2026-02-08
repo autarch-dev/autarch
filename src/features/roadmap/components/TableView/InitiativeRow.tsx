@@ -48,10 +48,7 @@ export function InitiativeRow({
 	onRequestDelete: (id: string, title: string) => void;
 }) {
 	return (
-		<TableRow
-			className="cursor-pointer"
-			onClick={() => onSelect?.(initiative)}
-		>
+		<TableRow className="cursor-pointer" onClick={() => onSelect?.(initiative)}>
 			<TableCell>
 				<div className="flex items-center gap-1.5 pl-3">
 					{hasDeps && (
@@ -109,7 +106,12 @@ export function InitiativeRow({
 					)}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto" onClick={(e) => e.stopPropagation()}>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="h-6 w-6 p-0 ml-auto"
+								onClick={(e) => e.stopPropagation()}
+							>
 								<MoreHorizontal className="size-3.5" />
 							</Button>
 						</DropdownMenuTrigger>

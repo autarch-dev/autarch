@@ -159,7 +159,7 @@ export function MilestoneGroup({
 						</span>
 					</div>
 				</TableCell>
-                <TableCell />
+				<TableCell />
 				<TableCell>
 					<span className="text-xs text-muted-foreground">
 						{milestoneSize > 0 ? milestoneSize : "—"}

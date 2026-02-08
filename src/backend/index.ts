@@ -90,3 +90,20 @@ log.server.box(`Autarch running at ${server.url}`);
 if (process.env.NODE_ENV !== "production") {
 	open(server.url.toString());
 }
+
+// Listen for [o] keypress to open browser
+if (process.stdin.isTTY) {
+	process.stdin.setRawMode(true);
+	process.stdin.resume();
+	process.stdin.on("data", (data: Buffer) => {
+		const key = data.toString();
+		// Ctrl+C
+		if (key === "\x03") {
+			process.exit(0);
+		}
+		if (key === "o" || key === "O") {
+			open(server.url.toString());
+		}
+	});
+	log.server.info("Press [o] to open in browser");
+}
