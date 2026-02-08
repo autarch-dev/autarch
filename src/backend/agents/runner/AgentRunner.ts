@@ -19,6 +19,7 @@ import type {
 	UserModelMessage,
 } from "@ai-sdk/provider-utils";
 import { stepCountIs, streamText } from "ai";
+import { getProjectDb } from "@/backend/db/project";
 import {
 	convertToAISDKTools,
 	createChannelToolContext,
@@ -70,7 +71,8 @@ const TERMINAL_TOOLS: Record<string, string[]> = {
 	research: ["submit_research", "request_extension", "ask_questions"],
 	planning: ["submit_plan", "request_extension", "ask_questions"],
 	execution: ["complete_pulse", "request_extension"],
-	review: ["complete_review", "request_extension"],
+	review: ["complete_review", "spawn_review_tasks", "request_extension"],
+	review_sub: ["submit_sub_review", "request_extension"],
 	roadmap_planning: ["submit_roadmap", "request_extension", "ask_questions"],
 	// discussion and basic agents don't require terminal tools
 	discussion: [],
@@ -122,9 +124,18 @@ If no work remains, call \`complete_pulse\` and yield to the user.`,
 
 As a reminder, every message MUST end with exactly one of:
 - \`complete_review\` — if you have completed the review
+- \`spawn_review_tasks\` — if you are delegating to sub-reviewers
 
 Please continue and ensure your next response ends with one of these tools.
 If no work remains, call \`complete_review\` and yield to the user.`,
+
+	review_sub: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`submit_sub_review\` — if you have completed your review of the assigned files
+- \`request_extension\` — if additional review work remains
+
+Please complete your review of the assigned files and call submit_sub_review with your findings.`,
 
 	roadmap_planning: `You did not end your turn with a required tool call.
 
@@ -375,7 +386,10 @@ export class AgentRunner {
 	 * If complete_pulse fails (e.g., verification errors), we don't transition.
 	 */
 	private async maybeAutoTransition(turnId: string): Promise<void> {
-		// Only workflow sessions can have auto-transitions
+		// Only workflow sessions can have auto-transitions.
+		// Subtask sessions (contextType === 'subtask') are excluded here — their
+		// lifecycle is managed by the coordinator via submit_sub_review, not by
+		// the workflow orchestrator.
 		if (this.session.contextType !== "workflow") {
 			return;
 		}
@@ -680,7 +694,10 @@ export class AgentRunner {
 			);
 		} else {
 			// For others: notes persist across context lifetime
-			notes = await repo.getNotes(this.session.contextType, this.session.contextId);
+			notes = await repo.getNotes(
+				this.session.contextType,
+				this.session.contextId,
+			);
 		}
 
 		if (notes.length === 0) {
@@ -719,7 +736,10 @@ export class AgentRunner {
 			);
 		} else {
 			// For others: todos persist across context lifetime
-			todos = await repo.getTodos(this.session.contextType, this.session.contextId);
+			todos = await repo.getTodos(
+				this.session.contextType,
+				this.session.contextId,
+			);
 		}
 
 		if (todos.length === 0) {
@@ -1098,6 +1118,33 @@ export class AgentRunner {
 				this.session.agentRole,
 			);
 		}
+		// Subtask sessions store the subtask ID as contextId — look up the
+		// parent workflow ID so the tool context points at the right workflow.
+		if (this.session.contextType === "subtask") {
+			const db = await getProjectDb(this.config.projectRoot);
+			const subtask = await db
+				.selectFrom("subtasks")
+				.where("id", "=", this.session.contextId)
+				.selectAll()
+				.executeTakeFirst();
+
+			if (!subtask) {
+				throw new Error(`Subtask not found: ${this.session.contextId}`);
+			}
+
+			const ctx = await createWorkflowToolContext(
+				this.config.projectRoot,
+				subtask.workflow_id,
+				this.session.id,
+				toolResultMap,
+				turnId,
+				this.config.worktreePath,
+				this.session.agentRole,
+			);
+
+			return { ...ctx, subtaskId: this.session.contextId };
+		}
+
 		return await createWorkflowToolContext(
 			this.config.projectRoot,
 			this.session.contextId,

@@ -32,6 +32,8 @@ import {
 	addReviewCommentTool,
 	getDiffTool,
 	getScopeCardTool,
+	spawnReviewTasksTool,
+	submitSubReviewTool,
 } from "../tools/review";
 import { typescriptTools } from "../tools/typescript";
 import { agentPrompts } from "./prompts";
@@ -93,12 +95,13 @@ const EXECUTION_TOOLS: RegisteredTool[] = [
 	registerTool(requestExtensionTool),
 ];
 
-/** Review agent: base tools + review tools */
+/** Review agent: base tools + review tools + spawn_review_tasks */
 const REVIEW_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...todoTools,
 	...reviewTools,
 	...typescriptTools,
+	registerTool(spawnReviewTasksTool),
 	registerTool(requestExtensionTool),
 ];
 
@@ -111,8 +114,7 @@ const ROADMAP_PLANNING_TOOLS: RegisteredTool[] = [
 	registerTool(requestExtensionTool),
 ];
 
-/** Review sub-agent: base tools + review comment tools + getDiff + getScopeCard + request_extension */
-// Note: submitSubReviewTool will be added once created in a later pulse
+/** Review sub-agent: base tools + review comment tools + getDiff + getScopeCard + submit_sub_review + request_extension */
 const REVIEW_SUB_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...todoTools,
@@ -121,6 +123,7 @@ const REVIEW_SUB_TOOLS: RegisteredTool[] = [
 	registerTool(addLineCommentTool),
 	registerTool(addFileCommentTool),
 	registerTool(addReviewCommentTool),
+	registerTool(submitSubReviewTool),
 	registerTool(requestExtensionTool),
 ];
 
