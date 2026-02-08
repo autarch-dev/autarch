@@ -41,3 +41,66 @@ stateDiagram-v2
 **Git worktree isolation.** Each workflow runs in its own git worktree on a dedicated branch, keeping in-progress changes isolated from the main codebase and from other workflows.
 
 See `src/shared/schemas/workflow.ts` for stage definitions, transition maps, and approval/auto-transition tool sets. See `src/backend/agents/runner/WorkflowOrchestrator.ts` for the orchestration logic that processes tool calls and manages stage transitions.
+
+## Backend Structure
+
+The backend lives in `src/backend/` and is organized into agents, tools, services, git integration, an LLM layer, WebSocket broadcasting, repositories, and routes.
+
+### Agents
+
+Ten agent roles drive the workflow pipeline: `basic`, `discussion`, `scoping`, `research`, `planning`, `preflight`, `execution`, `review`, `roadmap_planning`, and `review_sub`. Each role has a dedicated system prompt that defines its behavior and personality — these live in `src/backend/agents/prompts/`, one file per role.
+
+The agent runner in `src/backend/agents/runner/` manages execution. `AgentRunner` handles the LLM interaction loop, `SessionManager` tracks active sessions, and `WorkflowOrchestrator` processes tool calls, manages stage transitions, and enforces approval gating.
+
+### Agent & Tool Registry Pattern
+
+`src/backend/agents/registry.ts` maps each of the 10 `AgentRole` values to an `AgentConfig` containing: a `systemPrompt` function, a `tools` array of `RegisteredTool` objects, `maxTokens`, and `temperature`. Tool sets are composed per role by spreading tool category arrays (e.g., `...baseTools`, `...pulsingTools`, `...typescriptTools`) and cherry-picking individual block tools via `registerTool()` (e.g., `registerTool(submitScopeTool)`). This makes each role's capabilities explicit and auditable in a single file.
+
+The flat `toolRegistry` in `src/backend/tools/index.ts` indexes all tools by name for runtime lookup via `getTool()` and `getToolNames()`. This provides name-based access when the agent runner needs to resolve tool calls from the LLM.
+
+### Tool Categories
+
+Six categories under `src/backend/tools/` organize tools by concern:
+
+- **`base/`** — Read-only codebase access: file reading, search, directory listing. Also exports `todoTools` for agent task tracking.
+- **`blocks/`** — Structured output tools that complete stages: `submit_scope`, `submit_research`, `submit_plan`, `complete_pulse`, `complete_review`, plus `ask_questions` and `request_extension`.
+- **`preflight/`** — Environment setup before pulse execution (dependency installation, baseline capture).
+- **`pulsing/`** — Code modification tools: file writing, patching, shell commands.
+- **`review/`** — Code review tools: diff access, line/file/review comments, sub-review spawning.
+- **`typescript/`** — TypeScript-specific analysis tools (symbol lookup).
+
+### Services
+
+Service directories in `src/backend/services/` encapsulate domain logic:
+
+- **`cost/`** — LLM cost tracking and reporting.
+- **`embedding/`** — Code embedding generation and vector storage.
+- **`knowledge/`** — Knowledge extraction and retrieval from codebase analysis.
+- **`pulsing/`** — Pulse orchestration and execution lifecycle.
+- **`shell-approval/`** — User approval flow for shell commands executed by agents.
+
+Standalone service files handle cross-cutting concerns: `globalSettings.ts` and `projectSettings.ts` (configuration), `project.ts` (project initialization), `ripgrep.ts` (fast text search via rg), `subtasks.ts` (sub-task management), and `embed.ts` (embedding coordination).
+
+### Git Integration
+
+Each workflow gets its own git worktree on a dedicated branch, providing full isolation between concurrent workflows. The git layer in `src/backend/git/` manages worktree creation and cleanup (`worktrees.ts`), branch lifecycle — create, merge, delete (`branches.ts`, `merges.ts`), commit operations (`commits.ts`), and diff generation (`diffs.ts`). All git operations go through a shared executor (`git-executor.ts`) that handles process spawning and error handling.
+
+### LLM Layer
+
+Multi-provider LLM support is built on the Vercel AI SDK. Four providers are supported: Anthropic, OpenAI, Google, and xAI. `src/backend/llm/models.ts` provides `getModelForScenario()`, which maps an agent role to the user's configured model preference and creates the appropriate AI SDK model instance via provider-specific factory functions (`createAnthropic`, `createOpenAI`, `createGoogleGenerativeAI`, `createXai`).
+
+### WebSocket Layer
+
+The WebSocket layer uses Bun's native `ServerWebSocket` for broadcast-only real-time communication. All events are typed via `WebSocketEvent` (defined in `src/shared/schemas/events.ts`). The server broadcasts state changes — workflow transitions, agent messages, tool results — to all connected clients. There is no client-to-server messaging over WebSocket; all client requests go through REST. See `src/backend/ws/`.
+
+### Repository & Data Access Layer
+
+Data access follows a repository-per-domain pattern. Each repository class (`WorkflowRepository`, `ChannelRepository`, `SessionRepository`, `ConversationRepository`, `ArtifactRepository`, `PulseRepository`, `RoadmapRepository`) takes a Kysely database instance, implements domain-specific queries, and maps database rows to domain objects via private mapping methods. Repositories are organized with Read/Write section dividers for clarity. Kysely serves as the query builder. See `src/backend/repositories/`.
+
+### Routes & API Surface
+
+RESTful HTTP routes are organized by domain in `src/backend/routes/`. Eight route files cover the API surface: `workflowRoutes`, `sessionRoutes`, `channelRoutes`, `roadmapRoutes`, `questionRoutes`, `shellApprovalRoutes`, `toolRoutes`, and `settings`. These are aggregated in `src/backend/routes/index.ts` and mounted on the Bun server at startup.
+
+### Shared Schemas
+
+TypeScript types shared between frontend and backend live in `src/shared/schemas/`. The project uses Zod for runtime validation with inferred TypeScript types (`z.infer`). Twelve schema files cover: channels, embeddings, events, hooks, models, projects, questions, roadmaps, sessions, settings, workflows, plus an index barrel export. These schemas define the contract between frontend and backend — any data crossing the boundary conforms to these definitions.
