@@ -80,6 +80,10 @@ export {
 	getScopeCardInputSchema,
 	getScopeCardTool,
 	reviewTools,
+	spawnReviewTasksInputSchema,
+	spawnReviewTasksTool,
+	submitSubReviewInputSchema,
+	submitSubReviewTool,
 } from "./review";
 // Types
 export type {
@@ -111,7 +115,10 @@ import { blockTools } from "./blocks";
 import { preflightTools } from "./preflight";
 import { pulsingTools } from "./pulsing";
 import { reviewTools } from "./review";
+import { spawnReviewTasksTool } from "./review/spawnReviewTasks";
+import { submitSubReviewTool } from "./review/submitSubReview";
 import type { RegisteredTool } from "./types";
+import { registerTool } from "./types";
 import { typescriptTools } from "./typescript";
 
 /** All tools indexed by name */
@@ -129,6 +136,10 @@ for (const tool of [
 ]) {
 	toolRegistry[tool.name] = tool;
 }
+
+// Register role-specific tools (not in shared reviewTools array)
+toolRegistry[spawnReviewTasksTool.name] = registerTool(spawnReviewTasksTool);
+toolRegistry[submitSubReviewTool.name] = registerTool(submitSubReviewTool);
 
 /** Get a tool by name */
 export function getTool(name: string): RegisteredTool | undefined {
