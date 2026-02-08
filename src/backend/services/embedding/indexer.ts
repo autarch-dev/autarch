@@ -573,33 +573,36 @@ export async function removeFile(
 
 	const contentHashes = [...new Set(mappings.map((m) => m.content_hash))];
 
-	// Delete the file's chunk mappings
-	await db
-		.deleteFrom("file_chunk_mappings")
-		.where("scope_id", "=", scopeId)
-		.where("file_path", "=", relativePath)
-		.execute();
-
-	// Clean up orphaned chunks — bulk-delete hashes no longer referenced
-	// by any file_chunk_mappings row (across all scopes)
-	if (contentHashes.length > 0) {
-		const referencedHashes = db
-			.selectFrom("file_chunk_mappings")
-			.select("content_hash")
-			.where("content_hash", "in", contentHashes);
-
-		await db
-			.deleteFrom("embedding_chunks")
-			.where("content_hash", "in", contentHashes)
-			.where("content_hash", "not in", referencedHashes)
+	// Delete mappings and clean up orphaned chunks atomically
+	await db.transaction().execute(async (trx) => {
+		// Delete the file's chunk mappings
+		await trx
+			.deleteFrom("file_chunk_mappings")
+			.where("scope_id", "=", scopeId)
+			.where("file_path", "=", relativePath)
 			.execute();
 
-		await db
-			.deleteFrom("vec_chunks")
-			.where("content_hash", "in", contentHashes)
-			.where("content_hash", "not in", referencedHashes)
-			.execute();
-	}
+		// Clean up orphaned chunks — bulk-delete hashes no longer referenced
+		// by any file_chunk_mappings row (across all scopes)
+		if (contentHashes.length > 0) {
+			const referencedHashes = trx
+				.selectFrom("file_chunk_mappings")
+				.select("content_hash")
+				.where("content_hash", "in", contentHashes);
+
+			await trx
+				.deleteFrom("embedding_chunks")
+				.where("content_hash", "in", contentHashes)
+				.where("content_hash", "not in", referencedHashes)
+				.execute();
+
+			await trx
+				.deleteFrom("vec_chunks")
+				.where("content_hash", "in", contentHashes)
+				.where("content_hash", "not in", referencedHashes)
+				.execute();
+		}
+	});
 }
 
 // =============================================================================
