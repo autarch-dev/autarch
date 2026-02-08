@@ -2,8 +2,8 @@
  * InitiativeDetail - Side panel for viewing and editing initiative details
  *
  * Shows full initiative details including editable title, description (markdown textarea),
- * status/priority dropdowns, progress controls, linked workflow section, and a placeholder
- * Break Down button. Rendered as a Sheet (side panel) when clicking an initiative.
+ * status/priority dropdowns, progress controls, and linked workflow section.
+ * Rendered as a Sheet (side panel) when clicking an initiative.
  */
 
 import {
@@ -12,7 +12,6 @@ import {
 	Link2,
 	Link2Off,
 	Plus,
-	Sparkles,
 	Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -51,11 +50,6 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useWorkflowsStore } from "@/features/dashboard/store/workflowsStore";
 import { cn } from "@/lib/utils";
 import type {
@@ -543,25 +537,6 @@ export function InitiativeDetail({
 								</DropdownMenu>
 							</div>
 						)}
-					</div>
-
-					<Separator />
-
-					{/* Break Down Button (placeholder for v1) */}
-					<div className="space-y-1.5">
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<span className="inline-block w-full">
-									<Button variant="outline" className="w-full" disabled>
-										<Sparkles className="size-3.5 mr-1.5" />
-										Break Down with AI
-									</Button>
-								</span>
-							</TooltipTrigger>
-							<TooltipContent>
-								Coming soon — AI-powered decomposition into sub-items
-							</TooltipContent>
-						</Tooltip>
 					</div>
 
 					<Separator />
