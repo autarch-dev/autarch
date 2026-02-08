@@ -23,7 +23,7 @@ import type {
 	Workflow,
 	WorkflowStatus,
 } from "@/shared/schemas/workflow";
-import type { StreamingMessage } from "../../store/workflowsStore";
+import { type StreamingMessage, useSubtasks } from "../../store/workflowsStore";
 import { statusConfig } from "./config";
 import { ExecutionStageView } from "./ExecutionStageView";
 import { PlanningStageView } from "./PlanningStageView";
@@ -87,10 +87,13 @@ export function WorkflowView({
 		setViewedStage(workflow.status);
 	}, [workflow.id, workflow.status]);
 
-	// Calculate total cost from all messages
+	// Calculate total cost from all messages and subtasks
+	const subtasks = useSubtasks(workflow.id);
 	const totalCost = useMemo(() => {
-		return messages.reduce((sum, m) => sum + (m.cost ?? 0), 0);
-	}, [messages]);
+		const messagesCost = messages.reduce((sum, m) => sum + (m.cost ?? 0), 0);
+		const subtasksCost = subtasks.reduce((sum, s) => sum + (s.cost ?? 0), 0);
+		return messagesCost + subtasksCost;
+	}, [messages, subtasks]);
 
 	const hasAnyContent = messages.length > 0 || streamingMessage;
 
