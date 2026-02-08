@@ -39,6 +39,7 @@ export interface ProjectDatabase {
 	preflight_baselines: PreflightBaselinesTable;
 	preflight_command_baselines: PreflightCommandBaselinesTable;
 	sessions: SessionsTable;
+	subtasks: SubtasksTable;
 	session_notes: SessionNotesTable;
 	session_todos: SessionTodosTable;
 	turns: TurnsTable;
@@ -287,6 +288,27 @@ export interface SessionsTable {
 	updated_at: number;
 	/** Optional pulse ID to link execution sessions to their associated pulse */
 	pulse_id: string | null;
+	/** Optional parent session ID linking subagent sessions to their coordinator */
+	parent_session_id: string | null;
+}
+
+// =============================================================================
+// Subtasks
+// =============================================================================
+
+export type SubtaskStatus = "pending" | "running" | "completed" | "failed";
+
+export interface SubtasksTable {
+	id: string;
+	parent_session_id: string;
+	workflow_id: string;
+	/** JSON-encoded task definition */
+	task_definition: string;
+	/** JSON-encoded findings/results (null until completed) */
+	findings: string | null;
+	status: SubtaskStatus;
+	created_at: number;
+	updated_at: number;
 }
 
 // =============================================================================
