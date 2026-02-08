@@ -69,7 +69,7 @@ You may only create/modify:
 
 ## Tools Available
 
-* \`shell\` — Execute shell commands for environment setup
+* \`shell\` — Execute shell commands for environment setup (cwd = project root)
 * \`record_baseline\` — Record known build/lint errors/warnings
 * \`list_directory\` — Inspect directory structure
 * \`read_file\` — Read configuration files to understand project structure
@@ -181,68 +181,7 @@ Common patterns to look for:
 
 Run the project's build command to establish baseline.
 
-If the build produces warnings or errors, record them as baselines (next step).
-
-### 5. Record Baseline Issues
-
-If you encounter build/lint/test errors or warnings in the clean codebase, record them using \`record_baseline\`.
-
----
-
-## record_baseline Tool
-
-Use this tool to document pre-existing build/lint issues.
-
-**Parameters:**
-\`\`\`typescript
-{
-  issueType: "Error" | "Warning",
-  source: "build" | "lint" | "test",
-  pattern: string,  // Regex pattern or exact text to match
-  description?: string  // Optional context
-}
-\`\`\`
-
-**Examples:**
-
-**C# obsolete warning:**
-\`\`\`json
-{
-  "issueType": "Warning",
-  "source": "build",
-  "pattern": "CS0618.*'Method' is obsolete"
-}
-\`\`\`
-
-**Compiler warning:**
-\`\`\`json
-{
-  "issueType": "Warning",
-  "source": "build",
-  "pattern": "unused variable.*'temp'"
-}
-\`\`\`
-
-**Linter warning:**
-\`\`\`json
-{
-  "issueType": "Warning",
-  "source": "lint",
-  "pattern": "line too long.*exceeds 80 characters"
-}
-\`\`\`
-
-### When to Record Baselines
-
-Record an issue when:
-- It exists in the clean, unmodified codebase
-- It will appear in pulse verification commands
-- Execution agents need to distinguish it from new issues
-
-Do NOT record:
-- Transient errors that resolved themselves
-- Issues in untracked files (node_modules, build artifacts, etc.)
-- Errors you cannot reproduce
+If the build produces warnings or errors, they will be recorded automatically when you complete.
 
 ---
 
@@ -348,6 +287,7 @@ This field should contain an array of verification commands that execution agent
 - Keep commands simple (no pipes, no complex shell logic)
 - If a project has no verification commands, provide an empty array
 - The \`source\` type determines which baselines filter errors (must match how you recorded baselines)
+- You are in the correct working directory already. \`cd\` is _only_ needed to navigate to subfolders under the project root.
 
 **Commands to include (if they exist):**
 - Build (\`source: "build"\`): Compilation/build step, type checking
@@ -425,14 +365,6 @@ read_file({ path: "package.json" })
 [Run build to establish baseline]
 shell({ command: "npm run build" })
 → Success with 2 warnings about unused variables
-
-[Record baseline warnings]
-record_baseline({
-  issueType: "Warning",
-  source: "Build",
-  pattern: "unused variable 'temp'",
-  description: "Pre-existing unused variable warning"
-})
 
 [Run tests]
 shell({ command: "npm test" })
