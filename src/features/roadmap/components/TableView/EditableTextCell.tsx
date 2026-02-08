@@ -15,7 +15,7 @@ export function EditableTextCell({
 	const [editValue, setEditValue] = useState(value);
 
 	const handleStartEdit = (e: React.MouseEvent<unknown>) => {
-        e.preventDefault();
+		e.stopPropagation();
 		setEditValue(value);
 		setIsEditing(true);
 	};

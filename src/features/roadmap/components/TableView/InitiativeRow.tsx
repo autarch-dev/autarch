@@ -52,7 +52,7 @@ export function InitiativeRow({
 			className="cursor-pointer"
 			onClick={() => onSelect?.(initiative)}
 		>
-			<TableCell onClick={(e) => e.stopPropagation()}>
+			<TableCell>
 				<div className="flex items-center gap-1.5 pl-3">
 					{hasDeps && (
 						<GitBranch className="size-3.5 text-amber-500 shrink-0" />
@@ -63,19 +63,19 @@ export function InitiativeRow({
 					/>
 				</div>
 			</TableCell>
-			<TableCell onClick={(e) => e.stopPropagation()}>
+			<TableCell>
 				<StatusSelect
 					value={initiative.status}
 					onSave={(status) => onUpdate(initiative.id, { status })}
 				/>
 			</TableCell>
-			<TableCell onClick={(e) => e.stopPropagation()}>
+			<TableCell>
 				<PrioritySelect
 					value={initiative.priority}
 					onSave={(priority) => onUpdate(initiative.id, { priority })}
 				/>
 			</TableCell>
-			<TableCell onClick={(e) => e.stopPropagation()}>
+			<TableCell>
 				<Select
 					value={String(initiative.size ?? "none")}
 					onValueChange={(v) =>
@@ -100,7 +100,7 @@ export function InitiativeRow({
 					</SelectContent>
 				</Select>
 			</TableCell>
-			<TableCell onClick={(e) => e.stopPropagation()}>
+			<TableCell>
 				<div className="flex items-center justify-between gap-1">
 					{dependencyNames.length > 0 && (
 						<span className="text-xs text-muted-foreground truncate max-w-[160px] inline-block">
@@ -109,7 +109,7 @@ export function InitiativeRow({
 					)}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto">
+							<Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto" onClick={(e) => e.stopPropagation()}>
 								<MoreHorizontal className="size-3.5" />
 							</Button>
 						</DropdownMenuTrigger>
