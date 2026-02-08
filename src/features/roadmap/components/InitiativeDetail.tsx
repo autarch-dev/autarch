@@ -273,7 +273,7 @@ export function InitiativeDetail({
 		if (!initiative) return;
 		setIsCreatingWorkflow(true);
 		try {
-			const workflow = await createWorkflow(initiative.title);
+			const workflow = await createWorkflow(`# ${initiative.title}${initiative.description ? `\n\n${initiative.description}` : ''}`);
 			await handleLinkWorkflow(workflow.id);
 		} catch (error) {
 			console.error("Failed to create workflow:", error);
