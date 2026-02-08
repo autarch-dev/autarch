@@ -39,6 +39,15 @@ export interface AllSubtasksStatus {
 	pending: SubtaskRow[];
 }
 
+export interface SubtaskTransitionResult {
+	/** Whether all sibling subtasks have reached a terminal state */
+	allDone: boolean;
+	/** Whether THIS caller is the one that should resume the coordinator.
+	 * Only true for exactly one caller when allDone is true. */
+	shouldResumeCoordinator: boolean;
+	parentSessionId: string;
+}
+
 export interface MergedSubtaskResults {
 	completedFindings: Array<{
 		subtaskId: string;
@@ -218,6 +227,76 @@ export async function completeSubtask(
 }
 
 /**
+ * Atomically mark a subtask as completed and check whether all sibling subtasks are done.
+ *
+ * Uses a SQLite transaction to ensure that when two subtasks complete near-simultaneously,
+ * only one caller observes `shouldResumeCoordinator === true`. SQLite serializes write
+ * transactions, so the complete-then-check sequence is atomic.
+ */
+export async function completeSubtaskAndCheckDone(
+	db: ProjectDb,
+	subtaskId: string,
+	findings: object,
+): Promise<SubtaskTransitionResult> {
+	const now = Date.now();
+	const findingsJson = JSON.stringify(findings);
+
+	const result = await db.transaction().execute(async (tx) => {
+		// 1. Mark the subtask as completed
+		await tx
+			.updateTable("subtasks")
+			.set({
+				status: "completed",
+				findings: findingsJson,
+				updated_at: now,
+			})
+			.where("id", "=", subtaskId)
+			.execute();
+
+		// 2. Read back the completed row for broadcast and parentSessionId
+		const row = await tx
+			.selectFrom("subtasks")
+			.selectAll()
+			.where("id", "=", subtaskId)
+			.executeTakeFirst();
+
+		if (!row) {
+			throw new Error(`Subtask ${subtaskId} not found after update`);
+		}
+
+		// 3. Count siblings still in non-terminal state
+		const pendingCount = await tx
+			.selectFrom("subtasks")
+			.select(tx.fn.countAll().as("count"))
+			.where("parent_session_id", "=", row.parent_session_id)
+			.where("status", "not in", ["completed", "failed"])
+			.executeTakeFirstOrThrow();
+
+		const allDone = Number(pendingCount.count) === 0;
+
+		return { row, allDone };
+	});
+
+	// Broadcast outside the transaction
+	broadcast(
+		createSubtaskUpdatedEvent({
+			workflowId: result.row.workflow_id,
+			subtaskId: result.row.id,
+			parentSessionId: result.row.parent_session_id,
+			label: getLabel(result.row.task_definition),
+			status: "completed",
+			findings,
+		}),
+	);
+
+	return {
+		allDone: result.allDone,
+		shouldResumeCoordinator: result.allDone,
+		parentSessionId: result.row.parent_session_id,
+	};
+}
+
+/**
  * Mark a subtask as failed with an optional error message.
  * Broadcasts a subtask:updated WebSocket event.
  */
@@ -256,6 +335,75 @@ export async function failSubtask(
 			}),
 		);
 	}
+}
+
+/**
+ * Atomically mark a subtask as failed and check whether all sibling subtasks are done.
+ *
+ * Uses a SQLite transaction to ensure that when multiple subtasks fail near-simultaneously,
+ * only one caller observes `shouldResumeCoordinator === true`. This prevents the coordinator
+ * from being stuck forever when all subtasks fail.
+ */
+export async function failSubtaskAndCheckDone(
+	db: ProjectDb,
+	subtaskId: string,
+	error?: string,
+): Promise<SubtaskTransitionResult> {
+	const now = Date.now();
+	const findingsJson = JSON.stringify({ error: error ?? "Unknown error" });
+
+	const result = await db.transaction().execute(async (tx) => {
+		// 1. Mark the subtask as failed
+		await tx
+			.updateTable("subtasks")
+			.set({
+				status: "failed",
+				findings: findingsJson,
+				updated_at: now,
+			})
+			.where("id", "=", subtaskId)
+			.execute();
+
+		// 2. Read back the failed row for broadcast and parentSessionId
+		const row = await tx
+			.selectFrom("subtasks")
+			.selectAll()
+			.where("id", "=", subtaskId)
+			.executeTakeFirst();
+
+		if (!row) {
+			throw new Error(`Subtask ${subtaskId} not found after update`);
+		}
+
+		// 3. Count siblings still in non-terminal state
+		const pendingCount = await tx
+			.selectFrom("subtasks")
+			.select(tx.fn.countAll().as("count"))
+			.where("parent_session_id", "=", row.parent_session_id)
+			.where("status", "not in", ["completed", "failed"])
+			.executeTakeFirstOrThrow();
+
+		const allDone = Number(pendingCount.count) === 0;
+
+		return { row, allDone };
+	});
+
+	// Broadcast outside the transaction
+	broadcast(
+		createSubtaskUpdatedEvent({
+			workflowId: result.row.workflow_id,
+			subtaskId: result.row.id,
+			parentSessionId: result.row.parent_session_id,
+			label: getLabel(result.row.task_definition),
+			status: "failed",
+		}),
+	);
+
+	return {
+		allDone: result.allDone,
+		shouldResumeCoordinator: result.allDone,
+		parentSessionId: result.row.parent_session_id,
+	};
 }
 
 /**

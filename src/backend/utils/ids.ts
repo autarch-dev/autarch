@@ -46,4 +46,5 @@ export const ids = {
 	initiative: () => generateId("initiative"),
 	vision: () => generateId("vision"),
 	dep: () => generateId("dep"),
+	subtask: () => generateId("subtask"),
 } as const;

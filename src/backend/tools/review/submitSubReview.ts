@@ -13,8 +13,7 @@ import { getProjectDb } from "@/backend/db/project";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import {
-	checkAllSubtasksDone,
-	completeSubtask,
+	completeSubtaskAndCheckDone,
 	getMergedSubtaskResults,
 } from "@/backend/services/subtasks";
 import {
@@ -64,7 +63,7 @@ export type SubmitSubReviewInput = z.infer<typeof submitSubReviewInputSchema>;
 /**
  * Format merged subtask results into a readable coordinator message.
  */
-function formatCoordinatorMessage(
+export function formatCoordinatorMessage(
 	merged: Awaited<ReturnType<typeof getMergedSubtaskResults>>,
 ): string {
 	const sections: string[] = [];
@@ -162,47 +161,28 @@ This is a terminal tool — your session ends after submission.`,
 		try {
 			const db = await getProjectDb(context.projectRoot);
 
-			// Determine subtaskId from context.
-			// The subtask's contextId IS the subtaskId, but ToolContext doesn't
-			// have contextId directly. Query the sessions table to find the
-			// contextId for this session, then use it as the subtaskId.
-			const sessionRecord = await db
-				.selectFrom("sessions")
-				.select(["context_id"])
-				.where("id", "=", context.sessionId)
-				.executeTakeFirst();
+			// subtaskId is set by AgentRunner.createToolContext for subtask sessions
+			const subtaskId = context.subtaskId;
 
-			if (!sessionRecord) {
+			if (!subtaskId) {
 				return {
 					success: false,
-					output: "Error: Session not found in database",
+					output:
+						"Error: No subtask context — submit_sub_review requires a subtask session",
 				};
 			}
 
-			const subtaskId = sessionRecord.context_id;
+			// Atomically complete subtask and check if all siblings are done.
+			// The transaction ensures that when two subtasks complete near-simultaneously,
+			// only one caller gets shouldResumeCoordinator === true.
+			const transitionResult = await completeSubtaskAndCheckDone(
+				db,
+				subtaskId,
+				input,
+			);
 
-			// Verify the subtask exists and is running
-			const subtask = await db
-				.selectFrom("subtasks")
-				.selectAll()
-				.where("id", "=", subtaskId)
-				.executeTakeFirst();
-
-			if (!subtask) {
-				return {
-					success: false,
-					output: `Error: Subtask not found: ${subtaskId}`,
-				};
-			}
-
-			// Store findings and mark subtask as completed
-			await completeSubtask(db, subtaskId, input);
-
-			// Check if all sibling subtasks are done
-			const parentSessionId = subtask.parent_session_id;
-			const status = await checkAllSubtasksDone(db, parentSessionId);
-
-			if (status.allDone) {
+			if (transitionResult.shouldResumeCoordinator) {
+				const parentSessionId = transitionResult.parentSessionId;
 				log.tools.info(
 					`All subtasks done for coordinator session ${parentSessionId} — resuming coordinator`,
 				);
@@ -234,6 +214,10 @@ This is a terminal tool — your session ends after submission.`,
 						`Coordinator session ${parentSessionId} not found — cannot resume`,
 					);
 				}
+			} else {
+				log.tools.debug(
+					`Subtask ${subtaskId} completed — other siblings still running`,
+				);
 			}
 
 			return {

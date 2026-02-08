@@ -15,14 +15,18 @@ import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import {
 	createSubtask,
-	failSubtask,
+	failSubtaskAndCheckDone,
+	getMergedSubtaskResults,
 	startSubtask,
 } from "@/backend/services/subtasks";
+import { ids } from "@/backend/utils/ids";
 import {
 	REASON_DESCRIPTION,
+	type ToolContext,
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
+import { formatCoordinatorMessage } from "./submitSubReview";
 
 // =============================================================================
 // Schema
@@ -81,19 +85,33 @@ function buildSubReviewMessage(
 }
 
 /**
+ * Extract the file path from a `diff --git a/... b/...` line.
+ * Returns the path without the leading `a/` or `b/` prefix.
+ */
+function parseDiffPath(diffLine: string): string | null {
+	const match = diffLine.match(/^diff --git a\/(.*) b\/(.*)$/);
+	if (!match?.[2]) return null;
+	// Use the b/ path (the destination), which reflects renames
+	return match[2];
+}
+
+/**
  * Filter a unified diff to only include hunks for the specified files.
+ * Uses exact path matching to avoid false positives from substring overlap
+ * (e.g., `src/foo.ts` must not match `src/foo.tsx`).
  */
 function filterDiffForFiles(diffContent: string, files: string[]): string {
 	if (!diffContent) return "(no diff content available)";
 
+	const fileSet = new Set(files);
 	const lines = diffContent.split("\n");
 	const result: string[] = [];
 	let include = false;
 
 	for (const line of lines) {
 		if (line.startsWith("diff --git")) {
-			// Check if this diff section is for one of our files
-			include = files.some((f) => line.includes(f));
+			const path = parseDiffPath(line);
+			include = path !== null && fileSet.has(path);
 		}
 		if (include) {
 			result.push(line);
@@ -103,6 +121,52 @@ function filterDiffForFiles(diffContent: string, files: string[]): string {
 	return result.length > 0
 		? result.join("\n")
 		: "(no matching diff content for assigned files)";
+}
+
+/**
+ * Handle a subtask failure: atomically mark it as failed and, if all siblings
+ * are now done, resume the coordinator session with merged results.
+ */
+async function handleSubtaskFailure(
+	db: Awaited<ReturnType<typeof getProjectDb>>,
+	subtaskId: string,
+	context: ToolContext,
+	errorMsg: string,
+): Promise<void> {
+	const result = await failSubtaskAndCheckDone(db, subtaskId, errorMsg);
+
+	if (result.shouldResumeCoordinator) {
+		const parentSessionId = result.parentSessionId;
+		log.tools.info(
+			`All subtasks done (via failure) for coordinator session ${parentSessionId} — resuming coordinator`,
+		);
+
+		const merged = await getMergedSubtaskResults(db, parentSessionId);
+		const coordinatorMessage = formatCoordinatorMessage(merged);
+
+		const sessionManager = getSessionManager();
+		const coordinatorSession =
+			await sessionManager.getOrRestoreSession(parentSessionId);
+
+		if (coordinatorSession) {
+			const { conversations: conversationRepo } = getRepositories();
+			const runner = new AgentRunner(coordinatorSession, {
+				projectRoot: context.projectRoot,
+				conversationRepo,
+				worktreePath: context.worktreePath,
+			});
+
+			runner.run(coordinatorMessage).catch((err) => {
+				log.tools.error(
+					`Failed to resume coordinator session ${parentSessionId}: ${err instanceof Error ? err.message : "unknown error"}`,
+				);
+			});
+		} else {
+			log.tools.error(
+				`Coordinator session ${parentSessionId} not found — cannot resume`,
+			);
+		}
+	}
 }
 
 // =============================================================================
@@ -167,24 +231,31 @@ Use this when the diff is large enough to benefit from parallel focused reviews.
 				);
 			}
 
-			// Create subtask records and spawn subagent sessions
+			// Server-generate subtask IDs to avoid PK collisions from LLM-provided IDs.
+			// Map from generated ID to task for spawning.
+			const subtaskEntries: Array<{
+				subtaskId: string;
+				task: (typeof input.tasks)[number];
+			}> = [];
 			for (const task of input.tasks) {
+				const subtaskId = ids.subtask();
 				await createSubtask(db, {
-					id: task.id,
+					id: subtaskId,
 					parentSessionId: context.sessionId,
 					workflowId: context.workflowId,
 					taskDefinition: task,
 				});
+				subtaskEntries.push({ subtaskId, task });
 			}
 
 			const sessionManager = getSessionManager();
 
-			for (const task of input.tasks) {
+			for (const { subtaskId, task } of subtaskEntries) {
 				try {
 					// Spawn subagent session
 					const subSession = await sessionManager.startSession({
 						contextType: "subtask",
-						contextId: task.id,
+						contextId: subtaskId,
 						agentRole: "review_sub",
 					});
 
@@ -197,7 +268,7 @@ Use this when the diff is large enough to benefit from parallel focused reviews.
 						.execute();
 
 					// Mark subtask as running
-					await startSubtask(db, task.id);
+					await startSubtask(db, subtaskId);
 
 					// Construct runner for the subagent
 					const runner = new AgentRunner(subSession, {
@@ -213,19 +284,19 @@ Use this when the diff is large enough to benefit from parallel focused reviews.
 					runner.run(userMessage).catch(async (err) => {
 						const errorMsg =
 							err instanceof Error ? err.message : "Unknown error";
-						log.tools.error(`Subtask ${task.id} runner failed: ${errorMsg}`);
+						log.tools.error(`Subtask ${subtaskId} runner failed: ${errorMsg}`);
 						try {
-							await failSubtask(db, task.id, errorMsg);
+							await handleSubtaskFailure(db, subtaskId, context, errorMsg);
 						} catch (failErr) {
 							log.tools.error(
-								`Failed to mark subtask ${task.id} as failed: ${failErr instanceof Error ? failErr.message : "unknown"}`,
+								`Failed to mark subtask ${subtaskId} as failed: ${failErr instanceof Error ? failErr.message : "unknown"}`,
 							);
 						}
 					});
 				} catch (err) {
 					const errorMsg = err instanceof Error ? err.message : "Unknown error";
-					log.tools.error(`Failed to spawn subtask ${task.id}: ${errorMsg}`);
-					await failSubtask(db, task.id, errorMsg);
+					log.tools.error(`Failed to spawn subtask ${subtaskId}: ${errorMsg}`);
+					await handleSubtaskFailure(db, subtaskId, context, errorMsg);
 				}
 			}
 
