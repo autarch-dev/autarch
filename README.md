@@ -80,12 +80,10 @@ Autarch is in active development. The current focus is validating the core loop:
 
 > Workflow channel → Research/Plan → Checkpointed pulses → Review Card → Pulse-preserving merge → Knowledge extraction
 
-See the [Roadmap](docs/ROADMAP.md) for detailed milestones.
+See [Product Thinking](docs/PRODUCT.md) for the core loop definition and product invariants.
 
 ## Documentation
 
-- [Vision](docs/VISION.md) — Philosophy and long-term direction
-- [MVP](docs/MVP.md) — Detailed v0 scope and acceptance criteria
+- [Product Thinking](docs/PRODUCT.md) — Target persona, core loop, knowledge model, and product invariants
 - [Architecture](docs/ARCHITECTURE.md) — System design and data model
-- [Roadmap](docs/ROADMAP.md) — Milestones and sequencing
 
