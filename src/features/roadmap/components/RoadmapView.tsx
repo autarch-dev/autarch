@@ -313,7 +313,10 @@ export function RoadmapView({
 					onSendMessage={onSendMessage}
 				/>
 			) : (
-				<Tabs defaultValue="milestones" className="flex-1 flex flex-col min-h-0">
+				<Tabs
+					defaultValue="milestones"
+					className="flex-1 flex flex-col min-h-0"
+				>
 					<div className="px-4 pt-3">
 						<TabsList>
 							<TabsTrigger value="milestones">
