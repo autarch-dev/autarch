@@ -906,8 +906,10 @@ function MilestoneGroup({
 	// Calculate milestone progress from initiatives
 	const milestoneProgress = useMemo(() => {
 		if (initiatives.length === 0) return 0;
-		const total = initiatives.reduce((sum, i) => sum + i.progress, 0);
-		return Math.round(total / initiatives.length);
+		const completed = initiatives.filter(
+			(i) => i.status === "completed",
+		).length;
+		return Math.round((completed / initiatives.length) * 100);
 	}, [initiatives]);
 
 	const milestoneSize = useMemo(() => {
