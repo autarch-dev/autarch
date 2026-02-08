@@ -150,6 +150,32 @@ export async function indexProject(
 			return;
 		}
 
+		// Reconcile: remove files that are indexed but no longer on disk
+		const indexedPaths = await db
+			.selectFrom("file_chunk_mappings")
+			.select("file_path")
+			.distinct()
+			.where("scope_id", "=", scopeId)
+			.execute();
+
+		const onDiskPaths = new Set(files.map((f) => f.relativePath));
+		const stalePaths = indexedPaths
+			.map((row) => row.file_path)
+			.filter((p) => !onDiskPaths.has(p));
+
+		if (stalePaths.length > 0) {
+			log.embedding.info(
+				`Removing ${stalePaths.length} stale file(s) from index`,
+			);
+			for (const stalePath of stalePaths) {
+				await removeFile(projectRoot, stalePath);
+			}
+		}
+
+		if (signal?.aborted) {
+			return;
+		}
+
 		// Phase: Started
 		broadcast(
 			createIndexingProgressEvent({
@@ -293,6 +319,9 @@ export async function indexProject(
 			.where("id", "=", scopeId)
 			.execute();
 
+		// Clean up any chunks orphaned by re-indexed files
+		scheduleOrphanCleanup(projectRoot);
+
 		// Phase: Completed
 		broadcast(
 			createIndexingProgressEvent({
@@ -399,6 +428,60 @@ export async function search(
 // =============================================================================
 // Incremental Updates
 // =============================================================================
+
+/**
+ * Remove orphaned rows from embedding_chunks and vec_chunks that are no
+ * longer referenced by any file_chunk_mappings row (across all scopes).
+ */
+async function cleanupOrphanedChunks(projectRoot: string): Promise<void> {
+	const db = await getEmbeddingsDb(projectRoot);
+
+	const removed = await db.transaction().execute(async (trx) => {
+		const referenced = trx
+			.selectFrom("file_chunk_mappings")
+			.select("content_hash")
+			.distinct();
+
+		const deletedChunks = await trx
+			.deleteFrom("embedding_chunks")
+			.where("content_hash", "not in", referenced)
+			.executeTakeFirst();
+
+		await trx
+			.deleteFrom("vec_chunks")
+			.where("content_hash", "not in", referenced)
+			.execute();
+
+		return Number(deletedChunks.numDeletedRows);
+	});
+
+	if (removed > 0) {
+		log.embedding.info(`Cleaned up ${removed} orphaned chunk(s)`);
+	}
+}
+
+/** Pending debounce timer for orphan cleanup after incremental updates. */
+let orphanCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Debounce delay (ms) before running orphan cleanup after file updates. */
+const ORPHAN_CLEANUP_DELAY_MS = 5_000;
+
+/**
+ * Schedule a debounced orphan-chunk cleanup.
+ * Resets the timer on every call so that a burst of file updates (e.g. after
+ * a merge commit) only triggers a single cleanup pass once the dust settles.
+ */
+function scheduleOrphanCleanup(projectRoot: string): void {
+	if (orphanCleanupTimer !== null) {
+		clearTimeout(orphanCleanupTimer);
+	}
+	orphanCleanupTimer = setTimeout(() => {
+		orphanCleanupTimer = null;
+		cleanupOrphanedChunks(projectRoot).catch((err) => {
+			log.embedding.error("Orphan chunk cleanup failed", err);
+		});
+	}, ORPHAN_CLEANUP_DELAY_MS);
+}
 
 /**
  * Update embeddings for a single file.
@@ -516,12 +599,17 @@ export async function updateFile(
 			.execute();
 	}
 
+	scheduleOrphanCleanup(projectRoot);
 	return true;
 }
 
 /**
  * Remove a file from the index.
  * Used when files are deleted.
+ *
+ * Cleans up orphaned rows in embedding_chunks and vec_chunks when no
+ * remaining file_chunk_mappings reference a given content_hash (across
+ * all scopes).
  *
  * @param projectRoot - The root directory of the project
  * @param relativePath - Path relative to project root
@@ -533,11 +621,46 @@ export async function removeFile(
 	const db = await getEmbeddingsDb(projectRoot);
 	const scopeId = await getOrCreateMainScope(projectRoot);
 
-	await db
-		.deleteFrom("file_chunk_mappings")
+	// Collect content hashes referenced by this file before deletion
+	const mappings = await db
+		.selectFrom("file_chunk_mappings")
+		.select("content_hash")
 		.where("scope_id", "=", scopeId)
 		.where("file_path", "=", relativePath)
 		.execute();
+
+	const contentHashes = [...new Set(mappings.map((m) => m.content_hash))];
+
+	// Delete mappings and clean up orphaned chunks atomically
+	await db.transaction().execute(async (trx) => {
+		// Delete the file's chunk mappings
+		await trx
+			.deleteFrom("file_chunk_mappings")
+			.where("scope_id", "=", scopeId)
+			.where("file_path", "=", relativePath)
+			.execute();
+
+		// Clean up orphaned chunks — bulk-delete hashes no longer referenced
+		// by any file_chunk_mappings row (across all scopes)
+		if (contentHashes.length > 0) {
+			const referencedHashes = trx
+				.selectFrom("file_chunk_mappings")
+				.select("content_hash")
+				.where("content_hash", "in", contentHashes);
+
+			await trx
+				.deleteFrom("embedding_chunks")
+				.where("content_hash", "in", contentHashes)
+				.where("content_hash", "not in", referencedHashes)
+				.execute();
+
+			await trx
+				.deleteFrom("vec_chunks")
+				.where("content_hash", "in", contentHashes)
+				.where("content_hash", "not in", referencedHashes)
+				.execute();
+		}
+	});
 }
 
 // =============================================================================
