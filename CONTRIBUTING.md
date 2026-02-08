@@ -160,8 +160,8 @@ The PR template includes a checklist. Before marking your PR as ready for review
 
 When opening an issue, please use the appropriate template:
 
-- **Bug reports** — Use the [Bug Report](https://github.com/autarch-app/autarch/issues/new?template=bug_report.yml) template with reproduction steps
-- **Feature requests** — Use the [Feature Request](https://github.com/autarch-app/autarch/issues/new?template=feature_request.yml) template with a clear problem statement
+- **Bug reports** — Use the [Bug Report](https://github.com/autarch-dev/autarch/issues/new?template=bug_report.yml) template with reproduction steps
+- **Feature requests** — Use the [Feature Request](https://github.com/autarch-dev/autarch/issues/new?template=feature_request.yml) template with a clear problem statement
 
 Good issues make good contributions possible.
 
