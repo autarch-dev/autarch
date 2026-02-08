@@ -163,6 +163,7 @@ export const SessionContextTypeSchema = z.enum([
 	"channel",
 	"workflow",
 	"roadmap",
+	"subtask",
 ]);
 export type SessionContextType = z.infer<typeof SessionContextTypeSchema>;
 
@@ -220,9 +221,9 @@ export const TurnStartedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	role: TurnRoleSchema,
-	/** Context type (channel, workflow, or roadmap) */
-	contextType: z.enum(["channel", "workflow", "roadmap"]).optional(),
-	/** Context ID (channel ID, workflow ID, or roadmap ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, roadmap, or subtask) */
+	contextType: z.enum(["channel", "workflow", "roadmap", "subtask"]).optional(),
+	/** Context ID (channel ID, workflow ID, roadmap ID, or subtask ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
@@ -244,9 +245,9 @@ export const TurnCompletedPayloadSchema = z.object({
 	tokenCount: z.number().optional(),
 	/** Calculated cost for this turn (if available) */
 	cost: z.number().optional(),
-	/** Context type (channel, workflow, or roadmap) */
-	contextType: z.enum(["channel", "workflow", "roadmap"]).optional(),
-	/** Context ID (channel ID, workflow ID, or roadmap ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, roadmap, or subtask) */
+	contextType: z.enum(["channel", "workflow", "roadmap", "subtask"]).optional(),
+	/** Context ID (channel ID, workflow ID, roadmap ID, or subtask ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
@@ -271,9 +272,9 @@ export const TurnMessageDeltaPayloadSchema = z.object({
 	turnId: z.string(),
 	segmentIndex: z.number().default(0), // Index of the current text segment (increments after tool calls)
 	delta: z.string(),
-	/** Context type (channel, workflow, or roadmap) */
-	contextType: z.enum(["channel", "workflow", "roadmap"]).optional(),
-	/** Context ID (channel ID, workflow ID, or roadmap ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, roadmap, or subtask) */
+	contextType: z.enum(["channel", "workflow", "roadmap", "subtask"]).optional(),
+	/** Context ID (channel ID, workflow ID, roadmap ID, or subtask ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session - enables streaming message creation on reconnect */
 	agentRole: z.string().optional(),
@@ -427,6 +428,36 @@ export const PulseFailedEventSchema = z.object({
 	payload: PulseFailedPayloadSchema,
 });
 export type PulseFailedEvent = z.infer<typeof PulseFailedEventSchema>;
+
+// =============================================================================
+// Subtask Events
+// =============================================================================
+
+export const SubtaskStatusSchema = z.enum([
+	"pending",
+	"running",
+	"completed",
+	"failed",
+]);
+export type SubtaskStatus = z.infer<typeof SubtaskStatusSchema>;
+
+// subtask:updated
+export const SubtaskUpdatedPayloadSchema = z.object({
+	workflowId: z.string(),
+	subtaskId: z.string(),
+	parentSessionId: z.string(),
+	label: z.string(),
+	status: SubtaskStatusSchema,
+	findings: z.unknown().optional(),
+	cost: z.number().optional(),
+});
+export type SubtaskUpdatedPayload = z.infer<typeof SubtaskUpdatedPayloadSchema>;
+
+export const SubtaskUpdatedEventSchema = z.object({
+	type: z.literal("subtask:updated"),
+	payload: SubtaskUpdatedPayloadSchema,
+});
+export type SubtaskUpdatedEvent = z.infer<typeof SubtaskUpdatedEventSchema>;
 
 // =============================================================================
 // Preflight Events
@@ -736,6 +767,8 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	PulseStartedEventSchema,
 	PulseCompletedEventSchema,
 	PulseFailedEventSchema,
+	// Subtask events
+	SubtaskUpdatedEventSchema,
 	// Preflight events
 	PreflightStartedEventSchema,
 	PreflightProgressEventSchema,
@@ -971,6 +1004,13 @@ export function createKnowledgeExtractionFailedEvent(
 	payload: KnowledgeExtractionFailedPayload,
 ): KnowledgeExtractionFailedEvent {
 	return { type: "knowledge:extraction_failed", payload };
+}
+
+// Subtask events
+export function createSubtaskUpdatedEvent(
+	payload: SubtaskUpdatedPayload,
+): SubtaskUpdatedEvent {
+	return { type: "subtask:updated", payload };
 }
 
 // Roadmap events
