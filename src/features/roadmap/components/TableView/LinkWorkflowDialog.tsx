@@ -20,7 +20,7 @@ interface LinkWorkflowDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	workflows: Workflow[];
-	onLink: (workflowId: string) => void;
+	onLink: (workflowId: string) => Promise<void>;
 }
 
 export function LinkWorkflowDialog({
@@ -87,10 +87,9 @@ export function LinkWorkflowDialog({
 					</Button>
 					<Button
 						disabled={selectedWorkflowId === null}
-						onClick={() => {
+						onClick={async () => {
 							if (selectedWorkflowId) {
-								onLink(selectedWorkflowId);
-								onOpenChange(false);
+								await onLink(selectedWorkflowId);
 							}
 						}}
 					>
