@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "bun-react-template",
+      "name": "autarch",
       "dependencies": {
         "@ai-sdk/anthropic": "^3.0.37",
         "@ai-sdk/google": "^3.0.7",
