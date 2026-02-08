@@ -9,6 +9,7 @@ export { planningPrompt } from "./planning";
 export { preflightPrompt } from "./preflight";
 export { getResearchPrompt } from "./research";
 export { reviewPrompt } from "./review";
+export { reviewSubPrompt } from "./reviewSub";
 export { roadmapPlanningPrompt } from "./roadmapPlanning";
 export { scopingPrompt } from "./scoping";
 
@@ -20,6 +21,7 @@ import { planningPrompt } from "./planning";
 import { preflightPrompt } from "./preflight";
 import { getResearchPrompt } from "./research";
 import { reviewPrompt } from "./review";
+import { reviewSubPrompt } from "./reviewSub";
 import { roadmapPlanningPrompt } from "./roadmapPlanning";
 import { scopingPrompt } from "./scoping";
 
@@ -33,6 +35,7 @@ export const agentPrompts = {
 	preflight: () => preflightPrompt,
 	execution: () => executionPrompt,
 	review: () => reviewPrompt,
+	review_sub: reviewSubPrompt,
 	roadmap_planning: () => roadmapPlanningPrompt,
 } as const satisfies Record<AgentRole, (options: AgentPromptOptions) => string>;
 

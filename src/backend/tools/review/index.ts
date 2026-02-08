@@ -38,6 +38,18 @@ export {
 	getScopeCardTool,
 } from "./getScopeCard";
 
+export {
+	type SpawnReviewTasksInput,
+	spawnReviewTasksInputSchema,
+	spawnReviewTasksTool,
+} from "./spawnReviewTasks";
+
+export {
+	type SubmitSubReviewInput,
+	submitSubReviewInputSchema,
+	submitSubReviewTool,
+} from "./submitSubReview";
+
 // Array of all review tools (registered for type-erased storage)
 import { registerTool } from "../types";
 import { addFileCommentTool } from "./addFileComment";

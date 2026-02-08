@@ -26,6 +26,15 @@ import {
 	submitRoadmapTool,
 	submitScopeTool,
 } from "../tools/blocks";
+import {
+	addFileCommentTool,
+	addLineCommentTool,
+	addReviewCommentTool,
+	getDiffTool,
+	getScopeCardTool,
+	spawnReviewTasksTool,
+	submitSubReviewTool,
+} from "../tools/review";
 import { typescriptTools } from "../tools/typescript";
 import { agentPrompts } from "./prompts";
 import type { AgentConfig, AgentRole } from "./types";
@@ -86,12 +95,13 @@ const EXECUTION_TOOLS: RegisteredTool[] = [
 	registerTool(requestExtensionTool),
 ];
 
-/** Review agent: base tools + review tools */
+/** Review agent: base tools + review tools + spawn_review_tasks */
 const REVIEW_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...todoTools,
 	...reviewTools,
 	...typescriptTools,
+	registerTool(spawnReviewTasksTool),
 	registerTool(requestExtensionTool),
 ];
 
@@ -101,6 +111,19 @@ const ROADMAP_PLANNING_TOOLS: RegisteredTool[] = [
 	...typescriptTools,
 	registerTool(submitRoadmapTool),
 	registerTool(askQuestionsTool),
+	registerTool(requestExtensionTool),
+];
+
+/** Review sub-agent: base tools + review comment tools + getDiff + getScopeCard + submit_sub_review + request_extension */
+const REVIEW_SUB_TOOLS: RegisteredTool[] = [
+	...baseTools,
+	...todoTools,
+	registerTool(getDiffTool),
+	registerTool(getScopeCardTool),
+	registerTool(addLineCommentTool),
+	registerTool(addFileCommentTool),
+	registerTool(addReviewCommentTool),
+	registerTool(submitSubReviewTool),
 	registerTool(requestExtensionTool),
 ];
 
@@ -174,6 +197,13 @@ export const agentRegistry = {
 		tools: ROADMAP_PLANNING_TOOLS,
 		maxTokens: 16384,
 		temperature: 0.7,
+	},
+	review_sub: {
+		role: "review_sub",
+		systemPrompt: agentPrompts.review_sub,
+		tools: REVIEW_SUB_TOOLS,
+		maxTokens: 16384,
+		temperature: 0,
 	},
 } as const satisfies Record<AgentRole, AgentConfig>;
 

@@ -37,6 +37,8 @@ import { migrate as migrate0031PulseIdSessionsColumn } from "./0031-pulse-id-ses
 import { migrate as migrate0032Roadmaps } from "./0032-roadmaps";
 import { migrate as migrate0032SessionTodos } from "./0032-session-todos";
 import { migrate as migrateRoadmapEffortSizing } from "./0033-roadmap-effort-sizing";
+import { migrate as migrate0034Subtasks } from "./0034-subtasks";
+import { migrate as migrate0035ParentSessionId } from "./0035-parent-session-id";
 
 /**
  * Run all migrations for the project database.
@@ -88,4 +90,8 @@ export async function migrateProjectDb(
 
 	// Roadmap effort sizing (0033)
 	await migrateRoadmapEffortSizing(db);
+
+	// Subtasks and parent session linking (0034-0035)
+	await migrate0034Subtasks(db);
+	await migrate0035ParentSessionId(db);
 }

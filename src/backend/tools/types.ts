@@ -50,6 +50,8 @@ export interface ToolContext {
 	toolCallId?: string;
 	/** Role of the agent (e.g., "preflight", "execution") */
 	agentRole?: string;
+	/** Current subtask ID (if in a subtask context) */
+	subtaskId?: string;
 }
 
 /**

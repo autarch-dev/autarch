@@ -20,6 +20,7 @@ import type {
 	SessionStartedPayload,
 	ShellApprovalNeededPayload,
 	ShellApprovalResolvedPayload,
+	SubtaskUpdatedPayload,
 	TurnCompletedPayload,
 	TurnMessageDeltaPayload,
 	TurnSegmentCompletePayload,
@@ -104,6 +105,15 @@ export interface StreamingMessage {
 	pulseId?: string;
 }
 
+/** A subtask within a workflow (e.g., review subagent task) */
+export interface Subtask {
+	id: string;
+	label: string;
+	status: "pending" | "running" | "completed" | "failed";
+	findings?: unknown;
+	cost?: number;
+}
+
 /** Per-workflow conversation state */
 export interface WorkflowConversationState {
 	sessionId?: string;
@@ -142,6 +152,9 @@ interface WorkflowsState {
 
 	// Pending shell approvals (keyed by approvalId)
 	pendingShellApprovals: Map<string, PendingShellApproval>;
+
+	// Subtasks per workflow (keyed by workflowId)
+	subtasks: Map<string, Subtask[]>;
 
 	// Actions - Workflow CRUD
 	fetchWorkflows: () => Promise<void>;
@@ -209,6 +222,7 @@ interface WorkflowsState {
 	getReviewCards: (workflowId: string) => ReviewCard[];
 	getPulses: (workflowId: string) => Pulse[];
 	getPreflightSetup: (workflowId: string) => PreflightSetup | undefined;
+	getSubtasks: (workflowId: string) => Subtask[];
 }
 
 // =============================================================================
@@ -229,6 +243,7 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	pulses: new Map(),
 	preflightSetups: new Map(),
 	pendingShellApprovals: new Map(),
+	subtasks: new Map(),
 
 	// ===========================================================================
 	// Workflow CRUD
@@ -360,6 +375,40 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 					preflightSetups,
 				};
 			});
+
+			// Fetch subtasks separately (not part of the history response)
+			try {
+				const subtasksResponse = await fetch(
+					`/api/workflows/${workflowId}/subtasks`,
+				);
+				if (subtasksResponse.ok) {
+					const subtasksData: Array<{
+						id: string;
+						label: string;
+						status: Subtask["status"];
+						findings: unknown;
+						cost: number;
+					}> = await subtasksResponse.json();
+					if (subtasksData.length > 0) {
+						set((state) => {
+							const subtasks = new Map(state.subtasks);
+							subtasks.set(
+								workflowId,
+								subtasksData.map((s) => ({
+									id: s.id,
+									label: s.label,
+									status: s.status,
+									findings: s.findings,
+									cost: s.cost,
+								})),
+							);
+							return { subtasks };
+						});
+					}
+				}
+			} catch {
+				// Ignore subtask fetch errors - non-critical
+			}
 		} catch (error) {
 			set((state) => {
 				const conversations = new Map(state.conversations);
@@ -666,6 +715,9 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 			const preflightSetups = new Map(state.preflightSetups);
 			preflightSetups.delete(id);
 
+			const subtasks = new Map(state.subtasks);
+			subtasks.delete(id);
+
 			return {
 				workflows,
 				conversations,
@@ -675,6 +727,7 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				reviewCards,
 				pulses,
 				preflightSetups,
+				subtasks,
 			};
 		});
 	},
@@ -775,6 +828,11 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				handlePulseFailed(event.payload, set, get);
 				break;
 
+			// Subtask events
+			case "subtask:updated":
+				handleSubtaskUpdated(event.payload, set, get);
+				break;
+
 			// Preflight events
 			case "preflight:started":
 				handlePreflightStarted(event.payload, set, get);
@@ -828,6 +886,10 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 
 	getPreflightSetup: (workflowId: string) => {
 		return get().preflightSetups.get(workflowId);
+	},
+
+	getSubtasks: (workflowId: string) => {
+		return get().subtasks.get(workflowId) ?? [];
 	},
 
 	// ===========================================================================
@@ -1947,6 +2009,40 @@ function handlePreflightFailed(
 	});
 }
 
+function handleSubtaskUpdated(
+	payload: SubtaskUpdatedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const subtasks = new Map(state.subtasks);
+		const workflowSubtasks = subtasks.get(payload.workflowId) ?? [];
+
+		// Upsert: update if exists, append if new
+		const existingIndex = workflowSubtasks.findIndex(
+			(s) => s.id === payload.subtaskId,
+		);
+
+		const updatedSubtask: Subtask = {
+			id: payload.subtaskId,
+			label: payload.label,
+			status: payload.status,
+			findings: payload.findings,
+			cost: payload.cost,
+		};
+
+		if (existingIndex >= 0) {
+			const updatedSubtasks = [...workflowSubtasks];
+			updatedSubtasks[existingIndex] = updatedSubtask;
+			subtasks.set(payload.workflowId, updatedSubtasks);
+		} else {
+			subtasks.set(payload.workflowId, [...workflowSubtasks, updatedSubtask]);
+		}
+
+		return { subtasks };
+	});
+}
+
 // =============================================================================
 // Helpers
 // =============================================================================
@@ -1970,4 +2066,16 @@ function findWorkflowBySession(
 	// Also check workflows for currentSessionId
 	const workflow = workflows.find((w) => w.currentSessionId === sessionId);
 	return workflow?.id;
+}
+
+// =============================================================================
+// Convenience Selectors
+// =============================================================================
+
+/**
+ * Hook to get subtasks for a specific workflow.
+ * Returns the subtask array (empty if none exist).
+ */
+export function useSubtasks(workflowId: string): Subtask[] {
+	return useWorkflowsStore((state) => state.subtasks.get(workflowId) ?? []);
 }

@@ -584,13 +584,76 @@ Focus on what matters. Let the tools and previous phases handle the rest.
 
 ---
 
+## Delegation Protocol for Large Reviews
+
+For large or complex diffs, you can delegate focused sub-reviews to parallel subagents using \`spawn_review_tasks\`. This is optional — use your judgment.
+
+### When to Delegate
+
+- **Delegate** when the diff spans multiple distinct modules or files with different concerns and would benefit from parallel focused review. As guidance, diffs touching ~100+ lines across multiple files or 4+ distinct files are good candidates.
+- **Review directly** when the diff is small and focused — single file, under ~100 lines, or tightly related changes.
+- This is a judgment call. Consider diff complexity, not just size. A 200-line change to one module may be better reviewed directly, while a 80-line change touching 5 unrelated files may benefit from delegation.
+
+### How to Decompose
+
+Group files by module, feature area, or concern. Each subtask should have a clear focus:
+- "API route changes"
+- "Database migration review"
+- "Frontend component updates"
+- "Shared type and schema changes"
+
+Aim for **2-5 subtasks**. Include relevant context in each task's guiding questions so the sub-reviewer understands what to look for.
+
+### spawn_review_tasks Tool
+
+Call \`spawn_review_tasks\` with an array of task objects:
+
+\`\`\`typescript
+{
+  "tasks": [
+    {
+      "label": "Human-readable label",  // e.g., "API route changes"
+      "files": ["src/routes/auth.ts", "src/routes/users.ts"],  // Files to review
+      "focusAreas": ["error handling", "input validation"],     // Key areas to examine
+      "guidingQuestions": [             // Specific questions for the sub-reviewer
+        "Are all route handlers properly authenticated?",
+        "Do error responses follow the existing pattern?"
+      ]
+    }
+  ]
+}
+\`\`\`
+
+**Calling \`spawn_review_tasks\` ends your turn.** Subagents will review their assigned files in parallel.
+
+### After Delegation
+
+Your session resumes with a message containing all sub-reviewer findings. When you receive these findings:
+
+1. **Review for cross-cutting concerns** that individual reviewers may have missed (e.g., contract mismatches between modules, inconsistent error handling across layers)
+2. **Resolve contradictions** between sub-reviews (e.g., one reviewer flags a pattern while another approves the same pattern elsewhere)
+3. **Synthesize findings** into a coherent final review
+4. **Call \`complete_review\`** with the final review card incorporating all findings
+
+### Handling Failures
+
+If any subtask failed, the resumed message includes failure details. You may:
+- **Retry failed subtasks** by calling \`spawn_review_tasks\` again with just the failed tasks (max 1 retry per failed subtask)
+- **If retries also fail**, note the gap in your final review summary (e.g., "Unable to review database migration files due to subtask failure")
+
+### Direct Review
+
+If the diff is small or focused enough to review directly, skip delegation entirely and review as normal using the existing inspection and comment tools. The delegation protocol is purely optional — most reviews will not need it.
+
+---
+
 ## Review Outcomes
 
 When calling \`complete_review\`, you must provide:
 
 \`\`\`typescript
 {
-  "recommendation": "approve" | "deny" | "needs_discussion",
+  "recommendation": "approve" | "deny" | "manual_review",
   "summary": "Brief summary of review findings",
   "suggestedCommitMessage": "Conventional Commit format message"
 }
@@ -611,7 +674,7 @@ When calling \`complete_review\`, you must provide:
 - Missing essential error handling or tests
 - Changes must be addressed before merge
 
-**needs_discussion**
+**manual_review**
 - Apparent issues that might be justified by information you don't have
 - Ambiguity about scope alignment
 - Architectural decisions that need human judgment
@@ -659,7 +722,7 @@ type(scope): description
 **Needs Discussion:**
 \`\`\`json
 {
-  "recommendation": "needs_discussion",
+  "recommendation": "manual_review",
   "summary": "Changes introduce new validation pattern inconsistent with existing code. May be justified by scope/research not visible to review. Needs confirmation.",
   "suggestedCommitMessage": "feat(validation): add new validator pattern"
 }

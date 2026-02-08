@@ -12,10 +12,12 @@ import {
 	RewindTargetSchema,
 } from "@/shared/schemas/workflow";
 import { getSessionManager, getWorkflowOrchestrator } from "../agents/runner";
+import { getProjectDb } from "../db/project";
 import { getDiff } from "../git";
 import { log } from "../logger";
 import { getProjectRoot } from "../projectRoot";
 import { getRepositories } from "../repositories";
+import { getCostCalculator } from "../services/cost/CostCalculator";
 import {
 	getMergeStrategy,
 	getPersistentShellApprovals,
@@ -682,6 +684,92 @@ export const workflowRoutes = {
 				return Response.json({ success: true });
 			} catch (error) {
 				log.api.error("Failed to archive workflow:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/workflows/:id/subtasks": {
+		async GET(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			try {
+				const db = await getProjectDb(getProjectRoot());
+				const costCalculator = getCostCalculator();
+
+				// Get all subtasks for this workflow
+				const subtasks = await db
+					.selectFrom("subtasks")
+					.selectAll()
+					.where("workflow_id", "=", params.id)
+					.orderBy("created_at", "asc")
+					.execute();
+
+				// Calculate cost for each subtask from its session turns
+				const result = await Promise.all(
+					subtasks.map(async (subtask) => {
+						// Get turns from sessions associated with this subtask
+						const turns = await db
+							.selectFrom("turns")
+							.innerJoin("sessions", "sessions.id", "turns.session_id")
+							.select([
+								"turns.model_id",
+								"turns.prompt_tokens",
+								"turns.completion_tokens",
+							])
+							.where("sessions.context_type", "=", "subtask")
+							.where("sessions.context_id", "=", subtask.id)
+							.execute();
+
+						const cost = costCalculator.calculateTotal(
+							turns.map((t) => ({
+								modelId: t.model_id,
+								promptTokens: t.prompt_tokens,
+								completionTokens: t.completion_tokens,
+							})),
+						);
+
+						// Parse task_definition for label
+						let label = "Subtask";
+						try {
+							const taskDef = JSON.parse(subtask.task_definition);
+							if (taskDef.label) {
+								label = taskDef.label;
+							}
+						} catch {
+							// Invalid JSON, use default label
+						}
+
+						// Parse findings
+						let findings = null;
+						if (subtask.findings) {
+							try {
+								findings = JSON.parse(subtask.findings);
+							} catch {
+								// Invalid JSON, leave as null
+							}
+						}
+
+						return {
+							id: subtask.id,
+							label,
+							status: subtask.status,
+							findings,
+							cost,
+							createdAt: subtask.created_at,
+							updatedAt: subtask.updated_at,
+						};
+					}),
+				);
+
+				return Response.json(result);
+			} catch (error) {
+				log.api.error("Failed to get subtasks:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },
