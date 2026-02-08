@@ -7,7 +7,7 @@
  */
 
 import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -33,6 +33,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { useWorkflowsStore } from "@/features/dashboard/store/workflowsStore";
 import type {
 	Initiative,
 	InitiativePriority,
@@ -228,6 +229,12 @@ export function TableView({
 		id: string;
 		title: string;
 	} | null>(null);
+
+	const { fetchWorkflows } = useWorkflowsStore();
+
+	useEffect(() => {
+		fetchWorkflows();
+	}, [fetchWorkflows]);
 
 	// -------------------------------------------------------------------------
 	// Handlers
