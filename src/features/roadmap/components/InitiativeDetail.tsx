@@ -14,7 +14,7 @@ import {
 	Plus,
 	Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -133,13 +133,38 @@ export function InitiativeDetail({
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
 
-	// Sync local state when initiative changes
+	const prevInitiativeIdRef = useRef<string | null>(null);
+	const isEditingTitleRef = useRef(false);
+	const isEditingDescriptionRef = useRef(false);
+
+	// Keep refs in sync with editing state
+	isEditingTitleRef.current = isEditingTitle;
+	isEditingDescriptionRef.current = isEditingDescription;
+
+	// Sync local state from initiative prop:
+	// - Full reset (including editing state) when initiative identity changes
+	// - Only sync non-editing fields when the same initiative updates
 	useEffect(() => {
-		if (initiative) {
+		if (!initiative) {
+			prevInitiativeIdRef.current = null;
+			return;
+		}
+		const identityChanged = initiative.id !== prevInitiativeIdRef.current;
+		prevInitiativeIdRef.current = initiative.id;
+
+		if (identityChanged) {
 			setEditTitle(initiative.title);
 			setEditDescription(initiative.description ?? "");
 			setIsEditingTitle(false);
 			setIsEditingDescription(false);
+			return;
+		}
+
+		if (!isEditingTitleRef.current) {
+			setEditTitle(initiative.title);
+		}
+		if (!isEditingDescriptionRef.current) {
+			setEditDescription(initiative.description ?? "");
 		}
 	}, [initiative]);
 
@@ -195,6 +220,19 @@ export function InitiativeDetail({
 		}
 		setIsEditingDescription(false);
 	}, [initiative, editDescription, onUpdateInitiative]);
+
+	const handleDescriptionKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+				e.preventDefault();
+				handleDescriptionSave();
+			} else if (e.key === "Escape") {
+				setEditDescription(initiative?.description ?? "");
+				setIsEditingDescription(false);
+			}
+		},
+		[handleDescriptionSave, initiative?.description],
+	);
 
 	const handleStatusChange = useCallback(
 		async (status: InitiativeStatus) => {
@@ -308,30 +346,15 @@ export function InitiativeDetail({
 					<div className="space-y-1.5">
 						<Label>Description</Label>
 						{isEditingDescription ? (
-							<div className="space-y-2">
-								<Textarea
-									value={editDescription}
-									onChange={(e) => setEditDescription(e.target.value)}
-									placeholder="Describe this initiative (supports markdown)..."
-									className="min-h-[100px]"
-									autoFocus
-								/>
-								<div className="flex gap-2">
-									<Button size="sm" onClick={handleDescriptionSave}>
-										Save
-									</Button>
-									<Button
-										size="sm"
-										variant="outline"
-										onClick={() => {
-											setEditDescription(initiative.description ?? "");
-											setIsEditingDescription(false);
-										}}
-									>
-										Cancel
-									</Button>
-								</div>
-							</div>
+							<Textarea
+								value={editDescription}
+								onChange={(e) => setEditDescription(e.target.value)}
+								onBlur={handleDescriptionSave}
+								onKeyDown={handleDescriptionKeyDown}
+								placeholder="Describe this initiative (supports markdown)..."
+								className="min-h-[100px]"
+								autoFocus
+							/>
 						) : (
 							<button
 								type="button"
