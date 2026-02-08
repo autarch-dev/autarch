@@ -209,12 +209,13 @@ export function MessageBubble(props: MessageBubbleProps) {
 		async (
 			answers: Array<{ questionId: string; answer: unknown }>,
 			comment?: string,
+			questionIds?: string[],
 		) => {
 			try {
 				const response = await fetch("/api/questions/batch-answer", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ answers, comment }),
+					body: JSON.stringify({ answers, comment, questionIds }),
 				});
 
 				if (!response.ok) {

@@ -15,7 +15,6 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Loader2,
-	MessageSquare,
 	Send,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -40,6 +39,7 @@ import { FreeTextQuestion } from "./FreeTextQuestion";
 import { MultiSelectQuestion } from "./MultiSelectQuestion";
 import { RankedQuestion } from "./RankedQuestion";
 import { SingleSelectQuestion } from "./SingleSelectQuestion";
+import { SubmittedQuestions } from "./SubmittedQuestions";
 import type { QuestionBlockProps } from "./types";
 
 const QUESTION_COMPONENTS = {
@@ -120,11 +120,15 @@ export function QuestionBlock({
 					questionId: q.id,
 					answer: answers.get(q.id),
 				}));
-			await onAnswer(answersToSubmit, comment.trim() || undefined);
+			await onAnswer(
+				answersToSubmit,
+				comment.trim() || undefined,
+				questions.map((q) => q.id),
+			);
 		} finally {
 			setIsSubmitting(false);
 		}
-	}, [onAnswer, canSubmit, pendingQuestions, answers, comment]);
+	}, [onAnswer, canSubmit, pendingQuestions, answers, comment, questions]);
 
 	const renderQuestion = (question: MessageQuestion) => {
 		const value =
@@ -157,9 +161,13 @@ export function QuestionBlock({
 
 		let statusText = "";
 		if (answeredCount > 0 && skippedCount > 0) {
-			statusText = `${answeredCount} answered, ${skippedCount} skipped`;
+			statusText = `${answeredCount} answered, ${skippedCount} skipped${questionsComment ? " · comment added" : ""}`;
+		} else if (answeredCount > 0 && questionsComment) {
+			statusText = `${answeredCount} answered \u00b7 comment added`;
 		} else if (answeredCount > 0) {
 			statusText = `${answeredCount} question${answeredCount !== 1 ? "s" : ""} answered`;
+		} else if (skippedCount > 0 && questionsComment) {
+			statusText = `${skippedCount} question${skippedCount !== 1 ? "s" : ""} skipped \u00b7 comment added`;
 		} else {
 			statusText = `${skippedCount} question${skippedCount !== 1 ? "s" : ""} skipped`;
 		}
@@ -191,24 +199,11 @@ export function QuestionBlock({
 						</Button>
 					</CollapsibleTrigger>
 					<CollapsibleContent>
-						<div className="px-4 pb-4 space-y-4">
-							{questions.map(renderQuestion)}
-							{/* Show user's comment if provided */}
-							{questionsComment && (
-								<div className="pt-2 border-t border-green-500/20">
-									<div className="flex items-start gap-2 text-sm">
-										<MessageSquare className="size-4 text-green-600 mt-0.5 shrink-0" />
-										<div>
-											<span className="font-medium text-green-600">
-												Your comment:
-											</span>
-											<p className="text-muted-foreground mt-1">
-												{questionsComment}
-											</p>
-										</div>
-									</div>
-								</div>
-							)}
+						<div className="px-4 pb-4">
+							<SubmittedQuestions
+								questions={questions}
+								comment={questionsComment}
+							/>
 						</div>
 					</CollapsibleContent>
 				</div>

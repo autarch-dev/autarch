@@ -82,6 +82,8 @@ export const AnswerQuestionsRequestSchema = z.object({
 			answer: z.unknown(),
 		}),
 	),
+	/** Optional question IDs for session resolution when answers array is empty */
+	questionIds: z.array(z.string()).optional(),
 	/** Optional additional comment/feedback from the user */
 	comment: z.string().optional(),
 });
