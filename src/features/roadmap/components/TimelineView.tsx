@@ -51,7 +51,7 @@ const INITIATIVE_COLORS = [
 const ROW_HEIGHT = 40;
 const INITIATIVE_ROW_HEIGHT = 32;
 const HEADER_HEIGHT = 48;
-const LABEL_WIDTH = '50%';
+const LABEL_WIDTH = "50%";
 
 // =============================================================================
 // Helpers
