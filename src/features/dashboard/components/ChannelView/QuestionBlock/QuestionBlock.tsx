@@ -120,11 +120,15 @@ export function QuestionBlock({
 					questionId: q.id,
 					answer: answers.get(q.id),
 				}));
-			await onAnswer(answersToSubmit, comment.trim() || undefined);
+			await onAnswer(
+				answersToSubmit,
+				comment.trim() || undefined,
+				questions.map((q) => q.id),
+			);
 		} finally {
 			setIsSubmitting(false);
 		}
-	}, [onAnswer, canSubmit, pendingQuestions, answers, comment]);
+	}, [onAnswer, canSubmit, pendingQuestions, answers, comment, questions]);
 
 	const renderQuestion = (question: MessageQuestion) => {
 		const value =

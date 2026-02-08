@@ -6,6 +6,7 @@ export interface QuestionBlockProps {
 	onAnswer?: (
 		answers: Array<{ questionId: string; answer: unknown }>,
 		comment?: string,
+		questionIds?: string[],
 	) => void;
 	disabled?: boolean;
 	/** User comment/feedback provided when questions were submitted (for display) */
