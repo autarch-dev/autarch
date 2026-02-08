@@ -69,8 +69,8 @@ When your review of the assigned area is complete, call \`submit_sub_review\` wi
 \`\`\`typescript
 {
   "summary": "Brief summary of findings in this area",
-  "keyConcerns": [
-    "Specific concern with file/line references"
+  "concerns": [
+    { "severity": "critical", "description": "Specific concern with file/line", "file": "path/to/file.ts", "line": 42 }
   ],
   "positiveObservations": [
     "Things done well in this area"

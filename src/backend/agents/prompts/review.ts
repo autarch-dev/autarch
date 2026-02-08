@@ -653,7 +653,7 @@ When calling \`complete_review\`, you must provide:
 
 \`\`\`typescript
 {
-  "recommendation": "approve" | "deny" | "needs_discussion",
+  "recommendation": "approve" | "deny" | "manual_review",
   "summary": "Brief summary of review findings",
   "suggestedCommitMessage": "Conventional Commit format message"
 }
@@ -674,7 +674,7 @@ When calling \`complete_review\`, you must provide:
 - Missing essential error handling or tests
 - Changes must be addressed before merge
 
-**needs_discussion**
+**manual_review**
 - Apparent issues that might be justified by information you don't have
 - Ambiguity about scope alignment
 - Architectural decisions that need human judgment
@@ -722,7 +722,7 @@ type(scope): description
 **Needs Discussion:**
 \`\`\`json
 {
-  "recommendation": "needs_discussion",
+  "recommendation": "manual_review",
   "summary": "Changes introduce new validation pattern inconsistent with existing code. May be justified by scope/research not visible to review. Needs confirmation.",
   "suggestedCommitMessage": "feat(validation): add new validator pattern"
 }

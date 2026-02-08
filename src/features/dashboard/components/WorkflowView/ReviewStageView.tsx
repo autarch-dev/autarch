@@ -115,7 +115,7 @@ function SubtaskCollapsibleItem({ subtask }: { subtask: Subtask }) {
 					{subtask.status === "completed" && subtask.findings != null ? (
 						<div className="text-sm text-muted-foreground">
 							<span className="font-medium">Findings: </span>
-							<span>
+							<span style={{ whiteSpace: "pre-wrap" }}>
 								{typeof subtask.findings === "string"
 									? subtask.findings
 									: JSON.stringify(subtask.findings, null, 2)}
