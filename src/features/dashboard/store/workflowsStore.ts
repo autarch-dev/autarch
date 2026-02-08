@@ -2072,10 +2072,15 @@ function findWorkflowBySession(
 // Convenience Selectors
 // =============================================================================
 
+// Stable empty array to avoid re-renders when no subtasks exist
+const EMPTY_SUBTASKS: Subtask[] = [];
+
 /**
  * Hook to get subtasks for a specific workflow.
  * Returns the subtask array (empty if none exist).
  */
 export function useSubtasks(workflowId: string): Subtask[] {
-	return useWorkflowsStore((state) => state.subtasks.get(workflowId) ?? []);
+	return useWorkflowsStore(
+		(state) => state.subtasks.get(workflowId) ?? EMPTY_SUBTASKS,
+	);
 }
