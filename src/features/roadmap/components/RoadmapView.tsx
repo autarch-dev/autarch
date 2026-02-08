@@ -14,7 +14,7 @@ import {
 	TableIcon,
 	Trash2,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -164,11 +164,22 @@ export function RoadmapView({
 
 	const status = statusConfig[roadmap.status];
 
-	// Calculate overall progress (average of initiative progress values)
+	// Calculate overall progress based on initiative completion status
 	const overallProgress = useMemo(() => {
 		if (initiatives.length === 0) return 0;
-		const total = initiatives.reduce((sum, i) => sum + i.progress, 0);
-		return Math.round(total / initiatives.length);
+		const completed = initiatives.filter(
+			(i) => i.status === "completed",
+		).length;
+		return Math.round((completed / initiatives.length) * 100);
+	}, [initiatives]);
+
+	// Sync selectedInitiative with the latest initiatives prop
+	useEffect(() => {
+		setSelectedInitiative((prev) => {
+			if (!prev) return prev;
+			const updated = initiatives.find((i) => i.id === prev.id);
+			return updated ?? null;
+		});
 	}, [initiatives]);
 
 	// Show planning conversation when roadmap is draft and has a session

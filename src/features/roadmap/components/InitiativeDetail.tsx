@@ -257,7 +257,12 @@ export function InitiativeDetail({
 	const handleLinkWorkflow = useCallback(
 		async (workflowId: string) => {
 			if (!initiative) return;
-			await onUpdateInitiative(initiative.id, { workflowId });
+			await onUpdateInitiative(initiative.id, {
+				workflowId,
+				...(initiative.status === "not_started"
+					? { status: "in_progress" as const }
+					: {}),
+			});
 		},
 		[initiative, onUpdateInitiative],
 	);
@@ -273,14 +278,21 @@ export function InitiativeDetail({
 		if (!initiative) return;
 		setIsCreatingWorkflow(true);
 		try {
-			const workflow = await createWorkflow(`# ${initiative.title}${initiative.description ? `\n\n${initiative.description}` : ''}`);
-			await handleLinkWorkflow(workflow.id);
+			const workflow = await createWorkflow(
+				`# ${initiative.title}${initiative.description ? `\n\n${initiative.description}` : ""}`,
+			);
+			await onUpdateInitiative(initiative.id, {
+				workflowId: workflow.id,
+				...(initiative.status === "not_started"
+					? { status: "in_progress" as const }
+					: {}),
+			});
 		} catch (error) {
 			console.error("Failed to create workflow:", error);
 		} finally {
 			setIsCreatingWorkflow(false);
 		}
-	}, [initiative, createWorkflow, handleLinkWorkflow]);
+	}, [initiative, createWorkflow, onUpdateInitiative]);
 
 	if (!initiative) return null;
 
@@ -516,8 +528,18 @@ export function InitiativeDetail({
 										align="start"
 										className="w-[300px] max-h-[300px] overflow-y-auto"
 									>
+										<DropdownMenuItem
+											onClick={handleCreateAndLinkWorkflow}
+											disabled={isCreatingWorkflow}
+										>
+											<Plus className="size-3.5 mr-1.5" />
+											{isCreatingWorkflow
+												? "Creating..."
+												: "Create New Workflow"}
+										</DropdownMenuItem>
 										{availableWorkflows.length > 0 ? (
 											<>
+												<DropdownMenuSeparator />
 												{availableWorkflows.map((w) => (
 													<DropdownMenuItem
 														key={w.id}
@@ -537,24 +559,8 @@ export function InitiativeDetail({
 														</div>
 													</DropdownMenuItem>
 												))}
-												<DropdownMenuSeparator />
 											</>
-										) : (
-											<DropdownMenuItem disabled>
-												<span className="text-muted-foreground">
-													No workflows available
-												</span>
-											</DropdownMenuItem>
-										)}
-										<DropdownMenuItem
-											onClick={handleCreateAndLinkWorkflow}
-											disabled={isCreatingWorkflow}
-										>
-											<Plus className="size-3.5 mr-1.5" />
-											{isCreatingWorkflow
-												? "Creating..."
-												: "Create New Workflow"}
-										</DropdownMenuItem>
+										) : null}
 									</DropdownMenuContent>
 								</DropdownMenu>
 							</div>
