@@ -1,6 +1,7 @@
-import { CheckCircle2, Circle, Plus } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { Progress } from "@/components/ui/progress";
 import {
 	SidebarGroup,
 	SidebarGroupAction,
@@ -72,7 +73,8 @@ export function WorkflowsSection({
 					<SidebarMenu>
 						{activeWorkflows.map((workflow) => {
 							const href = `/workflow/${workflow.id}`;
-							const isActive = location === `/dashboard${href}`;
+							const isActive = location === href;
+
 							return (
 								<SidebarMenuItem key={workflow.id}>
 									<SidebarMenuButton
@@ -85,13 +87,17 @@ export function WorkflowsSection({
 										)}
 									>
 										<Link href={href}>
-											<Circle
-												className={cn(
-													"size-3 shrink-0",
-													workflow.awaitingApproval && "fill-current",
-													statusColors[workflow.status],
-												)}
-											/>
+											{workflow.awaitingApproval ? (
+												<Circle
+													className={cn(
+														"size-3 shrink-0",
+														workflow.awaitingApproval && "fill-current",
+														statusColors[workflow.status],
+													)}
+												/>
+											) : (
+												<Loader2 className={cn("h-4 w-4 animate-spin", statusColors[workflow.status])} />
+											)}
 											<span className="truncate">{workflow.title}</span>
 										</Link>
 									</SidebarMenuButton>
