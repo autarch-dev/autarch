@@ -319,6 +319,9 @@ export async function indexProject(
 			.where("id", "=", scopeId)
 			.execute();
 
+		// Clean up any chunks orphaned by re-indexed files
+		scheduleOrphanCleanup(projectRoot);
+
 		// Phase: Completed
 		broadcast(
 			createIndexingProgressEvent({
@@ -433,22 +436,25 @@ export async function search(
 async function cleanupOrphanedChunks(projectRoot: string): Promise<void> {
 	const db = await getEmbeddingsDb(projectRoot);
 
-	const referenced = db
-		.selectFrom("file_chunk_mappings")
-		.select("content_hash")
-		.distinct();
+	const removed = await db.transaction().execute(async (trx) => {
+		const referenced = trx
+			.selectFrom("file_chunk_mappings")
+			.select("content_hash")
+			.distinct();
 
-	const deletedChunks = await db
-		.deleteFrom("embedding_chunks")
-		.where("content_hash", "not in", referenced)
-		.executeTakeFirst();
+		const deletedChunks = await trx
+			.deleteFrom("embedding_chunks")
+			.where("content_hash", "not in", referenced)
+			.executeTakeFirst();
 
-	await db
-		.deleteFrom("vec_chunks")
-		.where("content_hash", "not in", referenced)
-		.execute();
+		await trx
+			.deleteFrom("vec_chunks")
+			.where("content_hash", "not in", referenced)
+			.execute();
 
-	const removed = Number(deletedChunks.numDeletedRows);
+		return Number(deletedChunks.numDeletedRows);
+	});
+
 	if (removed > 0) {
 		log.embedding.info(`Cleaned up ${removed} orphaned chunk(s)`);
 	}
