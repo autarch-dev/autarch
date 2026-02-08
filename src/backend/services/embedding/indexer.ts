@@ -427,6 +427,57 @@ export async function search(
 // =============================================================================
 
 /**
+ * Remove orphaned rows from embedding_chunks and vec_chunks that are no
+ * longer referenced by any file_chunk_mappings row (across all scopes).
+ */
+async function cleanupOrphanedChunks(projectRoot: string): Promise<void> {
+	const db = await getEmbeddingsDb(projectRoot);
+
+	const referenced = db
+		.selectFrom("file_chunk_mappings")
+		.select("content_hash")
+		.distinct();
+
+	const deletedChunks = await db
+		.deleteFrom("embedding_chunks")
+		.where("content_hash", "not in", referenced)
+		.executeTakeFirst();
+
+	await db
+		.deleteFrom("vec_chunks")
+		.where("content_hash", "not in", referenced)
+		.execute();
+
+	const removed = Number(deletedChunks.numDeletedRows);
+	if (removed > 0) {
+		log.embedding.info(`Cleaned up ${removed} orphaned chunk(s)`);
+	}
+}
+
+/** Pending debounce timer for orphan cleanup after incremental updates. */
+let orphanCleanupTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Debounce delay (ms) before running orphan cleanup after file updates. */
+const ORPHAN_CLEANUP_DELAY_MS = 5_000;
+
+/**
+ * Schedule a debounced orphan-chunk cleanup.
+ * Resets the timer on every call so that a burst of file updates (e.g. after
+ * a merge commit) only triggers a single cleanup pass once the dust settles.
+ */
+function scheduleOrphanCleanup(projectRoot: string): void {
+	if (orphanCleanupTimer !== null) {
+		clearTimeout(orphanCleanupTimer);
+	}
+	orphanCleanupTimer = setTimeout(() => {
+		orphanCleanupTimer = null;
+		cleanupOrphanedChunks(projectRoot).catch((err) => {
+			log.embedding.error("Orphan chunk cleanup failed", err);
+		});
+	}, ORPHAN_CLEANUP_DELAY_MS);
+}
+
+/**
  * Update embeddings for a single file.
  * Skips re-embedding if chunk hashes haven't changed.
  *
@@ -542,6 +593,7 @@ export async function updateFile(
 			.execute();
 	}
 
+	scheduleOrphanCleanup(projectRoot);
 	return true;
 }
 
