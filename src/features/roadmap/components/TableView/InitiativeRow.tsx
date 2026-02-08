@@ -61,10 +61,7 @@ export function InitiativeRow({
 				</div>
 			</TableCell>
 			<TableCell>
-				<StatusSelect
-					value={initiative.status}
-					onSave={(status) => onUpdate(initiative.id, { status })}
-				/>
+				<StatusSelect initiative={initiative} onUpdateInitiative={onUpdate} />
 			</TableCell>
 			<TableCell>
 				<PrioritySelect
