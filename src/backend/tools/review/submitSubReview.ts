@@ -59,6 +59,32 @@ export const submitSubReviewInputSchema = z.object({
 export type SubmitSubReviewInput = z.infer<typeof submitSubReviewInputSchema>;
 
 // =============================================================================
+// Findings Validation
+// =============================================================================
+
+/**
+ * Zod schema for validating sub-review findings read back from the database.
+ * All fields are optional so that malformed or unexpected shapes degrade
+ * gracefully instead of producing `undefined` values in coordinator messages.
+ */
+const SubReviewFindingsSchema = z.object({
+	summary: z.string().optional(),
+	concerns: z
+		.array(
+			z.object({
+				severity: z.string().default("minor"),
+				description: z.string().default("(no description)"),
+				file: z.string().optional(),
+				line: z.number().optional(),
+			}),
+		)
+		.optional(),
+	positiveObservations: z.array(z.string()).optional(),
+});
+
+type SubReviewFindings = z.infer<typeof SubReviewFindingsSchema>;
+
+// =============================================================================
 // Helpers
 // =============================================================================
 
@@ -79,16 +105,10 @@ export function formatCoordinatorMessage(
 	for (const entry of merged.completedFindings) {
 		sections.push(`## ${entry.label}\n`);
 
-		const findings = entry.findings as {
-			summary?: string;
-			concerns?: Array<{
-				severity: string;
-				description: string;
-				file?: string;
-				line?: number;
-			}>;
-			positiveObservations?: string[];
-		};
+		const parseResult = SubReviewFindingsSchema.safeParse(entry.findings);
+		const findings: SubReviewFindings = parseResult.success
+			? parseResult.data
+			: {};
 
 		if (findings.summary) {
 			sections.push(`**Summary:** ${findings.summary}\n`);
