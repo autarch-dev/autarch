@@ -531,6 +531,19 @@ export class RoadmapRepository implements Repository {
 		return rows.map((row) => this.toInitiative(row));
 	}
 
+	/** Find an initiative linked to a workflow */
+	async findInitiativeByWorkflowId(
+		workflowId: string,
+	): Promise<Initiative | null> {
+		const row = await this.db
+			.selectFrom("initiatives")
+			.selectAll()
+			.where("workflow_id", "=", workflowId)
+			.executeTakeFirst();
+
+		return row ? this.toInitiative(row) : null;
+	}
+
 	/**
 	 * Update an initiative
 	 */
