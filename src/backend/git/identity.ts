@@ -5,6 +5,7 @@
  * for use in git commit and merge operations.
  */
 
+import { log } from "@/backend/logger";
 import {
 	getGitAuthorEmail,
 	getGitAuthorName,
@@ -25,24 +26,36 @@ import { execGit } from "./git-executor";
  *
  * Committer identity is always set to Autarch.
  *
- * @param projectRoot - The root directory of the project
+ * @param projectRoot - The root directory of the project, or null to skip DB lookup
+ * @param cwd - Working directory for git config resolution (defaults to projectRoot)
  * @returns Environment variables to pass to git commands
  */
 export async function resolveGitIdentityEnv(
-	projectRoot: string,
+	projectRoot: string | null,
+	cwd?: string,
 ): Promise<Record<string, string>> {
+	const gitCwd = cwd ?? projectRoot ?? process.cwd();
 	const env: Record<string, string> = {
 		GIT_COMMITTER_NAME: "Autarch",
 		GIT_COMMITTER_EMAIL: "hello@autarch.dev",
 	};
 
 	// Resolve author name: project_meta → git config → omit
-	const authorName = await getGitAuthorName(projectRoot);
+	let authorName: string | null = null;
+	if (projectRoot !== null) {
+		try {
+			authorName = await getGitAuthorName(projectRoot);
+		} catch (_err) {
+			log.git.debug(
+				"Could not read author name from project_meta, falling back to git config",
+			);
+		}
+	}
 	if (authorName !== null) {
 		env.GIT_AUTHOR_NAME = authorName;
 	} else {
 		const result = await execGit(["config", "user.name"], {
-			cwd: projectRoot,
+			cwd: gitCwd,
 		});
 		if (result.success) {
 			env.GIT_AUTHOR_NAME = result.stdout.trim();
@@ -50,12 +63,21 @@ export async function resolveGitIdentityEnv(
 	}
 
 	// Resolve author email: project_meta → git config → omit
-	const authorEmail = await getGitAuthorEmail(projectRoot);
+	let authorEmail: string | null = null;
+	if (projectRoot !== null) {
+		try {
+			authorEmail = await getGitAuthorEmail(projectRoot);
+		} catch (_err) {
+			log.git.debug(
+				"Could not read author email from project_meta, falling back to git config",
+			);
+		}
+	}
 	if (authorEmail !== null) {
 		env.GIT_AUTHOR_EMAIL = authorEmail;
 	} else {
 		const result = await execGit(["config", "user.email"], {
-			cwd: projectRoot,
+			cwd: gitCwd,
 		});
 		if (result.success) {
 			env.GIT_AUTHOR_EMAIL = result.stdout.trim();

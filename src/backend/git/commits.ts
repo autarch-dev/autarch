@@ -6,8 +6,10 @@
  */
 
 import { log } from "@/backend/logger";
+import { getProjectRootOrNull } from "@/backend/projectRoot";
 import { getCurrentCommit } from "./branches";
 import { execGit, execGitOrThrow } from "./git-executor";
+import { resolveGitIdentityEnv } from "./identity";
 
 // =============================================================================
 // Commit Operations
@@ -84,10 +86,7 @@ export async function commitChanges(
 	await execGitOrThrow(["commit", "-m", fullMessage], {
 		cwd: worktreePath,
 		env: {
-			GIT_AUTHOR_NAME: "Autarch",
-			GIT_AUTHOR_EMAIL: "autarch@local",
-			GIT_COMMITTER_NAME: "Autarch",
-			GIT_COMMITTER_EMAIL: "autarch@local",
+			...(await resolveGitIdentityEnv(getProjectRootOrNull(), worktreePath)),
 		},
 	});
 
