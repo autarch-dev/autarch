@@ -142,6 +142,15 @@ The PR template includes a checklist. Before marking your PR as ready for review
 - [ ] All existing tests pass (`bun test --concurrent`)
 - [ ] Linting passes (`bun run lint`)
 - [ ] Type checking passes (`bun run typecheck`)
+- [ ] I have read and agree to the [Contributor License Agreement](CLA.md)
+
+## Contributor License Agreement
+
+Before your first contribution can be merged, you'll need to agree to our [Contributor License Agreement](CLA.md). The CLA grants The Autarch Project the right to use and relicense your contributions — you keep full ownership of your work.
+
+Agreeing is simple: by submitting a pull request, you're indicating that you've read and agree to the CLA. No separate paperwork or signature needed.
+
+Why do we have a CLA? It gives the project flexibility to adjust licensing in the future without tracking down every past contributor. This is common practice for open-source projects.
 
 ## What Contributions Are Welcome
 
