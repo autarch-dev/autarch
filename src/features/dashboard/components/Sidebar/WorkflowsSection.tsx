@@ -119,7 +119,12 @@ export function WorkflowsSection({
 												asChild
 												isActive={isActive}
 												tooltip={workflow.title}
-												className="flex-1"
+												className={cn(
+													"flex-1 border-l-2 rounded-l-none",
+													isActive
+														? "border-l-primary"
+														: "border-l-transparent",
+												)}
 											>
 												<Link href={href}>
 													<CheckCircle2 className="size-3 shrink-0 text-green-500" />
