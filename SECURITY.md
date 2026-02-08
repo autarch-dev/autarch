@@ -16,7 +16,7 @@ Keys are transmitted only to their respective provider SDKs when making LLM or s
 
 ## Shell Command Approval
 
-Every shell command executed by an AI agent requires human approval before it runs. The approval system uses a blocking Promise pattern: the agent's execution pauses until the user explicitly approves or denies the command through the UI, with real-time notification delivered via WebSocket.
+Every shell command executed by an AI agent within a workflow requires human approval before it runs. The approval check is conditioned on workflow context (workflow ID, session ID, and turn ID) being present — if any of these fields are missing, the command proceeds without approval. In normal workflow execution all three fields are always present, so this fallback applies only to edge cases such as bare channel contexts. The approval system uses a blocking Promise pattern: the agent's execution pauses until the user explicitly approves or denies the command through the UI, with real-time notification delivered via WebSocket.
 
 To reduce friction for repeated commands, approvals support two tiers of auto-approval:
 
