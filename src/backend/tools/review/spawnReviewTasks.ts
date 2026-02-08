@@ -20,6 +20,8 @@ import {
 	startSubtask,
 } from "@/backend/services/subtasks";
 import { ids } from "@/backend/utils/ids";
+import { broadcast } from "@/backend/ws";
+import { createWorkflowErrorEvent } from "@/shared/schemas/events";
 import {
 	REASON_DESCRIPTION,
 	type ToolContext,
@@ -34,15 +36,16 @@ import { formatCoordinatorMessage } from "./submitSubReview";
 
 export const spawnReviewTasksInputSchema = z.object({
 	reason: z.string().describe(REASON_DESCRIPTION),
-	tasks: z.array(
-		z.object({
-			id: z.string(),
-			label: z.string(),
-			files: z.array(z.string()),
-			focusAreas: z.array(z.string()).optional(),
-			guidingQuestions: z.array(z.string()).optional(),
-		}),
-	),
+	tasks: z
+		.array(
+			z.object({
+				label: z.string(),
+				files: z.array(z.string()),
+				focusAreas: z.array(z.string()).optional(),
+				guidingQuestions: z.array(z.string()).optional(),
+			}),
+		)
+		.min(1),
 });
 
 export type SpawnReviewTasksInput = z.infer<typeof spawnReviewTasksInputSchema>;
@@ -157,14 +160,32 @@ async function handleSubtaskFailure(
 			});
 
 			runner.run(coordinatorMessage).catch((err) => {
+				const resumeError =
+					err instanceof Error ? err.message : "unknown error";
 				log.tools.error(
-					`Failed to resume coordinator session ${parentSessionId}: ${err instanceof Error ? err.message : "unknown error"}`,
+					`Failed to resume coordinator session ${parentSessionId}: ${resumeError}`,
 				);
+				if (context.workflowId) {
+					broadcast(
+						createWorkflowErrorEvent({
+							workflowId: context.workflowId,
+							error: `Failed to resume review coordinator after subtask completion: ${resumeError}`,
+						}),
+					);
+				}
 			});
 		} else {
 			log.tools.error(
 				`Coordinator session ${parentSessionId} not found — cannot resume`,
 			);
+			if (context.workflowId) {
+				broadcast(
+					createWorkflowErrorEvent({
+						workflowId: context.workflowId,
+						error: `Coordinator session ${parentSessionId} not found — cannot resume after subtask completion`,
+					}),
+				);
+			}
 		}
 	}
 }

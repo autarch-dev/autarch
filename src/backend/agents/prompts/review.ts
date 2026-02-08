@@ -612,7 +612,6 @@ Call \`spawn_review_tasks\` with an array of task objects:
 {
   "tasks": [
     {
-      "id": "unique-string-id",        // Unique identifier for this subtask
       "label": "Human-readable label",  // e.g., "API route changes"
       "files": ["src/routes/auth.ts", "src/routes/users.ts"],  // Files to review
       "focusAreas": ["error handling", "input validation"],     // Key areas to examine

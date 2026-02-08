@@ -16,6 +16,8 @@ import {
 	completeSubtaskAndCheckDone,
 	getMergedSubtaskResults,
 } from "@/backend/services/subtasks";
+import { broadcast } from "@/backend/ws";
+import { createWorkflowErrorEvent } from "@/shared/schemas/events";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -33,7 +35,7 @@ export const submitSubReviewInputSchema = z.object({
 		.array(
 			z.object({
 				severity: z
-					.enum(["critical", "major", "minor", "suggestion"])
+					.enum(["critical", "moderate", "minor"])
 					.describe("Severity level of the concern"),
 				description: z.string().describe("Description of the concern"),
 				file: z
@@ -205,14 +207,32 @@ This is a terminal tool — your session ends after submission.`,
 
 					// Fire-and-forget: resume coordinator without blocking
 					runner.run(coordinatorMessage).catch((err) => {
+						const resumeError =
+							err instanceof Error ? err.message : "unknown error";
 						log.tools.error(
-							`Failed to resume coordinator session ${parentSessionId}: ${err instanceof Error ? err.message : "unknown error"}`,
+							`Failed to resume coordinator session ${parentSessionId}: ${resumeError}`,
 						);
+						if (context.workflowId) {
+							broadcast(
+								createWorkflowErrorEvent({
+									workflowId: context.workflowId,
+									error: `Failed to resume review coordinator after subtask completion: ${resumeError}`,
+								}),
+							);
+						}
 					});
 				} else {
 					log.tools.error(
 						`Coordinator session ${parentSessionId} not found — cannot resume`,
 					);
+					if (context.workflowId) {
+						broadcast(
+							createWorkflowErrorEvent({
+								workflowId: context.workflowId,
+								error: `Coordinator session ${parentSessionId} not found — cannot resume after subtask completion`,
+							}),
+						);
+					}
 				}
 			} else {
 				log.tools.debug(

@@ -110,7 +110,6 @@ export interface Subtask {
 	id: string;
 	label: string;
 	status: "pending" | "running" | "completed" | "failed";
-	parentSessionId: string;
 	findings?: unknown;
 	cost?: number;
 }
@@ -399,7 +398,6 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 									id: s.id,
 									label: s.label,
 									status: s.status,
-									parentSessionId: "",
 									findings: s.findings,
 									cost: s.cost,
 								})),
@@ -2017,7 +2015,6 @@ function handleSubtaskUpdated(
 			id: payload.subtaskId,
 			label: payload.label,
 			status: payload.status,
-			parentSessionId: payload.parentSessionId,
 			findings: payload.findings,
 			cost: payload.cost,
 		};
