@@ -42,7 +42,7 @@ export function InitiativeRow({
 		initiativeId: string,
 		data: Partial<
 			Pick<Initiative, "title" | "status" | "priority" | "progress" | "size">
-		>,
+		> & { workflowId?: string | null },
 	) => Promise<void>;
 	onSelect?: (initiative: Initiative) => void;
 	onRequestDelete: (id: string, title: string) => void;
@@ -61,10 +61,7 @@ export function InitiativeRow({
 				</div>
 			</TableCell>
 			<TableCell>
-				<StatusSelect
-					value={initiative.status}
-					onSave={(status) => onUpdate(initiative.id, { status })}
-				/>
+				<StatusSelect initiative={initiative} onUpdateInitiative={onUpdate} />
 			</TableCell>
 			<TableCell>
 				<PrioritySelect
