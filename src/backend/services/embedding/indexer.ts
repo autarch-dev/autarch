@@ -580,25 +580,25 @@ export async function removeFile(
 		.where("file_path", "=", relativePath)
 		.execute();
 
-	// Clean up orphaned chunks — only delete when zero mappings remain
-	for (const hash of contentHashes) {
-		const remaining = await db
+	// Clean up orphaned chunks — bulk-delete hashes no longer referenced
+	// by any file_chunk_mappings row (across all scopes)
+	if (contentHashes.length > 0) {
+		const referencedHashes = db
 			.selectFrom("file_chunk_mappings")
 			.select("content_hash")
-			.where("content_hash", "=", hash)
-			.executeTakeFirst();
+			.where("content_hash", "in", contentHashes);
 
-		if (!remaining) {
-			await db
-				.deleteFrom("embedding_chunks")
-				.where("content_hash", "=", hash)
-				.execute();
+		await db
+			.deleteFrom("embedding_chunks")
+			.where("content_hash", "in", contentHashes)
+			.where("content_hash", "not in", referencedHashes)
+			.execute();
 
-			await db
-				.deleteFrom("vec_chunks")
-				.where("content_hash", "=", hash)
-				.execute();
-		}
+		await db
+			.deleteFrom("vec_chunks")
+			.where("content_hash", "in", contentHashes)
+			.where("content_hash", "not in", referencedHashes)
+			.execute();
 	}
 }
 
