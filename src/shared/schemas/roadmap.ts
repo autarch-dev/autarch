@@ -28,15 +28,10 @@ export const InitiativePrioritySchema = z.enum([
 ]);
 export type InitiativePriority = z.infer<typeof InitiativePrioritySchema>;
 
-export const InitiativeSizeSchema = z.union([
-	z.literal(1),
-	z.literal(2),
-	z.literal(3),
-	z.literal(5),
-	z.literal(8),
-	z.literal(13),
-	z.literal(21),
-]);
+export const InitiativeSizes = [1, 2, 3, 5, 8, 13, 21] as const;
+export const InitiativeSizeSchema = z.union(
+	InitiativeSizes.map((v) => z.literal(v)),
+);
 export type InitiativeSize = z.infer<typeof InitiativeSizeSchema>;
 
 // =============================================================================

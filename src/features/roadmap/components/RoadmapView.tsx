@@ -7,7 +7,6 @@
  */
 
 import {
-	BarChart3,
 	FileText,
 	MoreHorizontal,
 	Pencil,
@@ -48,7 +47,6 @@ import type { RoadmapConversationState } from "../store/roadmapStore";
 import { InitiativeDetail } from "./InitiativeDetail";
 import { PlanningConversation } from "./PlanningConversation";
 import { TableView } from "./TableView";
-import { TimelineView } from "./TimelineView";
 import { VisionDocument as VisionDocumentView } from "./VisionDocument";
 
 // =============================================================================
@@ -315,16 +313,12 @@ export function RoadmapView({
 					onSendMessage={onSendMessage}
 				/>
 			) : (
-				<Tabs defaultValue="overview" className="flex-1 flex flex-col min-h-0">
+				<Tabs defaultValue="milestones" className="flex-1 flex flex-col min-h-0">
 					<div className="px-4 pt-3">
 						<TabsList>
-							<TabsTrigger value="overview">
-								<BarChart3 className="size-4 mr-1.5" />
-								Overview
-							</TabsTrigger>
-							<TabsTrigger value="table">
+							<TabsTrigger value="milestones">
 								<TableIcon className="size-4 mr-1.5" />
-								Table
+								Milestones
 							</TabsTrigger>
 							<TabsTrigger value="vision">
 								<FileText className="size-4 mr-1.5" />
@@ -333,15 +327,7 @@ export function RoadmapView({
 						</TabsList>
 					</div>
 
-					<TabsContent value="overview" className="flex-1 min-h-0 p-4">
-						<TimelineView
-							milestones={milestones}
-							initiatives={initiatives}
-							onSelectInitiative={handleSelectInitiative}
-						/>
-					</TabsContent>
-
-					<TabsContent value="table" className="flex-1 min-h-0 p-4">
+					<TabsContent value="milestones" className="flex-1 min-h-0 p-4">
 						<TableView
 							roadmapId={roadmap.id}
 							milestones={milestones}
@@ -371,7 +357,6 @@ export function RoadmapView({
 			{/* Initiative Detail Side Panel */}
 			<InitiativeDetail
 				initiative={selectedInitiative}
-				roadmapId={roadmap.id}
 				open={isDetailOpen}
 				onOpenChange={handleDetailOpenChange}
 				onUpdateInitiative={onUpdateInitiative}

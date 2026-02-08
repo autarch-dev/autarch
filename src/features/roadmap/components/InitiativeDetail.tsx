@@ -123,7 +123,6 @@ const WORKFLOW_STATUS_LABELS: Record<WorkflowStatus, string> = {
 
 interface InitiativeDetailProps {
 	initiative: Initiative | null;
-	roadmapId: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onUpdateInitiative: (
@@ -144,7 +143,6 @@ interface InitiativeDetailProps {
 
 export function InitiativeDetail({
 	initiative,
-	roadmapId: _roadmapId,
 	open,
 	onOpenChange,
 	onUpdateInitiative,
