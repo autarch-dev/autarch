@@ -67,7 +67,7 @@ interface TableViewProps {
 		initiativeId: string,
 		data: Partial<
 			Pick<Initiative, "title" | "status" | "priority" | "progress" | "size">
-		>,
+		> & { workflowId?: string | null },
 	) => Promise<void>;
 	onCreateMilestone: (data: {
 		title: string;

@@ -97,7 +97,7 @@ export function MilestoneGroup({
 		initiativeId: string,
 		data: Partial<
 			Pick<Initiative, "title" | "status" | "priority" | "progress" | "size">
-		>,
+		> & { workflowId?: string | null },
 	) => Promise<void>;
 	onCreateInitiative: () => void;
 	onSelectInitiative?: (initiative: Initiative) => void;

@@ -42,7 +42,7 @@ export function InitiativeRow({
 		initiativeId: string,
 		data: Partial<
 			Pick<Initiative, "title" | "status" | "priority" | "progress" | "size">
-		>,
+		> & { workflowId?: string | null },
 	) => Promise<void>;
 	onSelect?: (initiative: Initiative) => void;
 	onRequestDelete: (id: string, title: string) => void;
