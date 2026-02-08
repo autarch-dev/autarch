@@ -39,7 +39,7 @@ export function PrioritySelect({
 		>
 			<SelectTrigger
 				size="sm"
-				className="h-7 text-xs border-none shadow-none px-0 gap-1 w-auto"
+				className="h-7 text-xs border-none shadow-none bg-transparent dark:bg-transparent dark:hover:bg-transparent px-1 gap-1 w-auto"
 			>
 				<SelectValue>
 					<Badge
