@@ -15,6 +15,7 @@ import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import {
 	createSubtask,
+	failSubtask,
 	failSubtaskAndCheckDone,
 	getMergedSubtaskResults,
 	resumeCoordinatorSession,
@@ -128,13 +129,15 @@ function filterDiffForFiles(diffContent: string, files: string[]): string {
 /**
  * Handle a subtask failure: atomically mark it as failed and, if all siblings
  * are now done, resume the coordinator session with merged results.
+ *
+ * Returns true if the coordinator session was resumed (all siblings done).
  */
 async function handleSubtaskFailure(
 	db: Awaited<ReturnType<typeof getProjectDb>>,
 	subtaskId: string,
 	context: ToolContext,
 	errorMsg: string,
-): Promise<void> {
+): Promise<boolean> {
 	const result = await failSubtaskAndCheckDone(db, subtaskId, errorMsg);
 
 	if (result.shouldResumeCoordinator) {
@@ -147,7 +150,10 @@ async function handleSubtaskFailure(
 		const coordinatorMessage = formatCoordinatorMessage(merged);
 
 		resumeCoordinatorSession(parentSessionId, context, coordinatorMessage);
+		return true;
 	}
+
+	return false;
 }
 
 // =============================================================================
@@ -231,7 +237,27 @@ Use this when the diff is large enough to benefit from parallel focused reviews.
 
 			const sessionManager = getSessionManager();
 
-			for (const { subtaskId, task } of subtaskEntries) {
+			let coordinatorResumed = false;
+
+			for (let i = 0; i < subtaskEntries.length; i++) {
+				const entry = subtaskEntries[i];
+				if (!entry) continue;
+				const { subtaskId, task } = entry;
+
+				if (coordinatorResumed) {
+					// Coordinator already resumed — mark remaining subtasks as failed
+					// without the check-done logic to avoid duplicate resumes.
+					log.tools.warn(
+						`Skipping subtask ${subtaskId} — coordinator already resumed`,
+					);
+					await failSubtask(
+						db,
+						subtaskId,
+						"Skipped: coordinator already resumed due to earlier failure",
+					);
+					continue;
+				}
+
 				try {
 					// Spawn subagent session
 					const subSession = await sessionManager.startSession({
@@ -277,7 +303,12 @@ Use this when the diff is large enough to benefit from parallel focused reviews.
 				} catch (err) {
 					const errorMsg = err instanceof Error ? err.message : "Unknown error";
 					log.tools.error(`Failed to spawn subtask ${subtaskId}: ${errorMsg}`);
-					await handleSubtaskFailure(db, subtaskId, context, errorMsg);
+					coordinatorResumed = await handleSubtaskFailure(
+						db,
+						subtaskId,
+						context,
+						errorMsg,
+					);
 				}
 			}
 

@@ -7,7 +7,7 @@
 
 import { AgentRunner } from "@/backend/agents/runner/AgentRunner";
 import { getSessionManager } from "@/backend/agents/runner/SessionManager";
-import type { SubtasksTable } from "@/backend/db/project/types";
+import type { SubtaskStatus, SubtasksTable } from "@/backend/db/project/types";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import type { ProjectDb } from "@/backend/repositories/types";
@@ -34,7 +34,7 @@ export interface SubtaskRow {
 	workflowId: string;
 	taskDefinition: string;
 	findings: string | null;
-	status: string;
+	status: SubtaskStatus;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -196,48 +196,6 @@ export async function startSubtask(
 				parentSessionId: row.parent_session_id,
 				label: getLabel(row.task_definition),
 				status: "running",
-			}),
-		);
-	}
-}
-
-/**
- * Mark a subtask as completed with findings.
- * Broadcasts a subtask:updated WebSocket event.
- */
-export async function completeSubtask(
-	db: ProjectDb,
-	subtaskId: string,
-	findings: object,
-): Promise<void> {
-	const now = Date.now();
-	const findingsJson = JSON.stringify(findings);
-
-	await db
-		.updateTable("subtasks")
-		.set({
-			status: "completed",
-			findings: findingsJson,
-			updated_at: now,
-		})
-		.where("id", "=", subtaskId)
-		.execute();
-
-	const row = await db
-		.selectFrom("subtasks")
-		.selectAll()
-		.where("id", "=", subtaskId)
-		.executeTakeFirst();
-
-	if (row) {
-		broadcast(
-			createSubtaskUpdatedEvent({
-				workflowId: row.workflow_id,
-				subtaskId: row.id,
-				parentSessionId: row.parent_session_id,
-				label: getLabel(row.task_definition),
-				status: "completed",
-				findings,
 			}),
 		);
 	}
