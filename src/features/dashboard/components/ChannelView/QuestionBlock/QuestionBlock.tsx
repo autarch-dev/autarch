@@ -161,7 +161,7 @@ export function QuestionBlock({
 
 		let statusText = "";
 		if (answeredCount > 0 && skippedCount > 0) {
-			statusText = `${answeredCount} answered, ${skippedCount} skipped`;
+			statusText = `${answeredCount} answered, ${skippedCount} skipped${questionsComment ? " · comment added" : ""}`;
 		} else if (answeredCount > 0 && questionsComment) {
 			statusText = `${answeredCount} answered \u00b7 comment added`;
 		} else if (answeredCount > 0) {

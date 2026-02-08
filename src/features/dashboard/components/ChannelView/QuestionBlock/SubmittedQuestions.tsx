@@ -43,6 +43,10 @@ function renderAnswer(question: MessageQuestion) {
 
 		case "free_text":
 			return <p className="text-sm">{question.answer as string}</p>;
+
+		default:
+			question.type satisfies never;
+			throw new Error("Unhandled question type");
 	}
 }
 
