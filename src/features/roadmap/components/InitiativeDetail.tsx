@@ -63,7 +63,10 @@ import type {
 	InitiativePriority,
 	InitiativeStatus,
 } from "@/shared/schemas/roadmap";
-import type { WorkflowStatus } from "@/shared/schemas/workflow";
+import {
+	WORKFLOW_STATUS_COLORS,
+	WORKFLOW_STATUS_LABELS,
+} from "@/shared/schemas/workflow";
 import { ProgressControls } from "./ProgressControls";
 
 // =============================================================================
@@ -92,29 +95,6 @@ const STATUS_COLORS: Record<InitiativeStatus, string> = {
 	completed:
 		"text-green-700 bg-green-100 dark:text-green-400 dark:bg-green-950",
 	blocked: "text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-950",
-};
-
-const WORKFLOW_STATUS_COLORS: Record<WorkflowStatus, string> = {
-	backlog: "text-muted-foreground bg-muted",
-	scoping:
-		"text-purple-700 bg-purple-100 dark:text-purple-400 dark:bg-purple-950",
-	researching: "text-blue-700 bg-blue-100 dark:text-blue-400 dark:bg-blue-950",
-	planning: "text-cyan-700 bg-cyan-100 dark:text-cyan-400 dark:bg-cyan-950",
-	in_progress:
-		"text-yellow-700 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-950",
-	review:
-		"text-orange-700 bg-orange-100 dark:text-orange-400 dark:bg-orange-950",
-	done: "text-green-700 bg-green-100 dark:text-green-400 dark:bg-green-950",
-};
-
-const WORKFLOW_STATUS_LABELS: Record<WorkflowStatus, string> = {
-	backlog: "Backlog",
-	scoping: "Scoping",
-	researching: "Researching",
-	planning: "Planning",
-	in_progress: "In Progress",
-	review: "Review",
-	done: "Done",
 };
 
 // =============================================================================
