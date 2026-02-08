@@ -1,6 +1,7 @@
 export * from "./channel";
 export * from "./embedding";
 export * from "./events";
+export * from "./git-identity";
 export * from "./hooks";
 export * from "./models";
 export * from "./project";
