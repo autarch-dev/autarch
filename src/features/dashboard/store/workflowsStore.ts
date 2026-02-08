@@ -590,6 +590,10 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	},
 
 	requestFixes: async (workflowId, commentIds, summary) => {
+		// Capture artifact type BEFORE the API call - WebSocket events might clear it during await
+		const workflow = get().workflows.find((w) => w.id === workflowId);
+		const artifactType = workflow?.pendingArtifactType;
+
 		const response = await fetch(`/api/workflows/${workflowId}/request-fixes`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -601,14 +605,22 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 			throw new Error(error.error ?? "Failed to request fixes");
 		}
 
-		// Update workflow state to clear awaitingApproval
+		// Update workflow state to clear awaitingApproval and mark artifact as denied
 		set((state) => {
 			const workflows = state.workflows.map((w) =>
 				w.id === workflowId
 					? { ...w, awaitingApproval: false, pendingArtifactType: undefined }
 					: w,
 			);
-			return { workflows };
+
+			const artifactUpdates = updateArtifactStatusInState(
+				state,
+				workflowId,
+				artifactType,
+				"denied",
+			);
+
+			return { workflows, ...artifactUpdates };
 		});
 
 		// Refresh history to get updated workflow state after fix pulse starts
