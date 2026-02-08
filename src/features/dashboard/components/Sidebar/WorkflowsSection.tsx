@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Workflow } from "@/shared/schemas/workflow";
 import { CreateWorkflowDialog } from "./CreateWorkflowDialog";
-import { priorityBorders, statusColors } from "./constants";
+import { statusColors } from "./constants";
 
 interface WorkflowsSectionProps {
 	workflows: Workflow[];
@@ -79,12 +79,16 @@ export function WorkflowsSection({
 										asChild
 										isActive={isActive}
 										tooltip={workflow.title}
-										className={cn("flex-1", priorityBorders[workflow.priority])}
+										className={cn(
+											"flex-1 border-l-2 rounded-l-none",
+											isActive ? "border-l-primary" : "border-l-transparent",
+										)}
 									>
 										<Link href={href}>
 											<Circle
 												className={cn(
-													"size-3 shrink-0 fill-current",
+													"size-3 shrink-0",
+													workflow.awaitingApproval && "fill-current",
 													statusColors[workflow.status],
 												)}
 											/>
