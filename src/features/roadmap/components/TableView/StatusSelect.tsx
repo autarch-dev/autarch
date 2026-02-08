@@ -141,7 +141,11 @@ export function StatusSelect({
 					}}
 				>
 					<DropdownMenuTrigger asChild>
-						<Button variant="ghost" size="sm">
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={(e) => e.stopPropagation()}
+						>
 							<Badge
 								variant="secondary"
 								className={cn("text-xs", STATUS_COLORS[initiative.status])}
