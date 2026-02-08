@@ -104,3 +104,67 @@ RESTful HTTP routes are organized by domain in `src/backend/routes/`. Eight rout
 ### Shared Schemas
 
 TypeScript types shared between frontend and backend live in `src/shared/schemas/`. The project uses Zod for runtime validation with inferred TypeScript types (`z.infer`). Twelve schema files cover: channels, embeddings, events, hooks, models, projects, questions, roadmaps, sessions, settings, workflows, plus an index barrel export. These schemas define the contract between frontend and backend — any data crossing the boundary conforms to these definitions.
+
+## Frontend Structure
+
+The frontend lives in `src/features/` and follows a feature-sliced organization pattern, where each top-level directory owns all code for a distinct area of the application.
+
+### Feature Directories
+
+- **`dashboard/`** — Main workflow management interface: workflow list, detail views, and conversation threads.
+- **`onboarding/`** — Initial setup and configuration flow.
+- **`settings/`** — Application settings management.
+- **`testbench/`** — Development and testing utilities.
+- **`roadmap/`** — Roadmap visualization and planning.
+- **`websocket/`** — WebSocket connection management and event handling.
+
+### Internal Structure
+
+Each feature directory can contain a combination of these subdirectories:
+
+- **`api/`** — API client functions for communicating with the backend.
+- **`components/`** — React components scoped to the feature.
+- **`store/`** — Zustand state stores.
+- **`hooks/`** — Custom React hooks.
+
+Not every feature has all subdirectories — each includes only what it needs. For example, `websocket/` is minimal (just a store and barrel export), while `dashboard/` has `api/`, `components/`, `store/`, and `utils/`.
+
+### Key Patterns
+
+Zustand stores hold state and actions in a single store per concern (e.g., `workflowsStore.ts`, `discussionsStore.ts`). The frontend uses shadcn/ui primitives for UI components. API clients are per-feature and communicate with the backend via REST endpoints.
+
+## Database Architecture
+
+Autarch uses 4 separate SQLite databases, each serving a distinct concern. All are managed via Kysely as the query builder.
+
+The database layer lives in `src/backend/db/`, with each database in its own subdirectory containing types, migrations, and connection setup.
+
+### Global Database
+
+`src/backend/db/global/` — Application-wide settings stored as a key-value store.
+
+**Tables:** `settings`.
+
+### Project Database
+
+`src/backend/db/project/` — Core workflow and session data. This is the largest database (~25 tables), with tables grouped by concern:
+
+- **Workflow structure:** `workflows`, `channels`, `project_meta`.
+- **Conversation history:** `sessions`, `turns`, `turn_messages`, `turn_tools`, `turn_thoughts`, `subtasks`, `session_notes`, `session_todos`.
+- **Artifacts:** `scope_cards`, `research_cards`, `plans` (stage outputs with approval status).
+- **Execution:** `pulses`, `preflight_setup`, `preflight_baselines`, `preflight_command_baselines`.
+- **Review:** `review_cards`, `review_comments`.
+- **Roadmaps:** `roadmaps`, `milestones`, `initiatives`, `vision_documents`, `dependencies`.
+- **Other:** `questions`.
+
+### Embeddings Database
+
+`src/backend/db/embeddings/` — Content-addressable code chunks and vector storage for semantic search.
+
+**Tables:** `embedding_chunks` (content-addressable text chunks), `vec_chunks` (vector embeddings), `embedding_scopes` (scope boundaries), `file_chunk_mappings` (file-to-chunk relationships).
+
+### Knowledge Database
+
+`src/backend/db/knowledge/` — Extracted knowledge items with embeddings for retrieval.
+
+**Tables:** `knowledge_items`, `knowledge_embeddings`.
