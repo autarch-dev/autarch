@@ -32,11 +32,13 @@ export function LinkWorkflowDialog({
 	const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(
 		null,
 	);
+	const [isLinking, setIsLinking] = useState(false);
 
-	// Reset selection when dialog opens
+	// Reset selection and linking state when dialog opens
 	useEffect(() => {
 		if (open) {
 			setSelectedWorkflowId(null);
+			setIsLinking(false);
 		}
 	}, [open]);
 
@@ -86,14 +88,19 @@ export function LinkWorkflowDialog({
 						Cancel
 					</Button>
 					<Button
-						disabled={selectedWorkflowId === null}
+						disabled={selectedWorkflowId === null || isLinking}
 						onClick={async () => {
 							if (selectedWorkflowId) {
-								await onLink(selectedWorkflowId);
+								setIsLinking(true);
+								try {
+									await onLink(selectedWorkflowId);
+								} finally {
+									setIsLinking(false);
+								}
 							}
 						}}
 					>
-						Link
+						{isLinking ? "Linking\u2026" : "Link"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
