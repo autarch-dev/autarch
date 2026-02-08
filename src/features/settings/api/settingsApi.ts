@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+	type GitIdentity,
+	GitIdentitySchema,
+} from "@/shared/schemas/git-identity";
+import {
 	type PostWriteHooksConfig,
 	PostWriteHooksConfigSchema,
 } from "@/shared/schemas/hooks";
@@ -201,5 +205,33 @@ export async function removePersistentApproval(command: string): Promise<void> {
 	if (!response.ok) {
 		const error = await response.json();
 		throw new Error(error.error ?? "Failed to remove persistent approval");
+	}
+}
+
+// =============================================================================
+// Git Identity
+// =============================================================================
+
+/**
+ * Get the current git author identity for the project.
+ */
+export async function fetchGitIdentity(): Promise<GitIdentity> {
+	const response = await fetch("/api/project/git-identity");
+	const data = await response.json();
+	return GitIdentitySchema.parse(data);
+}
+
+/**
+ * Update the git author identity for the project.
+ */
+export async function updateGitIdentity(identity: GitIdentity): Promise<void> {
+	const response = await fetch("/api/project/git-identity", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(identity),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to update git identity");
 	}
 }
