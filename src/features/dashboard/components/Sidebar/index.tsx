@@ -38,6 +38,13 @@ export function AppSidebar({
 			<SidebarHeader />
 
 			<SidebarContent className="overflow-x-hidden">
+				<RoadmapsSection
+					roadmaps={roadmaps}
+					onCreateRoadmap={onCreateRoadmap}
+				/>
+
+				<SidebarSeparator />
+
 				<DiscussionsSection
 					channels={channels}
 					onCreateChannel={onCreateChannel}
@@ -48,13 +55,6 @@ export function AppSidebar({
 				<WorkflowsSection
 					workflows={workflows}
 					onCreateWorkflow={onCreateWorkflow}
-				/>
-
-				<SidebarSeparator />
-
-				<RoadmapsSection
-					roadmaps={roadmaps}
-					onCreateRoadmap={onCreateRoadmap}
 				/>
 			</SidebarContent>
 
