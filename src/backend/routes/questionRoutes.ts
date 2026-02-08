@@ -36,6 +36,8 @@ const AnswerQuestionsRequestSchema = z.object({
 			answer: z.unknown(),
 		}),
 	),
+	/** Optional question IDs for session resolution when answers array is empty */
+	questionIds: z.array(z.string()).optional(),
 	/** Optional additional comment/feedback from the user */
 	comment: z.string().optional(),
 });
@@ -208,7 +210,7 @@ export const questionRoutes = {
 				let sessionId: string | null = null;
 				let turnId: string | null = null;
 				let answeredCount = 0;
-				const { answers, comment } = parsed.data;
+				const { answers, comment, questionIds } = parsed.data;
 
 				// Process each answer
 				for (const { questionId, answer } of answers) {
@@ -249,6 +251,19 @@ export const questionRoutes = {
 						if (firstQuestion) {
 							sessionId = firstQuestion.session_id;
 							turnId = firstQuestion.turn_id;
+						}
+					}
+				}
+
+				// If still no session/turn, try resolving from questionIds (comment-only submissions)
+				if (!sessionId || !turnId) {
+					const firstQuestionId = questionIds?.[0];
+					if (firstQuestionId) {
+						const question =
+							await repos.conversations.getQuestionById(firstQuestionId);
+						if (question) {
+							sessionId = question.session_id;
+							turnId = question.turn_id;
 						}
 					}
 
