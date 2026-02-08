@@ -1452,6 +1452,9 @@ function handleQuestionsSubmitted(
 				streamingMessage: {
 					...existing.streamingMessage,
 					questionsComment: payload.comment,
+					questions: existing.streamingMessage.questions?.map((q) =>
+						q.status === "pending" ? { ...q, status: "skipped" as const } : q,
+					),
 				},
 			});
 		} else {
@@ -1461,6 +1464,9 @@ function handleQuestionsSubmitted(
 					return {
 						...msg,
 						questionsComment: payload.comment,
+						questions: msg.questions?.map((q) =>
+							q.status === "pending" ? { ...q, status: "skipped" as const } : q,
+						),
 					};
 				}
 				return msg;
