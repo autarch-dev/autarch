@@ -7,8 +7,11 @@ import type {
 import {
 	completeOnboarding,
 	fetchApiKeysStatus,
+	fetchGitIdentity,
+	fetchGitIdentityDefaults,
 	fetchModelPreferences,
 	fetchOnboardingStatus,
+	saveGitIdentity as saveGitIdentityApi,
 	setApiKey,
 	updateModelPreferences,
 } from "../api/settingsApi";
@@ -22,6 +25,7 @@ export type WizardStep =
 	| "features"
 	| "api-keys"
 	| "model-prefs"
+	| "git-identity"
 	| "complete";
 
 interface OnboardingState {
@@ -45,6 +49,14 @@ interface OnboardingState {
 	loadModelPreferences: () => Promise<void>;
 	saveModelPreferences: (prefs: ModelPreferences) => Promise<void>;
 
+	// Git identity
+	gitIdentityName: string;
+	gitIdentityEmail: string;
+	setGitIdentityName: (name: string) => void;
+	setGitIdentityEmail: (email: string) => void;
+	loadGitIdentityDefaults: () => Promise<void>;
+	saveGitIdentity: () => Promise<void>;
+
 	// Onboarding completion
 	checkOnboardingStatus: () => Promise<boolean>;
 	finishOnboarding: () => Promise<void>;
@@ -59,6 +71,7 @@ const STEP_ORDER: WizardStep[] = [
 	"features",
 	"api-keys",
 	"model-prefs",
+	"git-identity",
 	"complete",
 ];
 
@@ -161,6 +174,62 @@ export const useOnboarding = create<OnboardingState>((set, get) => ({
 		} catch (err) {
 			const message =
 				err instanceof Error ? err.message : "Failed to save model preferences";
+			set({ error: message, isLoading: false });
+			throw err;
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Git Identity
+	// ---------------------------------------------------------------------------
+
+	gitIdentityName: "",
+	gitIdentityEmail: "",
+
+	setGitIdentityName: (name) => set({ gitIdentityName: name }),
+	setGitIdentityEmail: (email) => set({ gitIdentityEmail: email }),
+
+	loadGitIdentityDefaults: async () => {
+		set({ isLoading: true, error: null });
+		try {
+			// First check if values are already saved
+			try {
+				const saved = await fetchGitIdentity();
+				if (saved.name || saved.email) {
+					set({
+						gitIdentityName: saved.name,
+						gitIdentityEmail: saved.email,
+						isLoading: false,
+					});
+					return;
+				}
+			} catch {
+				// No saved identity, fall through to defaults
+			}
+			const defaults = await fetchGitIdentityDefaults();
+			set({
+				gitIdentityName: defaults.name ?? "",
+				gitIdentityEmail: defaults.email ?? "",
+				isLoading: false,
+			});
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to load git identity";
+			set({ error: message, isLoading: false });
+		}
+	},
+
+	saveGitIdentity: async () => {
+		set({ isLoading: true, error: null });
+		try {
+			await saveGitIdentityApi({
+				name: get().gitIdentityName,
+				email: get().gitIdentityEmail,
+			});
+			set({ isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to save git identity";
 			set({ error: message, isLoading: false });
 			throw err;
 		}

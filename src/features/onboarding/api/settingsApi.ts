@@ -1,4 +1,10 @@
 import {
+	type GitIdentity,
+	type GitIdentityDefaults,
+	GitIdentityDefaultsSchema,
+	GitIdentitySchema,
+} from "@/shared/schemas/git-identity";
+import {
 	type AIProvider,
 	type ApiKeysResponse,
 	ApiKeysResponseSchema,
@@ -79,5 +85,37 @@ export async function updateModelPreferences(
 	if (!response.ok) {
 		const error = await response.json();
 		throw new Error(error.error ?? "Failed to update model preferences");
+	}
+}
+
+/**
+ * Get git identity defaults derived from git config.
+ */
+export async function fetchGitIdentityDefaults(): Promise<GitIdentityDefaults> {
+	const response = await fetch("/api/project/git-identity/defaults");
+	const data = await response.json();
+	return GitIdentityDefaultsSchema.parse(data);
+}
+
+/**
+ * Get the currently saved git identity.
+ */
+export async function fetchGitIdentity(): Promise<GitIdentity> {
+	const response = await fetch("/api/project/git-identity");
+	const data = await response.json();
+	return GitIdentitySchema.parse(data);
+}
+
+/**
+ * Save git identity settings.
+ */
+export async function saveGitIdentity(identity: GitIdentity): Promise<void> {
+	const response = await fetch("/api/project/git-identity", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(identity),
+	});
+	if (!response.ok) {
+		throw new Error("Failed to save git identity");
 	}
 }
