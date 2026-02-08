@@ -6,7 +6,7 @@ import {
 	Loader2,
 	Plus,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,7 +64,14 @@ export function StatusSelect({
 }) {
 	const { workflows, fetchWorkflows, createWorkflow } = useWorkflowsStore();
 	const [isCreatingWorkflow, setIsCreatingWorkflow] = useState<boolean>(false);
+	const [isLoadingWorkflows, setIsLoadingWorkflows] = useState<boolean>(false);
 	const [linkDialogOpen, setLinkDialogOpen] = useState<boolean>(false);
+
+	// Eagerly fetch workflows on mount so linked workflow info is available immediately
+	useEffect(() => {
+		setIsLoadingWorkflows(true);
+		fetchWorkflows().finally(() => setIsLoadingWorkflows(false));
+	}, [fetchWorkflows]);
 
 	const linkedWorkflow = initiative.workflowId
 		? workflows.find((w) => w.id === initiative.workflowId)
@@ -181,6 +188,11 @@ export function StatusSelect({
 										Unlink Workflow
 									</DropdownMenuItem>
 								</>
+							) : initiative.workflowId && isLoadingWorkflows ? (
+								<DropdownMenuItem disabled>
+									<Loader2 className="size-3.5 mr-2 animate-spin" />
+									Loading workflow…
+								</DropdownMenuItem>
 							) : (
 								<>
 									<DropdownMenuItem
