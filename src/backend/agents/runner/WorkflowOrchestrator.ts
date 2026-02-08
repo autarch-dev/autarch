@@ -755,6 +755,13 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 		fixDescription +=
 			'---\n\nNote: The fixes above have been **explicitly requested by the user**. Apply them, regardless of whether they\'re described as "required", "optional", or "nice to have".\n';
 
+		// Mark the review card as denied (user requested fixes instead of approving)
+		await this.updateLatestArtifactStatus(
+			workflowId,
+			workflow.pendingArtifactType,
+			"denied",
+		);
+
 		// Stop current session if any
 		if (workflow.currentSessionId) {
 			await this.sessionManager.stopSession(workflow.currentSessionId);
