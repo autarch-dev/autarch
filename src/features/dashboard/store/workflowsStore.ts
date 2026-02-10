@@ -1019,7 +1019,7 @@ function handleWorkflowCreated(
 function handleWorkflowStageChanged(
 	payload: WorkflowStageChangedPayload,
 	set: SetState,
-	_get: GetState,
+	get: GetState,
 ): void {
 	set((state) => {
 		const workflows = state.workflows.map((w) =>
@@ -1050,6 +1050,13 @@ function handleWorkflowStageChanged(
 
 		return { workflows, conversations };
 	});
+
+	// When transitioning to execution, fetch history to load pulses into state.
+	// Pulses are created by the backend during plan approval but no dedicated
+	// event is broadcast, so the frontend must pull them explicitly.
+	if (payload.newStage === "in_progress") {
+		get().fetchHistory(payload.workflowId);
+	}
 }
 
 function handleWorkflowApprovalNeeded(
