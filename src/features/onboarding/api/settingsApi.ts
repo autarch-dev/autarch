@@ -10,17 +10,17 @@ import {
 	ApiKeysResponseSchema,
 	type ModelPreferences,
 	ModelPreferencesSchema,
+	type OnboardingStatusResponse,
 	OnboardingStatusResponseSchema,
 } from "@/shared/schemas/settings";
 
 /**
- * Check if onboarding has been completed.
+ * Fetch onboarding completeness status.
  */
-export async function fetchOnboardingStatus(): Promise<boolean> {
+export async function fetchOnboardingStatus(): Promise<OnboardingStatusResponse> {
 	const response = await fetch("/api/settings/onboarding");
 	const data = await response.json();
-	const parsed = OnboardingStatusResponseSchema.parse(data);
-	return parsed.isComplete;
+	return OnboardingStatusResponseSchema.parse(data);
 }
 
 /**

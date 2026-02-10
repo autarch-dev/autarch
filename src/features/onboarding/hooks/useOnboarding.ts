@@ -3,6 +3,7 @@ import type {
 	AIProvider,
 	ApiKeysResponse,
 	ModelPreferences,
+	OnboardingStatusResponse,
 } from "@/shared/schemas/settings";
 import {
 	completeOnboarding,
@@ -58,6 +59,7 @@ interface OnboardingState {
 	saveGitIdentity: () => Promise<void>;
 
 	// Onboarding completion
+	onboardingStatus: OnboardingStatusResponse | null;
 	checkOnboardingStatus: () => Promise<boolean>;
 	finishOnboarding: () => Promise<void>;
 }
@@ -239,9 +241,13 @@ export const useOnboarding = create<OnboardingState>((set, get) => ({
 	// Onboarding Completion
 	// ---------------------------------------------------------------------------
 
+	onboardingStatus: null,
+
 	checkOnboardingStatus: async () => {
 		try {
-			return await fetchOnboardingStatus();
+			const response = await fetchOnboardingStatus();
+			set({ onboardingStatus: response });
+			return response.isComplete;
 		} catch {
 			return false;
 		}
