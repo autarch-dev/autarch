@@ -135,3 +135,14 @@ export function getProjectRoot(): string {
 	}
 	return cachedProjectRoot;
 }
+
+/**
+ * Get the project root path, or null if not yet initialized.
+ * Safe alternative to getProjectRoot() for contexts where the project root
+ * may not be available (e.g., test environments).
+ *
+ * @returns The cached project root path, or null
+ */
+export function getProjectRootOrNull(): string | null {
+	return cachedProjectRoot;
+}

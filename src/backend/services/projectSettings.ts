@@ -20,6 +20,8 @@ export const PROJECT_META_KEYS = {
 	MERGE_STRATEGY: "merge_strategy",
 	POST_WRITE_HOOKS: "post_write_hooks",
 	PERSISTENT_SHELL_APPROVALS: "persistent_shell_approvals",
+	GIT_AUTHOR_NAME: "git_author_name",
+	GIT_AUTHOR_EMAIL: "git_author_email",
 } as const;
 
 // =============================================================================
@@ -210,4 +212,46 @@ export async function removePersistentShellApproval(
 		PROJECT_META_KEYS.PERSISTENT_SHELL_APPROVALS,
 		JSON.stringify(updated),
 	);
+}
+
+// =============================================================================
+// Git Author Identity
+// =============================================================================
+
+/**
+ * Get the project's configured git author name.
+ */
+export async function getGitAuthorName(
+	projectRoot: string,
+): Promise<string | null> {
+	return getProjectMeta(projectRoot, PROJECT_META_KEYS.GIT_AUTHOR_NAME);
+}
+
+/**
+ * Set the project's git author name.
+ */
+export async function setGitAuthorName(
+	projectRoot: string,
+	value: string,
+): Promise<void> {
+	await setProjectMeta(projectRoot, PROJECT_META_KEYS.GIT_AUTHOR_NAME, value);
+}
+
+/**
+ * Get the project's configured git author email.
+ */
+export async function getGitAuthorEmail(
+	projectRoot: string,
+): Promise<string | null> {
+	return getProjectMeta(projectRoot, PROJECT_META_KEYS.GIT_AUTHOR_EMAIL);
+}
+
+/**
+ * Set the project's git author email.
+ */
+export async function setGitAuthorEmail(
+	projectRoot: string,
+	value: string,
+): Promise<void> {
+	await setProjectMeta(projectRoot, PROJECT_META_KEYS.GIT_AUTHOR_EMAIL, value);
 }

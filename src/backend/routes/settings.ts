@@ -1,9 +1,13 @@
+import { GitIdentitySchema } from "@/shared/schemas/git-identity";
 import {
 	DeleteApiKeyRequestSchema,
 	SetApiKeyRequestSchema,
 	SetIntegrationKeyRequestSchema,
 	SetModelPreferencesRequestSchema,
 } from "@/shared/schemas/settings";
+import { execGit } from "../git/git-executor";
+import { resolveGitIdentityEnv } from "../git/identity";
+import { getProjectRoot } from "../projectRoot";
 import {
 	clearApiKey,
 	clearExaApiKey,
@@ -17,6 +21,10 @@ import {
 	setOnboardingComplete,
 } from "../services/globalSettings";
 import { getProjectIconFile, getProjectInfo } from "../services/project";
+import {
+	setGitAuthorEmail,
+	setGitAuthorName,
+} from "../services/projectSettings";
 
 /**
  * Settings API routes.
@@ -159,6 +167,57 @@ export const settingsRoutes = {
 
 			await setModelPreferences(parsed.data);
 			return Response.json({ success: true });
+		},
+	},
+
+	// =========================================================================
+	// Git Identity
+	// =========================================================================
+
+	"/api/project/git-identity": {
+		async GET() {
+			const projectRoot = getProjectRoot();
+			const env = await resolveGitIdentityEnv(projectRoot);
+
+			return Response.json({
+				name: env.GIT_AUTHOR_NAME ?? "",
+				email: env.GIT_AUTHOR_EMAIL ?? "",
+			});
+		},
+
+		async PUT(req: Request) {
+			const body = await req.json();
+			const parsed = GitIdentitySchema.safeParse(body);
+
+			if (!parsed.success) {
+				return Response.json(
+					{ error: "Invalid request body" },
+					{ status: 400 },
+				);
+			}
+
+			const projectRoot = getProjectRoot();
+			await setGitAuthorName(projectRoot, parsed.data.name);
+			await setGitAuthorEmail(projectRoot, parsed.data.email);
+			return Response.json({ success: true });
+		},
+	},
+
+	"/api/project/git-identity/defaults": {
+		async GET() {
+			const projectRoot = getProjectRoot();
+
+			const nameResult = await execGit(["config", "user.name"], {
+				cwd: projectRoot,
+			});
+			const emailResult = await execGit(["config", "user.email"], {
+				cwd: projectRoot,
+			});
+
+			return Response.json({
+				name: nameResult.success ? nameResult.stdout.trim() : null,
+				email: emailResult.success ? emailResult.stdout.trim() : null,
+			});
 		},
 	},
 };

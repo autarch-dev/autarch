@@ -8,6 +8,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSettings } from "../hooks/useSettings";
 import { ApiProviderKeysSection } from "./ApiProviderKeysSection";
+import { GitIdentitySection } from "./GitIdentitySection";
 import { HooksSection } from "./HooksSection";
 import { IntegrationsSection } from "./IntegrationsSection";
 import { ModelPreferencesSection } from "./ModelPreferencesSection";
@@ -25,6 +26,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 		loadIntegrationsStatus,
 		loadHooksConfig,
 		loadPersistentApprovals,
+		loadGitIdentity,
 	} = useSettings();
 
 	// Load all data when panel opens
@@ -35,6 +37,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 			loadIntegrationsStatus();
 			loadHooksConfig();
 			loadPersistentApprovals();
+			loadGitIdentity();
 		}
 	}, [
 		open,
@@ -43,6 +46,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 		loadIntegrationsStatus,
 		loadHooksConfig,
 		loadPersistentApprovals,
+		loadGitIdentity,
 	]);
 
 	return (
@@ -80,6 +84,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 					</TabsContent>
 
 					<TabsContent value="project" className="mt-6 space-y-6">
+						<GitIdentitySection />
 						<HooksSection />
 						<PersistentApprovalsSection />
 					</TabsContent>

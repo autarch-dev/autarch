@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { GitIdentity } from "@/shared/schemas/git-identity";
 import type { PostWriteHooksConfig } from "@/shared/schemas/hooks";
 import type {
 	AIProvider,
@@ -10,6 +11,7 @@ import {
 	clearApiKey,
 	clearIntegrationKey,
 	fetchApiKeysStatus,
+	fetchGitIdentity,
 	fetchHooksConfig,
 	fetchIntegrationsStatus,
 	fetchModelPreferences,
@@ -17,6 +19,7 @@ import {
 	removePersistentApproval,
 	setApiKey,
 	setIntegrationKey,
+	updateGitIdentity,
 	updateHooksConfig,
 	updateModelPreferences,
 } from "../api/settingsApi";
@@ -56,6 +59,11 @@ interface SettingsState {
 	persistentApprovals: string[];
 	loadPersistentApprovals: () => Promise<void>;
 	removePersistentApproval: (command: string) => Promise<void>;
+
+	// Git Identity
+	gitIdentity: GitIdentity | null;
+	loadGitIdentity: () => Promise<void>;
+	saveGitIdentity: (identity: GitIdentity) => Promise<void>;
 }
 
 // =============================================================================
@@ -258,6 +266,37 @@ export const useSettings = create<SettingsState>((set) => ({
 			set({ persistentApprovals: data.approvals ?? [] });
 		} catch (err) {
 			console.error("Failed to remove persistent approval:", err);
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Git Identity
+	// ---------------------------------------------------------------------------
+
+	gitIdentity: null,
+
+	loadGitIdentity: async () => {
+		set({ isLoading: true, error: null });
+		try {
+			const identity = await fetchGitIdentity();
+			set({ gitIdentity: identity, isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to load git identity";
+			set({ error: message, isLoading: false });
+		}
+	},
+
+	saveGitIdentity: async (identity) => {
+		set({ isLoading: true, error: null });
+		try {
+			await updateGitIdentity(identity);
+			set({ gitIdentity: identity, isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to save git identity";
+			set({ error: message, isLoading: false });
+			throw err;
 		}
 	},
 }));
