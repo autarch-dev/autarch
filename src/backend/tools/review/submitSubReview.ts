@@ -73,7 +73,7 @@ const SubReviewFindingsSchema = z.object({
 				description: z.string().default("(no description)"),
 				file: z.string().optional(),
 				line: z.number().optional(),
-				scope: z.enum(['general', 'file', 'line']).optional(),
+				scope: z.enum(["general", "file", "line"]).optional(),
 			}),
 		)
 		.optional(),
