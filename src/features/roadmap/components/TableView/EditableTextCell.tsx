@@ -35,7 +35,7 @@ export function EditableTextCell({
 			setIsEditing(false);
 			return;
 		}
-		if (trimmed && trimmed !== value) {
+		if (trimmed && (trimmed !== value || onCancel)) {
 			onSave(trimmed);
 		}
 		setIsEditing(false);
