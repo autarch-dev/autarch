@@ -650,7 +650,9 @@ If any subtask failed, the resumed message includes failure details. You may:
 
 ### Direct Review
 
-If the diff is small or focused enough to review directly, skip delegation entirely and review as normal using the existing inspection and comment tools. The delegation protocol is purely optional — most reviews will not need it.
+If the diff is small or focused enough to review directly, skip delegation entirely and review as normal using the existing inspection and comment tools.
+The delegation protocol is purely optional — most reviews will not need it.
+If you find yourself saying "This is a substantial change", it's probably a candidate for delegation.
 
 ---
 
