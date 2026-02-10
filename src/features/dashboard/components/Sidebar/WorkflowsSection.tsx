@@ -41,10 +41,12 @@ export function WorkflowsSection({
 		() =>
 			workflows
 				.filter((w) => w.status === "done")
-				.sort((a, b) =>
-					a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
-				),
+				.sort((a, b) => b.updatedAt - a.updatedAt),
 		[workflows],
+	);
+	const displayedCompleted = useMemo(
+		() => completedWorkflows.slice(0, 5),
+		[completedWorkflows],
 	);
 
 	const handleCreate = async (prompt: string) => {
@@ -120,7 +122,7 @@ export function WorkflowsSection({
 						<SidebarGroupLabel>Completed</SidebarGroupLabel>
 						<SidebarGroupContent>
 							<SidebarMenu>
-								{completedWorkflows.map((workflow) => {
+								{displayedCompleted.map((workflow) => {
 									const href = `/workflow/${workflow.id}`;
 									const isActive = location === `/dashboard${href}`;
 									return (
@@ -146,6 +148,16 @@ export function WorkflowsSection({
 										</SidebarMenuItem>
 									);
 								})}
+								{completedWorkflows.length > 5 && (
+									<SidebarMenuItem>
+										<SidebarMenuButton
+											asChild
+											className="text-muted-foreground text-xs"
+										>
+											<Link href="/completed">View More</Link>
+										</SidebarMenuButton>
+									</SidebarMenuItem>
+								)}
 							</SidebarMenu>
 						</SidebarGroupContent>
 					</SidebarGroup>
