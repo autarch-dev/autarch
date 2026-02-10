@@ -3,6 +3,7 @@ import { Route, Switch, useLocation } from "wouter";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { RoadmapViewContainer, useRoadmapStore } from "@/features/roadmap";
 import { ChannelViewContainer } from "./components/ChannelView";
+import { CompletedWorkflowsPage } from "./components/CompletedWorkflows/CompletedWorkflowsPage";
 import { AppSidebar } from "./components/Sidebar";
 import {
 	ShellApprovalDialogContainer,
@@ -87,6 +88,9 @@ export function Dashboard() {
 					</Route>
 					<Route path="/roadmap/:id">
 						{(params) => <RoadmapViewContainer roadmapId={params.id} />}
+					</Route>
+					<Route path="/completed">
+						<CompletedWorkflowsPage />
 					</Route>
 					<Route path="/">
 						<DashboardEmptyState />
