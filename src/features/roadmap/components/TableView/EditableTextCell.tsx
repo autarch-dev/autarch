@@ -45,7 +45,7 @@ export function EditableTextCell({
 		if (e.key === "Enter") {
 			handleSave();
 		} else if (e.key === "Escape") {
-			if (onCancel && !editValue.trim()) {
+			if (onCancel) {
 				onCancel();
 				setIsEditing(false);
 			} else {

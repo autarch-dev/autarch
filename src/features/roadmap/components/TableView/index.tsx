@@ -232,6 +232,7 @@ export function TableView({
 	const [newlyCreatedInitiativeId, setNewlyCreatedInitiativeId] = useState<
 		string | null
 	>(null);
+	const [isCreatingInitiative, setIsCreatingInitiative] = useState(false);
 
 	const { fetchWorkflows } = useWorkflowsStore();
 
@@ -270,12 +271,20 @@ export function TableView({
 
 	const handleCreateInitiative = useCallback(
 		async (milestoneId: string) => {
-			const created = await onCreateInitiative(milestoneId, {
-				title: "New Initiative",
-			});
-			setNewlyCreatedInitiativeId(created.id);
+			if (isCreatingInitiative) return;
+			setIsCreatingInitiative(true);
+			try {
+				const created = await onCreateInitiative(milestoneId, {
+					title: "New Initiative",
+				});
+				setNewlyCreatedInitiativeId(created.id);
+			} catch (error) {
+				console.error("Failed to create initiative:", error);
+			} finally {
+				setIsCreatingInitiative(false);
+			}
 		},
-		[onCreateInitiative],
+		[onCreateInitiative, isCreatingInitiative],
 	);
 
 	const handleNewInitiativeTitleSaved = useCallback(
