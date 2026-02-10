@@ -314,16 +314,25 @@ export function TableView({
 		let filtered = initiatives;
 
 		if (filterStatus !== "all") {
-			filtered = filtered.filter((i) => i.status === filterStatus);
+			filtered = filtered.filter(
+				(i) => i.status === filterStatus || i.id === newlyCreatedInitiativeId,
+			);
 		}
 
 		if (filterPriority !== "all") {
-			filtered = filtered.filter((i) => i.priority === filterPriority);
+			filtered = filtered.filter(
+				(i) =>
+					i.priority === filterPriority || i.id === newlyCreatedInitiativeId,
+			);
 		}
 
 		if (searchText.trim()) {
 			const search = searchText.trim().toLowerCase();
-			filtered = filtered.filter((i) => i.title.toLowerCase().includes(search));
+			filtered = filtered.filter(
+				(i) =>
+					i.title.toLowerCase().includes(search) ||
+					i.id === newlyCreatedInitiativeId,
+			);
 		}
 
 		if (sort) {
@@ -349,7 +358,14 @@ export function TableView({
 		}
 
 		return filtered;
-	}, [initiatives, filterStatus, filterPriority, searchText, sort]);
+	}, [
+		initiatives,
+		filterStatus,
+		filterPriority,
+		searchText,
+		sort,
+		newlyCreatedInitiativeId,
+	]);
 
 	// Group filtered initiatives by milestone
 	const initiativesByMilestone = useMemo(() => {
