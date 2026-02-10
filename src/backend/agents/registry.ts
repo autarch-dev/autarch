@@ -27,9 +27,6 @@ import {
 	submitScopeTool,
 } from "../tools/blocks";
 import {
-	addFileCommentTool,
-	addLineCommentTool,
-	addReviewCommentTool,
 	getDiffTool,
 	getScopeCardTool,
 	spawnReviewTasksTool,
@@ -114,15 +111,12 @@ const ROADMAP_PLANNING_TOOLS: RegisteredTool[] = [
 	registerTool(requestExtensionTool),
 ];
 
-/** Review sub-agent: base tools + review comment tools + getDiff + getScopeCard + submit_sub_review + request_extension */
+/** Review sub-agent: base tools + getDiff + getScopeCard + submit_sub_review + request_extension */
 const REVIEW_SUB_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...todoTools,
 	registerTool(getDiffTool),
 	registerTool(getScopeCardTool),
-	registerTool(addLineCommentTool),
-	registerTool(addFileCommentTool),
-	registerTool(addReviewCommentTool),
 	registerTool(submitSubReviewTool),
 	registerTool(requestExtensionTool),
 ];

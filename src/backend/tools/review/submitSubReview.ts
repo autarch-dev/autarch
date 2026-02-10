@@ -34,6 +34,7 @@ export const submitSubReviewInputSchema = z.object({
 					.enum(["critical", "moderate", "minor"])
 					.describe("Severity level of the concern"),
 				description: z.string().describe("Description of the concern"),
+				scope: z.enum(["file", "line", "general"]),
 				file: z
 					.string()
 					.optional()
@@ -118,8 +119,9 @@ export function formatCoordinatorMessage(
 						? ` (${concern.file}:${concern.line})`
 						: ` (${concern.file})`
 					: "";
+				const scope = concern.scope ? ` [${concern.scope}]` : "";
 				sections.push(
-					`- [${concern.severity.toUpperCase()}]${location} ${concern.description}`,
+					`- [${concern.severity.toUpperCase()}]${scope}${location} ${concern.description}`,
 				);
 			}
 			sections.push("");
@@ -150,7 +152,18 @@ export function formatCoordinatorMessage(
 	}
 
 	sections.push(
-		"---\n\nReview the above findings for cross-cutting concerns, then produce the final review using complete_review.",
+		[
+			"---\n",
+			"## Next Steps\n",
+			"1. **Review for cross-cutting concerns** — Check for issues spanning subtask boundaries that no single sub-reviewer would catch (contract mismatches between modules, inconsistent error handling across layers, etc.)",
+			"2. **Deduplicate** — If multiple sub-reviewers flagged the same underlying issue, merge into a single comment",
+			"3. **Convert concerns into comments** — Each concern above becomes one comment tool call. Use the scope hint to pick the right tool:",
+			"   - `line` → `add_line_comment` (include file + line)",
+			"   - `file` → `add_file_comment` (include file)",
+			"   - `general` → `add_review_comment`",
+			"4. **Add your own comments** for any cross-cutting issues not captured above",
+			"5. **Call `complete_review`** with your final recommendation and summary",
+		].join("\n"),
 	);
 
 	return sections.join("\n");

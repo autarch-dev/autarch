@@ -632,8 +632,15 @@ Your session resumes with a message containing all sub-reviewer findings. When y
 
 1. **Review for cross-cutting concerns** that individual reviewers may have missed (e.g., contract mismatches between modules, inconsistent error handling across layers)
 2. **Resolve contradictions** between sub-reviews (e.g., one reviewer flags a pattern while another approves the same pattern elsewhere)
-3. **Synthesize findings** into a coherent final review
-4. **Call \`complete_review\`** with the final review card incorporating all findings
+3. **Convert concerns into comments:**
+   - Each sub-reviewer concern becomes one comment tool call
+   - Use \`scope\` to pick the right tool: \`line\` → \`add_line_comment\`, \`file\` → \`add_file_comment\`, \`general\` → \`add_review_comment\`
+   - If multiple sub-reviewers flag the same file+line or the same underlying issue, merge into a single comment
+   - You may edit concern descriptions for clarity or to add cross-cutting context
+4. **Add your own comments** only for cross-cutting issues not captured by any sub-reviewer
+5. **Call \`complete_review\`** with the final review card
+
+**You are the sole publisher of comments.** Sub-reviewers report findings; you decide what becomes a comment.
 
 ### Handling Failures
 

@@ -1,7 +1,6 @@
 import { CheckCircle2, Circle, Loader2, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Progress } from "@/components/ui/progress";
 import {
 	SidebarGroup,
 	SidebarGroupAction,
@@ -96,7 +95,12 @@ export function WorkflowsSection({
 													)}
 												/>
 											) : (
-												<Loader2 className={cn("h-4 w-4 animate-spin", statusColors[workflow.status])} />
+												<Loader2
+													className={cn(
+														"h-4 w-4 animate-spin",
+														statusColors[workflow.status],
+													)}
+												/>
 											)}
 											<span className="truncate">{workflow.title}</span>
 										</Link>
