@@ -81,7 +81,12 @@ export function GitIdentityStep() {
 					<Button variant="outline" onClick={prevStep}>
 						Back
 					</Button>
-					<Button onClick={handleContinue} disabled={isLoading}>
+					<Button
+						onClick={handleContinue}
+						disabled={
+							isLoading || !gitIdentityName.trim() || !gitIdentityEmail.trim()
+						}
+					>
 						{isLoading ? "Saving..." : "Continue"}
 					</Button>
 				</div>

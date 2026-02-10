@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { useSettings } from "../hooks/useSettings";
 
 export function GitIdentitySection() {
-	const { gitIdentity, loadGitIdentity, saveGitIdentity, isLoading } =
+	const { gitIdentity, loadGitIdentity, saveGitIdentity, isLoading, error } =
 		useSettings();
 
 	const [name, setName] = useState("");
@@ -22,8 +22,12 @@ export function GitIdentitySection() {
 		}
 	}, [gitIdentity]);
 
-	const handleSave = () => {
-		saveGitIdentity({ name, email });
+	const handleSave = async () => {
+		try {
+			await saveGitIdentity({ name, email });
+		} catch {
+			// Error is already set in the store
+		}
 	};
 
 	return (
@@ -56,6 +60,9 @@ export function GitIdentitySection() {
 						disabled={isLoading}
 					/>
 				</div>
+				{error && (
+					<p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+				)}
 				<Button
 					size="sm"
 					onClick={handleSave}
