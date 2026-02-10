@@ -114,7 +114,7 @@ interface RoadmapViewProps {
 	onCreateInitiative: (
 		milestoneId: string,
 		data: { title: string },
-	) => Promise<void>;
+	) => Promise<Initiative>;
 	onDeleteMilestone: (milestoneId: string) => Promise<void>;
 	onDeleteInitiative: (initiativeId: string) => Promise<void>;
 	onReorderMilestones: (
