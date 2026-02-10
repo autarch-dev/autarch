@@ -229,6 +229,9 @@ export function TableView({
 		id: string;
 		title: string;
 	} | null>(null);
+	const [newlyCreatedInitiativeId, setNewlyCreatedInitiativeId] = useState<
+		string | null
+	>(null);
 
 	const { fetchWorkflows } = useWorkflowsStore();
 
@@ -267,9 +270,32 @@ export function TableView({
 
 	const handleCreateInitiative = useCallback(
 		async (milestoneId: string) => {
-			await onCreateInitiative(milestoneId, { title: "New Initiative" });
+			const created = await onCreateInitiative(milestoneId, {
+				title: "New Initiative",
+			});
+			setNewlyCreatedInitiativeId(created.id);
 		},
 		[onCreateInitiative],
+	);
+
+	const handleNewInitiativeTitleSaved = useCallback(
+		(initiative: Initiative) => {
+			onSelectInitiative?.(initiative);
+			setNewlyCreatedInitiativeId(null);
+		},
+		[onSelectInitiative],
+	);
+
+	const handleNewInitiativeTitleCancelled = useCallback(
+		async (initiativeId: string) => {
+			try {
+				await onDeleteInitiative(initiativeId);
+			} catch (error) {
+				console.error("Failed to delete cancelled initiative:", error);
+			}
+			setNewlyCreatedInitiativeId(null);
+		},
+		[onDeleteInitiative],
 	);
 
 	// -------------------------------------------------------------------------
@@ -501,6 +527,9 @@ export function TableView({
 										onRequestDeleteInitiative={(id, title) =>
 											setDeleteTarget({ type: "initiative", id, title })
 										}
+										newlyCreatedInitiativeId={newlyCreatedInitiativeId}
+										onTitleSaved={handleNewInitiativeTitleSaved}
+										onTitleCancelled={handleNewInitiativeTitleCancelled}
 									/>
 								);
 							})
