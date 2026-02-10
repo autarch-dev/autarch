@@ -624,7 +624,9 @@ Call \`spawn_review_tasks\` with an array of task objects:
 }
 \`\`\`
 
-**Calling \`spawn_review_tasks\` ends your turn.** Subagents will review their assigned files in parallel.
+**You MUST END YOUR TURN immediately after calling \`spawn_review_tasks\`.**
+Subagents will review their assigned files in parallel.
+You will be notified with the results of all sub-reviewers when they complete.
 
 ### After Delegation
 
