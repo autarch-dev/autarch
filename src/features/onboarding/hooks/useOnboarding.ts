@@ -3,9 +3,9 @@ import type {
 	AIProvider,
 	ApiKeysResponse,
 	ModelPreferences,
+	OnboardingStatusResponse,
 } from "@/shared/schemas/settings";
 import {
-	completeOnboarding,
 	fetchApiKeysStatus,
 	fetchGitIdentity,
 	fetchGitIdentityDefaults,
@@ -58,6 +58,7 @@ interface OnboardingState {
 	saveGitIdentity: () => Promise<void>;
 
 	// Onboarding completion
+	onboardingStatus: OnboardingStatusResponse | null;
 	checkOnboardingStatus: () => Promise<boolean>;
 	finishOnboarding: () => Promise<void>;
 }
@@ -239,9 +240,13 @@ export const useOnboarding = create<OnboardingState>((set, get) => ({
 	// Onboarding Completion
 	// ---------------------------------------------------------------------------
 
+	onboardingStatus: null,
+
 	checkOnboardingStatus: async () => {
 		try {
-			return await fetchOnboardingStatus();
+			const response = await fetchOnboardingStatus();
+			set({ onboardingStatus: response });
+			return response.isComplete;
 		} catch {
 			return false;
 		}
@@ -250,7 +255,7 @@ export const useOnboarding = create<OnboardingState>((set, get) => ({
 	finishOnboarding: async () => {
 		set({ isLoading: true, error: null });
 		try {
-			await completeOnboarding();
+			await get().checkOnboardingStatus();
 			set({ isLoading: false });
 		} catch (err) {
 			const message =

@@ -1,18 +1,23 @@
+import { SCENARIOS } from "@/shared/schemas/models";
 import {
 	type AIProvider,
 	type ApiKeysResponse,
 	type ModelPreferences,
 	type ModelScenario,
 	ModelScenario as ModelScenarioEnum,
+	type OnboardingStatusResponse,
 } from "@/shared/schemas/settings";
 import { getGlobalDb } from "../db/global";
+import {
+	getGitAuthorEmail,
+	getGitAuthorName,
+} from "../services/projectSettings";
 
 // =============================================================================
 // Setting Keys
 // =============================================================================
 
 const SETTING_KEYS = {
-	ONBOARDING_COMPLETE: "onboarding_complete",
 	API_KEY_OPENAI: "api_key_openai",
 	API_KEY_ANTHROPIC: "api_key_anthropic",
 	API_KEY_GOOGLE: "api_key_google",
@@ -87,19 +92,6 @@ async function setSetting(key: string, value: string): Promise<void> {
 async function deleteSetting(key: string): Promise<void> {
 	const db = await getGlobalDb();
 	await db.deleteFrom("settings").where("key", "=", key).execute();
-}
-
-// =============================================================================
-// Onboarding
-// =============================================================================
-
-export async function isOnboardingComplete(): Promise<boolean> {
-	const value = await getSetting(SETTING_KEYS.ONBOARDING_COMPLETE);
-	return value === "true";
-}
-
-export async function setOnboardingComplete(complete: boolean): Promise<void> {
-	await setSetting(SETTING_KEYS.ONBOARDING_COMPLETE, String(complete));
 }
 
 // =============================================================================
@@ -250,4 +242,48 @@ export async function setModelPreferences(
 	});
 
 	await Promise.all(updates);
+}
+
+// =============================================================================
+// Onboarding Status (Derived)
+// =============================================================================
+
+/**
+ * Derive onboarding completeness from actual settings state.
+ * Checks API keys, model preferences for every scenario, and git identity.
+ */
+export async function getOnboardingStatus(
+	projectRoot: string,
+): Promise<OnboardingStatusResponse> {
+	const [apiKeys, modelPrefs, gitName, gitEmail] = await Promise.all([
+		getApiKeysStatus(),
+		getModelPreferences(),
+		getGitAuthorName(projectRoot),
+		getGitAuthorEmail(projectRoot),
+	]);
+
+	// At least one provider must have an API key configured
+	const missingApiKeys = !Object.values(apiKeys).some(Boolean);
+
+	// Every scenario must have a non-empty model selected
+	const unconfiguredScenarios = SCENARIOS.filter((scenario) => {
+		const pref = modelPrefs[scenario];
+		return pref === undefined || pref === "";
+	});
+
+	// Both git author name and email must be non-null and non-empty
+	const missingGitIdentity =
+		!gitName || gitName.length === 0 || !gitEmail || gitEmail.length === 0;
+
+	const isComplete =
+		!missingApiKeys &&
+		unconfiguredScenarios.length === 0 &&
+		!missingGitIdentity;
+
+	return {
+		isComplete,
+		missingApiKeys,
+		unconfiguredScenarios,
+		missingGitIdentity,
+	};
 }

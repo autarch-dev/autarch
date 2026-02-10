@@ -13,12 +13,11 @@ import {
 	clearExaApiKey,
 	getApiKeysStatus,
 	getModelPreferences,
+	getOnboardingStatus,
 	isExaKeyConfigured,
-	isOnboardingComplete,
 	setApiKey,
 	setExaApiKey,
 	setModelPreferences,
-	setOnboardingComplete,
 } from "../services/globalSettings";
 import { getProjectIconFile, getProjectInfo } from "../services/project";
 import {
@@ -60,15 +59,8 @@ export const settingsRoutes = {
 
 	"/api/settings/onboarding": {
 		async GET() {
-			const complete = await isOnboardingComplete();
-			return Response.json({ complete });
-		},
-	},
-
-	"/api/settings/onboarding/complete": {
-		async POST() {
-			await setOnboardingComplete(true);
-			return Response.json({ success: true });
+			const status = await getOnboardingStatus(getProjectRoot());
+			return Response.json(status);
 		},
 	},
 

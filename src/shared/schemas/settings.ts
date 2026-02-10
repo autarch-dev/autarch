@@ -27,7 +27,10 @@ export type IntegrationType = z.infer<typeof IntegrationType>;
 // =============================================================================
 
 export const OnboardingStatusResponseSchema = z.object({
-	complete: z.boolean(),
+	isComplete: z.boolean(),
+	missingApiKeys: z.boolean(),
+	unconfiguredScenarios: z.array(ModelScenario),
+	missingGitIdentity: z.boolean(),
 });
 export type OnboardingStatusResponse = z.infer<
 	typeof OnboardingStatusResponseSchema
