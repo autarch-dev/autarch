@@ -7,6 +7,7 @@
  */
 
 import { GitBranch, MoreHorizontal, Trash2 } from "lucide-react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -53,11 +54,22 @@ export function InitiativeRow({
 	onTitleSaved?: (initiative: Initiative) => void;
 	onTitleCancelled?: (initiativeId: string) => void;
 }) {
+	const menuOpenRef = useRef(false);
+
+	const handleMenuOpenChange = (open: boolean) => {
+		if (!open) {
+			menuOpenRef.current = true;
+			setTimeout(() => {
+				menuOpenRef.current = false;
+			}, 0);
+		}
+	};
+
 	return (
 		<TableRow
 			className="cursor-pointer"
 			onClick={() => {
-				if (!isNewlyCreated) onSelect?.(initiative);
+				if (!isNewlyCreated && !menuOpenRef.current) onSelect?.(initiative);
 			}}
 		>
 			<TableCell>
@@ -84,7 +96,11 @@ export function InitiativeRow({
 				</div>
 			</TableCell>
 			<TableCell>
-				<StatusSelect initiative={initiative} onUpdateInitiative={onUpdate} />
+				<StatusSelect
+					initiative={initiative}
+					onUpdateInitiative={onUpdate}
+					onMenuOpenChange={handleMenuOpenChange}
+				/>
 			</TableCell>
 			<TableCell>
 				<PrioritySelect
@@ -124,7 +140,7 @@ export function InitiativeRow({
 							{dependencyNames.join(", ")}
 						</span>
 					)}
-					<DropdownMenu>
+					<DropdownMenu onOpenChange={handleMenuOpenChange}>
 						<DropdownMenuTrigger asChild>
 							<Button
 								variant="ghost"
