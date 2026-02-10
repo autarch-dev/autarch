@@ -34,6 +34,9 @@ export function InitiativeRow({
 	onUpdate,
 	onSelect,
 	onRequestDelete,
+	isNewlyCreated,
+	onTitleSaved,
+	onTitleCancelled,
 }: {
 	initiative: Initiative;
 	dependencyNames: string[];
@@ -46,6 +49,9 @@ export function InitiativeRow({
 	) => Promise<void>;
 	onSelect?: (initiative: Initiative) => void;
 	onRequestDelete: (id: string, title: string) => void;
+	isNewlyCreated?: boolean;
+	onTitleSaved?: (initiative: Initiative) => void;
+	onTitleCancelled?: (initiativeId: string) => void;
 }) {
 	return (
 		<TableRow className="cursor-pointer" onClick={() => onSelect?.(initiative)}>
@@ -56,7 +62,19 @@ export function InitiativeRow({
 					)}
 					<EditableTextCell
 						value={initiative.title}
-						onSave={(title) => onUpdate(initiative.id, { title })}
+						onSave={(title) => {
+							onUpdate(initiative.id, { title });
+							if (isNewlyCreated) {
+								onTitleSaved?.({ ...initiative, title });
+							}
+						}}
+						{...(isNewlyCreated
+							? {
+									startInEditMode: true,
+									initialEditValue: "",
+									onCancel: () => onTitleCancelled?.(initiative.id),
+								}
+							: {})}
 					/>
 				</div>
 			</TableCell>

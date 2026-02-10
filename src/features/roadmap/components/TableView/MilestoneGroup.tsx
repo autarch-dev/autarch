@@ -79,6 +79,9 @@ export function MilestoneGroup({
 	onSelectInitiative,
 	onRequestDeleteMilestone,
 	onRequestDeleteInitiative,
+	newlyCreatedInitiativeId,
+	onTitleSaved,
+	onTitleCancelled,
 }: {
 	milestone: Milestone;
 	initiatives: Initiative[];
@@ -103,6 +106,9 @@ export function MilestoneGroup({
 	onSelectInitiative?: (initiative: Initiative) => void;
 	onRequestDeleteMilestone: (id: string, title: string) => void;
 	onRequestDeleteInitiative: (id: string, title: string) => void;
+	newlyCreatedInitiativeId?: string | null;
+	onTitleSaved?: (initiative: Initiative) => void;
+	onTitleCancelled?: (initiativeId: string) => void;
 }) {
 	// Calculate milestone progress from initiatives
 	const milestoneProgress = useMemo(() => {
@@ -223,6 +229,9 @@ export function MilestoneGroup({
 								onUpdate={onUpdateInitiative}
 								onSelect={onSelectInitiative}
 								onRequestDelete={onRequestDeleteInitiative}
+								isNewlyCreated={initiative.id === newlyCreatedInitiativeId}
+								onTitleSaved={onTitleSaved}
+								onTitleCancelled={onTitleCancelled}
 							/>
 						);
 					})
