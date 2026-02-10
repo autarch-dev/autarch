@@ -7,7 +7,7 @@
  */
 
 import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -232,7 +232,7 @@ export function TableView({
 	const [newlyCreatedInitiativeId, setNewlyCreatedInitiativeId] = useState<
 		string | null
 	>(null);
-	const [isCreatingInitiative, setIsCreatingInitiative] = useState(false);
+	const isCreatingRef = useRef(false);
 
 	const { fetchWorkflows } = useWorkflowsStore();
 
@@ -271,8 +271,8 @@ export function TableView({
 
 	const handleCreateInitiative = useCallback(
 		async (milestoneId: string) => {
-			if (isCreatingInitiative) return;
-			setIsCreatingInitiative(true);
+			if (isCreatingRef.current) return;
+			isCreatingRef.current = true;
 			try {
 				const created = await onCreateInitiative(milestoneId, {
 					title: "New Initiative",
@@ -281,10 +281,10 @@ export function TableView({
 			} catch (error) {
 				console.error("Failed to create initiative:", error);
 			} finally {
-				setIsCreatingInitiative(false);
+				isCreatingRef.current = false;
 			}
 		},
-		[onCreateInitiative, isCreatingInitiative],
+		[onCreateInitiative],
 	);
 
 	const handleNewInitiativeTitleSaved = useCallback(

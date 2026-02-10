@@ -54,7 +54,12 @@ export function InitiativeRow({
 	onTitleCancelled?: (initiativeId: string) => void;
 }) {
 	return (
-		<TableRow className="cursor-pointer" onClick={() => onSelect?.(initiative)}>
+		<TableRow
+			className="cursor-pointer"
+			onClick={() => {
+				if (!isNewlyCreated) onSelect?.(initiative);
+			}}
+		>
 			<TableCell>
 				<div className="flex items-center gap-1.5 pl-3">
 					{hasDeps && (
