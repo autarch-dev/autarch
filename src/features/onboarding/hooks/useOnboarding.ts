@@ -6,7 +6,6 @@ import type {
 	OnboardingStatusResponse,
 } from "@/shared/schemas/settings";
 import {
-	completeOnboarding,
 	fetchApiKeysStatus,
 	fetchGitIdentity,
 	fetchGitIdentityDefaults,
@@ -256,7 +255,7 @@ export const useOnboarding = create<OnboardingState>((set, get) => ({
 	finishOnboarding: async () => {
 		set({ isLoading: true, error: null });
 		try {
-			await completeOnboarding();
+			await get().checkOnboardingStatus();
 			set({ isLoading: false });
 		} catch (err) {
 			const message =

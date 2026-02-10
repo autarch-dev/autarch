@@ -24,18 +24,6 @@ export async function fetchOnboardingStatus(): Promise<OnboardingStatusResponse>
 }
 
 /**
- * Mark onboarding as complete.
- */
-export async function completeOnboarding(): Promise<void> {
-	const response = await fetch("/api/settings/onboarding/complete", {
-		method: "POST",
-	});
-	if (!response.ok) {
-		throw new Error("Failed to complete onboarding");
-	}
-}
-
-/**
  * Get API key configuration status (which providers are configured).
  */
 export async function fetchApiKeysStatus(): Promise<ApiKeysResponse> {

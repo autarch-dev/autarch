@@ -64,12 +64,6 @@ export const settingsRoutes = {
 		},
 	},
 
-	"/api/settings/onboarding/complete": {
-		async POST() {
-			return Response.json({ success: true });
-		},
-	},
-
 	// =========================================================================
 	// API Keys
 	// =========================================================================

@@ -18,7 +18,6 @@ import {
 // =============================================================================
 
 const SETTING_KEYS = {
-	ONBOARDING_COMPLETE: "onboarding_complete",
 	API_KEY_OPENAI: "api_key_openai",
 	API_KEY_ANTHROPIC: "api_key_anthropic",
 	API_KEY_GOOGLE: "api_key_google",
@@ -93,19 +92,6 @@ async function setSetting(key: string, value: string): Promise<void> {
 async function deleteSetting(key: string): Promise<void> {
 	const db = await getGlobalDb();
 	await db.deleteFrom("settings").where("key", "=", key).execute();
-}
-
-// =============================================================================
-// Onboarding
-// =============================================================================
-
-export async function isOnboardingComplete(): Promise<boolean> {
-	const value = await getSetting(SETTING_KEYS.ONBOARDING_COMPLETE);
-	return value === "true";
-}
-
-export async function setOnboardingComplete(complete: boolean): Promise<void> {
-	await setSetting(SETTING_KEYS.ONBOARDING_COMPLETE, String(complete));
 }
 
 // =============================================================================
