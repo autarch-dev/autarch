@@ -66,7 +66,7 @@ export function GitIdentitySection() {
 				<Button
 					size="sm"
 					onClick={handleSave}
-					disabled={isLoading}
+					disabled={isLoading || !name.trim() || !email.trim()}
 					className="bg-emerald-600 hover:bg-emerald-500 text-white"
 				>
 					{isLoading ? "Saving..." : "Save"}
