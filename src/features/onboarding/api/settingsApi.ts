@@ -20,7 +20,7 @@ export async function fetchOnboardingStatus(): Promise<boolean> {
 	const response = await fetch("/api/settings/onboarding");
 	const data = await response.json();
 	const parsed = OnboardingStatusResponseSchema.parse(data);
-	return parsed.complete;
+	return parsed.isComplete;
 }
 
 /**
