@@ -42,6 +42,7 @@ export function EditableTextCell({
 			<Input
 				value={editValue}
 				onChange={(e) => setEditValue(e.target.value)}
+				onClick={(e) => e.stopPropagation()}
 				onBlur={handleSave}
 				onKeyDown={handleKeyDown}
 				className={cn("h-7 text-sm", className)}
