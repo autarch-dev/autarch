@@ -6,6 +6,7 @@ import {
 	SetModelPreferencesRequestSchema,
 } from "@/shared/schemas/settings";
 import { execGit } from "../git/git-executor";
+import { resolveGitIdentityEnv } from "../git/identity";
 import { getProjectRoot } from "../projectRoot";
 import {
 	clearApiKey,
@@ -21,8 +22,6 @@ import {
 } from "../services/globalSettings";
 import { getProjectIconFile, getProjectInfo } from "../services/project";
 import {
-	getGitAuthorEmail,
-	getGitAuthorName,
 	setGitAuthorEmail,
 	setGitAuthorName,
 } from "../services/projectSettings";
@@ -178,29 +177,12 @@ export const settingsRoutes = {
 	"/api/project/git-identity": {
 		async GET() {
 			const projectRoot = getProjectRoot();
+			const env = await resolveGitIdentityEnv(projectRoot);
 
-			let name = await getGitAuthorName(projectRoot);
-			let email = await getGitAuthorEmail(projectRoot);
-
-			if (name === null) {
-				const result = await execGit(["config", "user.name"], {
-					cwd: projectRoot,
-				});
-				if (result.success) {
-					name = result.stdout.trim();
-				}
-			}
-
-			if (email === null) {
-				const result = await execGit(["config", "user.email"], {
-					cwd: projectRoot,
-				});
-				if (result.success) {
-					email = result.stdout.trim();
-				}
-			}
-
-			return Response.json({ name: name ?? "", email: email ?? "" });
+			return Response.json({
+				name: env.GIT_AUTHOR_NAME ?? "",
+				email: env.GIT_AUTHOR_EMAIL ?? "",
+			});
 		},
 
 		async PUT(req: Request) {

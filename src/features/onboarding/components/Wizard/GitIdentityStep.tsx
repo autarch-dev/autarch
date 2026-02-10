@@ -23,6 +23,7 @@ export function GitIdentityStep() {
 		loadGitIdentityDefaults,
 		saveGitIdentity,
 		isLoading,
+		error,
 	} = useOnboarding();
 
 	useEffect(() => {
@@ -30,8 +31,12 @@ export function GitIdentityStep() {
 	}, [loadGitIdentityDefaults]);
 
 	const handleContinue = async () => {
-		await saveGitIdentity();
-		nextStep();
+		try {
+			await saveGitIdentity();
+			nextStep();
+		} catch {
+			// Error is already set in the store by saveGitIdentity
+		}
 	};
 
 	return (
@@ -68,13 +73,18 @@ export function GitIdentityStep() {
 					/>
 				</div>
 			</CardContent>
-			<CardFooter className="justify-between">
-				<Button variant="outline" onClick={prevStep}>
-					Back
-				</Button>
-				<Button onClick={handleContinue} disabled={isLoading}>
-					{isLoading ? "Saving..." : "Continue"}
-				</Button>
+			<CardFooter className="flex-col gap-2">
+				{error && (
+					<p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+				)}
+				<div className="flex w-full justify-between">
+					<Button variant="outline" onClick={prevStep}>
+						Back
+					</Button>
+					<Button onClick={handleContinue} disabled={isLoading}>
+						{isLoading ? "Saving..." : "Continue"}
+					</Button>
+				</div>
 			</CardFooter>
 		</WizardCard>
 	);

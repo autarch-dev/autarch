@@ -8,8 +8,8 @@ import { z } from "zod";
  * Schema for a saved git identity (both name and email are required).
  */
 export const GitIdentitySchema = z.object({
-	name: z.string(),
-	email: z.string(),
+	name: z.string().min(1, "Name is required"),
+	email: z.string().min(1, "Email is required"),
 });
 export type GitIdentity = z.infer<typeof GitIdentitySchema>;
 
