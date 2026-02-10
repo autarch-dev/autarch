@@ -47,6 +47,7 @@ const STATUS_COLORS: Record<InitiativeStatus, string> = {
 export function StatusSelect({
 	initiative,
 	onUpdateInitiative,
+	onMenuOpenChange,
 }: {
 	initiative: {
 		id: string;
@@ -61,6 +62,7 @@ export function StatusSelect({
 			workflowId?: string | null;
 		},
 	) => Promise<void>;
+	onMenuOpenChange?: (open: boolean) => void;
 }) {
 	const { workflows, fetchWorkflows, createWorkflow } = useWorkflowsStore();
 	const [isCreatingWorkflow, setIsCreatingWorkflow] = useState<boolean>(false);
@@ -138,6 +140,7 @@ export function StatusSelect({
 						if (open) {
 							fetchWorkflows();
 						}
+						onMenuOpenChange?.(open);
 					}}
 				>
 					<DropdownMenuTrigger asChild>
