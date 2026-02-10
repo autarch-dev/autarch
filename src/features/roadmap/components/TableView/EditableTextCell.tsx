@@ -6,13 +6,21 @@ export function EditableTextCell({
 	value,
 	onSave,
 	className,
+	startInEditMode = false,
+	onCancel,
+	initialEditValue = "",
 }: {
 	value: string;
 	onSave: (value: string) => void;
 	className?: string;
+	startInEditMode?: boolean;
+	onCancel?: () => void;
+	initialEditValue?: string;
 }) {
-	const [isEditing, setIsEditing] = useState(false);
-	const [editValue, setEditValue] = useState(value);
+	const [isEditing, setIsEditing] = useState(startInEditMode);
+	const [editValue, setEditValue] = useState(
+		startInEditMode ? initialEditValue : value,
+	);
 
 	const handleStartEdit = (e: React.MouseEvent<unknown>) => {
 		e.stopPropagation();
@@ -22,7 +30,12 @@ export function EditableTextCell({
 
 	const handleSave = () => {
 		const trimmed = editValue.trim();
-		if (trimmed && trimmed !== value) {
+		if (!trimmed && onCancel) {
+			onCancel();
+			setIsEditing(false);
+			return;
+		}
+		if (trimmed && (trimmed !== value || onCancel)) {
 			onSave(trimmed);
 		}
 		setIsEditing(false);
@@ -32,8 +45,13 @@ export function EditableTextCell({
 		if (e.key === "Enter") {
 			handleSave();
 		} else if (e.key === "Escape") {
-			setEditValue(value);
-			setIsEditing(false);
+			if (onCancel) {
+				onCancel();
+				setIsEditing(false);
+			} else {
+				setEditValue(value);
+				setIsEditing(false);
+			}
 		}
 	};
 

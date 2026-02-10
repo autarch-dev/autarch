@@ -7,7 +7,7 @@
  */
 
 import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -77,7 +77,7 @@ interface TableViewProps {
 	onCreateInitiative: (
 		milestoneId: string,
 		data: { title: string },
-	) => Promise<void>;
+	) => Promise<Initiative>;
 	onSelectInitiative?: (initiative: Initiative) => void;
 	onDeleteMilestone: (milestoneId: string) => Promise<void>;
 	onDeleteInitiative: (initiativeId: string) => Promise<void>;
@@ -229,6 +229,10 @@ export function TableView({
 		id: string;
 		title: string;
 	} | null>(null);
+	const [newlyCreatedInitiativeId, setNewlyCreatedInitiativeId] = useState<
+		string | null
+	>(null);
+	const isCreatingRef = useRef(false);
 
 	const { fetchWorkflows } = useWorkflowsStore();
 
@@ -267,9 +271,40 @@ export function TableView({
 
 	const handleCreateInitiative = useCallback(
 		async (milestoneId: string) => {
-			await onCreateInitiative(milestoneId, { title: "New Initiative" });
+			if (isCreatingRef.current) return;
+			isCreatingRef.current = true;
+			try {
+				const created = await onCreateInitiative(milestoneId, {
+					title: "New Initiative",
+				});
+				setNewlyCreatedInitiativeId(created.id);
+			} catch (error) {
+				console.error("Failed to create initiative:", error);
+			} finally {
+				isCreatingRef.current = false;
+			}
 		},
 		[onCreateInitiative],
+	);
+
+	const handleNewInitiativeTitleSaved = useCallback(
+		(initiative: Initiative) => {
+			onSelectInitiative?.(initiative);
+			setNewlyCreatedInitiativeId(null);
+		},
+		[onSelectInitiative],
+	);
+
+	const handleNewInitiativeTitleCancelled = useCallback(
+		async (initiativeId: string) => {
+			try {
+				await onDeleteInitiative(initiativeId);
+			} catch (error) {
+				console.error("Failed to delete cancelled initiative:", error);
+			}
+			setNewlyCreatedInitiativeId(null);
+		},
+		[onDeleteInitiative],
 	);
 
 	// -------------------------------------------------------------------------
@@ -279,16 +314,25 @@ export function TableView({
 		let filtered = initiatives;
 
 		if (filterStatus !== "all") {
-			filtered = filtered.filter((i) => i.status === filterStatus);
+			filtered = filtered.filter(
+				(i) => i.status === filterStatus || i.id === newlyCreatedInitiativeId,
+			);
 		}
 
 		if (filterPriority !== "all") {
-			filtered = filtered.filter((i) => i.priority === filterPriority);
+			filtered = filtered.filter(
+				(i) =>
+					i.priority === filterPriority || i.id === newlyCreatedInitiativeId,
+			);
 		}
 
 		if (searchText.trim()) {
 			const search = searchText.trim().toLowerCase();
-			filtered = filtered.filter((i) => i.title.toLowerCase().includes(search));
+			filtered = filtered.filter(
+				(i) =>
+					i.title.toLowerCase().includes(search) ||
+					i.id === newlyCreatedInitiativeId,
+			);
 		}
 
 		if (sort) {
@@ -314,7 +358,14 @@ export function TableView({
 		}
 
 		return filtered;
-	}, [initiatives, filterStatus, filterPriority, searchText, sort]);
+	}, [
+		initiatives,
+		filterStatus,
+		filterPriority,
+		searchText,
+		sort,
+		newlyCreatedInitiativeId,
+	]);
 
 	// Group filtered initiatives by milestone
 	const initiativesByMilestone = useMemo(() => {
@@ -501,6 +552,9 @@ export function TableView({
 										onRequestDeleteInitiative={(id, title) =>
 											setDeleteTarget({ type: "initiative", id, title })
 										}
+										newlyCreatedInitiativeId={newlyCreatedInitiativeId}
+										onTitleSaved={handleNewInitiativeTitleSaved}
+										onTitleCancelled={handleNewInitiativeTitleCancelled}
 									/>
 								);
 							})

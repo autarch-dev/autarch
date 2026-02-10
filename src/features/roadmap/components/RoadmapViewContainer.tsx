@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
+import type { Initiative } from "@/shared/schemas/roadmap";
 import { useRoadmapStore } from "../store/roadmapStore";
 import { RoadmapView } from "./RoadmapView";
 
@@ -109,8 +110,11 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 	);
 
 	const handleCreateInitiative = useCallback(
-		async (milestoneId: string, data: { title: string }) => {
-			await createInitiative(roadmapId, milestoneId, data);
+		async (
+			milestoneId: string,
+			data: { title: string },
+		): Promise<Initiative> => {
+			return await createInitiative(roadmapId, milestoneId, data);
 		},
 		[roadmapId, createInitiative],
 	);
