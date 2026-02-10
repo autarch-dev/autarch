@@ -2,41 +2,35 @@
 
 **The Context-First Development OS**
 
-Autarch is a development workflow tool that gives a solo developer the leverage of a 10-person team—and extends that leverage to teams by making reasoning and work-in-flight legible and durable.
+Autarch gives a solo developer the leverage of a 10-person team. It replaces tickets with **Workflows** — threaded conversations that map directly to Git branches — so every decision, approval, and line of reasoning lives alongside your code forever.
 
-## The Problem
+<!-- TODO: Add demo GIF showing the workflow loop (create → scope → research → plan → pulse → review → merge) -->
 
-Modern AI coding assistants are powerful, but integrating them into real workflows is messy:
+## Why Autarch
 
-- **Lost context**: Conversations disappear, decisions aren't captured, and you're re-explaining things constantly
-- **Sync vs. async dilemma**: Either babysit every action or return to find your codebase in an unexpected state
-- **Ticket fatigue**: Kanban boards and issue trackers create busywork rather than capturing real intent
-- **Tribal knowledge**: Decisions live in Slack threads, DMs, and people's heads—not alongside the code
+AI coding assistants are powerful, but integrating them into real workflows is messy. Context vanishes between conversations. Decisions live in Slack threads and people's heads. You either babysit every action or return to find your codebase in an unexpected state.
 
-## The Solution
+Autarch fixes this by making AI-assisted development **structured, traceable, and safe**.
 
-Autarch replaces tickets with **Workflows**—threaded conversations that map directly to Git branches. Every workflow captures the *why* alongside the *what*, creating a durable record of reasoning that lives with your code forever.
+## Feature Highlights
 
-### Key Concepts
+🔀 **Workflows, Not Tickets** — Each workflow is a threaded channel backed by a Git branch. Describe what you want in conversation; Autarch's agents handle scoping, research, planning, execution, and review.
 
-**Stream-First Interface**
-Instead of a Kanban board, Autarch uses a threaded workspace where each workflow has its own channel. Think Slack, but for building software—with AI that actually understands what you're doing.
+⚡ **Checkpointed Pulses** — Work happens in bounded pulses that end in a Git commit. Stop, rewind, or fork at any checkpoint. No mystery states.
 
-**Pulse Execution**
-Work happens in bounded "pulses"—checkpointed units of execution that end in a Git commit. You can stop, rewind, or fork at any checkpoint. No more mystery states.
+🔍 **Review Cards** — When work is ready, get a structured review showing what changed, why, and the reasoning behind each decision. Local PR semantics without a hosted service.
 
-**Review Cards**
-When work is ready, generate a Review Card that shows exactly what changed, why it changed, and the reasoning behind each decision. Local PR semantics without requiring a hosted service.
+<!-- TODO: Add screenshot of the stream-first interface showing a workflow channel with review card -->
 
-**Team Telepathy**
-Every line of code links back to the conversation where it was born. A year from now, `git blame` shows you not just *who* changed something, but *why*—complete with the AI reasoning and human approvals.
+🧠 **Team Telepathy** — Every line of code links back to the conversation where it was born. `git blame` shows not just *who*, but *why* — complete with AI reasoning and human approvals.
 
-**Knowledge Extraction**
-When you close a workflow, Autarch extracts durable knowledge items with provenance. Ask "How did we handle rate limiting?" years later and get real answers, not guesses.
+📚 **Knowledge Extraction** — When you close a workflow, Autarch extracts durable knowledge items with provenance. Ask "How did we handle rate limiting?" years later and get real answers.
 
-## How It Works
+🛡️ **Safe by Design** — Explicit approvals for shell commands and sensitive operations. Content gating prevents secrets from leaking to AI models. Shadow workspaces isolate execution — your working directory is never disrupted. See [How It Works](docs/HOW_IT_WORKS.md) for details.
 
-### The Core Loop
+💬 **Two Channel Types** — *Workflow channels* follow the full lifecycle from draft to merged code. *Discussion channels* are think-spaces for research and decisions without code changes. Both extract knowledge on close.
+
+## The Core Loop
 
 1. **Create a Workflow** — Start a new channel for a feature, fix, or exploration
 2. **Research & Plan** — Gather context and create a concrete plan (no code changes yet)
@@ -45,34 +39,26 @@ When you close a workflow, Autarch extracts durable knowledge items with provena
 5. **Merge** — Pulse-preserving merge keeps full history for future traceability
 6. **Close** — Extract knowledge items to capture decisions and patterns
 
-### Safety by Design
+For the full lifecycle walkthrough, including approval gates, rewind mechanics, and the quick-path variant, see [How It Works](docs/HOW_IT_WORKS.md).
 
-Autarch treats trust boundaries as first-class concerns:
+## Getting Started
 
-- **Explicit approvals** for shell commands, network access, and sensitive operations
-- **Content gating** prevents logs, secrets, and sensitive files from leaking to AI models
-- **Shadow workspaces** isolate execution—your working directory is never disrupted
-- **Git-native durability** means crashes preserve work and you can rewind to any checkpoint
+Autarch is local-first — your code stays on your machine, you use your own API keys, and there's no cloud dependency.
 
-### Channel Types
+```bash
+# Download the binary and point it at your project
+autarch /path/to/your/project
+```
 
-- **Workflow Channels**: Branch-backed channels that follow the full lifecycle from draft to merged code
-- **Discussion Channels**: Think-spaces for research and decisions without code changes, with knowledge extraction on close
+The onboarding wizard walks you through API key setup and model configuration. From there, create your first workflow and watch it go.
+
+👉 **[Full setup guide →](GETTING_STARTED.md)**
 
 ## Architecture
 
-Autarch is **local-first**:
+Autarch runs entirely on your machine with a **local-first, cloud-ready** design. An event-sourced architecture enables future team sync, portable Git trailers preserve traceability across clones, and Review Cards export cleanly for collaboration without lock-in.
 
-- Your code stays on your machine
-- Use your own API keys for AI providers
-- No cloud dependency required
-- Full offline capability
-
-With a **cloud-ready design**:
-
-- Event-sourced architecture enables future team sync
-- Portable Git trailers preserve traceability across clones
-- Review Cards and knowledge export for collaboration without lock-in
+For the full system design — including the agent pipeline, database architecture, and frontend structure — see [Architecture](ARCHITECTURE.md).
 
 ## Project Status
 
@@ -80,10 +66,9 @@ Autarch is in active development. The current focus is validating the core loop:
 
 > Workflow channel → Research/Plan → Checkpointed pulses → Review Card → Pulse-preserving merge → Knowledge extraction
 
-See [Product Thinking](docs/PRODUCT.md) for the core loop definition and product invariants.
-
 ## Documentation
 
-- [Product Thinking](docs/PRODUCT.md) — Target persona, core loop, knowledge model, and product invariants
-- [Architecture](docs/ARCHITECTURE.md) — System design and data model
-
+- **[Getting Started](GETTING_STARTED.md)** — Installation, setup, and your first workflow
+- **[How It Works](docs/HOW_IT_WORKS.md)** — Full workflow lifecycle, approval gates, and knowledge extraction
+- **[Product Thinking](docs/PRODUCT.md)** — Target persona, core loop, knowledge model, and product invariants
+- **[Architecture](ARCHITECTURE.md)** — System design, data model, and technical deep-dive
