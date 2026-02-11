@@ -447,7 +447,6 @@ export const SubtaskUpdatedPayloadSchema = z.object({
 	label: z.string(),
 	status: SubtaskStatusSchema,
 	findings: z.unknown().optional(),
-	cost: z.number().optional(),
 });
 export type SubtaskUpdatedPayload = z.infer<typeof SubtaskUpdatedPayloadSchema>;
 

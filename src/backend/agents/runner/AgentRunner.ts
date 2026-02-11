@@ -1266,6 +1266,13 @@ export class AgentRunner {
 			} catch (error) {
 				log.agent.error("Failed to insert cost record", error);
 			}
+		} else if (
+			(cost == null || cost === 0) &&
+			(usage?.promptTokens ?? 0) + (usage?.completionTokens ?? 0) > 0
+		) {
+			log.agent.warn(
+				`Cost is ${cost ?? "null"} but tokens were consumed (prompt: ${usage?.promptTokens}, completion: ${usage?.completionTokens}, model: ${usage?.modelId ?? "unknown"}) - missing pricing configuration?`,
+			);
 		}
 
 		broadcast(

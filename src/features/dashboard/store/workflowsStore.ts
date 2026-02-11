@@ -111,7 +111,6 @@ export interface Subtask {
 	label: string;
 	status: "pending" | "running" | "completed" | "failed";
 	findings?: unknown;
-	cost?: number;
 }
 
 /** Per-workflow conversation state */
@@ -389,7 +388,6 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 						label: string;
 						status: Subtask["status"];
 						findings: unknown;
-						cost: number;
 					}> = await subtasksResponse.json();
 					if (subtasksData.length > 0) {
 						set((state) => {
@@ -401,7 +399,6 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 									label: s.label,
 									status: s.status,
 									findings: s.findings,
-									cost: s.cost,
 								})),
 							);
 							return { subtasks };
@@ -1391,6 +1388,9 @@ function handleTurnCompleted(
 		}
 		return { conversations };
 	});
+
+	// Refetch workflow history to update totalCost from cost_records
+	get().fetchHistory(workflowId);
 }
 
 function handleMessageDelta(
