@@ -36,8 +36,8 @@ export async function resolveGitIdentityEnv(
 ): Promise<Record<string, string>> {
 	const gitCwd = cwd ?? projectRoot ?? process.cwd();
 	const env: Record<string, string> = {
-		GIT_COMMITTER_NAME: "Autarch",
-		GIT_COMMITTER_EMAIL: "hello@autarch.dev",
+		GIT_COMMITTER_NAME: "autarch-cli[bot]",
+		GIT_COMMITTER_EMAIL: "260802642+autarch-cli[bot]@users.noreply.github.com",
 	};
 
 	// Resolve author name: project_meta → git config → omit
