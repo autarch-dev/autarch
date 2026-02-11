@@ -12,6 +12,8 @@ import type { MergeStrategy, RewindTarget } from "@/shared/schemas/workflow";
 import { useWorkflowsStore } from "../../store";
 import { WorkflowView } from "./WorkflowView";
 
+const EMPTY_ARRAY: never[] = [];
+
 interface WorkflowViewContainerProps {
 	workflowId: string;
 }
@@ -37,11 +39,11 @@ export function WorkflowViewContainer({
 			workflow: s.workflows.find((w) => w.id === workflowId),
 			workflowsLoading: s.workflowsLoading,
 			conversation: s.conversations.get(workflowId),
-			workflowScopeCards: s.scopeCards.get(workflowId) ?? [],
-			workflowResearchCards: s.researchCards.get(workflowId) ?? [],
-			workflowPlans: s.plans.get(workflowId) ?? [],
-			workflowReviewCards: s.reviewCards.get(workflowId) ?? [],
-			workflowPulses: s.pulses.get(workflowId) ?? [],
+			workflowScopeCards: s.scopeCards.get(workflowId) ?? EMPTY_ARRAY,
+			workflowResearchCards: s.researchCards.get(workflowId) ?? EMPTY_ARRAY,
+			workflowPlans: s.plans.get(workflowId) ?? EMPTY_ARRAY,
+			workflowReviewCards: s.reviewCards.get(workflowId) ?? EMPTY_ARRAY,
+			workflowPulses: s.pulses.get(workflowId) ?? EMPTY_ARRAY,
 			workflowPreflightSetup: s.preflightSetups.get(workflowId),
 		})),
 	);
