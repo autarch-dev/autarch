@@ -29,7 +29,7 @@ const FETCH_BATCH_SIZE = 5;
 export function CompletedWorkflowsPage() {
 	const [isLoading, setIsLoading] = useState(true);
 
-	const { workflows, conversations, reviewCards, subtasks, fetchHistory } =
+	const { workflows, conversations, reviewCards, fetchHistory } =
 		useWorkflowsStore();
 
 	const { roadmaps, roadmapDetails, fetchRoadmapDetails } = useRoadmapStore();
@@ -104,19 +104,8 @@ export function CompletedWorkflowsPage() {
 	// Compute enriched data for each completed workflow
 	const enrichedWorkflows = useMemo((): EnrichedWorkflow[] => {
 		return completedWorkflows.map((workflow) => {
-			// Total cost = sum of message costs + subtask costs
-			const messages = conversations.get(workflow.id)?.messages ?? [];
-			const workflowSubtasks = subtasks.get(workflow.id) ?? [];
-
-			const messageCost = messages.reduce(
-				(sum, msg) => sum + (msg.cost ?? 0),
-				0,
-			);
-			const subtaskCost = workflowSubtasks.reduce(
-				(sum, st) => sum + (st.cost ?? 0),
-				0,
-			);
-			const totalCost = messageCost + subtaskCost || null;
+			// Total cost from pre-computed cost records
+			const totalCost = conversations.get(workflow.id)?.totalCost ?? null;
 
 			// Review summary = first review card's summary
 			const workflowReviewCards = reviewCards.get(workflow.id) ?? [];
@@ -144,13 +133,7 @@ export function CompletedWorkflowsPage() {
 				initiativeTitle,
 			};
 		});
-	}, [
-		completedWorkflows,
-		conversations,
-		subtasks,
-		reviewCards,
-		initiativeByWorkflowId,
-	]);
+	}, [completedWorkflows, conversations, reviewCards, initiativeByWorkflowId]);
 
 	return (
 		<CompletedWorkflowsList

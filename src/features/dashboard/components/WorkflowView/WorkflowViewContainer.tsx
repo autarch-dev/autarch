@@ -120,6 +120,7 @@ export function WorkflowViewContainer({
 			messages={conversation?.messages ?? []}
 			streamingMessage={conversation?.streamingMessage}
 			isLoading={conversation?.isLoading ?? workflowsLoading}
+			totalCost={conversation?.totalCost ?? null}
 			scopeCards={workflowScopeCards}
 			researchCards={workflowResearchCards}
 			plans={workflowPlans}

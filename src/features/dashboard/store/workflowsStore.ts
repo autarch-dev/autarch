@@ -122,6 +122,7 @@ export interface WorkflowConversationState {
 	streamingMessage?: StreamingMessage;
 	isLoading: boolean;
 	error?: string;
+	totalCost?: number | null;
 }
 
 // =============================================================================
@@ -333,6 +334,7 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 					isLoading: false,
 					// Preserve streamingMessage if it exists (race with WebSocket events)
 					streamingMessage: existing?.streamingMessage,
+					totalCost: history.totalCost ?? null,
 				});
 
 				// Update workflow in list with latest data
