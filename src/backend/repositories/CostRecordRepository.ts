@@ -165,11 +165,17 @@ export class CostRecordRepository implements Repository {
 			const startEpoch = Math.floor(
 				new Date(filters.startDate).getTime() / 1000,
 			);
+			if (Number.isNaN(startEpoch)) {
+				throw new Error(`Invalid startDate: ${filters.startDate}`);
+			}
 			q = q.where("created_at", ">=", startEpoch);
 		}
 
 		if (filters.endDate) {
 			const endEpoch = Math.floor(new Date(filters.endDate).getTime() / 1000);
+			if (Number.isNaN(endEpoch)) {
+				throw new Error(`Invalid endDate: ${filters.endDate}`);
+			}
 			q = q.where("created_at", "<=", endEpoch);
 		}
 

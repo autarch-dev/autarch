@@ -9,6 +9,7 @@ import {
 	Bar,
 	BarChart,
 	CartesianGrid,
+	Cell,
 	ResponsiveContainer,
 	Tooltip,
 	XAxis,
@@ -31,7 +32,7 @@ const BAR_COLORS = [
 ];
 
 export function ModelBreakdownChart() {
-	const { data, loading } = useCostStore((s) => s.byModel);
+	const { data, loading, error } = useCostStore((s) => s.byModel);
 
 	const chartData = (data ?? []).map((entry, index) => ({
 		name: shortModelName(entry.modelId),
@@ -47,6 +48,8 @@ export function ModelBreakdownChart() {
 			<CardContent>
 				{loading ? (
 					<p className="text-muted-foreground">Loading...</p>
+				) : error ? (
+					<p className="text-destructive text-sm">{error}</p>
 				) : chartData.length === 0 ? (
 					<p className="text-muted-foreground">No data</p>
 				) : (
@@ -58,7 +61,14 @@ export function ModelBreakdownChart() {
 							<Tooltip
 								formatter={(value) => [`$${Number(value).toFixed(2)}`, "Cost"]}
 							/>
-							<Bar dataKey="cost" />
+							<Bar dataKey="cost">
+								{chartData.map((entry, index) => (
+									<Cell
+										key={entry.name}
+										fill={BAR_COLORS[index % BAR_COLORS.length]}
+									/>
+								))}
+							</Bar>
 						</BarChart>
 					</ResponsiveContainer>
 				)}

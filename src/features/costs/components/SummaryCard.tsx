@@ -25,7 +25,7 @@ function formatNumber(n: number): string {
 }
 
 export function SummaryCard() {
-	const { data, loading } = useCostStore((s) => s.summary);
+	const { data, loading, error } = useCostStore((s) => s.summary);
 
 	return (
 		<Card>
@@ -36,6 +36,8 @@ export function SummaryCard() {
 			<CardContent>
 				{loading ? (
 					<p className="text-muted-foreground">Loading...</p>
+				) : error ? (
+					<p className="text-destructive text-sm">{error}</p>
 				) : (
 					<>
 						<p className="text-4xl font-bold tracking-tight">

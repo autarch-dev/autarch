@@ -43,9 +43,14 @@ export function CostDashboardPage() {
 
 	useEffect(() => {
 		const filters = parseFiltersFromSearch(search);
-		if (Object.keys(filters).length > 0) {
-			setFilters(filters);
-		}
+		// Replace filters entirely rather than merge
+		setFilters({
+			startDate: undefined,
+			endDate: undefined,
+			modelId: undefined,
+			workflowId: undefined,
+			...filters,
+		});
 		fetchAll();
 	}, [search, setFilters, fetchAll]);
 

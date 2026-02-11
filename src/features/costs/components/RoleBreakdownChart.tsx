@@ -31,7 +31,7 @@ const COLORS = [
 ];
 
 export function RoleBreakdownChart() {
-	const { data, loading } = useCostStore((s) => s.byRole);
+	const { data, loading, error } = useCostStore((s) => s.byRole);
 
 	const chartData = (data ?? []).map((entry) => ({
 		name:
@@ -47,6 +47,8 @@ export function RoleBreakdownChart() {
 			<CardContent>
 				{loading ? (
 					<p className="text-muted-foreground">Loading...</p>
+				) : error ? (
+					<p className="text-destructive text-sm">{error}</p>
 				) : chartData.length === 0 ? (
 					<p className="text-muted-foreground">No data</p>
 				) : (

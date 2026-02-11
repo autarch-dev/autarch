@@ -20,7 +20,7 @@ import {
 import { useCostStore } from "../store/costStore";
 
 export function WorkflowCostTable() {
-	const { data, loading } = useCostStore((s) => s.byWorkflow);
+	const { data, loading, error } = useCostStore((s) => s.byWorkflow);
 
 	const sortedData = useMemo(() => {
 		if (!data) return [];
@@ -35,6 +35,8 @@ export function WorkflowCostTable() {
 			<CardContent>
 				{loading ? (
 					<p className="text-muted-foreground">Loading...</p>
+				) : error ? (
+					<p className="text-destructive text-sm">{error}</p>
 				) : sortedData.length === 0 ? (
 					<p className="text-muted-foreground">No cost data found</p>
 				) : (

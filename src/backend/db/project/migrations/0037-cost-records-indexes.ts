@@ -25,12 +25,4 @@ export async function migrate(db: Kysely<ProjectDatabase>): Promise<void> {
 		.on("cost_records")
 		.column("created_at")
 		.execute();
-
-	// Index for querying cost records by context (context_type + context_id)
-	await db.schema
-		.createIndex("idx_cost_records_context")
-		.ifNotExists()
-		.on("cost_records")
-		.columns(["context_type", "context_id"])
-		.execute();
 }

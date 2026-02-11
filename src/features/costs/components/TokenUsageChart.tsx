@@ -20,7 +20,7 @@ import { useCostStore } from "../store/costStore";
 import { shortModelName } from "../utils/formatModelName";
 
 export function TokenUsageChart() {
-	const { data, loading } = useCostStore((s) => s.tokens);
+	const { data, loading, error } = useCostStore((s) => s.tokens);
 
 	const chartData = (data ?? []).map((entry) => ({
 		name: shortModelName(entry.modelId),
@@ -36,6 +36,8 @@ export function TokenUsageChart() {
 			<CardContent>
 				{loading ? (
 					<p className="text-muted-foreground">Loading...</p>
+				) : error ? (
+					<p className="text-destructive text-sm">{error}</p>
 				) : chartData.length === 0 ? (
 					<p className="text-muted-foreground">No data</p>
 				) : (

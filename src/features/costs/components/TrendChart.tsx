@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCostStore } from "../store/costStore";
 
 export function TrendChart() {
-	const { data, loading } = useCostStore((s) => s.trends);
+	const { data, loading, error } = useCostStore((s) => s.trends);
 
 	const chartData = (data ?? []).map((entry) => ({
 		date: entry.date,
@@ -33,6 +33,8 @@ export function TrendChart() {
 			<CardContent>
 				{loading ? (
 					<p className="text-muted-foreground">Loading...</p>
+				) : error ? (
+					<p className="text-destructive text-sm">{error}</p>
 				) : chartData.length === 0 ? (
 					<p className="text-muted-foreground">No data</p>
 				) : (
