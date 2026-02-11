@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { CostDashboardPage } from "@/features/costs/components/CostDashboardPage";
 import { RoadmapViewContainer, useRoadmapStore } from "@/features/roadmap";
 import { ChannelViewContainer } from "./components/ChannelView";
 import { CompletedWorkflowsPage } from "./components/CompletedWorkflows/CompletedWorkflowsPage";
@@ -91,6 +92,9 @@ export function Dashboard() {
 					</Route>
 					<Route path="/completed">
 						<CompletedWorkflowsPage />
+					</Route>
+					<Route path="/costs">
+						<CostDashboardPage />
 					</Route>
 					<Route path="/">
 						<DashboardEmptyState />
