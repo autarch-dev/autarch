@@ -19,9 +19,9 @@ export type CostFilters = z.infer<typeof CostFiltersSchema>;
 
 export const CostSummarySchema = z.object({
 	totalCost: z.number(),
-	totalPromptTokens: z.number(),
-	totalCompletionTokens: z.number(),
-	recordCount: z.number(),
+	promptTokens: z.number(),
+	completionTokens: z.number(),
+	count: z.number(),
 });
 export type CostSummary = z.infer<typeof CostSummarySchema>;
 
@@ -61,7 +61,7 @@ export const CostTrendSchema = z.array(
 	z.object({
 		date: z.string(),
 		totalCost: z.number(),
-		recordCount: z.number(),
+		count: z.number(),
 	}),
 );
 export type CostTrend = z.infer<typeof CostTrendSchema>;
@@ -75,7 +75,6 @@ export const CostTokenUsageSchema = z.array(
 		modelId: z.string(),
 		promptTokens: z.number(),
 		completionTokens: z.number(),
-		totalTokens: z.number(),
 	}),
 );
 export type CostTokenUsage = z.infer<typeof CostTokenUsageSchema>;
@@ -87,11 +86,11 @@ export type CostTokenUsage = z.infer<typeof CostTokenUsageSchema>;
 export const CostByWorkflowSchema = z.array(
 	z.object({
 		workflowId: z.string(),
-		workflowTitle: z.string(),
+		workflowTitle: z.string().nullable(),
 		totalCost: z.number(),
 		promptTokens: z.number(),
 		completionTokens: z.number(),
-		recordCount: z.number(),
+		count: z.number(),
 	}),
 );
 export type CostByWorkflow = z.infer<typeof CostByWorkflowSchema>;

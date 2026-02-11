@@ -113,7 +113,7 @@ export async function fetchCostTrends(
 export async function fetchCostTokenUsage(
 	filters: CostFilters,
 ): Promise<CostTokenUsage> {
-	const url = buildUrl("/api/costs/token-usage", buildFilterParams(filters));
+	const url = buildUrl("/api/costs/tokens", buildFilterParams(filters));
 	const response = await fetch(url);
 	if (!response.ok) {
 		throw new Error("Failed to fetch token usage");

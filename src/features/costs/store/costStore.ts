@@ -79,6 +79,12 @@ function initialSection<T>(): DataSection<T> {
 // Store
 // =============================================================================
 
+/**
+ * Global fetch counter — incremented by fetchAll() so that in-flight requests
+ * from a previous fetchAll() discard their results when a newer one starts.
+ */
+let _fetchId = 0;
+
 export const useCostStore = create<CostDashboardState>((set, get) => ({
 	// ---------------------------------------------------------------------------
 	// State
@@ -113,6 +119,7 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 	// ---------------------------------------------------------------------------
 
 	fetchAll: async () => {
+		++_fetchId;
 		const {
 			fetchSummary,
 			fetchByModel,
@@ -136,11 +143,14 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 	// ---------------------------------------------------------------------------
 
 	fetchSummary: async () => {
-		set({ summary: { data: null, loading: true, error: null } });
+		const id = _fetchId;
+		set((s) => ({ summary: { ...s.summary, loading: true, error: null } }));
 		try {
 			const data = await fetchCostSummary(get().filters);
+			if (_fetchId !== id) return;
 			set({ summary: { data, loading: false, error: null } });
 		} catch (error) {
+			if (_fetchId !== id) return;
 			set({
 				summary: {
 					data: null,
@@ -152,11 +162,14 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 	},
 
 	fetchByModel: async () => {
-		set({ byModel: { data: null, loading: true, error: null } });
+		const id = _fetchId;
+		set((s) => ({ byModel: { ...s.byModel, loading: true, error: null } }));
 		try {
 			const data = await fetchCostByModel(get().filters);
+			if (_fetchId !== id) return;
 			set({ byModel: { data, loading: false, error: null } });
 		} catch (error) {
+			if (_fetchId !== id) return;
 			set({
 				byModel: {
 					data: null,
@@ -168,11 +181,14 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 	},
 
 	fetchByRole: async () => {
-		set({ byRole: { data: null, loading: true, error: null } });
+		const id = _fetchId;
+		set((s) => ({ byRole: { ...s.byRole, loading: true, error: null } }));
 		try {
 			const data = await fetchCostByRole(get().filters);
+			if (_fetchId !== id) return;
 			set({ byRole: { data, loading: false, error: null } });
 		} catch (error) {
+			if (_fetchId !== id) return;
 			set({
 				byRole: {
 					data: null,
@@ -184,11 +200,14 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 	},
 
 	fetchTrends: async () => {
-		set({ trends: { data: null, loading: true, error: null } });
+		const id = _fetchId;
+		set((s) => ({ trends: { ...s.trends, loading: true, error: null } }));
 		try {
 			const data = await fetchCostTrends(get().filters, get().granularity);
+			if (_fetchId !== id) return;
 			set({ trends: { data, loading: false, error: null } });
 		} catch (error) {
+			if (_fetchId !== id) return;
 			set({
 				trends: {
 					data: null,
@@ -200,11 +219,14 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 	},
 
 	fetchTokens: async () => {
-		set({ tokens: { data: null, loading: true, error: null } });
+		const id = _fetchId;
+		set((s) => ({ tokens: { ...s.tokens, loading: true, error: null } }));
 		try {
 			const data = await fetchCostTokenUsage(get().filters);
+			if (_fetchId !== id) return;
 			set({ tokens: { data, loading: false, error: null } });
 		} catch (error) {
+			if (_fetchId !== id) return;
 			set({
 				tokens: {
 					data: null,
@@ -216,11 +238,16 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 	},
 
 	fetchByWorkflow: async () => {
-		set({ byWorkflow: { data: null, loading: true, error: null } });
+		const id = _fetchId;
+		set((s) => ({
+			byWorkflow: { ...s.byWorkflow, loading: true, error: null },
+		}));
 		try {
 			const data = await fetchCostByWorkflow(get().filters);
+			if (_fetchId !== id) return;
 			set({ byWorkflow: { data, loading: false, error: null } });
 		} catch (error) {
+			if (_fetchId !== id) return;
 			set({
 				byWorkflow: {
 					data: null,

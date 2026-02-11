@@ -59,7 +59,7 @@ export function WorkflowCostTable() {
 												href={`/workflow/${row.workflowId}`}
 												className="text-primary hover:underline"
 											>
-												{row.workflowTitle}
+												{row.workflowTitle ?? "(Untitled)"}
 											</Link>
 										</TableCell>
 										<TableCell className="text-right">
@@ -72,7 +72,7 @@ export function WorkflowCostTable() {
 											{row.completionTokens.toLocaleString()}
 										</TableCell>
 										<TableCell className="text-right">
-											{row.recordCount.toLocaleString()}
+											{row.count.toLocaleString()}
 										</TableCell>
 									</TableRow>
 								))}

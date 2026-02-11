@@ -6,6 +6,14 @@
  * Uses CostRecordRepository for data access.
  */
 
+import type {
+	CostByModel,
+	CostByRole,
+	CostByWorkflow,
+	CostSummary,
+	CostTokenUsage,
+	CostTrend,
+} from "@/shared/schemas/costs";
 import { log } from "../logger";
 import { getRepositories } from "../repositories";
 import type { CostRecordFilters } from "../repositories/CostRecordRepository";
@@ -49,7 +57,7 @@ export const costRoutes = {
 				const filters = parseFilters(req);
 				const repos = getRepositories();
 				const summary = await repos.costRecords.getSummary(filters);
-				return Response.json(summary);
+				return Response.json(summary satisfies CostSummary);
 			} catch (error) {
 				log.api.error("Failed to get cost summary:", error);
 				return Response.json(
@@ -66,7 +74,7 @@ export const costRoutes = {
 				const filters = parseFilters(req);
 				const repos = getRepositories();
 				const data = await repos.costRecords.getByModel(filters);
-				return Response.json(data);
+				return Response.json(data satisfies CostByModel);
 			} catch (error) {
 				log.api.error("Failed to get cost by model:", error);
 				return Response.json(
@@ -83,7 +91,7 @@ export const costRoutes = {
 				const filters = parseFilters(req);
 				const repos = getRepositories();
 				const data = await repos.costRecords.getByRole(filters);
-				return Response.json(data);
+				return Response.json(data satisfies CostByRole);
 			} catch (error) {
 				log.api.error("Failed to get cost by role:", error);
 				return Response.json(
@@ -103,7 +111,7 @@ export const costRoutes = {
 					url.searchParams.get("granularity") === "weekly" ? "weekly" : "daily";
 				const repos = getRepositories();
 				const data = await repos.costRecords.getTrends(filters, granularity);
-				return Response.json(data);
+				return Response.json(data satisfies CostTrend);
 			} catch (error) {
 				log.api.error("Failed to get cost trends:", error);
 				return Response.json(
@@ -120,7 +128,7 @@ export const costRoutes = {
 				const filters = parseFilters(req);
 				const repos = getRepositories();
 				const data = await repos.costRecords.getTokenUsage(filters);
-				return Response.json(data);
+				return Response.json(data satisfies CostTokenUsage);
 			} catch (error) {
 				log.api.error("Failed to get token usage:", error);
 				return Response.json(
@@ -147,7 +155,7 @@ export const costRoutes = {
 					workflowTitle: titleMap.get(row.workflowId) ?? null,
 				}));
 
-				return Response.json(enriched);
+				return Response.json(enriched satisfies CostByWorkflow);
 			} catch (error) {
 				log.api.error("Failed to get cost by workflow:", error);
 				return Response.json(

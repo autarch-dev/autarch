@@ -45,19 +45,19 @@ export function SummaryCard() {
 							<div>
 								<p className="text-muted-foreground">Prompt Tokens</p>
 								<p className="font-medium">
-									{data ? formatNumber(data.totalPromptTokens) : "0"}
+									{data ? formatNumber(data.promptTokens) : "0"}
 								</p>
 							</div>
 							<div>
 								<p className="text-muted-foreground">Completion Tokens</p>
 								<p className="font-medium">
-									{data ? formatNumber(data.totalCompletionTokens) : "0"}
+									{data ? formatNumber(data.completionTokens) : "0"}
 								</p>
 							</div>
 							<div>
 								<p className="text-muted-foreground">Records</p>
 								<p className="font-medium">
-									{data ? formatNumber(data.recordCount) : "0"}
+									{data ? formatNumber(data.count) : "0"}
 								</p>
 							</div>
 						</div>

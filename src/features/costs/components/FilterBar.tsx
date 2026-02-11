@@ -5,6 +5,7 @@
  * and a clear filters button. Each filter change updates the store and re-fetches.
  */
 
+import { useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Select,
@@ -25,24 +26,33 @@ export function FilterBar() {
 
 	const modelIds = (byModel.data ?? []).map((m) => m.modelId);
 
+	/** Debounced fetchAll — batches rapid filter changes into a single fetch cycle */
+	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const debouncedFetchAll = useCallback(() => {
+		if (timerRef.current) clearTimeout(timerRef.current);
+		timerRef.current = setTimeout(() => {
+			fetchAll();
+		}, 300);
+	}, [fetchAll]);
+
 	function handleStartDateChange(e: React.ChangeEvent<HTMLInputElement>) {
 		setFilters({ startDate: e.target.value || undefined });
-		fetchAll();
+		debouncedFetchAll();
 	}
 
 	function handleEndDateChange(e: React.ChangeEvent<HTMLInputElement>) {
 		setFilters({ endDate: e.target.value || undefined });
-		fetchAll();
+		debouncedFetchAll();
 	}
 
 	function handleModelChange(value: string) {
 		setFilters({ modelId: value === "all" ? undefined : value });
-		fetchAll();
+		debouncedFetchAll();
 	}
 
 	function handleGranularityChange(value: string) {
 		setGranularity(value as "daily" | "weekly");
-		fetchAll();
+		debouncedFetchAll();
 	}
 
 	function handleClear() {
@@ -53,7 +63,7 @@ export function FilterBar() {
 			workflowId: undefined,
 		});
 		setGranularity("daily");
-		fetchAll();
+		debouncedFetchAll();
 	}
 
 	return (

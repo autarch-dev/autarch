@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCostStore } from "../store/costStore";
+import { shortModelName } from "../utils/formatModelName";
 
 /** Distinct colors for model bars */
 const BAR_COLORS = [
@@ -28,22 +29,6 @@ const BAR_COLORS = [
 	"#14b8a6",
 	"#f97316",
 ];
-
-/**
- * Extract a short display name from a full model ID string.
- * e.g. "claude-sonnet-4-5-20250514" → "Sonnet 4.5"
- *      "claude-opus-4-6" → "Opus 4.6"
- *      "claude-haiku-4-5" → "Haiku 4.5"
- */
-function shortModelName(modelId: string): string {
-	// Try to match claude-{variant}-{major}-{minor} pattern
-	const match = modelId.match(/claude-(\w+)-(\d+)-(\d+)/);
-	if (match?.[1] && match[2] && match[3]) {
-		const variant = match[1].charAt(0).toUpperCase() + match[1].slice(1);
-		return `${variant} ${match[2]}.${match[3]}`;
-	}
-	return modelId;
-}
 
 export function ModelBreakdownChart() {
 	const { data, loading } = useCostStore((s) => s.byModel);
@@ -71,7 +56,7 @@ export function ModelBreakdownChart() {
 							<XAxis dataKey="name" />
 							<YAxis />
 							<Tooltip
-								formatter={(value) => [`${Number(value).toFixed(2)}`, "Cost"]}
+								formatter={(value) => [`$${Number(value).toFixed(2)}`, "Cost"]}
 							/>
 							<Bar dataKey="cost" />
 						</BarChart>

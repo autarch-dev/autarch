@@ -17,16 +17,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCostStore } from "../store/costStore";
-
-/** Extract a short display name from a full model ID string */
-function shortModelName(modelId: string): string {
-	const match = modelId.match(/claude-(\w+)-(\d+)-(\d+)/);
-	if (match?.[1] && match[2] && match[3]) {
-		const variant = match[1].charAt(0).toUpperCase() + match[1].slice(1);
-		return `${variant} ${match[2]}.${match[3]}`;
-	}
-	return modelId;
-}
+import { shortModelName } from "../utils/formatModelName";
 
 export function TokenUsageChart() {
 	const { data, loading } = useCostStore((s) => s.tokens);
