@@ -1,8 +1,13 @@
 /**
- * Tests for ArtifactRepository — Part 1: ScopeCard, ResearchCard, Plan
+ * Tests for ArtifactRepository
  *
- * Tests CRUD, ordering, status updates, cascade deletes, and JSON/Zod
- * round-trip validation for all JSON fields.
+ * Part 1: ScopeCard, ResearchCard, Plan — CRUD, ordering, status updates,
+ * cascade deletes, and JSON/Zod round-trip validation for all JSON fields.
+ *
+ * Part 2: ReviewCard, ReviewComment — CRUD, status/completion updates,
+ * turn_id linking, reset, cascade delete (deleteReviewCardsByWorkflow),
+ * and getPendingArtifact across all artifact types.
+ *
  * Uses createTestDb() in beforeEach for a fresh in-memory database per test.
  */
 
@@ -639,6 +644,468 @@ describe("ArtifactRepository", () => {
 				"pulse_rt_001",
 				"pulse_rt_002",
 			]);
+		});
+	});
+
+	// ===========================================================================
+	// ReviewCard Tests
+	// ===========================================================================
+
+	describe("ReviewCard", () => {
+		test("createReviewCard maps all fields correctly", async () => {
+			const workflowId = await createWorkflow();
+
+			const card = await repos.artifacts.createReviewCard({
+				workflowId,
+				turnId: "turn_abc",
+			});
+
+			expect(card.id).toMatch(/^review_/);
+			expect(card.workflowId).toBe(workflowId);
+			expect(card.turnId).toBe("turn_abc");
+			expect(card.recommendation).toBeUndefined();
+			expect(card.summary).toBeUndefined();
+			expect(card.suggestedCommitMessage).toBeUndefined();
+			expect(card.diffContent).toBeUndefined();
+			expect(card.comments).toEqual([]);
+			expect(card.status).toBe("pending");
+			expect(typeof card.createdAt).toBe("number");
+		});
+
+		test("getLatestReviewCard returns the most recently created card", async () => {
+			const workflowId = await createWorkflow();
+
+			const first = await repos.artifacts.createReviewCard({ workflowId });
+
+			// Backdate first record so second has a strictly later created_at
+			await db
+				.updateTable("review_cards")
+				.set({ created_at: first.createdAt - 1000 })
+				.where("id", "=", first.id)
+				.execute();
+
+			const second = await repos.artifacts.createReviewCard({ workflowId });
+
+			const latest = await repos.artifacts.getLatestReviewCard(workflowId);
+
+			expect(latest).not.toBeNull();
+			expect(latest?.id).toBe(second.id);
+		});
+
+		test("getAllReviewCards returns all cards for a workflow", async () => {
+			const workflowId = await createWorkflow();
+
+			const first = await repos.artifacts.createReviewCard({ workflowId });
+
+			// Backdate first record to guarantee ordering
+			await db
+				.updateTable("review_cards")
+				.set({ created_at: first.createdAt - 1000 })
+				.where("id", "=", first.id)
+				.execute();
+
+			const second = await repos.artifacts.createReviewCard({ workflowId });
+
+			const all = await repos.artifacts.getAllReviewCards(workflowId);
+
+			expect(all).toHaveLength(2);
+			expect(all[0]?.id).toBe(first.id);
+			expect(all[1]?.id).toBe(second.id);
+		});
+
+		test("updateReviewCardStatus changes status and persists", async () => {
+			const workflowId = await createWorkflow();
+
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+
+			expect(card.status).toBe("pending");
+
+			await repos.artifacts.updateReviewCardStatus(card.id, "approved");
+
+			const latest = await repos.artifacts.getLatestReviewCard(workflowId);
+			expect(latest?.status).toBe("approved");
+		});
+
+		test("updateReviewCardDiffContent sets diff content", async () => {
+			const workflowId = await createWorkflow();
+
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+			expect(card.diffContent).toBeUndefined();
+
+			const diff = "--- a/file.ts\n+++ b/file.ts\n@@ -1 +1 @@\n-old\n+new";
+			await repos.artifacts.updateReviewCardDiffContent(card.id, diff);
+
+			const latest = await repos.artifacts.getLatestReviewCard(workflowId);
+			expect(latest?.diffContent).toBe(diff);
+		});
+
+		test("updateReviewCardCompletion sets recommendation, summary, and commit message", async () => {
+			const workflowId = await createWorkflow();
+
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+
+			await repos.artifacts.updateReviewCardCompletion(
+				card.id,
+				"approve",
+				"All changes look good",
+				"feat(auth): add login endpoint",
+			);
+
+			const latest = await repos.artifacts.getLatestReviewCard(workflowId);
+			expect(latest?.recommendation).toBe("approve");
+			expect(latest?.summary).toBe("All changes look good");
+			expect(latest?.suggestedCommitMessage).toBe(
+				"feat(auth): add login endpoint",
+			);
+		});
+
+		test("setReviewCardTurnId links turn to review cards with null turn_id", async () => {
+			const workflowId = await createWorkflow();
+
+			// Create a card without turnId
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+			expect(card.turnId).toBeUndefined();
+
+			await repos.artifacts.setReviewCardTurnId(workflowId, "turn_xyz");
+
+			const latest = await repos.artifacts.getLatestReviewCard(workflowId);
+			expect(latest?.turnId).toBe("turn_xyz");
+		});
+
+		test("updateLatestReviewCardTurnId updates the most recent card's turn_id", async () => {
+			const workflowId = await createWorkflow();
+
+			const first = await repos.artifacts.createReviewCard({
+				workflowId,
+				turnId: "turn_first",
+			});
+
+			// Backdate first record so second is latest
+			await db
+				.updateTable("review_cards")
+				.set({ created_at: first.createdAt - 1000 })
+				.where("id", "=", first.id)
+				.execute();
+
+			await repos.artifacts.createReviewCard({
+				workflowId,
+				turnId: "turn_second",
+			});
+
+			await repos.artifacts.updateLatestReviewCardTurnId(
+				workflowId,
+				"turn_updated",
+			);
+
+			const all = await repos.artifacts.getAllReviewCards(workflowId);
+			// First card's turn_id should be unchanged
+			expect(all[0]?.turnId).toBe("turn_first");
+			// Latest card's turn_id should be updated
+			expect(all[1]?.turnId).toBe("turn_updated");
+		});
+
+		test("resetReviewCard resets status and clears recommendation/summary", async () => {
+			const workflowId = await createWorkflow();
+
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+
+			// Complete the review first
+			await repos.artifacts.updateReviewCardStatus(card.id, "approved");
+			await repos.artifacts.updateReviewCardCompletion(
+				card.id,
+				"approve",
+				"Looks good",
+			);
+
+			const before = await repos.artifacts.getLatestReviewCard(workflowId);
+			expect(before?.status).toBe("approved");
+			expect(before?.recommendation).toBe("approve");
+			expect(before?.summary).toBe("Looks good");
+
+			// Reset the review card
+			await repos.artifacts.resetReviewCard(card.id);
+
+			const after = await repos.artifacts.getLatestReviewCard(workflowId);
+			expect(after?.status).toBe("pending");
+			expect(after?.recommendation).toBeUndefined();
+			expect(after?.summary).toBeUndefined();
+		});
+	});
+
+	// ===========================================================================
+	// ReviewComment Tests
+	// ===========================================================================
+
+	describe("ReviewComment", () => {
+		test("createReviewComment creates with all fields mapped correctly", async () => {
+			const workflowId = await createWorkflow();
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+
+			const comment = await repos.artifacts.createReviewComment({
+				reviewCardId: card.id,
+				type: "line",
+				filePath: "src/auth/login.ts",
+				startLine: 10,
+				endLine: 15,
+				severity: "High",
+				category: "security",
+				description: "Password not hashed before storage",
+				author: "agent",
+			});
+
+			expect(comment.id).toMatch(/^comment_/);
+			expect(comment.reviewCardId).toBe(card.id);
+			expect(comment.type).toBe("line");
+			expect(comment.filePath).toBe("src/auth/login.ts");
+			expect(comment.startLine).toBe(10);
+			expect(comment.endLine).toBe(15);
+			expect(comment.severity).toBe("High");
+			expect(comment.category).toBe("security");
+			expect(comment.description).toBe("Password not hashed before storage");
+			expect(comment.author).toBe("agent");
+			expect(typeof comment.createdAt).toBe("number");
+		});
+
+		test("getCommentsByReviewCard returns all comments for a card", async () => {
+			const workflowId = await createWorkflow();
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+
+			await repos.artifacts.createReviewComment({
+				reviewCardId: card.id,
+				type: "line",
+				filePath: "src/a.ts",
+				startLine: 1,
+				severity: "Medium",
+				description: "First comment",
+			});
+
+			await repos.artifacts.createReviewComment({
+				reviewCardId: card.id,
+				type: "review",
+				description: "Second comment",
+			});
+
+			const comments = await repos.artifacts.getCommentsByReviewCard(card.id);
+
+			expect(comments).toHaveLength(2);
+			expect(comments[0]?.description).toBe("First comment");
+			expect(comments[1]?.description).toBe("Second comment");
+		});
+
+		test("getCommentsByIds returns only the requested comments", async () => {
+			const workflowId = await createWorkflow();
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+
+			const c1 = await repos.artifacts.createReviewComment({
+				reviewCardId: card.id,
+				type: "review",
+				description: "Comment 1",
+			});
+
+			const c2 = await repos.artifacts.createReviewComment({
+				reviewCardId: card.id,
+				type: "file",
+				filePath: "src/b.ts",
+				description: "Comment 2",
+			});
+
+			const c3 = await repos.artifacts.createReviewComment({
+				reviewCardId: card.id,
+				type: "line",
+				filePath: "src/c.ts",
+				startLine: 5,
+				description: "Comment 3",
+			});
+
+			const result = await repos.artifacts.getCommentsByIds([c1.id, c3.id]);
+
+			expect(result).toHaveLength(2);
+			const resultIds = result.map((c) => c.id);
+			expect(resultIds).toContain(c1.id);
+			expect(resultIds).toContain(c3.id);
+			// c2 should not be included
+			expect(resultIds).not.toContain(c2.id);
+		});
+
+		test("deleteReviewComments removes all comments for a review card", async () => {
+			const workflowId = await createWorkflow();
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+
+			await repos.artifacts.createReviewComment({
+				reviewCardId: card.id,
+				type: "review",
+				description: "Will be deleted 1",
+			});
+
+			await repos.artifacts.createReviewComment({
+				reviewCardId: card.id,
+				type: "review",
+				description: "Will be deleted 2",
+			});
+
+			const before = await repos.artifacts.getCommentsByReviewCard(card.id);
+			expect(before).toHaveLength(2);
+
+			await repos.artifacts.deleteReviewComments(card.id);
+
+			const after = await repos.artifacts.getCommentsByReviewCard(card.id);
+			expect(after).toHaveLength(0);
+		});
+	});
+
+	// ===========================================================================
+	// Cascade Delete Tests
+	// ===========================================================================
+
+	describe("deleteReviewCardsByWorkflow (cascade)", () => {
+		test("deletes review cards and their comments for a workflow", async () => {
+			const workflowId = await createWorkflow();
+
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+
+			await repos.artifacts.createReviewComment({
+				reviewCardId: card.id,
+				type: "review",
+				description: "Cascade comment 1",
+			});
+
+			await repos.artifacts.createReviewComment({
+				reviewCardId: card.id,
+				type: "line",
+				filePath: "src/x.ts",
+				startLine: 1,
+				description: "Cascade comment 2",
+			});
+
+			// Verify card and comments exist
+			const cardsBefore = await repos.artifacts.getAllReviewCards(workflowId);
+			expect(cardsBefore).toHaveLength(1);
+			expect(cardsBefore[0]?.comments).toHaveLength(2);
+
+			// Delete by workflow — should cascade to comments
+			await repos.artifacts.deleteReviewCardsByWorkflow(workflowId);
+
+			// Verify card is removed
+			const cardsAfter = await repos.artifacts.getAllReviewCards(workflowId);
+			expect(cardsAfter).toHaveLength(0);
+
+			// Verify comments are also removed (query directly)
+			const orphanedComments = await repos.artifacts.getCommentsByReviewCard(
+				card.id,
+			);
+			expect(orphanedComments).toHaveLength(0);
+		});
+	});
+
+	// ===========================================================================
+	// getPendingArtifact Tests
+	// ===========================================================================
+
+	describe("getPendingArtifact", () => {
+		test("returns pending scope card for scope_card type", async () => {
+			const workflowId = await createWorkflow();
+
+			const scopeCard = await repos.artifacts.createScopeCard({
+				workflowId,
+				title: "Pending scope",
+				description: "A pending scope card",
+				inScope: ["item"],
+				outOfScope: ["other"],
+				recommendedPath: "quick",
+			});
+
+			const result = await repos.artifacts.getPendingArtifact(
+				workflowId,
+				"scope_card",
+			);
+
+			expect(result).not.toBeNull();
+			expect(result?.id).toBe(scopeCard.id);
+			expect(result?.status).toBe("pending");
+		});
+
+		test("returns pending research card for research type", async () => {
+			const workflowId = await createWorkflow();
+
+			const card = await repos.artifacts.createResearchCard({
+				workflowId,
+				summary: "Pending research",
+				keyFiles: [{ path: "src/a.ts", purpose: "test" }],
+				recommendations: ["rec"],
+			});
+
+			const result = await repos.artifacts.getPendingArtifact(
+				workflowId,
+				"research",
+			);
+
+			expect(result).not.toBeNull();
+			expect(result?.id).toBe(card.id);
+			expect(result?.status).toBe("pending");
+		});
+
+		test("returns pending plan for plan type", async () => {
+			const workflowId = await createWorkflow();
+
+			const plan = await repos.artifacts.createPlan({
+				workflowId,
+				approachSummary: "Pending plan",
+				pulses: [PULSE_1],
+			});
+
+			const result = await repos.artifacts.getPendingArtifact(
+				workflowId,
+				"plan",
+			);
+
+			expect(result).not.toBeNull();
+			expect(result?.id).toBe(plan.id);
+			expect(result?.status).toBe("pending");
+		});
+
+		test("returns pending review card for review_card type", async () => {
+			const workflowId = await createWorkflow();
+
+			const card = await repos.artifacts.createReviewCard({ workflowId });
+
+			const result = await repos.artifacts.getPendingArtifact(
+				workflowId,
+				"review_card",
+			);
+
+			expect(result).not.toBeNull();
+			expect(result?.id).toBe(card.id);
+			expect(result?.status).toBe("pending");
+		});
+
+		test("returns null when artifactType is null", async () => {
+			const workflowId = await createWorkflow();
+
+			const result = await repos.artifacts.getPendingArtifact(workflowId, null);
+
+			expect(result).toBeNull();
+		});
+
+		test("returns null when artifactType is undefined", async () => {
+			const workflowId = await createWorkflow();
+
+			const result = await repos.artifacts.getPendingArtifact(
+				workflowId,
+				undefined,
+			);
+
+			expect(result).toBeNull();
+		});
+
+		test("returns null when no artifact exists for the workflow", async () => {
+			const workflowId = await createWorkflow();
+
+			const result = await repos.artifacts.getPendingArtifact(
+				workflowId,
+				"scope_card",
+			);
+
+			expect(result).toBeNull();
 		});
 	});
 });
