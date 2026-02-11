@@ -19,6 +19,7 @@ import {
 	positionsToLineRanges,
 } from "./editContext";
 import { executePostWriteHooks } from "./hooks";
+import { escapeReplacement } from "./util";
 
 // =============================================================================
 // Schema
@@ -148,7 +149,10 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 			if (input.replaceAll) {
 				newContent = content.split(input.oldString).join(input.newString);
 			} else {
-				newContent = content.replace(input.oldString, input.newString);
+				newContent = content.replace(
+					input.oldString,
+					escapeReplacement(input.newString),
+				);
 			}
 
 			// Write the file

@@ -19,6 +19,7 @@ import {
 	trackMultiEditPositions,
 } from "./editContext";
 import { executePostWriteHooks } from "./hooks";
+import { escapeReplacement } from "./util";
 
 // =============================================================================
 // Schema
@@ -209,7 +210,10 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 				if (edit.replaceAll) {
 					newContent = newContent.split(edit.oldString).join(edit.newString);
 				} else {
-					newContent = newContent.replace(edit.oldString, edit.newString);
+					newContent = newContent.replace(
+						edit.oldString,
+						escapeReplacement(edit.newString),
+					);
 				}
 			}
 

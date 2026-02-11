@@ -627,10 +627,13 @@ Call \`spawn_review_tasks\` with an array of task objects:
 **You MUST END YOUR TURN immediately after calling \`spawn_review_tasks\`.**
 Subagents will review their assigned files in parallel.
 You will be notified with the results of all sub-reviewers when they complete.
+The subagents run ASYNCHRONOUSLY, so you will not receive the results of the subagents in the tool call result.
+
+YOU *MUST* STOP RESPONDING IMMEDIATELY AFTER CALLING \`spawn_review_tasks\`.
 
 ### After Delegation
 
-Your session resumes with a message containing all sub-reviewer findings. When you receive these findings:
+Your session resumes with a message from the user containing all sub-reviewer findings. When you receive these findings:
 
 1. **Review for cross-cutting concerns** that individual reviewers may have missed (e.g., contract mismatches between modules, inconsistent error handling across layers)
 2. **Resolve contradictions** between sub-reviews (e.g., one reviewer flags a pattern while another approves the same pattern elsewhere)
