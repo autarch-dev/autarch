@@ -220,6 +220,7 @@ orchestration for human review.`,
 						// Compare outputs using two-tier comparison
 						const comparison = await outputComparison.compareOutputs(
 							pulse.workflowId,
+							command,
 							baseline,
 							{ stdout, stderr, exit_code: exitCode },
 						);
