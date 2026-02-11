@@ -20,7 +20,7 @@ import type { PulseRepository } from "@/backend/repositories/PulseRepository";
 const ESCAPE_HATCH_THRESHOLD = 2;
 
 /** Tool names that indicate failures when their output contains errors */
-const FAILURE_TOOLS = ["shell", "edit_file", "multi_edit", "write_file"];
+const FAILURE_TOOLS = ["edit_file", "multi_edit", "write_file"];
 
 // =============================================================================
 // Types
