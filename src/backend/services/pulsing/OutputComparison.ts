@@ -136,12 +136,14 @@ export class OutputComparisonService {
 	 * Compare baseline and current command outputs for equivalence.
 	 *
 	 * @param workflowId - The workflow ID for scoping the comparison
+	 * @param command - The command that was run
 	 * @param baseline - The baseline output from preflight
 	 * @param current - The current output from pulse verification
 	 * @returns Comparison result indicating equivalence and any new issues
 	 */
 	async compareOutputs(
 		workflowId: string,
+		command: string,
 		baseline: CommandOutput,
 		current: CommandOutput,
 	): Promise<ComparisonResult> {
@@ -156,7 +158,7 @@ export class OutputComparisonService {
 					areEquivalent: false,
 					isStrictlyImprovement: false,
 					newIssues: [
-						`Command failed (exit code ${current.exit_code}) when baseline succeeded`,
+						`Command '${command}' failed (exit code ${current.exit_code}) when baseline succeeded`,
 					],
 				};
 			}
@@ -164,7 +166,7 @@ export class OutputComparisonService {
 
 		// Exit codes differ but not obvious regression - need LLM to determine if meaningful
 		if (baseline.exit_code !== current.exit_code) {
-			return this.llmComparison(workflowId, baseline, current);
+			return this.llmComparison(workflowId, command, baseline, current);
 		}
 
 		// Fast-path: if both exit codes are 0, it was a success, so they're equivalent
@@ -191,7 +193,7 @@ export class OutputComparisonService {
 		}
 
 		// Outputs differ - check cache then use LLM
-		return this.llmComparison(workflowId, baseline, current);
+		return this.llmComparison(workflowId, command, baseline, current);
 	}
 
 	/**
@@ -241,6 +243,7 @@ export class OutputComparisonService {
 	 */
 	private async llmComparison(
 		workflowId: string,
+		command: string,
 		baseline: CommandOutput,
 		current: CommandOutput,
 	): Promise<ComparisonResult> {
@@ -253,7 +256,7 @@ export class OutputComparisonService {
 		}
 
 		// Call LLM with retry
-		const result = await this.checkLlmEquivalence(baseline, current);
+		const result = await this.checkLlmEquivalence(command, baseline, current);
 
 		// Cache successful (equivalent) results only
 		if (result.areEquivalent) {
@@ -268,6 +271,7 @@ export class OutputComparisonService {
 	 * Implements single retry with exponential backoff on failure.
 	 */
 	private async checkLlmEquivalence(
+		command: string,
 		baseline: CommandOutput,
 		current: CommandOutput,
 	): Promise<ComparisonResult> {
@@ -354,7 +358,7 @@ exit_code: ${current.exit_code}`;
 			areEquivalent: false,
 			isStrictlyImprovement: false,
 			newIssues: [
-				"LLM comparison unavailable - outputs differ and could not be verified. " +
+				`LLM comparison for command '${command}' unavailable - outputs differ and could not be verified. ` +
 					"Review the output differences manually.",
 			],
 		};
