@@ -45,9 +45,9 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 	const deleteInitiative = useRoadmapStore((s) => s.deleteInitiative);
 	const updateVision = useRoadmapStore((s) => s.updateVision);
 
-	// Track which roadmapId we've already fetched history for, so we don't
-	// include `conversation` in the dependency array (which changes on every
-	// WebSocket event and would cause a re-fetch storm during streaming).
+	// Track which roadmapId we've already fetched history for so the effect
+	// below runs at most once per roadmapId, even though `conversation`
+	// (which changes on every WebSocket event) is in the dependency array.
 	const historyFetchedRef = useRef<string | null>(null);
 
 	// Select roadmap and fetch details when roadmapId changes
