@@ -1631,6 +1631,7 @@ Please review the changes made for this scope. Use the available tools to:
 	private async buildPulseInitialMessage(
 		workflowId: string,
 		pulse: Pulse,
+		isRetry = false,
 	): Promise<string> {
 		// Get artifacts for context
 		const scopeCard = await this.artifactRepo.getLatestScopeCard(workflowId);
@@ -1700,7 +1701,7 @@ ${plan.approachSummary}`;
 
 ---
 
-Execute this pulse. When complete, call \`complete_pulse\` with a commit message. If you need more time, use \`request_extension\`.`;
+${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse has already been completed and only complete the remaining work." : "Execute this pulse."} When complete, call \`complete_pulse\` with a commit message. If you need more time, use \`request_extension\`.`;
 
 		return message;
 	}
@@ -1821,6 +1822,7 @@ Execute this pulse. When complete, call \`complete_pulse\` with a commit message
 		const initialMessage = await this.buildPulseInitialMessage(
 			workflowId,
 			runningPulse,
+			true,
 		);
 
 		const runner = new AgentRunner(session, {
