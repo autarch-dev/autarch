@@ -1379,7 +1379,6 @@ function handleTurnCompleted(
 					existing.streamingMessage.questions.length > 0
 						? existing.streamingMessage.questions
 						: undefined,
-				cost: payload.cost,
 				agentRole: existing.streamingMessage.agentRole,
 				pulseId: existing.streamingMessage.pulseId,
 			};
@@ -2043,7 +2042,6 @@ function handleSubtaskUpdated(
 			label: payload.label,
 			status: payload.status,
 			findings: payload.findings,
-			cost: payload.cost,
 		};
 
 		if (existingIndex >= 0) {
