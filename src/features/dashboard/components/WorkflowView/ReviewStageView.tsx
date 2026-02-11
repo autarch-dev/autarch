@@ -7,6 +7,7 @@
  */
 
 import {
+	AlertTriangle,
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
@@ -15,11 +16,13 @@ import {
 	XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 import type { Plan, ReviewCard } from "@/shared/schemas/workflow";
 import { type Subtask, useSubtasks } from "../../store/workflowsStore";
 import {
@@ -40,6 +43,53 @@ const SUBTASK_CONTAINER_STYLES = {
 	completed: "border-green-500/30 bg-green-500/5",
 	failed: "border-red-500/50 bg-red-500/10",
 } as const;
+
+/**
+ * Severity color styles for sub-review concern badges.
+ * Follows the same pattern as SEVERITY_STYLES in CommentItem.tsx.
+ */
+const CONCERN_SEVERITY_STYLES: Record<string, string> = {
+	critical: "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/30",
+	moderate:
+		"text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/30",
+	minor: "text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/30",
+};
+
+/** Shape of findings returned by sub-review subtasks */
+interface SubReviewConcern {
+	severity: string;
+	description: string;
+	file?: string;
+	line?: number;
+	scope?: string;
+}
+
+interface SubReviewFindings {
+	summary?: string;
+	concerns?: SubReviewConcern[];
+	positiveObservations?: string[];
+}
+
+/** Runtime type guard for SubReviewFindings shape */
+function isSubReviewFindings(value: unknown): value is SubReviewFindings {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return false;
+	}
+	const obj = value as Record<string, unknown>;
+	if (obj.summary !== undefined && typeof obj.summary !== "string") {
+		return false;
+	}
+	if (obj.concerns !== undefined && !Array.isArray(obj.concerns)) {
+		return false;
+	}
+	if (
+		obj.positiveObservations !== undefined &&
+		!Array.isArray(obj.positiveObservations)
+	) {
+		return false;
+	}
+	return true;
+}
 
 /**
  * Status badge for subtask items
@@ -78,6 +128,93 @@ function SubtaskStatusBadge({ status }: { status: Subtask["status"] }) {
 }
 
 /**
+ * Structured display for sub-review findings
+ */
+function SubtaskFindings({ findings }: { findings: SubReviewFindings }) {
+	const hasConcerns = findings.concerns && findings.concerns.length > 0;
+	const hasObservations =
+		findings.positiveObservations && findings.positiveObservations.length > 0;
+	const hasOnlySummary = !hasConcerns && !hasObservations;
+
+	return (
+		<div className="space-y-3">
+			{/* Summary */}
+			{findings.summary && (
+				<p className="text-sm text-muted-foreground">{findings.summary}</p>
+			)}
+
+			{/* Empty state */}
+			{hasOnlySummary && (
+				<p className="text-sm text-muted-foreground italic">No issues found.</p>
+			)}
+
+			{/* Concerns list */}
+			{hasConcerns && (
+				<div className="space-y-2">
+					{findings.concerns?.map((concern, index) => {
+						const severity = concern.severity || "minor";
+						const severityStyle =
+							CONCERN_SEVERITY_STYLES[severity] ??
+							CONCERN_SEVERITY_STYLES.minor;
+						const locationInfo = concern.file
+							? concern.line
+								? `${concern.file}:${concern.line}`
+								: concern.file
+							: null;
+
+						return (
+							<div
+								key={`concern-${concern.file ?? ""}-${concern.line ?? ""}-${concern.severity ?? ""}-${index}`}
+								className="border rounded-lg p-3 bg-background"
+							>
+								<div className="flex items-center gap-2 mb-1">
+									<Badge
+										variant="outline"
+										className={cn("text-xs", severityStyle)}
+									>
+										{severity}
+									</Badge>
+									{locationInfo && (
+										<code className="text-xs font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+											{locationInfo}
+										</code>
+									)}
+								</div>
+								<p className="text-sm text-muted-foreground">
+									{concern.description}
+								</p>
+							</div>
+						);
+					})}
+				</div>
+			)}
+
+			{/* Positive observations */}
+			{hasObservations && (
+				<div className="border border-green-500/30 bg-green-500/5 rounded-lg p-3">
+					<div className="flex items-center gap-1.5 mb-2">
+						<CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+						<span className="text-sm font-medium text-green-600 dark:text-green-400">
+							Positive Observations
+						</span>
+					</div>
+					<ul className="space-y-1">
+						{findings.positiveObservations?.map((observation, index) => (
+							<li
+								key={`observation-${observation.slice(0, 32)}-${index}`}
+								className="text-sm text-muted-foreground"
+							>
+								{observation}
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
+		</div>
+	);
+}
+
+/**
  * Collapsible item for a single subtask
  */
 function SubtaskCollapsibleItem({ subtask }: { subtask: Subtask }) {
@@ -111,17 +248,39 @@ function SubtaskCollapsibleItem({ subtask }: { subtask: Subtask }) {
 			</CollapsibleTrigger>
 			<CollapsibleContent>
 				<div className="mt-2 space-y-2 pl-6">
-					{/* Findings summary if completed */}
-					{subtask.status === "completed" && subtask.findings != null ? (
-						<div className="text-sm text-muted-foreground">
-							<span className="font-medium">Findings: </span>
-							<span style={{ whiteSpace: "pre-wrap" }}>
-								{typeof subtask.findings === "string"
-									? subtask.findings
-									: JSON.stringify(subtask.findings, null, 2)}
+					{/* Structured findings for completed subtasks */}
+					{subtask.status === "completed" &&
+						subtask.findings != null &&
+						(isSubReviewFindings(subtask.findings) ? (
+							<SubtaskFindings findings={subtask.findings} />
+						) : (
+							<div className="text-sm text-muted-foreground">
+								<span style={{ whiteSpace: "pre-wrap" }}>
+									{typeof subtask.findings === "string"
+										? subtask.findings
+										: JSON.stringify(subtask.findings, null, 2)}
+								</span>
+							</div>
+						))}
+
+					{/* Error display for failed subtasks */}
+					{subtask.status === "failed" && (
+						<div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400">
+							<AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+							<span>
+								{subtask.findings != null &&
+								typeof subtask.findings === "object" &&
+								!Array.isArray(subtask.findings) &&
+								"error" in subtask.findings &&
+								typeof (subtask.findings as Record<string, unknown>).error ===
+									"string"
+									? String((subtask.findings as Record<string, unknown>).error)
+									: typeof subtask.findings === "string"
+										? subtask.findings
+										: "This subtask failed to complete."}
 							</span>
 						</div>
-					) : null}
+					)}
 
 					{/* Running placeholder */}
 					{subtask.status === "running" && (
