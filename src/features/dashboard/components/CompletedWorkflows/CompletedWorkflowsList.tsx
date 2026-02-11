@@ -7,7 +7,7 @@
  */
 
 import { ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import {
 	Card,
@@ -47,6 +47,7 @@ export function CompletedWorkflowsList({
 	enrichedWorkflows,
 	isLoading,
 }: CompletedWorkflowsListProps) {
+	const [, setLocation] = useLocation();
 	const buckets = groupByDateBucket<EnrichedWorkflow>(
 		enrichedWorkflows,
 		(ew) => ew.workflow.updatedAt,
@@ -129,14 +130,22 @@ export function CompletedWorkflowsList({
 													</span>{" "}
 													duration
 												</div>
-												<div className="text-muted-foreground">
-													<span className="font-medium text-foreground">
+												<button
+													type="button"
+													className="cursor-pointer text-muted-foreground underline-offset-2 hover:underline"
+													onClick={(e) => {
+														e.stopPropagation();
+														e.preventDefault();
+														setLocation(`/costs?workflowId=${ew.workflow.id}`);
+													}}
+												>
+													<span className="font-medium text-primary hover:text-primary/80">
 														{ew.totalCost != null
 															? `$${ew.totalCost.toFixed(2)}`
 															: "—"}
 													</span>{" "}
 													cost
-												</div>
+												</button>
 												<div
 													className={cn(
 														"text-muted-foreground",
