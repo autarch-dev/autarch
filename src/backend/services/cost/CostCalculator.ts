@@ -55,6 +55,36 @@ export class CostCalculator {
 				return inputCost + outputCost;
 			}
 
+			case "claude-3-7-sonnet-latest": {
+				const inputCost = (promptTokens / 1_000_000) * 3.0;
+				const outputCost = (completionTokens / 1_000_000) * 15.0;
+				return inputCost + outputCost;
+			}
+
+			case "claude-3-5-haiku-latest": {
+				const inputCost = (promptTokens / 1_000_000) * 0.8;
+				const outputCost = (completionTokens / 1_000_000) * 4.0;
+				return inputCost + outputCost;
+			}
+
+			case "claude-opus-4-1": {
+				const inputCost = (promptTokens / 1_000_000) * 15.0;
+				const outputCost = (completionTokens / 1_000_000) * 75.0;
+				return inputCost + outputCost;
+			}
+
+			case "claude-opus-4-0": {
+				const inputCost = (promptTokens / 1_000_000) * 15.0;
+				const outputCost = (completionTokens / 1_000_000) * 75.0;
+				return inputCost + outputCost;
+			}
+
+			case "claude-sonnet-4-0": {
+				const inputCost = (promptTokens / 1_000_000) * 3.0;
+				const outputCost = (completionTokens / 1_000_000) * 15.0;
+				return inputCost + outputCost;
+			}
+
 			default: {
 				return 0; // Unimplemented cost model
 			}
