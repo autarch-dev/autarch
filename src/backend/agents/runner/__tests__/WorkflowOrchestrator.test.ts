@@ -6,7 +6,7 @@
  * and STAGE_TRANSITIONS constant validation.
  */
 
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 
 // =============================================================================
 // Mock setup — MUST happen before importing WorkflowOrchestrator
@@ -34,6 +34,7 @@ import {
 	mockGetCurrentBranch,
 	mockGetDiff,
 	mockGetProjectRoot,
+	mockGetRepositories,
 	mockGetWorktreePath,
 	mockMergeWorkflowBranch,
 	mockPulseOrchestratorInstance,
@@ -2918,6 +2919,391 @@ describe("Approval Gates", () => {
 			await expect(orchestrator.requestFixes("wf-1", [])).rejects.toThrow(
 				/no valid comments/i,
 			);
+		});
+	});
+});
+
+// =============================================================================
+// Category 5: Utility Methods
+// =============================================================================
+
+describe("Utility Methods", () => {
+	let orchestrator: WorkflowOrchestrator;
+	let mockSessionManager: ReturnType<typeof createMockSessionManager>;
+
+	beforeEach(() => {
+		mockWorkflowRepo.getById.mockClear();
+		mockWorkflowRepo.create.mockClear();
+		mockWorkflowRepo.updateStatus.mockClear();
+		mockWorkflowRepo.setCurrentSession.mockClear();
+		mockWorkflowRepo.setAwaitingApproval.mockClear();
+		mockWorkflowRepo.clearAwaitingApproval.mockClear();
+		mockWorkflowRepo.transitionStage.mockClear();
+		mockWorkflowRepo.setBaseBranch.mockClear();
+		mockWorkflowRepo.setSkippedStages.mockClear();
+
+		mockArtifactRepo.getLatestScopeCard.mockClear();
+		mockArtifactRepo.getLatestResearchCard.mockClear();
+		mockArtifactRepo.getLatestPlan.mockClear();
+		mockArtifactRepo.getLatestReviewCard.mockClear();
+		mockArtifactRepo.saveScopeCard.mockClear();
+		mockArtifactRepo.saveResearchCard.mockClear();
+		mockArtifactRepo.savePlan.mockClear();
+		mockArtifactRepo.saveReviewCard.mockClear();
+		mockArtifactRepo.createReviewCard.mockClear();
+		mockArtifactRepo.updateScopeCardStatus.mockClear();
+		mockArtifactRepo.updateResearchCardStatus.mockClear();
+		mockArtifactRepo.updatePlanStatus.mockClear();
+		mockArtifactRepo.updateReviewCardStatus.mockClear();
+		mockArtifactRepo.updateReviewCardDiffContent.mockClear();
+		mockArtifactRepo.getCommentsByIds.mockClear();
+		mockArtifactRepo.deleteResearchCardsByWorkflow.mockClear();
+		mockArtifactRepo.deletePlansByWorkflow.mockClear();
+		mockArtifactRepo.deleteReviewCardsByWorkflow.mockClear();
+		mockArtifactRepo.deleteReviewComments.mockClear();
+		mockArtifactRepo.resetReviewCard.mockClear();
+
+		mockConversationRepo.getHistory.mockClear();
+
+		mockPulseRepo.getPulsesForWorkflow.mockClear();
+		mockPulseRepo.getRunningPulse.mockClear();
+		mockPulseRepo.deleteBaselines.mockClear();
+		mockPulseRepo.deleteCommandBaselines.mockClear();
+		mockPulseRepo.deletePreflightSetup.mockClear();
+		mockPulseRepo.deleteByWorkflow.mockClear();
+
+		mockBroadcast.mockClear();
+		mockGetProjectRoot.mockClear();
+		mockGetWorktreePath.mockClear();
+		mockGetCurrentBranch.mockClear();
+		mockGetDiff.mockClear();
+		mockMergeWorkflowBranch.mockClear();
+		mockCleanupWorkflow.mockClear();
+		mockCheckoutInWorktree.mockClear();
+		mockFindRepoRoot.mockClear();
+		mockGenerateObject.mockClear();
+		mockExtractKnowledge.mockClear();
+		mockShellApprovalService.cleanupWorkflow.mockClear();
+
+		resetMockAgentRunner();
+		resetMockPulseOrchestrator();
+
+		mockSessionManager = createMockSessionManager();
+
+		orchestrator = new WorkflowOrchestrator(
+			mockSessionManager as never,
+			mockWorkflowRepo as never,
+			mockArtifactRepo as never,
+			mockConversationRepo as never,
+			mockPulseRepo as never,
+		);
+	});
+
+	// =========================================================================
+	// getWorkflow
+	// =========================================================================
+
+	describe("getWorkflow", () => {
+		test("delegates to workflowRepo.getById and returns workflow", async () => {
+			const workflow = createMockWorkflow({ id: "wf-42", title: "My Flow" });
+			mockWorkflowRepo.getById.mockResolvedValue(workflow);
+
+			const result = await orchestrator.getWorkflow("wf-42");
+
+			expect(result).toEqual(workflow);
+			expect(mockWorkflowRepo.getById).toHaveBeenCalledWith("wf-42");
+		});
+
+		test("returns null when workflow not found", async () => {
+			mockWorkflowRepo.getById.mockResolvedValue(null as never);
+
+			const result = await orchestrator.getWorkflow("wf-missing");
+
+			expect(result).toBeNull();
+			expect(mockWorkflowRepo.getById).toHaveBeenCalledWith("wf-missing");
+		});
+	});
+
+	// =========================================================================
+	// getPulseOrchestrator
+	// =========================================================================
+
+	describe("getPulseOrchestrator", () => {
+		test("returns the PulseOrchestrator instance", () => {
+			const po = orchestrator.getPulseOrchestrator();
+
+			expect(po).toBe(mockPulseOrchestratorInstance as never);
+		});
+	});
+
+	// =========================================================================
+	// createWorkflow
+	// =========================================================================
+
+	describe("createWorkflow", () => {
+		beforeEach(() => {
+			// Ensure mockGenerateObject has the correct default implementation
+			// (prior tests in other describe blocks may have overridden it via mockResolvedValue)
+			mockGenerateObject.mockReset();
+			mockGenerateObject.mockResolvedValue({
+				object: {
+					title: "Generated Title",
+					description: "Generated description",
+				},
+			});
+		});
+
+		test("happy path — generates title, creates workflow, broadcasts event, starts scoping agent", async () => {
+			const createdWorkflow = createMockWorkflow({
+				id: "wf-new",
+				title: "Generated Title",
+				status: "scoping",
+			});
+			mockWorkflowRepo.create.mockResolvedValue(createdWorkflow);
+
+			const session = createMockActiveSession({
+				id: "session-new",
+				agentRole: "scoping",
+				contextId: "wf-new",
+			});
+			mockSessionManager.startSession.mockResolvedValue(session);
+
+			const result = await orchestrator.createWorkflow("Build a REST API");
+
+			// 1. generateObject called for title/description
+			expect(mockGenerateObject).toHaveBeenCalledTimes(1);
+
+			// 2. workflowRepo.create called with generated metadata
+			expect(mockWorkflowRepo.create).toHaveBeenCalledWith({
+				title: "Generated Title",
+				description: "Generated description",
+				priority: "medium",
+				status: "scoping",
+			});
+
+			// 3. broadcast called with workflow created event
+			expect(mockBroadcast).toHaveBeenCalledTimes(1);
+			const broadcastArg = (mockBroadcast.mock.calls[0] as unknown[])[0] as {
+				type: string;
+				payload: { workflowId: string; title: string };
+			};
+			expect(broadcastArg.type).toBe("workflow:created");
+			expect(broadcastArg.payload.workflowId).toBe("wf-new");
+			expect(broadcastArg.payload.title).toBe("Generated Title");
+
+			// 4. sessionManager.startSession called for scoping
+			expect(mockSessionManager.startSession).toHaveBeenCalledWith({
+				contextType: "workflow",
+				contextId: "wf-new",
+				agentRole: "scoping",
+			});
+
+			// 5. setCurrentSession called
+			expect(mockWorkflowRepo.setCurrentSession).toHaveBeenCalledWith(
+				"wf-new",
+				"session-new",
+			);
+
+			// 6. AgentRunner constructed and run called (non-blocking)
+			const lastRunner = getLastAgentRunnerInstance();
+			expect(lastRunner).not.toBeNull();
+			expect(lastRunner?.session).toBe(session);
+			expect((lastRunner?.config as { projectRoot: string }).projectRoot).toBe(
+				"/mock/project",
+			);
+			expect(mockAgentRunnerRun).toHaveBeenCalledWith("Build a REST API");
+
+			// 7. Returns workflow with currentSessionId
+			expect(result).toEqual({
+				...createdWorkflow,
+				currentSessionId: "session-new",
+			});
+		});
+
+		test("passes priority parameter to workflowRepo.create", async () => {
+			const createdWorkflow = createMockWorkflow({
+				id: "wf-urgent",
+				priority: "urgent",
+			});
+			mockWorkflowRepo.create.mockResolvedValue(createdWorkflow);
+			mockSessionManager.startSession.mockResolvedValue(
+				createMockActiveSession({ contextId: "wf-urgent" }),
+			);
+
+			await orchestrator.createWorkflow("Fix critical bug", "urgent");
+
+			expect(mockWorkflowRepo.create).toHaveBeenCalledWith(
+				expect.objectContaining({ priority: "urgent" }),
+			);
+		});
+	});
+
+	// =========================================================================
+	// rewindToStage
+	// =========================================================================
+
+	describe("rewindToStage", () => {
+		const mockSessionRepo = {
+			deleteByContextAndRoles: mock(() => Promise.resolve(0)),
+		};
+
+		beforeEach(() => {
+			mockSessionRepo.deleteByContextAndRoles.mockClear();
+
+			// Override getRepositories to include sessions (needed by rewind impl methods)
+			mockGetRepositories.mockReturnValue({
+				workflows: mockWorkflowRepo,
+				artifacts: mockArtifactRepo,
+				conversations: mockConversationRepo,
+				pulses: mockPulseRepo,
+				sessions: mockSessionRepo,
+			} as never);
+
+			// Common mock setup: workflow with active session
+			mockWorkflowRepo.getById.mockResolvedValue(
+				createMockWorkflow({
+					id: "wf-1",
+					currentSessionId: "session-active",
+					status: "in_progress",
+				}),
+			);
+
+			// Scope card needed by all rewind paths that start an agent
+			mockArtifactRepo.getLatestScopeCard.mockResolvedValue(
+				createMockScopeCard({ workflowId: "wf-1" }),
+			);
+
+			// Research card needed by planning rewind
+			mockArtifactRepo.getLatestResearchCard.mockResolvedValue(
+				createMockResearchCard({ workflowId: "wf-1" }),
+			);
+
+			// Plan needed by execution rewind
+			mockArtifactRepo.getLatestPlan.mockResolvedValue(
+				createMockPlan({ workflowId: "wf-1" }),
+			);
+
+			// Review card needed by review rewind
+			mockArtifactRepo.getLatestReviewCard.mockResolvedValue(
+				createMockReviewCard({ id: "rc-1", workflowId: "wf-1" }),
+			);
+
+			// Session start returns a fresh session
+			mockSessionManager.startSession.mockResolvedValue(
+				createMockActiveSession({ id: "session-rewound" }),
+			);
+
+			// Pulse orchestrator init for execution rewind
+			mockPulseOrchestratorInstance.initializePulsing.mockResolvedValue({
+				success: true,
+				workflowBranch: "workflow/wf-1",
+				worktreePath: "/mock/worktree",
+			});
+		});
+
+		test("rewindToStage('researching') stops session, cleans up git/pulses, and delegates", async () => {
+			await orchestrator.rewindToStage("wf-1", "researching");
+
+			// Session stopped
+			expect(mockSessionManager.stopSession).toHaveBeenCalledWith(
+				"session-active",
+			);
+
+			// Git cleanup called
+			expect(mockCleanupWorkflow).toHaveBeenCalledWith(
+				"/mock/project",
+				"wf-1",
+				{ deleteBranch: true },
+			);
+
+			// Pulse data cleaned up
+			expect(mockPulseRepo.deleteBaselines).toHaveBeenCalledWith("wf-1");
+			expect(mockPulseRepo.deleteCommandBaselines).toHaveBeenCalledWith("wf-1");
+			expect(mockPulseRepo.deletePreflightSetup).toHaveBeenCalledWith("wf-1");
+			expect(mockPulseRepo.deleteByWorkflow).toHaveBeenCalledWith("wf-1");
+
+			// Impl ran: stage transitioned to researching
+			expect(mockWorkflowRepo.transitionStage).toHaveBeenCalledWith(
+				"wf-1",
+				"researching",
+				null,
+			);
+		});
+
+		test("rewindToStage('planning') stops session and dispatches correctly", async () => {
+			await orchestrator.rewindToStage("wf-1", "planning");
+
+			expect(mockSessionManager.stopSession).toHaveBeenCalledWith(
+				"session-active",
+			);
+			expect(mockCleanupWorkflow).toHaveBeenCalled();
+			expect(mockPulseRepo.deleteBaselines).toHaveBeenCalledWith("wf-1");
+
+			// Impl ran: stage transitioned to planning
+			expect(mockWorkflowRepo.transitionStage).toHaveBeenCalledWith(
+				"wf-1",
+				"planning",
+				null,
+			);
+		});
+
+		test("rewindToStage('in_progress') stops session and dispatches correctly", async () => {
+			await orchestrator.rewindToStage("wf-1", "in_progress");
+
+			expect(mockSessionManager.stopSession).toHaveBeenCalledWith(
+				"session-active",
+			);
+			expect(mockCleanupWorkflow).toHaveBeenCalled();
+			expect(mockPulseRepo.deleteByWorkflow).toHaveBeenCalledWith("wf-1");
+
+			// Impl ran: stage transitioned to in_progress
+			expect(mockWorkflowRepo.transitionStage).toHaveBeenCalledWith(
+				"wf-1",
+				"in_progress",
+				null,
+			);
+
+			// Execution rewind re-initializes pulsing
+			expect(
+				mockPulseOrchestratorInstance.initializePulsing,
+			).toHaveBeenCalledWith("wf-1");
+		});
+
+		test("rewindToStage('review') takes different code path — no git/pulse cleanup", async () => {
+			await orchestrator.rewindToStage("wf-1", "review");
+
+			// Session stopped
+			expect(mockSessionManager.stopSession).toHaveBeenCalledWith(
+				"session-active",
+			);
+
+			// Git cleanup NOT called for review rewind
+			expect(mockCleanupWorkflow).not.toHaveBeenCalled();
+
+			// Pulse data NOT cleaned up for review rewind
+			expect(mockPulseRepo.deleteBaselines).not.toHaveBeenCalled();
+			expect(mockPulseRepo.deleteByWorkflow).not.toHaveBeenCalled();
+
+			// Impl ran: review card comments deleted and card reset
+			expect(mockArtifactRepo.deleteReviewComments).toHaveBeenCalledWith(
+				"rc-1",
+			);
+			expect(mockArtifactRepo.resetReviewCard).toHaveBeenCalledWith("rc-1");
+
+			// Stage transitioned to review
+			expect(mockWorkflowRepo.transitionStage).toHaveBeenCalledWith(
+				"wf-1",
+				"review",
+				null,
+			);
+		});
+
+		test("throws error when workflow not found", async () => {
+			mockWorkflowRepo.getById.mockResolvedValue(null as never);
+
+			await expect(
+				orchestrator.rewindToStage("wf-missing", "researching"),
+			).rejects.toThrow("Workflow not found: wf-missing");
 		});
 	});
 });
