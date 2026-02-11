@@ -108,8 +108,6 @@ export const ChannelMessageSchema = z.object({
 	questions: z.array(MessageQuestionSchema).optional(),
 	/** User comment/feedback provided when submitting question answers */
 	questionsComment: z.string().optional(),
-	/** Calculated cost for this message (assistant turns only) */
-	cost: z.number().optional(),
 	/** Agent role from session (e.g., discussion, scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
 	/** Pulse ID for execution messages (links message to specific pulse) */

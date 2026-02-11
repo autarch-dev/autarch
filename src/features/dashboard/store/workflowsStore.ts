@@ -111,7 +111,6 @@ export interface Subtask {
 	label: string;
 	status: "pending" | "running" | "completed" | "failed";
 	findings?: unknown;
-	cost?: number;
 }
 
 /** Per-workflow conversation state */
@@ -122,6 +121,7 @@ export interface WorkflowConversationState {
 	streamingMessage?: StreamingMessage;
 	isLoading: boolean;
 	error?: string;
+	totalCost?: number | null;
 }
 
 // =============================================================================
@@ -333,6 +333,7 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 					isLoading: false,
 					// Preserve streamingMessage if it exists (race with WebSocket events)
 					streamingMessage: existing?.streamingMessage,
+					totalCost: history.totalCost ?? null,
 				});
 
 				// Update workflow in list with latest data
@@ -387,7 +388,6 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 						label: string;
 						status: Subtask["status"];
 						findings: unknown;
-						cost: number;
 					}> = await subtasksResponse.json();
 					if (subtasksData.length > 0) {
 						set((state) => {
@@ -399,7 +399,6 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 									label: s.label,
 									status: s.status,
 									findings: s.findings,
-									cost: s.cost,
 								})),
 							);
 							return { subtasks };
@@ -1377,7 +1376,6 @@ function handleTurnCompleted(
 					existing.streamingMessage.questions.length > 0
 						? existing.streamingMessage.questions
 						: undefined,
-				cost: payload.cost,
 				agentRole: existing.streamingMessage.agentRole,
 				pulseId: existing.streamingMessage.pulseId,
 			};
@@ -1390,6 +1388,9 @@ function handleTurnCompleted(
 		}
 		return { conversations };
 	});
+
+	// Refetch workflow history to update totalCost from cost_records
+	get().fetchHistory(workflowId);
 }
 
 function handleMessageDelta(
@@ -2041,7 +2042,6 @@ function handleSubtaskUpdated(
 			label: payload.label,
 			status: payload.status,
 			findings: payload.findings,
-			cost: payload.cost,
 		};
 
 		if (existingIndex >= 0) {

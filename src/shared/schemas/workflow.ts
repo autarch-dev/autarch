@@ -383,6 +383,8 @@ export const WorkflowHistoryResponseSchema = z.object({
 	pulses: z.array(PulseSchema).optional(),
 	/** Preflight setup for this workflow (if in execution stage) */
 	preflightSetup: PreflightSetupSchema.optional(),
+	/** Total cost (USD) from cost_records. Null for historical workflows with no cost records. */
+	totalCost: z.number().nullable().optional(),
 });
 export type WorkflowHistoryResponse = z.infer<
 	typeof WorkflowHistoryResponseSchema

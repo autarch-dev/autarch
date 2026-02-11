@@ -26,7 +26,7 @@ import { PhaseIndicator } from "./PhaseIndicator";
 
 interface WorkflowHeaderProps {
 	workflow: Workflow;
-	totalCost: number;
+	totalCost: number | null;
 	onArchived?: () => void;
 	viewedStage?: WorkflowStatus;
 	onStageClick?: (stage: WorkflowStatus) => void;
@@ -67,7 +67,7 @@ export function WorkflowHeader({
 							{status.label}
 						</Badge>
 						<Badge variant="secondary" className="bg-muted">
-							Cost: ${totalCost.toFixed(2)}
+							Cost: {totalCost ? `${"$"}${totalCost.toFixed(2)}` : "—"}
 						</Badge>
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>

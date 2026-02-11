@@ -243,8 +243,6 @@ export const TurnCompletedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	tokenCount: z.number().optional(),
-	/** Calculated cost for this turn (if available) */
-	cost: z.number().optional(),
 	/** Context type (channel, workflow, roadmap, or subtask) */
 	contextType: z.enum(["channel", "workflow", "roadmap", "subtask"]).optional(),
 	/** Context ID (channel ID, workflow ID, roadmap ID, or subtask ID) - enables direct routing without session lookup */
@@ -449,7 +447,6 @@ export const SubtaskUpdatedPayloadSchema = z.object({
 	label: z.string(),
 	status: SubtaskStatusSchema,
 	findings: z.unknown().optional(),
-	cost: z.number().optional(),
 });
 export type SubtaskUpdatedPayload = z.infer<typeof SubtaskUpdatedPayloadSchema>;
 

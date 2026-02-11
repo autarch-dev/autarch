@@ -6,7 +6,7 @@
  * All message filtering and artifact interleaving is delegated to stage view components.
  */
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,7 +23,7 @@ import type {
 	Workflow,
 	WorkflowStatus,
 } from "@/shared/schemas/workflow";
-import { type StreamingMessage, useSubtasks } from "../../store/workflowsStore";
+import type { StreamingMessage } from "../../store/workflowsStore";
 import { statusConfig } from "./config";
 import { ExecutionStageView } from "./ExecutionStageView";
 import { PlanningStageView } from "./PlanningStageView";
@@ -39,6 +39,7 @@ interface WorkflowViewProps {
 	messages: ChannelMessage[];
 	streamingMessage?: StreamingMessage;
 	isLoading?: boolean;
+	totalCost: number | null;
 	scopeCards: ScopeCard[];
 	researchCards: ResearchCard[];
 	plans: Plan[];
@@ -62,6 +63,7 @@ export const WorkflowView = memo(function WorkflowView({
 	messages,
 	streamingMessage,
 	isLoading,
+	totalCost,
 	scopeCards,
 	researchCards,
 	plans,
@@ -86,14 +88,6 @@ export const WorkflowView = memo(function WorkflowView({
 	useEffect(() => {
 		setViewedStage(workflow.status);
 	}, [workflow.id, workflow.status]);
-
-	// Calculate total cost from all messages and subtasks
-	const subtasks = useSubtasks(workflow.id);
-	const totalCost = useMemo(() => {
-		const messagesCost = messages.reduce((sum, m) => sum + (m.cost ?? 0), 0);
-		const subtasksCost = subtasks.reduce((sum, s) => sum + (s.cost ?? 0), 0);
-		return messagesCost + subtasksCost;
-	}, [messages, subtasks]);
 
 	const hasAnyContent = messages.length > 0 || streamingMessage;
 
