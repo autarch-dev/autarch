@@ -6,7 +6,7 @@
  */
 
 import { CheckCircle2, Loader2, Wrench, XCircle } from "lucide-react";
-import { useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -160,7 +160,9 @@ function ToolCallDisplay({ tool, defaultOpen }: ToolCallDisplayProps) {
 // Main Component
 // =============================================================================
 
-export function MessageBubble(props: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble(
+	props: MessageBubbleProps,
+) {
 	const isStreaming = props.variant === "streaming";
 
 	// Normalize data from both message types
@@ -198,7 +200,10 @@ export function MessageBubble(props: MessageBubbleProps) {
 	const timestamp =
 		props.variant === "completed" ? props.message.timestamp : null;
 
-	const interleavedContent = buildInterleavedContent(segments, tools);
+	const interleavedContent = useMemo(
+		() => buildInterleavedContent(segments, tools),
+		[segments, tools],
+	);
 
 	// Check if we have any content at all (for streaming empty state)
 	const hasAnyContent =
@@ -369,20 +374,24 @@ export function MessageBubble(props: MessageBubbleProps) {
 			</div>
 		</div>
 	);
-}
+});
 
 // =============================================================================
 // Convenience Exports (for backward compatibility during migration)
 // =============================================================================
 
-export function StreamingMessageBubble({
+export const StreamingMessageBubble = memo(function StreamingMessageBubble({
 	message,
 }: {
 	message: StreamingMessage;
 }) {
 	return <MessageBubble variant="streaming" message={message} />;
-}
+});
 
-export function ChannelMessageBubble({ message }: { message: ChannelMessage }) {
+export const ChannelMessageBubble = memo(function ChannelMessageBubble({
+	message,
+}: {
+	message: ChannelMessage;
+}) {
 	return <MessageBubble variant="completed" message={message} />;
-}
+});
