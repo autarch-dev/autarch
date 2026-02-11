@@ -17,7 +17,6 @@ import { getDiff } from "../git";
 import { log } from "../logger";
 import { getProjectRoot } from "../projectRoot";
 import { getRepositories } from "../repositories";
-import { getCostCalculator } from "../services/cost/CostCalculator";
 import {
 	getMergeStrategy,
 	getPersistentShellApprovals,
@@ -301,6 +300,19 @@ export const workflowRoutes = {
 				const pulses = await repos.pulses.getPulsesForWorkflow(workflowId);
 				const preflightSetup = await repos.pulses.getPreflightSetup(workflowId);
 
+				// Compute total cost from cost_records
+				const db = await getProjectDb(getProjectRoot());
+				const subtaskRows = await db
+					.selectFrom("subtasks")
+					.select("id")
+					.where("workflow_id", "=", workflowId)
+					.execute();
+				const subtaskIds = subtaskRows.map((r) => r.id);
+				const totalCostValue = await repos.costRecords.getTotalWorkflowCost(
+					workflowId,
+					subtaskIds,
+				);
+
 				const response = {
 					workflow,
 					sessionId: activeSessionId,
@@ -312,6 +324,7 @@ export const workflowRoutes = {
 					reviewCards,
 					pulses,
 					preflightSetup: preflightSetup ?? undefined,
+					totalCost: totalCostValue === 0 ? null : totalCostValue,
 				};
 
 				return Response.json(response);
@@ -700,7 +713,7 @@ export const workflowRoutes = {
 			}
 			try {
 				const db = await getProjectDb(getProjectRoot());
-				const costCalculator = getCostCalculator();
+				const repos = getRepositories();
 
 				// Get all subtasks for this workflow
 				const subtasks = await db
@@ -710,28 +723,12 @@ export const workflowRoutes = {
 					.orderBy("created_at", "asc")
 					.execute();
 
-				// Calculate cost for each subtask from its session turns
+				// Get cost for each subtask from cost_records
 				const result = await Promise.all(
 					subtasks.map(async (subtask) => {
-						// Get turns from sessions associated with this subtask
-						const turns = await db
-							.selectFrom("turns")
-							.innerJoin("sessions", "sessions.id", "turns.session_id")
-							.select([
-								"turns.model_id",
-								"turns.prompt_tokens",
-								"turns.completion_tokens",
-							])
-							.where("sessions.context_type", "=", "subtask")
-							.where("sessions.context_id", "=", subtask.id)
-							.execute();
-
-						const cost = costCalculator.calculateTotal(
-							turns.map((t) => ({
-								modelId: t.model_id,
-								promptTokens: t.prompt_tokens,
-								completionTokens: t.completion_tokens,
-							})),
+						const cost = await repos.costRecords.sumByContext(
+							"subtask",
+							subtask.id,
 						);
 
 						// Parse task_definition for label
