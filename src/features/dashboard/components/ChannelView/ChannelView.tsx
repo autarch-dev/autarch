@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { Channel, ChannelMessage } from "@/shared/schemas/channel";
@@ -15,7 +15,7 @@ interface ChannelViewProps {
 	onSendMessage?: (content: string) => void;
 }
 
-export function ChannelView({
+export const ChannelView = memo(function ChannelView({
 	channel,
 	messages,
 	streamingMessage,
@@ -78,4 +78,4 @@ export function ChannelView({
 			</div>
 		</TooltipProvider>
 	);
-}
+});

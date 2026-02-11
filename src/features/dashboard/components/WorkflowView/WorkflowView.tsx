@@ -6,7 +6,7 @@
  * All message filtering and artifact interleaving is delegated to stage view components.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -57,7 +57,7 @@ interface WorkflowViewProps {
 	onArchived?: () => void;
 }
 
-export function WorkflowView({
+export const WorkflowView = memo(function WorkflowView({
 	workflow,
 	messages,
 	streamingMessage,
@@ -211,4 +211,4 @@ export function WorkflowView({
 			</div>
 		</TooltipProvider>
 	);
-}
+});

@@ -13,7 +13,7 @@ import {
 	TableIcon,
 	Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -130,7 +130,7 @@ interface RoadmapViewProps {
 // Component
 // =============================================================================
 
-export function RoadmapView({
+export const RoadmapView = memo(function RoadmapView({
 	roadmap,
 	milestones,
 	initiatives,
@@ -418,4 +418,4 @@ export function RoadmapView({
 			</Dialog>
 		</div>
 	);
-}
+});
