@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useDiscussionsStore } from "../../store";
 import { ChannelView } from "./ChannelView";
 
@@ -14,17 +15,19 @@ interface ChannelViewContainerProps {
 }
 
 export function ChannelViewContainer({ channelId }: ChannelViewContainerProps) {
-	const {
-		channels,
-		channelsLoading,
-		conversations,
-		selectChannel,
-		fetchHistory,
-		sendMessage,
-	} = useDiscussionsStore();
+	// Select only the data for this specific channel (shallow-compared)
+	const { channel, channelsLoading, conversation } = useDiscussionsStore(
+		useShallow((s) => ({
+			channel: s.channels.find((c) => c.id === channelId),
+			channelsLoading: s.channelsLoading,
+			conversation: s.conversations.get(channelId),
+		})),
+	);
 
-	const channel = channels.find((c) => c.id === channelId);
-	const conversation = conversations.get(channelId);
+	// Actions are stable references — select individually without shallow comparison
+	const selectChannel = useDiscussionsStore((s) => s.selectChannel);
+	const fetchHistory = useDiscussionsStore((s) => s.fetchHistory);
+	const sendMessage = useDiscussionsStore((s) => s.sendMessage);
 
 	// Select channel and fetch history when channelId changes
 	useEffect(() => {

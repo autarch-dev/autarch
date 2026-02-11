@@ -7,9 +7,12 @@
 
 import { useCallback, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useShallow } from "zustand/react/shallow";
 import type { MergeStrategy, RewindTarget } from "@/shared/schemas/workflow";
 import { useWorkflowsStore } from "../../store";
 import { WorkflowView } from "./WorkflowView";
+
+const EMPTY_ARRAY: never[] = [];
 
 interface WorkflowViewContainerProps {
 	workflowId: string;
@@ -20,27 +23,39 @@ export function WorkflowViewContainer({
 }: WorkflowViewContainerProps) {
 	const [, setLocation] = useLocation();
 
+	// Select only the data for this specific workflow (shallow-compared)
 	const {
-		workflows,
+		workflow,
 		workflowsLoading,
-		conversations,
-		scopeCards,
-		researchCards,
-		plans,
-		reviewCards,
-		pulses,
-		preflightSetups,
-		selectWorkflow,
-		fetchHistory,
-		approveArtifact,
-		approveWithMerge,
-		requestChanges,
-		requestFixes,
-		rewindWorkflow,
-	} = useWorkflowsStore();
+		conversation,
+		workflowScopeCards,
+		workflowResearchCards,
+		workflowPlans,
+		workflowReviewCards,
+		workflowPulses,
+		workflowPreflightSetup,
+	} = useWorkflowsStore(
+		useShallow((s) => ({
+			workflow: s.workflows.find((w) => w.id === workflowId),
+			workflowsLoading: s.workflowsLoading,
+			conversation: s.conversations.get(workflowId),
+			workflowScopeCards: s.scopeCards.get(workflowId) ?? EMPTY_ARRAY,
+			workflowResearchCards: s.researchCards.get(workflowId) ?? EMPTY_ARRAY,
+			workflowPlans: s.plans.get(workflowId) ?? EMPTY_ARRAY,
+			workflowReviewCards: s.reviewCards.get(workflowId) ?? EMPTY_ARRAY,
+			workflowPulses: s.pulses.get(workflowId) ?? EMPTY_ARRAY,
+			workflowPreflightSetup: s.preflightSetups.get(workflowId),
+		})),
+	);
 
-	const workflow = workflows.find((w) => w.id === workflowId);
-	const conversation = conversations.get(workflowId);
+	// Actions are stable references — select individually without shallow comparison
+	const selectWorkflow = useWorkflowsStore((s) => s.selectWorkflow);
+	const fetchHistory = useWorkflowsStore((s) => s.fetchHistory);
+	const approveArtifact = useWorkflowsStore((s) => s.approveArtifact);
+	const approveWithMerge = useWorkflowsStore((s) => s.approveWithMerge);
+	const requestChanges = useWorkflowsStore((s) => s.requestChanges);
+	const requestFixes = useWorkflowsStore((s) => s.requestFixes);
+	const rewindWorkflow = useWorkflowsStore((s) => s.rewindWorkflow);
 
 	// Select workflow and fetch history when workflowId changes
 	useEffect(() => {
@@ -49,14 +64,6 @@ export function WorkflowViewContainer({
 			fetchHistory(workflowId);
 		}
 	}, [workflowId, conversation, selectWorkflow, fetchHistory]);
-
-	// Get artifacts for this workflow
-	const workflowScopeCards = scopeCards.get(workflowId) ?? [];
-	const workflowResearchCards = researchCards.get(workflowId) ?? [];
-	const workflowPlans = plans.get(workflowId) ?? [];
-	const workflowReviewCards = reviewCards.get(workflowId) ?? [];
-	const workflowPulses = pulses.get(workflowId) ?? [];
-	const workflowPreflightSetup = preflightSetups.get(workflowId);
 
 	const handleApproveScope = useCallback(
 		async (path: "quick" | "full") => {

@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
+import { useShallow } from "zustand/react/shallow";
 import type { Initiative } from "@/shared/schemas/roadmap";
 import { useRoadmapStore } from "../store/roadmapStore";
 import { RoadmapView } from "./RoadmapView";
@@ -19,33 +20,34 @@ interface RoadmapViewContainerProps {
 export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 	const [, setLocation] = useLocation();
 
-	const {
-		roadmaps,
-		roadmapsLoading,
-		roadmapDetails,
-		conversations,
-		selectRoadmap,
-		fetchRoadmapDetails,
-		fetchHistory,
-		updateRoadmap,
-		deleteRoadmap,
-		sendMessage,
-		createMilestone,
-		updateMilestone,
-		deleteMilestone,
-		createInitiative,
-		updateInitiative,
-		deleteInitiative,
-		updateVision,
-	} = useRoadmapStore();
+	// Select only the data for this specific roadmap (shallow-compared)
+	const { roadmap, roadmapsLoading, details, conversation } = useRoadmapStore(
+		useShallow((s) => ({
+			roadmap: s.roadmaps.find((r) => r.id === roadmapId),
+			roadmapsLoading: s.roadmapsLoading,
+			details: s.roadmapDetails.get(roadmapId),
+			conversation: s.conversations.get(roadmapId),
+		})),
+	);
 
-	const roadmap = roadmaps.find((r) => r.id === roadmapId);
-	const details = roadmapDetails.get(roadmapId);
-	const conversation = conversations.get(roadmapId);
+	// Actions are stable references — select individually without shallow comparison
+	const selectRoadmap = useRoadmapStore((s) => s.selectRoadmap);
+	const fetchRoadmapDetails = useRoadmapStore((s) => s.fetchRoadmapDetails);
+	const fetchHistory = useRoadmapStore((s) => s.fetchHistory);
+	const updateRoadmap = useRoadmapStore((s) => s.updateRoadmap);
+	const deleteRoadmap = useRoadmapStore((s) => s.deleteRoadmap);
+	const sendMessage = useRoadmapStore((s) => s.sendMessage);
+	const createMilestone = useRoadmapStore((s) => s.createMilestone);
+	const updateMilestone = useRoadmapStore((s) => s.updateMilestone);
+	const deleteMilestone = useRoadmapStore((s) => s.deleteMilestone);
+	const createInitiative = useRoadmapStore((s) => s.createInitiative);
+	const updateInitiative = useRoadmapStore((s) => s.updateInitiative);
+	const deleteInitiative = useRoadmapStore((s) => s.deleteInitiative);
+	const updateVision = useRoadmapStore((s) => s.updateVision);
 
-	// Track which roadmapId we've already fetched history for, so we don't
-	// include `conversation` in the dependency array (which changes on every
-	// WebSocket event and would cause a re-fetch storm during streaming).
+	// Track which roadmapId we've already fetched history for so the effect
+	// below runs at most once per roadmapId, even though `conversation`
+	// (which changes on every WebSocket event) is in the dependency array.
 	const historyFetchedRef = useRef<string | null>(null);
 
 	// Select roadmap and fetch details when roadmapId changes
@@ -57,11 +59,11 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 	// Fetch history once per roadmapId, only if no conversation exists yet
 	useEffect(() => {
 		if (historyFetchedRef.current === roadmapId) return;
-		if (!conversations.get(roadmapId)) {
+		if (!conversation) {
 			historyFetchedRef.current = roadmapId;
 			fetchHistory(roadmapId);
 		}
-	}, [roadmapId, conversations, fetchHistory]);
+	}, [roadmapId, conversation, fetchHistory]);
 
 	const handleUpdateTitle = useCallback(
 		async (title: string) => {
