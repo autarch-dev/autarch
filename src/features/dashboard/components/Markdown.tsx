@@ -4,6 +4,12 @@ import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { CodeBlock } from "./CodeBlock";
 
+const REMARK_PLUGINS = [remarkGfm];
+
+function PreRenderer({ children }: { children?: ReactNode }) {
+	return <>{children}</>;
+}
+
 interface MarkdownProps {
 	children: string;
 	className?: string;
@@ -31,6 +37,40 @@ export const Markdown = memo(function Markdown({
 	const isStreamingCodeBlock = useMemo(
 		() => hasUnclosedCodeBlock(children),
 		[children],
+	);
+
+	const components = useMemo(
+		() => ({
+			// Custom code rendering with syntax highlighting
+			code({
+				className: codeClassName,
+				children: codeChildren,
+			}: {
+				className?: string;
+				children?: ReactNode;
+			}) {
+				const match = /language-(\w+)/.exec(codeClassName || "");
+				const language = match?.[1];
+				const codeString = extractTextFromChildren(codeChildren);
+
+				// If it's a code block (has language or is inside pre)
+				if (language || codeClassName) {
+					return (
+						<CodeBlock
+							code={codeString}
+							language={language || "text"}
+							className="text-sm"
+							isStreaming={isStreamingCodeBlock}
+						/>
+					);
+				}
+
+				// Inline code
+				return <code>{codeChildren}</code>;
+			},
+			pre: PreRenderer,
+		}),
+		[isStreamingCodeBlock],
 	);
 
 	return (
@@ -69,36 +109,7 @@ export const Markdown = memo(function Markdown({
 				className,
 			)}
 		>
-			<ReactMarkdown
-				remarkPlugins={[remarkGfm]}
-				components={{
-					// Custom code rendering with syntax highlighting
-					code({ className, children }) {
-						const match = /language-(\w+)/.exec(className || "");
-						const language = match?.[1];
-						const codeString = extractTextFromChildren(children);
-
-						// If it's a code block (has language or is inside pre)
-						if (language || className) {
-							return (
-								<CodeBlock
-									code={codeString}
-									language={language || "text"}
-									className="text-sm"
-									isStreaming={isStreamingCodeBlock}
-								/>
-							);
-						}
-
-						// Inline code
-						return <code>{children}</code>;
-					},
-					// Remove default pre wrapper since CodeBlock handles it
-					pre({ children }) {
-						return <>{children}</>;
-					},
-				}}
-			>
+			<ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>
 				{children}
 			</ReactMarkdown>
 		</div>
