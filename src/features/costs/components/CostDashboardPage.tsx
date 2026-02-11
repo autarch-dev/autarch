@@ -14,6 +14,7 @@ import { RoleBreakdownChart } from "./RoleBreakdownChart";
 import { SummaryCard } from "./SummaryCard";
 import { TokenUsageChart } from "./TokenUsageChart";
 import { TrendChart } from "./TrendChart";
+import { WorkflowCostTable } from "./WorkflowCostTable";
 
 /** Parse filter values from a URL search string */
 function parseFiltersFromSearch(search: string) {
@@ -61,6 +62,7 @@ export function CostDashboardPage() {
 				<TokenUsageChart />
 				<RoleBreakdownChart />
 			</div>
+			<WorkflowCostTable />
 		</div>
 	);
 }
