@@ -125,36 +125,19 @@ export const ALL_MODELS = [
 		label: "Gemini 2.5 Flash Lite",
 		provider: "google",
 	},
-	{
-		value: "gemini-2.5-flash-lite-preview-06-17",
-		label: "Gemini 2.5 Flash Lite Preview",
-		provider: "google",
-	},
 	{ value: "gemini-2.0-flash", label: "Gemini 2.0 Flash", provider: "google" },
-	{ value: "gemini-1.5-pro", label: "Gemini 1.5 Pro", provider: "google" },
-	{
-		value: "gemini-1.5-pro-latest",
-		label: "Gemini 1.5 Pro Latest",
-		provider: "google",
-	},
-	{ value: "gemini-1.5-flash", label: "Gemini 1.5 Flash", provider: "google" },
-	{
-		value: "gemini-1.5-flash-latest",
-		label: "Gemini 1.5 Flash Latest",
-		provider: "google",
-	},
-	{
-		value: "gemini-1.5-flash-8b",
-		label: "Gemini 1.5 Flash 8B",
-		provider: "google",
-	},
-	{
-		value: "gemini-1.5-flash-8b-latest",
-		label: "Gemini 1.5 Flash 8B Latest",
-		provider: "google",
-	},
 
 	// xAI (Grok)
+	{
+		value: "grok-4-1-fast-non-reasoning",
+		label: "Grok 4.1 Fast (Non-Reasoning)",
+		provider: "xai",
+	},
+	{
+		value: "grok-4-1-fast-reasoning",
+		label: "Grok 4.1 Fast (Reasoning)",
+		provider: "xai",
+	},
 	{
 		value: "grok-4-fast-non-reasoning",
 		label: "Grok 4 Fast (Non-Reasoning)",
@@ -166,30 +149,8 @@ export const ALL_MODELS = [
 		provider: "xai",
 	},
 	{ value: "grok-code-fast-1", label: "Grok Code Fast 1", provider: "xai" },
-	{ value: "grok-4", label: "Grok 4", provider: "xai" },
 	{ value: "grok-3", label: "Grok 3", provider: "xai" },
-	{ value: "grok-3-latest", label: "Grok 3 Latest", provider: "xai" },
-	{ value: "grok-3-fast", label: "Grok 3 Fast", provider: "xai" },
-	{ value: "grok-3-fast-latest", label: "Grok 3 Fast Latest", provider: "xai" },
 	{ value: "grok-3-mini", label: "Grok 3 Mini", provider: "xai" },
-	{ value: "grok-3-mini-latest", label: "Grok 3 Mini Latest", provider: "xai" },
-	{ value: "grok-3-mini-fast", label: "Grok 3 Mini Fast", provider: "xai" },
-	{
-		value: "grok-3-mini-fast-latest",
-		label: "Grok 3 Mini Fast Latest",
-		provider: "xai",
-	},
-	{ value: "grok-2", label: "Grok 2", provider: "xai" },
-	{ value: "grok-2-latest", label: "Grok 2 Latest", provider: "xai" },
-	{ value: "grok-2-1212", label: "Grok 2 1212", provider: "xai" },
-	{ value: "grok-2-vision", label: "Grok 2 Vision", provider: "xai" },
-	{
-		value: "grok-2-vision-latest",
-		label: "Grok 2 Vision Latest",
-		provider: "xai",
-	},
-	{ value: "grok-2-vision-1212", label: "Grok 2 Vision 1212", provider: "xai" },
-	{ value: "grok-beta", label: "Grok Beta", provider: "xai" },
 ] as const satisfies { value: string; label: string; provider: AIProvider }[];
 
 export const ModelNameSchema = z.union(

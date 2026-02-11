@@ -7,6 +7,7 @@
  */
 
 import { ModelNameSchema } from "@/shared/schemas";
+import { COST_DICTIONARY } from "./CostDictionary";
 
 /**
  * Calculate cost for a model invocation.
@@ -32,63 +33,21 @@ export class CostCalculator {
 			return 0; // Unknown model
 		}
 
-		switch (model.data) {
-			case "claude-opus-4-6":
-			case "claude-opus-4-5": {
-				const inputCost = (promptTokens / 1_000_000) * 5.0;
-				const outputCost = (completionTokens / 1_000_000) * 25.0;
-				return inputCost + outputCost;
-			}
-
-			case "claude-sonnet-4-5": {
-				const inputCost =
-					(promptTokens / 1_000_000) * (promptTokens > 200_000 ? 6.0 : 3.0);
-				const outputCost =
-					(completionTokens / 1_000_000) *
-					(completionTokens > 200_000 ? 22.5 : 15.0);
-				return inputCost + outputCost;
-			}
-
-			case "claude-haiku-4-5": {
-				const inputCost = (promptTokens / 1_000_000) * 1.0;
-				const outputCost = (completionTokens / 1_000_000) * 5.0;
-				return inputCost + outputCost;
-			}
-
-			case "claude-3-7-sonnet-latest": {
-				const inputCost = (promptTokens / 1_000_000) * 3.0;
-				const outputCost = (completionTokens / 1_000_000) * 15.0;
-				return inputCost + outputCost;
-			}
-
-			case "claude-3-5-haiku-latest": {
-				const inputCost = (promptTokens / 1_000_000) * 0.8;
-				const outputCost = (completionTokens / 1_000_000) * 4.0;
-				return inputCost + outputCost;
-			}
-
-			case "claude-opus-4-1": {
-				const inputCost = (promptTokens / 1_000_000) * 15.0;
-				const outputCost = (completionTokens / 1_000_000) * 75.0;
-				return inputCost + outputCost;
-			}
-
-			case "claude-opus-4-0": {
-				const inputCost = (promptTokens / 1_000_000) * 15.0;
-				const outputCost = (completionTokens / 1_000_000) * 75.0;
-				return inputCost + outputCost;
-			}
-
-			case "claude-sonnet-4-0": {
-				const inputCost = (promptTokens / 1_000_000) * 3.0;
-				const outputCost = (completionTokens / 1_000_000) * 15.0;
-				return inputCost + outputCost;
-			}
-
-			default: {
-				return 0; // Unimplemented cost model
-			}
+		const cost = COST_DICTIONARY.find((m) => m.modelName === model.data);
+		if (!cost) {
+			return 0; // Unknown model
 		}
+
+		// Special case for long context pricing for Anthropic
+		if (promptTokens > 200_000 && model.data === 'claude-opus-4-6') {
+			return (promptTokens / 1_000_000) * 10 + (completionTokens / 1_000_000) * cost.completionTokenCost * 37.5;
+		}
+
+		if (promptTokens > 200_000 && (model.data === 'claude-sonnet-4-5' || model.data === 'claude-sonnet-4-0')) {
+			return (promptTokens / 1_000_000) * 6 + (completionTokens / 1_000_000) * cost.completionTokenCost * 22.5;
+		}
+
+		return (promptTokens / 1_000_000) * cost.promptTokenCost + (completionTokens / 1_000_000) * cost.completionTokenCost;
 	}
 
 	/**
