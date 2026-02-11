@@ -47,4 +47,5 @@ export const ids = {
 	vision: () => generateId("vision"),
 	dep: () => generateId("dep"),
 	subtask: () => generateId("subtask"),
+	cost: () => generateId("cost"),
 } as const;

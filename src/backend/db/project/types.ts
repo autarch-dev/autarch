@@ -54,6 +54,7 @@ export interface ProjectDatabase {
 	initiatives: InitiativeTable;
 	vision_documents: VisionDocumentTable;
 	dependencies: DependencyTable;
+	cost_records: CostRecordsTable;
 }
 
 // =============================================================================
@@ -545,5 +546,23 @@ export interface DependencyTable {
 	source_id: string;
 	target_type: string;
 	target_id: string;
+	created_at: number;
+}
+
+// =============================================================================
+// Cost Records
+// =============================================================================
+
+export interface CostRecordsTable {
+	id: string;
+	context_type: SessionContextType;
+	context_id: string;
+	turn_id: string;
+	session_id: string;
+	model_id: string;
+	agent_role: string;
+	prompt_tokens: number;
+	completion_tokens: number;
+	cost_usd: number;
 	created_at: number;
 }
