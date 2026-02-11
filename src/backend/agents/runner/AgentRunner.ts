@@ -32,6 +32,7 @@ import { getRepositories } from "@/backend/repositories";
 import { getCostCalculator } from "@/backend/services/cost";
 import { isExaKeyConfigured } from "@/backend/services/globalSettings";
 import type { ToolContext } from "@/backend/tools/types";
+import { ids } from "@/backend/utils/ids";
 import { broadcast } from "@/backend/ws";
 import {
 	createTurnCompletedEvent,
@@ -1238,6 +1239,33 @@ export class AgentRunner {
 				usage.promptTokens,
 				usage.completionTokens,
 			);
+		}
+
+		// Insert immutable cost record for tracking real provider charges
+		if (
+			usage?.modelId &&
+			usage.promptTokens != null &&
+			usage.completionTokens != null &&
+			cost != null &&
+			cost > 0
+		) {
+			try {
+				await getRepositories().costRecords.insert({
+					id: ids.cost(),
+					contextType: this.session.contextType,
+					contextId: this.session.contextId,
+					turnId,
+					sessionId: this.session.id,
+					modelId: usage.modelId,
+					agentRole: this.session.agentRole,
+					promptTokens: usage.promptTokens,
+					completionTokens: usage.completionTokens,
+					costUsd: cost,
+					createdAt: Date.now(),
+				});
+			} catch (error) {
+				log.agent.error("Failed to insert cost record", error);
+			}
 		}
 
 		broadcast(
