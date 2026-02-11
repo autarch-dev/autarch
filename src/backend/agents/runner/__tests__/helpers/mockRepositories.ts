@@ -58,6 +58,18 @@ export function createMockArtifactRepo() {
 		getPlans: mock(() => Promise.resolve([])),
 		getReviewCards: mock(() => Promise.resolve([])),
 		getReviewCardsByPulse: mock(() => Promise.resolve([])),
+		createReviewCard: mock(() => Promise.resolve(createMockReviewCard())),
+		updateScopeCardStatus: mock(() => Promise.resolve()),
+		updateResearchCardStatus: mock(() => Promise.resolve()),
+		updatePlanStatus: mock(() => Promise.resolve()),
+		updateReviewCardStatus: mock(() => Promise.resolve()),
+		updateReviewCardDiffContent: mock(() => Promise.resolve()),
+		getCommentsByIds: mock(() => Promise.resolve([])),
+		deleteResearchCardsByWorkflow: mock(() => Promise.resolve()),
+		deletePlansByWorkflow: mock(() => Promise.resolve()),
+		deleteReviewCardsByWorkflow: mock(() => Promise.resolve()),
+		deleteReviewComments: mock(() => Promise.resolve()),
+		resetReviewCard: mock(() => Promise.resolve()),
 	};
 }
 

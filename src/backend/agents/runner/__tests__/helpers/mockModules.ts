@@ -216,7 +216,7 @@ export function setupMockModules() {
 		broadcast: mockBroadcast,
 	}));
 
-	mock.module("./AgentRunner", () => ({
+	mock.module("@/backend/agents/runner/AgentRunner", () => ({
 		AgentRunner: MockAgentRunnerClass,
 	}));
 
