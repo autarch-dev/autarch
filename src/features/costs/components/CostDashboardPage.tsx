@@ -9,7 +9,11 @@ import { useEffect } from "react";
 import { useSearch } from "wouter";
 import { useCostStore } from "../store/costStore";
 import { FilterBar } from "./FilterBar";
+import { ModelBreakdownChart } from "./ModelBreakdownChart";
+import { RoleBreakdownChart } from "./RoleBreakdownChart";
 import { SummaryCard } from "./SummaryCard";
+import { TokenUsageChart } from "./TokenUsageChart";
+import { TrendChart } from "./TrendChart";
 
 /** Parse filter values from a URL search string */
 function parseFiltersFromSearch(search: string) {
@@ -50,6 +54,12 @@ export function CostDashboardPage() {
 			<FilterBar />
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 				<SummaryCard />
+			</div>
+			<div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+				<ModelBreakdownChart />
+				<TrendChart />
+				<TokenUsageChart />
+				<RoleBreakdownChart />
 			</div>
 		</div>
 	);
