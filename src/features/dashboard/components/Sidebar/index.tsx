@@ -10,6 +10,7 @@ import { DiscussionsSection } from "./DiscussionsSection";
 import { RoadmapsSection } from "./RoadmapsSection";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarHeader } from "./SidebarHeader";
+import { SpendingSection } from "./SpendingSection";
 import { WorkflowsSection } from "./WorkflowsSection";
 
 interface AppSidebarProps {
@@ -56,6 +57,10 @@ export function AppSidebar({
 					workflows={workflows}
 					onCreateWorkflow={onCreateWorkflow}
 				/>
+
+				<SidebarSeparator />
+
+				<SpendingSection />
 			</SidebarContent>
 
 			<SidebarFooter />

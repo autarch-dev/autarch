@@ -1,4 +1,5 @@
 export * from "./channel";
+export * from "./costs";
 export * from "./embedding";
 export * from "./events";
 export * from "./git-identity";

@@ -5,6 +5,7 @@
  */
 
 export { channelRoutes } from "./channelRoutes";
+export { costRoutes } from "./costRoutes";
 export { questionRoutes } from "./questionRoutes";
 export { roadmapRoutes } from "./roadmapRoutes";
 export { sessionRoutes } from "./sessionRoutes";
@@ -15,6 +16,7 @@ export { workflowRoutes } from "./workflowRoutes";
 
 // Combined routes for easy import
 import { channelRoutes } from "./channelRoutes";
+import { costRoutes } from "./costRoutes";
 import { questionRoutes } from "./questionRoutes";
 import { roadmapRoutes } from "./roadmapRoutes";
 import { sessionRoutes } from "./sessionRoutes";
@@ -34,4 +36,5 @@ export const agentRoutes = {
 	...shellApprovalRoutes,
 	...toolRoutes,
 	...roadmapRoutes,
+	...costRoutes,
 };

@@ -40,6 +40,7 @@ import { migrate as migrateRoadmapEffortSizing } from "./0033-roadmap-effort-siz
 import { migrate as migrate0034Subtasks } from "./0034-subtasks";
 import { migrate as migrate0035ParentSessionId } from "./0035-parent-session-id";
 import { migrate as migrate0036CostRecords } from "./0036-cost-records";
+import { migrate as migrate0037CostRecordsIndexes } from "./0037-cost-records-indexes";
 
 /**
  * Run all migrations for the project database.
@@ -98,4 +99,7 @@ export async function migrateProjectDb(
 
 	// Cost records (0036)
 	await migrate0036CostRecords(db);
+
+	// Cost records indexes for aggregation queries (0037)
+	await migrate0037CostRecordsIndexes(db);
 }
