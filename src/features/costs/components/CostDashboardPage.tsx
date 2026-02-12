@@ -49,26 +49,26 @@ export function CostDashboardPage() {
 	return (
 		<div className="flex flex-col gap-6 p-6 overflow-auto h-full">
 			<div className="flex items-center gap-3">
-				<h1 className="text-2xl font-bold tracking-tight">
-					Cost Dashboard &mdash; {PRESET_LABELS[preset]}
-				</h1>
-				<Select
-					value={preset}
-					onValueChange={(v) => setPreset(v as TimeRangePreset)}
-				>
-					<SelectTrigger className="w-[180px]">
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						{(Object.entries(PRESET_LABELS) as [TimeRangePreset, string][]).map(
-							([value, label]) => (
+				<h1 className="text-2xl font-bold tracking-tight flex items-center">
+					Cost Dashboard for
+					<Select
+						value={preset}
+						onValueChange={(v) => setPreset(v as TimeRangePreset)}
+					>
+						<SelectTrigger className="w-[180px] ml-2">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{(
+								Object.entries(PRESET_LABELS) as [TimeRangePreset, string][]
+							).map(([value, label]) => (
 								<SelectItem key={value} value={value}>
 									{label}
 								</SelectItem>
-							),
-						)}
-					</SelectContent>
-				</Select>
+							))}
+						</SelectContent>
+					</Select>
+				</h1>
 			</div>
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 				<SummaryCard />

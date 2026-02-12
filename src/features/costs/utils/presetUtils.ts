@@ -19,6 +19,8 @@ export function presetToDateRange(
 	switch (preset) {
 		case "today": {
 			start.setHours(0, 0, 0, 0);
+			end = new Date(start);
+			end.setHours(23, 59, 59, 999);
 			break;
 		}
 		case "yesterday": {
@@ -30,21 +32,33 @@ export function presetToDateRange(
 		}
 		case "last7": {
 			start.setDate(start.getDate() - 7);
+			start.setHours(0, 0, 0, 0);
+			end = new Date(start);
+			end.setDate(start.getDate() + 7);
+			end.setHours(23, 59, 59, 999);
 			break;
 		}
 		case "last30": {
 			start.setDate(start.getDate() - 30);
+			start.setHours(0, 0, 0, 0);
+			end = new Date(start);
+			end.setDate(start.getDate() + 30);
+			end.setHours(23, 59, 59, 999);
 			break;
 		}
 		case "last90": {
 			start.setDate(start.getDate() - 90);
+			start.setHours(0, 0, 0, 0);
+			end = new Date(start);
+			end.setDate(start.getDate() + 90);
+			end.setHours(23, 59, 59, 999);
 			break;
 		}
 	}
 
 	return {
-		startDate: start.toISOString(),
-		endDate: end.toISOString(),
+		startDate: start.toISOString().split("T")[0],
+		endDate: end.toISOString().split("T")[0],
 	};
 }
 

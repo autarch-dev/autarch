@@ -163,7 +163,7 @@ export class CostRecordRepository implements Repository {
 
 		if (filters.startDate) {
 			const startEpoch = Math.floor(
-				new Date(filters.startDate).getTime() / 1000,
+				new Date(filters.startDate).getTime(),
 			);
 			if (Number.isNaN(startEpoch)) {
 				throw new Error(`Invalid startDate: ${filters.startDate}`);
@@ -172,7 +172,7 @@ export class CostRecordRepository implements Repository {
 		}
 
 		if (filters.endDate) {
-			const endEpoch = Math.floor(new Date(filters.endDate).getTime() / 1000);
+			const endEpoch = Math.floor(new Date(filters.endDate).getTime());
 			if (Number.isNaN(endEpoch)) {
 				throw new Error(`Invalid endDate: ${filters.endDate}`);
 			}
@@ -306,8 +306,8 @@ export class CostRecordRepository implements Repository {
 	> {
 		const dateExpr =
 			granularity === "weekly"
-				? sql<string>`strftime('%Y-%W', ${sql.ref("created_at")}, 'unixepoch')`
-				: sql<string>`date(${sql.ref("created_at")}, 'unixepoch')`;
+				? sql<string>`strftime('%Y-%W', ${sql.ref("created_at")} / 1000, 'unixepoch')`
+				: sql<string>`date(${sql.ref("created_at")} / 1000, 'unixepoch')`;
 
 		let query = this.db
 			.selectFrom("cost_records")
