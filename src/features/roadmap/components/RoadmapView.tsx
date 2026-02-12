@@ -7,6 +7,7 @@
  */
 
 import {
+	ClipboardCopy,
 	FileText,
 	MoreHorizontal,
 	Pencil,
@@ -14,6 +15,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +30,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -46,6 +49,7 @@ import type {
 import type { RoadmapConversationState } from "../store/roadmapStore";
 import { InitiativeDetail } from "./InitiativeDetail";
 import { PlanningConversation } from "./PlanningConversation";
+import { roadmapToMarkdown } from "./roadmapMarkdown";
 import { TableView } from "./TableView";
 import { VisionDocument as VisionDocumentView } from "./VisionDocument";
 
@@ -196,6 +200,21 @@ export const RoadmapView = memo(function RoadmapView({
 		}
 	}, []);
 
+	const handleExportMarkdown = useCallback(async () => {
+		const markdown = roadmapToMarkdown(
+			roadmap,
+			milestones,
+			initiatives,
+			dependencies,
+		);
+		try {
+			await navigator.clipboard.writeText(markdown);
+			toast.success("Roadmap copied to clipboard");
+		} catch {
+			toast.error("Failed to copy to clipboard");
+		}
+	}, [roadmap, milestones, initiatives, dependencies]);
+
 	const handleTitleClick = () => {
 		setEditTitle(roadmap.title);
 		setIsEditingTitle(true);
@@ -270,6 +289,11 @@ export const RoadmapView = memo(function RoadmapView({
 									<Pencil className="size-4 mr-2" />
 									Edit Title
 								</DropdownMenuItem>
+								<DropdownMenuItem onClick={handleExportMarkdown}>
+									<ClipboardCopy className="size-4 mr-2" />
+									Export to Markdown
+								</DropdownMenuItem>
+								<DropdownMenuSeparator />
 								<DropdownMenuItem
 									onClick={() => {
 										setDeleteError(null);
