@@ -52,6 +52,8 @@ export interface ToolContext {
 	agentRole?: string;
 	/** Current subtask ID (if in a subtask context) */
 	subtaskId?: string;
+	/** Current persona roadmap ID (if in a persona context) */
+	personaRoadmapId?: string;
 }
 
 /**

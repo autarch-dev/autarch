@@ -199,6 +199,41 @@ export const agentRegistry = {
 		maxTokens: 16384,
 		temperature: 0,
 	},
+	visionary: {
+		role: "visionary",
+		systemPrompt: agentPrompts.visionary,
+		tools: ROADMAP_PLANNING_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
+	},
+	iterative: {
+		role: "iterative",
+		systemPrompt: agentPrompts.iterative,
+		tools: ROADMAP_PLANNING_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
+	},
+	tech_lead: {
+		role: "tech_lead",
+		systemPrompt: agentPrompts.tech_lead,
+		tools: ROADMAP_PLANNING_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
+	},
+	pathfinder: {
+		role: "pathfinder",
+		systemPrompt: agentPrompts.pathfinder,
+		tools: ROADMAP_PLANNING_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
+	},
+	synthesis: {
+		role: "synthesis",
+		systemPrompt: agentPrompts.synthesis,
+		tools: ROADMAP_PLANNING_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
+	},
 } as const satisfies Record<AgentRole, AgentConfig>;
 
 // =============================================================================

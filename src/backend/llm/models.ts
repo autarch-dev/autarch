@@ -48,13 +48,20 @@ export async function getModelForScenario(
 	// Get user's model preference for this scenario
 	const prefs = await getModelPreferences();
 
-	// Preflight uses execution's model, review_sub uses review's model (no separate preference)
+	// Preflight uses execution's model, review_sub uses review's model,
+	// persona/synthesis roles use roadmap_planning's model (no separate preference)
 	const effectiveScenario =
 		role === "preflight"
 			? "execution"
 			: role === "review_sub"
 				? "review"
-				: role;
+				: role === "visionary" ||
+						role === "iterative" ||
+						role === "tech_lead" ||
+						role === "pathfinder" ||
+						role === "synthesis"
+					? "roadmap_planning"
+					: role;
 	const modelId = prefs[effectiveScenario];
 
 	if (!modelId) {

@@ -164,6 +164,7 @@ export const SessionContextTypeSchema = z.enum([
 	"workflow",
 	"roadmap",
 	"subtask",
+	"persona",
 ]);
 export type SessionContextType = z.infer<typeof SessionContextTypeSchema>;
 
@@ -221,9 +222,11 @@ export const TurnStartedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	role: TurnRoleSchema,
-	/** Context type (channel, workflow, roadmap, or subtask) */
-	contextType: z.enum(["channel", "workflow", "roadmap", "subtask"]).optional(),
-	/** Context ID (channel ID, workflow ID, roadmap ID, or subtask ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, roadmap, subtask, or persona) */
+	contextType: z
+		.enum(["channel", "workflow", "roadmap", "subtask", "persona"])
+		.optional(),
+	/** Context ID (channel ID, workflow ID, roadmap ID, subtask ID, or persona roadmap ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
@@ -243,9 +246,11 @@ export const TurnCompletedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	tokenCount: z.number().optional(),
-	/** Context type (channel, workflow, roadmap, or subtask) */
-	contextType: z.enum(["channel", "workflow", "roadmap", "subtask"]).optional(),
-	/** Context ID (channel ID, workflow ID, roadmap ID, or subtask ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, roadmap, subtask, or persona) */
+	contextType: z
+		.enum(["channel", "workflow", "roadmap", "subtask", "persona"])
+		.optional(),
+	/** Context ID (channel ID, workflow ID, roadmap ID, subtask ID, or persona roadmap ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
@@ -270,9 +275,11 @@ export const TurnMessageDeltaPayloadSchema = z.object({
 	turnId: z.string(),
 	segmentIndex: z.number().default(0), // Index of the current text segment (increments after tool calls)
 	delta: z.string(),
-	/** Context type (channel, workflow, roadmap, or subtask) */
-	contextType: z.enum(["channel", "workflow", "roadmap", "subtask"]).optional(),
-	/** Context ID (channel ID, workflow ID, roadmap ID, or subtask ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, roadmap, subtask, or persona) */
+	contextType: z
+		.enum(["channel", "workflow", "roadmap", "subtask", "persona"])
+		.optional(),
+	/** Context ID (channel ID, workflow ID, roadmap ID, subtask ID, or persona roadmap ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session - enables streaming message creation on reconnect */
 	agentRole: z.string().optional(),

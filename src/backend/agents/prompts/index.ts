@@ -37,6 +37,11 @@ export const agentPrompts = {
 	review: () => reviewPrompt,
 	review_sub: reviewSubPrompt,
 	roadmap_planning: () => roadmapPlanningPrompt,
+	visionary: () => roadmapPlanningPrompt,
+	iterative: () => roadmapPlanningPrompt,
+	tech_lead: () => roadmapPlanningPrompt,
+	pathfinder: () => roadmapPlanningPrompt,
+	synthesis: () => roadmapPlanningPrompt,
 } as const satisfies Record<AgentRole, (options: AgentPromptOptions) => string>;
 
 /** Get the system prompt for an agent role */
