@@ -137,7 +137,7 @@ export class WorkflowOrchestrator {
 				status: "scoping",
 			}),
 		);
-		void this.recordStageTransition(workflow.id, "created", "scoping");
+		void this.recordStageTransition(workflow.id, "backlog", "scoping");
 
 		// Start the scoping agent session
 		const session = await this.sessionManager.startSession({

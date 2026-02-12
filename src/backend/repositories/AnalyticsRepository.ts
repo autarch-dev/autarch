@@ -163,13 +163,11 @@ export class AnalyticsRepository implements Repository {
 		let query = this.db
 			.selectFrom("stage_transitions as t1")
 			.innerJoin("stage_transitions as t2", (join) =>
-				join
-					.onRef("t1.workflow_id", "=", "t2.workflow_id")
-					.on(
-						"t2.timestamp",
-						"=",
-						sql<number>`(select min(t3.timestamp) from stage_transitions t3 where t3.workflow_id = t1.workflow_id and (t3.timestamp > t1.timestamp or (t3.timestamp = t1.timestamp and t3.id > t1.id)))`,
-					),
+				join.on(
+					"t2.id",
+					"=",
+					sql<string>`(select t3.id from stage_transitions t3 where t3.workflow_id = t1.workflow_id and (t3.timestamp > t1.timestamp or (t3.timestamp = t1.timestamp and t3.id > t1.id)) order by t3.timestamp asc, t3.id asc limit 1)`,
+				),
 			)
 			.select([
 				"t1.new_stage as stage",
