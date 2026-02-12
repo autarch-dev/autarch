@@ -23,8 +23,9 @@ The full path takes a workflow through all seven stages. This is the default for
 The workflow exists but hasn't started. It was created from a channel or a roadmap item. The user can prioritize, reorder, and describe the intent, but no agent work has begun.
 
 ### Scoping
+<img width="1479" height="1100" alt="image" src="https://github.com/user-attachments/assets/ee8fe2fe-62be-40b4-bd5c-fc96178aea04" />
 
-A **scoping agent** refines the user's intent into a structured **scope card**. The scope card captures:
+A **scoping agent** refines the user's intent into a structured **scope card**. Scoping works iteratively to expand and contract the scope as necessary, identify gaps, ask the user clarifying questions, and establish a clear scope boundary, presented as a scope card. The scope card captures:
 
 - **Title** — a concise name for the work.
 - **Description** — what the workflow accomplishes.
@@ -36,6 +37,7 @@ A **scoping agent** refines the user's intent into a structured **scope card**. 
 The user reviews the scope card and can approve it (choosing quick or full path), request changes (the agent revises), or reject it.
 
 ### Researching
+<img width="1479" height="1100" alt="image" src="https://github.com/user-attachments/assets/4c042fc4-33fa-4805-aa3c-1c665768d545" />
 
 A **research agent** explores the codebase to understand patterns, integration points, dependencies, and potential challenges. It produces a **research card** containing:
 
@@ -49,6 +51,7 @@ A **research agent** explores the codebase to understand patterns, integration p
 The user reviews the research card and can approve, request changes, or rewind to scoping.
 
 ### Planning
+<img width="1479" height="1100" alt="image" src="https://github.com/user-attachments/assets/324290fc-7548-4f90-9062-9a75e76674c1" />
 
 A **planning agent** designs the implementation as an ordered list of pulses. Each pulse in the **plan** is bounded and independently compilable — it has a title, description, expected changes, and estimated size. The sequence is designed so each pulse builds on the last.
 
