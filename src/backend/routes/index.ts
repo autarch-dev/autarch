@@ -6,6 +6,7 @@
 
 export { channelRoutes } from "./channelRoutes";
 export { costRoutes } from "./costRoutes";
+export { credentialPromptRoutes } from "./credentialPromptRoutes";
 export { questionRoutes } from "./questionRoutes";
 export { roadmapRoutes } from "./roadmapRoutes";
 export { sessionRoutes } from "./sessionRoutes";
@@ -17,6 +18,7 @@ export { workflowRoutes } from "./workflowRoutes";
 // Combined routes for easy import
 import { channelRoutes } from "./channelRoutes";
 import { costRoutes } from "./costRoutes";
+import { credentialPromptRoutes } from "./credentialPromptRoutes";
 import { questionRoutes } from "./questionRoutes";
 import { roadmapRoutes } from "./roadmapRoutes";
 import { sessionRoutes } from "./sessionRoutes";
@@ -31,6 +33,7 @@ import { workflowRoutes } from "./workflowRoutes";
 export const agentRoutes = {
 	...workflowRoutes,
 	...channelRoutes,
+	...credentialPromptRoutes,
 	...sessionRoutes,
 	...questionRoutes,
 	...shellApprovalRoutes,
