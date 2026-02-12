@@ -10,6 +10,9 @@ export async function migrate(db: Kysely<ProjectDatabase>): Promise<void> {
 		.addColumn("previous_stage", "text", (col) => col.notNull())
 		.addColumn("new_stage", "text", (col) => col.notNull())
 		.addColumn("timestamp", "integer", (col) => col.notNull())
+		.addColumn("transition_type", "text", (col) =>
+			col.notNull().defaultTo("advance"),
+		)
 		.execute();
 
 	// Index for querying stage transitions by workflow
@@ -34,5 +37,13 @@ export async function migrate(db: Kysely<ProjectDatabase>): Promise<void> {
 		.ifNotExists()
 		.on("stage_transitions")
 		.column("timestamp")
+		.execute();
+
+	// Composite index for efficient range lookups in correlated subqueries
+	await db.schema
+		.createIndex("idx_stage_transitions_workflow_timestamp")
+		.ifNotExists()
+		.on("stage_transitions")
+		.columns(["workflow_id", "timestamp"])
 		.execute();
 }

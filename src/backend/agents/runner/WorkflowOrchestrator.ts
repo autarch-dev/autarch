@@ -573,7 +573,7 @@ ${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
 				sessionId: session.id,
 			}),
 		);
-		await this.recordStageTransition(workflowId, "scoping", "in_progress");
+		void this.recordStageTransition(workflowId, "scoping", "in_progress");
 
 		// Broadcast preflight started event
 		broadcast(
@@ -835,7 +835,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 				sessionId: session.id,
 			}),
 		);
-		await this.recordStageTransition(workflowId, "review", "in_progress");
+		void this.recordStageTransition(workflowId, "review", "in_progress");
 
 		// Run in background (non-blocking)
 		runner.run(initialMessage, { hidden: true }).catch((error) => {
@@ -998,7 +998,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 				sessionId: session.id,
 			}),
 		);
-		await this.recordStageTransition(workflowId, previousStage, newStage);
+		void this.recordStageTransition(workflowId, previousStage, newStage);
 
 		// Start the new agent with an appropriate initial message
 		const initialMessage = await this.buildInitialMessage(
@@ -1073,6 +1073,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 		workflowId: string,
 		previousStage: string,
 		newStage: string,
+		transitionType?: string,
 	): Promise<void> {
 		try {
 			const { analytics } = getRepositories();
@@ -1080,6 +1081,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 				workflowId,
 				previousStage,
 				newStage,
+				transitionType,
 			});
 		} catch (err) {
 			log.workflow.warn("Failed to record stage transition", {
@@ -2039,7 +2041,7 @@ When ready, submit your research findings using the \`submit_research\` tool.`;
 				sessionId: session.id,
 			}),
 		);
-		await this.recordStageTransition(workflowId, "scoping", "researching");
+		void this.recordStageTransition(workflowId, "scoping", "researching");
 
 		runner.run(initialMessage, { hidden: true }).catch((error) => {
 			log.workflow.error(
@@ -2164,7 +2166,7 @@ When ready, submit your plan using the \`submit_plan\` tool.`;
 				sessionId: session.id,
 			}),
 		);
-		await this.recordStageTransition(workflowId, "researching", "planning");
+		void this.recordStageTransition(workflowId, "researching", "planning");
 
 		runner.run(initialMessage, { hidden: true }).catch((error) => {
 			log.workflow.error(
@@ -2281,7 +2283,12 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 				sessionId: session.id,
 			}),
 		);
-		await this.recordStageTransition(workflowId, "in_progress", "in_progress");
+		void this.recordStageTransition(
+			workflowId,
+			"in_progress",
+			"in_progress",
+			"rewind",
+		);
 
 		// Run in background (non-blocking)
 		runner.run(initialMessage, { hidden: true }).catch((error) => {
@@ -2382,7 +2389,7 @@ Please review the changes made for this scope. Use the available tools to:
 				sessionId: session.id,
 			}),
 		);
-		await this.recordStageTransition(workflowId, "review", "review");
+		void this.recordStageTransition(workflowId, "review", "review", "rewind");
 
 		// Run in background (non-blocking)
 		runner.run(initialMessage, { hidden: true }).catch((error) => {

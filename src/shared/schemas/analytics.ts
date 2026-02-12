@@ -5,8 +5,18 @@ import { z } from "zod";
 // =============================================================================
 
 export const AnalyticsFiltersSchema = z.object({
-	startDate: z.string().optional(),
-	endDate: z.string().optional(),
+	startDate: z
+		.string()
+		.refine((s) => !Number.isNaN(Date.parse(s)), {
+			message: "Invalid date format",
+		})
+		.optional(),
+	endDate: z
+		.string()
+		.refine((s) => !Number.isNaN(Date.parse(s)), {
+			message: "Invalid date format",
+		})
+		.optional(),
 });
 export type AnalyticsFilters = z.infer<typeof AnalyticsFiltersSchema>;
 

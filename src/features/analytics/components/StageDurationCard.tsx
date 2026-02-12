@@ -7,26 +7,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAnalyticsStore } from "../store/analyticsStore";
-
-/** Format seconds into a human-readable duration string */
-function formatDuration(seconds: number): string {
-	if (seconds < 60) {
-		return `${seconds.toFixed(1)}s`;
-	}
-	if (seconds < 3600) {
-		const mins = Math.floor(seconds / 60);
-		const secs = Math.round(seconds % 60);
-		return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-	}
-	const hours = Math.floor(seconds / 3600);
-	const mins = Math.round((seconds % 3600) / 60);
-	return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
-
-/** Format a number with comma separators */
-function formatNumber(n: number): string {
-	return n.toLocaleString();
-}
+import { formatDuration, formatNumber } from "../utils/format";
 
 export function StageDurationCard() {
 	const { data, loading, error } = useAnalyticsStore((s) => s.stages);

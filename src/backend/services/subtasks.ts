@@ -110,6 +110,34 @@ function getLabel(taskDefinition: string): string {
 	}
 }
 
+/**
+ * Record a subtask error: broadcast a workflow error event and persist to analytics.
+ * Non-throwing — analytics failures are logged but swallowed.
+ */
+async function recordSubtaskError(
+	workflowId: string,
+	errorMsg: string,
+): Promise<void> {
+	broadcast(
+		createWorkflowErrorEvent({
+			workflowId,
+			error: errorMsg,
+		}),
+	);
+	try {
+		const { analytics, workflows } = getRepositories();
+		const wf = await workflows.getById(workflowId);
+		await analytics.insertWorkflowError({
+			workflowId,
+			stage: wf?.status ?? "unknown",
+			errorType: "subtask_error",
+			errorMessage: errorMsg,
+		});
+	} catch (analyticsErr) {
+		log.tools.warn("Failed to record workflow error", { analyticsErr });
+	}
+}
+
 // =============================================================================
 // Utility Functions
 // =============================================================================
@@ -498,26 +526,7 @@ export function resumeCoordinatorSession(
 					);
 					if (context.workflowId) {
 						const errorMsg = `Failed to resume review coordinator after subtask completion: ${resumeError}`;
-						broadcast(
-							createWorkflowErrorEvent({
-								workflowId: context.workflowId,
-								error: errorMsg,
-							}),
-						);
-						try {
-							const { analytics, workflows } = getRepositories();
-							const wf = await workflows.getById(context.workflowId);
-							await analytics.insertWorkflowError({
-								workflowId: context.workflowId,
-								stage: wf?.status ?? "unknown",
-								errorType: "subtask_error",
-								errorMessage: errorMsg,
-							});
-						} catch (analyticsErr) {
-							log.tools.warn("Failed to record workflow error", {
-								analyticsErr,
-							});
-						}
+						await recordSubtaskError(context.workflowId, errorMsg);
 					}
 				});
 			} else {
@@ -526,24 +535,7 @@ export function resumeCoordinatorSession(
 				);
 				if (context.workflowId) {
 					const errorMsg = `Coordinator session ${parentSessionId} not found — cannot resume after subtask completion`;
-					broadcast(
-						createWorkflowErrorEvent({
-							workflowId: context.workflowId,
-							error: errorMsg,
-						}),
-					);
-					try {
-						const { analytics, workflows } = getRepositories();
-						const wf = await workflows.getById(context.workflowId);
-						await analytics.insertWorkflowError({
-							workflowId: context.workflowId,
-							stage: wf?.status ?? "unknown",
-							errorType: "subtask_error",
-							errorMessage: errorMsg,
-						});
-					} catch (analyticsErr) {
-						log.tools.warn("Failed to record workflow error", { analyticsErr });
-					}
+					await recordSubtaskError(context.workflowId, errorMsg);
 				}
 			}
 		})
@@ -554,24 +546,7 @@ export function resumeCoordinatorSession(
 			);
 			if (context.workflowId) {
 				const errorMsg = `Failed to restore coordinator session ${parentSessionId}: ${resumeError}`;
-				broadcast(
-					createWorkflowErrorEvent({
-						workflowId: context.workflowId,
-						error: errorMsg,
-					}),
-				);
-				try {
-					const { analytics, workflows } = getRepositories();
-					const wf = await workflows.getById(context.workflowId);
-					await analytics.insertWorkflowError({
-						workflowId: context.workflowId,
-						stage: wf?.status ?? "unknown",
-						errorType: "subtask_error",
-						errorMessage: errorMsg,
-					});
-				} catch (analyticsErr) {
-					log.tools.warn("Failed to record workflow error", { analyticsErr });
-				}
+				await recordSubtaskError(context.workflowId, errorMsg);
 			}
 		});
 }

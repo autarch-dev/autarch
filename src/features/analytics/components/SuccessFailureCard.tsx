@@ -7,11 +7,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAnalyticsStore } from "../store/analyticsStore";
-
-/** Format a number with comma separators */
-function formatNumber(n: number): string {
-	return n.toLocaleString();
-}
+import { formatNumber } from "../utils/format";
 
 export function SuccessFailureCard() {
 	const { data, loading, error } = useAnalyticsStore((s) => s.summary);

@@ -579,6 +579,7 @@ export interface StageTransitionsTable {
 	previous_stage: string;
 	new_stage: string;
 	timestamp: number;
+	transition_type: string;
 }
 
 // =============================================================================

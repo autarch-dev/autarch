@@ -20,6 +20,7 @@ export interface InsertStageTransitionData {
 	workflowId: string;
 	previousStage: string;
 	newStage: string;
+	transitionType?: string;
 }
 
 export interface InsertWorkflowErrorData {
@@ -57,6 +58,7 @@ export class AnalyticsRepository implements Repository {
 				previous_stage: data.previousStage,
 				new_stage: data.newStage,
 				timestamp: Math.floor(Date.now() / 1000),
+				transition_type: data.transitionType ?? "advance",
 			})
 			.execute();
 	}
@@ -155,7 +157,7 @@ export class AnalyticsRepository implements Repository {
 					.on(
 						"t2.timestamp",
 						"=",
-						sql<number>`(select min(t3.timestamp) from stage_transitions t3 where t3.workflow_id = t1.workflow_id and t3.timestamp > t1.timestamp)`,
+						sql<number>`(select min(t3.timestamp) from stage_transitions t3 where t3.workflow_id = t1.workflow_id and (t3.timestamp > t1.timestamp or (t3.timestamp = t1.timestamp and t3.id > t1.id)))`,
 					),
 			)
 			.select([

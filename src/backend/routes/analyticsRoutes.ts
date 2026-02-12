@@ -5,9 +5,54 @@
  * stage durations, failure patterns, and throughput.
  */
 
+import { ZodError } from "zod";
+import type {
+	AnalyticsFilters,
+	FailurePatterns,
+	StageDuration,
+	SuccessFailureRate,
+	Throughput,
+} from "@/shared/schemas/analytics";
 import { AnalyticsFiltersSchema } from "@/shared/schemas/analytics";
 import { log } from "../logger";
 import { getRepositories } from "../repositories";
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Parse analytics filter query params from the request URL.
+ */
+function parseFilters(req: Request): AnalyticsFilters {
+	const url = new URL(req.url);
+	const params = url.searchParams;
+
+	const filterObj: Record<string, string> = {};
+	const startDate = params.get("startDate");
+	const endDate = params.get("endDate");
+	if (startDate) filterObj.startDate = startDate;
+	if (endDate) filterObj.endDate = endDate;
+
+	return AnalyticsFiltersSchema.parse(filterObj);
+}
+
+/**
+ * Handle route errors, returning 400 for validation errors and 500 for others.
+ */
+function handleError(error: unknown, context: string): Response {
+	if (error instanceof ZodError) {
+		return Response.json({ error: error.issues }, { status: 400 });
+	}
+	if (error instanceof Error && error.message.includes("Invalid")) {
+		return Response.json({ error: error.message }, { status: 400 });
+	}
+	log.api.error(`Failed to get ${context}:`, error);
+	return Response.json(
+		{ error: error instanceof Error ? error.message : "Unknown error" },
+		{ status: 500 },
+	);
+}
 
 // =============================================================================
 // Routes
@@ -17,23 +62,12 @@ export const analyticsRoutes = {
 	"/api/analytics/summary": {
 		async GET(req: Request) {
 			try {
-				const searchParams = new URL(req.url).searchParams;
-				const filterObj: Record<string, string> = {};
-				const startDate = searchParams.get("startDate");
-				const endDate = searchParams.get("endDate");
-				if (startDate) filterObj.startDate = startDate;
-				if (endDate) filterObj.endDate = endDate;
-
-				const filters = AnalyticsFiltersSchema.parse(filterObj);
+				const filters = parseFilters(req);
 				const result =
 					await getRepositories().analytics.getSuccessFailureRates(filters);
-				return Response.json(result);
+				return Response.json(result satisfies SuccessFailureRate);
 			} catch (error) {
-				log.api.error("Failed to get analytics summary:", error);
-				return Response.json(
-					{ error: error instanceof Error ? error.message : "Unknown error" },
-					{ status: 500 },
-				);
+				return handleError(error, "analytics summary");
 			}
 		},
 	},
@@ -41,23 +75,12 @@ export const analyticsRoutes = {
 	"/api/analytics/stages": {
 		async GET(req: Request) {
 			try {
-				const searchParams = new URL(req.url).searchParams;
-				const filterObj: Record<string, string> = {};
-				const startDate = searchParams.get("startDate");
-				const endDate = searchParams.get("endDate");
-				if (startDate) filterObj.startDate = startDate;
-				if (endDate) filterObj.endDate = endDate;
-
-				const filters = AnalyticsFiltersSchema.parse(filterObj);
+				const filters = parseFilters(req);
 				const result =
 					await getRepositories().analytics.getStageDurations(filters);
-				return Response.json(result);
+				return Response.json(result satisfies StageDuration);
 			} catch (error) {
-				log.api.error("Failed to get stage durations:", error);
-				return Response.json(
-					{ error: error instanceof Error ? error.message : "Unknown error" },
-					{ status: 500 },
-				);
+				return handleError(error, "stage durations");
 			}
 		},
 	},
@@ -65,23 +88,12 @@ export const analyticsRoutes = {
 	"/api/analytics/failures": {
 		async GET(req: Request) {
 			try {
-				const searchParams = new URL(req.url).searchParams;
-				const filterObj: Record<string, string> = {};
-				const startDate = searchParams.get("startDate");
-				const endDate = searchParams.get("endDate");
-				if (startDate) filterObj.startDate = startDate;
-				if (endDate) filterObj.endDate = endDate;
-
-				const filters = AnalyticsFiltersSchema.parse(filterObj);
+				const filters = parseFilters(req);
 				const result =
 					await getRepositories().analytics.getFailurePatterns(filters);
-				return Response.json(result);
+				return Response.json(result satisfies FailurePatterns);
 			} catch (error) {
-				log.api.error("Failed to get failure patterns:", error);
-				return Response.json(
-					{ error: error instanceof Error ? error.message : "Unknown error" },
-					{ status: 500 },
-				);
+				return handleError(error, "failure patterns");
 			}
 		},
 	},
@@ -89,22 +101,11 @@ export const analyticsRoutes = {
 	"/api/analytics/throughput": {
 		async GET(req: Request) {
 			try {
-				const searchParams = new URL(req.url).searchParams;
-				const filterObj: Record<string, string> = {};
-				const startDate = searchParams.get("startDate");
-				const endDate = searchParams.get("endDate");
-				if (startDate) filterObj.startDate = startDate;
-				if (endDate) filterObj.endDate = endDate;
-
-				const filters = AnalyticsFiltersSchema.parse(filterObj);
+				const filters = parseFilters(req);
 				const result = await getRepositories().analytics.getThroughput(filters);
-				return Response.json(result);
+				return Response.json(result satisfies Throughput);
 			} catch (error) {
-				log.api.error("Failed to get throughput:", error);
-				return Response.json(
-					{ error: error instanceof Error ? error.message : "Unknown error" },
-					{ status: 500 },
-				);
+				return handleError(error, "throughput");
 			}
 		},
 	},
