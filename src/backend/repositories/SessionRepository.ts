@@ -190,49 +190,63 @@ export class SessionRepository implements Repository {
 	 * Delete a session and all its associated data (turns, messages, tools, etc.)
 	 */
 	async deleteSession(sessionId: string): Promise<void> {
-		// Get all turn IDs for this session
-		const turns = await this.db
-			.selectFrom("turns")
-			.select("id")
-			.where("session_id", "=", sessionId)
-			.execute();
-
-		const turnIds = turns.map((t) => t.id);
-
-		if (turnIds.length > 0) {
-			// Delete turn-related data
-			await this.db
-				.deleteFrom("turn_messages")
-				.where("turn_id", "in", turnIds)
-				.execute();
-			await this.db
-				.deleteFrom("turn_tools")
-				.where("turn_id", "in", turnIds)
-				.execute();
-			await this.db
-				.deleteFrom("turn_thoughts")
-				.where("turn_id", "in", turnIds)
-				.execute();
-			await this.db
-				.deleteFrom("questions")
-				.where("turn_id", "in", turnIds)
-				.execute();
-
-			// Delete turns
-			await this.db
-				.deleteFrom("turns")
+		await this.db.transaction().execute(async (trx) => {
+			// Get all turn IDs for this session
+			const turns = await trx
+				.selectFrom("turns")
+				.select("id")
 				.where("session_id", "=", sessionId)
 				.execute();
-		}
 
-		// Delete session notes
-		await this.db
-			.deleteFrom("session_notes")
-			.where("session_id", "=", sessionId)
-			.execute();
+			const turnIds = turns.map((t) => t.id);
 
-		// Delete the session itself
-		await this.db.deleteFrom("sessions").where("id", "=", sessionId).execute();
+			if (turnIds.length > 0) {
+				// Delete turn-related data
+				await trx
+					.deleteFrom("turn_messages")
+					.where("turn_id", "in", turnIds)
+					.execute();
+				await trx
+					.deleteFrom("turn_tools")
+					.where("turn_id", "in", turnIds)
+					.execute();
+				await trx
+					.deleteFrom("turn_thoughts")
+					.where("turn_id", "in", turnIds)
+					.execute();
+				await trx
+					.deleteFrom("questions")
+					.where("turn_id", "in", turnIds)
+					.execute();
+
+				// Delete turns
+				await trx
+					.deleteFrom("turns")
+					.where("session_id", "=", sessionId)
+					.execute();
+			}
+
+			// Delete session notes
+			await trx
+				.deleteFrom("session_notes")
+				.where("session_id", "=", sessionId)
+				.execute();
+
+			// Delete session todos
+			await trx
+				.deleteFrom("session_todos")
+				.where("session_id", "=", sessionId)
+				.execute();
+
+			// Delete subtasks
+			await trx
+				.deleteFrom("subtasks")
+				.where("parent_session_id", "=", sessionId)
+				.execute();
+
+			// Delete the session itself
+			await trx.deleteFrom("sessions").where("id", "=", sessionId).execute();
+		});
 	}
 
 	/**
