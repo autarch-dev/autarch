@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Redirect, Route, Switch } from "wouter";
+import { Toaster } from "@/components/ui/sonner";
 import { Dashboard } from "@/features/dashboard";
 import { OnboardingGuard, OnboardingPage } from "@/features/onboarding";
 import { ToolTestbench } from "@/features/testbench";
@@ -15,20 +16,23 @@ export function App() {
 	}, [connect]);
 
 	return (
-		<OnboardingGuard>
-			<Switch>
-				<Route path="/">
-					<Redirect to="/dashboard" />
-				</Route>
-				<Route path="/onboarding" component={OnboardingPage} />
-				<Route path="/dashboard" nest component={Dashboard} />
-				<Route path="/testbench" component={ToolTestbench} />
-				{/* Fallback for unknown routes */}
-				<Route>
-					<Redirect to="/" />
-				</Route>
-			</Switch>
-		</OnboardingGuard>
+		<>
+			<OnboardingGuard>
+				<Switch>
+					<Route path="/">
+						<Redirect to="/dashboard" />
+					</Route>
+					<Route path="/onboarding" component={OnboardingPage} />
+					<Route path="/dashboard" nest component={Dashboard} />
+					<Route path="/testbench" component={ToolTestbench} />
+					{/* Fallback for unknown routes */}
+					<Route>
+						<Redirect to="/" />
+					</Route>
+				</Switch>
+			</OnboardingGuard>
+			<Toaster />
+		</>
 	);
 }
 
