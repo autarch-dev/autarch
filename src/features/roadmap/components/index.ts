@@ -1,5 +1,6 @@
 export { CreateRoadmapDialog } from "./CreateRoadmapDialog";
 export { InitiativeDetail } from "./InitiativeDetail";
+export { PersonaRoadmapPreview } from "./PersonaRoadmapPreview";
 export { PlanningConversation } from "./PlanningConversation";
 export { ProgressControls } from "./ProgressControls";
 export { RoadmapView } from "./RoadmapView";
