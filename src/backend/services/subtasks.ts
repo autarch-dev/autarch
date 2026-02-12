@@ -118,13 +118,13 @@ async function recordSubtaskError(
 	workflowId: string,
 	errorMsg: string,
 ): Promise<void> {
-	broadcast(
-		createWorkflowErrorEvent({
-			workflowId,
-			error: errorMsg,
-		}),
-	);
 	try {
+		broadcast(
+			createWorkflowErrorEvent({
+				workflowId,
+				error: errorMsg,
+			}),
+		);
 		const { analytics, workflows } = getRepositories();
 		const wf = await workflows.getById(workflowId);
 		await analytics.insertWorkflowError({

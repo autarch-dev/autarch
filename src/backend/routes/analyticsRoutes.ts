@@ -16,6 +16,7 @@ import type {
 import { AnalyticsFiltersSchema } from "@/shared/schemas/analytics";
 import { log } from "../logger";
 import { getRepositories } from "../repositories";
+import { AnalyticsValidationError } from "../repositories/AnalyticsRepository";
 
 // =============================================================================
 // Helpers
@@ -44,7 +45,7 @@ function handleError(error: unknown, context: string): Response {
 	if (error instanceof ZodError) {
 		return Response.json({ error: error.issues }, { status: 400 });
 	}
-	if (error instanceof Error && error.message.includes("Invalid")) {
+	if (error instanceof AnalyticsValidationError) {
 		return Response.json({ error: error.message }, { status: 400 });
 	}
 	log.api.error(`Failed to get ${context}:`, error);

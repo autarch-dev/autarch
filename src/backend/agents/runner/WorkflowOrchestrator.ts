@@ -929,6 +929,7 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 			shellApprovalService.cleanupWorkflow(workflowId);
 
 			broadcast(createWorkflowCompletedEvent({ workflowId }));
+			void this.recordStageTransition(workflowId, previousStage, "done");
 
 			// Fire-and-forget initiative auto-completion - never blocks workflow completion
 			(async () => {

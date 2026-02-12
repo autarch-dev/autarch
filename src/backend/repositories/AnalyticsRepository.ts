@@ -10,6 +10,8 @@ import { sql } from "kysely";
 
 import { ids } from "@/backend/utils";
 
+import type { AnalyticsFilters } from "@/shared/schemas/analytics";
+
 import type { ProjectDb, Repository } from "./types";
 
 // =============================================================================
@@ -30,9 +32,11 @@ export interface InsertWorkflowErrorData {
 	errorMessage: string;
 }
 
-export interface AnalyticsFilters {
-	startDate?: string;
-	endDate?: string;
+export class AnalyticsValidationError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "AnalyticsValidationError";
+	}
 }
 
 // =============================================================================
@@ -93,26 +97,31 @@ export class AnalyticsRepository implements Repository {
 		query: T,
 		filters?: AnalyticsFilters,
 		timestampColumn = "timestamp",
+		{ useMilliseconds = false }: { useMilliseconds?: boolean } = {},
 	): T {
 		if (!filters) return query;
 
 		let q = query;
 
 		if (filters.startDate) {
-			const startEpoch = Math.floor(
-				new Date(filters.startDate).getTime() / 1000,
-			);
-			if (Number.isNaN(startEpoch)) {
-				throw new Error(`Invalid startDate: ${filters.startDate}`);
+			const startMs = new Date(filters.startDate).getTime();
+			if (Number.isNaN(startMs)) {
+				throw new AnalyticsValidationError(
+					`Invalid startDate: ${filters.startDate}`,
+				);
 			}
+			const startEpoch = useMilliseconds ? startMs : Math.floor(startMs / 1000);
 			q = q.where(timestampColumn, ">=", startEpoch);
 		}
 
 		if (filters.endDate) {
-			const endEpoch = Math.floor(new Date(filters.endDate).getTime() / 1000);
-			if (Number.isNaN(endEpoch)) {
-				throw new Error(`Invalid endDate: ${filters.endDate}`);
+			const endMs = new Date(filters.endDate).getTime();
+			if (Number.isNaN(endMs)) {
+				throw new AnalyticsValidationError(
+					`Invalid endDate: ${filters.endDate}`,
+				);
 			}
+			const endEpoch = useMilliseconds ? endMs : Math.floor(endMs / 1000);
 			q = q.where(timestampColumn, "<=", endEpoch);
 		}
 
@@ -131,7 +140,9 @@ export class AnalyticsRepository implements Repository {
 			.select((eb) => ["status", eb.fn.count<number>("id").as("count")])
 			.groupBy("status");
 
-		query = this.applyFilters(query, filters, "created_at");
+		query = this.applyFilters(query, filters, "created_at", {
+			useMilliseconds: true,
+		});
 
 		const rows = await query.execute();
 
@@ -223,6 +234,7 @@ export class AnalyticsRepository implements Repository {
 			pulseFailureQuery,
 			filters,
 			"created_at",
+			{ useMilliseconds: true },
 		);
 
 		const pulseFailureRows = await pulseFailureQuery.execute();
@@ -256,7 +268,7 @@ export class AnalyticsRepository implements Repository {
 		let query = this.db
 			.selectFrom("stage_transitions")
 			.select([dateExpr.as("date"), sql<number>`count(*)`.as("count")])
-			.where("new_stage", "=", "completed")
+			.where("new_stage", "=", "done")
 			.groupBy(dateExpr)
 			.orderBy(dateExpr, "asc");
 
