@@ -42,7 +42,7 @@ export class CostCalculator {
 		if (promptTokens > 200_000 && model.data === "claude-opus-4-6") {
 			return (
 				(promptTokens / 1_000_000) * 10 +
-				(completionTokens / 1_000_000) * cost.completionTokenCost * 37.5
+				(completionTokens / 1_000_000) * 37.5
 			);
 		}
 
@@ -52,7 +52,7 @@ export class CostCalculator {
 		) {
 			return (
 				(promptTokens / 1_000_000) * 6 +
-				(completionTokens / 1_000_000) * cost.completionTokenCost * 22.5
+				(completionTokens / 1_000_000) * 22.5
 			);
 		}
 
