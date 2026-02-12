@@ -4,7 +4,7 @@
 
 Autarch gives a solo developer the leverage of a 10-person team. It replaces tickets with **Workflows** — threaded conversations that map directly to Git branches — so every decision, approval, and line of reasoning lives alongside your code forever.
 
-<!-- TODO: Add demo GIF showing the workflow loop (create → scope → research → plan → pulse → review → merge) -->
+<img width="1863" height="1138" alt="image" src="https://github.com/user-attachments/assets/62ab9117-5378-440a-833e-e3d74d2b4f55" />
 
 ## Why Autarch
 
