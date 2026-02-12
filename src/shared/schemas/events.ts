@@ -633,6 +633,43 @@ export type ShellApprovalResolvedEvent = z.infer<
 >;
 
 // =============================================================================
+// Credential Prompt Events
+// =============================================================================
+
+// credential:prompt_needed - Git operation requires credential input from user
+export const CredentialPromptNeededPayloadSchema = z.object({
+	promptId: z.string(),
+	prompt: z.string(),
+});
+export type CredentialPromptNeededPayload = z.infer<
+	typeof CredentialPromptNeededPayloadSchema
+>;
+
+export const CredentialPromptNeededEventSchema = z.object({
+	type: z.literal("credential:prompt_needed"),
+	payload: CredentialPromptNeededPayloadSchema,
+});
+export type CredentialPromptNeededEvent = z.infer<
+	typeof CredentialPromptNeededEventSchema
+>;
+
+// credential:prompt_resolved - User has provided or cancelled a credential prompt
+export const CredentialPromptResolvedPayloadSchema = z.object({
+	promptId: z.string(),
+});
+export type CredentialPromptResolvedPayload = z.infer<
+	typeof CredentialPromptResolvedPayloadSchema
+>;
+
+export const CredentialPromptResolvedEventSchema = z.object({
+	type: z.literal("credential:prompt_resolved"),
+	payload: CredentialPromptResolvedPayloadSchema,
+});
+export type CredentialPromptResolvedEvent = z.infer<
+	typeof CredentialPromptResolvedEventSchema
+>;
+
+// =============================================================================
 // Knowledge Extraction Events
 // =============================================================================
 
@@ -778,6 +815,9 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	// Shell approval events
 	ShellApprovalNeededEventSchema,
 	ShellApprovalResolvedEventSchema,
+	// Credential prompt events
+	CredentialPromptNeededEventSchema,
+	CredentialPromptResolvedEventSchema,
 	// Knowledge extraction events
 	KnowledgeExtractionStartedEventSchema,
 	KnowledgeExtractionCompletedEventSchema,
@@ -982,6 +1022,19 @@ export function createShellApprovalResolvedEvent(
 	payload: ShellApprovalResolvedPayload,
 ): ShellApprovalResolvedEvent {
 	return { type: "shell:approval_resolved", payload };
+}
+
+// Credential prompt events
+export function createCredentialPromptNeededEvent(
+	payload: CredentialPromptNeededPayload,
+): CredentialPromptNeededEvent {
+	return { type: "credential:prompt_needed", payload };
+}
+
+export function createCredentialPromptResolvedEvent(
+	payload: CredentialPromptResolvedPayload,
+): CredentialPromptResolvedEvent {
+	return { type: "credential:prompt_resolved", payload };
 }
 
 // Knowledge extraction events
