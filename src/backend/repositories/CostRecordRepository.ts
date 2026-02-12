@@ -311,6 +311,8 @@ export class CostRecordRepository implements Repository {
 
 		let query = this.db
 			.selectFrom("cost_records")
+			.where("created_at", "is not", null)
+			.where("created_at", ">", 0)
 			.select((eb) => [
 				dateExpr.as("date"),
 				eb.fn.sum<number>("cost_usd").as("total_cost"),
