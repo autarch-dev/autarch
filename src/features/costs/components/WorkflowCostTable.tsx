@@ -50,7 +50,7 @@ export function WorkflowCostTable() {
 									<TableHead className="text-right">
 										Completion Tokens
 									</TableHead>
-									<TableHead className="text-right">Records</TableHead>
+									<TableHead className="text-right">API Calls</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
