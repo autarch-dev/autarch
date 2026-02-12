@@ -77,17 +77,16 @@ export async function createAskpassContext(
 		scriptPath = join(tmpdir(), `autarch-askpass-${nonce}.cmd`);
 		const script = [
 			"@echo off",
-			`powershell -Command "$r = Invoke-WebRequest -Uri 'http://127.0.0.1:${serverPort}/api/credential-prompt' -Method POST -Headers @{'X-Askpass-Nonce'='${nonce}';'Content-Type'='application/json'} -Body ('{"prompt":"' + $args[0] + '"}') -UseBasicParsing; ($r.Content | ConvertFrom-Json).credential"`,
+			`powershell -Command "$r = Invoke-WebRequest -Uri 'http://127.0.0.1:${serverPort}/api/credential-prompt' -Method POST -Headers @{'X-Askpass-Nonce'='${nonce}';'Content-Type'='text/plain'} -Body $args[0] -UseBasicParsing; $r.Content"`,
 		].join("\r\n");
 		await writeFile(scriptPath, script, "utf-8");
 	} else {
 		scriptPath = join(tmpdir(), `autarch-askpass-${nonce}.sh`);
 		const script = [
 			"#!/bin/sh",
-			`RESPONSE=$(curl -s -X POST -H 'Content-Type: application/json' -H 'X-Askpass-Nonce: ${nonce}' -d '{"prompt":"'"$1"'"}' http://127.0.0.1:${serverPort}/api/credential-prompt)`,
-			`CREDENTIAL=$(echo "$RESPONSE" | grep -o '"credential":"[^"]*"' | sed 's/"credential":"//;s/"$//')`,
+			`CREDENTIAL=$(curl -s -X POST -H 'Content-Type: text/plain' -H 'X-Askpass-Nonce: ${nonce}' --data-binary "$1" http://127.0.0.1:${serverPort}/api/credential-prompt)`,
 			`if [ -z "$CREDENTIAL" ]; then exit 1; fi`,
-			`echo "$CREDENTIAL"`,
+			`printf '%s' "$CREDENTIAL"`,
 		].join("\n");
 		await writeFile(scriptPath, script, "utf-8");
 		await chmod(scriptPath, 0o700);
@@ -145,6 +144,7 @@ export function requestCredential(
 		const timer = setTimeout(() => {
 			log.git.warn(`Credential prompt timed out: ${promptId} ("${prompt}")`);
 			pendingPrompts.delete(promptId);
+			broadcast(createCredentialPromptResolvedEvent({ promptId }));
 			resolve(null);
 		}, 60_000);
 

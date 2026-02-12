@@ -38,6 +38,7 @@ export function CredentialPromptDialog({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally reset input when promptId changes (e.g., HTTPS username → password)
 	useEffect(() => {
 		setInputValue("");
+		setIsSubmitting(false);
 	}, [promptId]);
 
 	const handleSubmit = async () => {

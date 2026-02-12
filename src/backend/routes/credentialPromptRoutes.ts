@@ -17,10 +17,6 @@ import {
 // Schemas
 // =============================================================================
 
-const CredentialRequestSchema = z.object({
-	prompt: z.string().min(1),
-});
-
 const CredentialRespondSchema = z.object({
 	credential: z.string().nullable(),
 });
@@ -64,34 +60,24 @@ export const credentialPromptRoutes = {
 				);
 			}
 
-			// Parse and validate body
-			let body: unknown;
-			try {
-				body = await req.json();
-			} catch {
-				return Response.json({ error: "Invalid JSON body" }, { status: 400 });
-			}
-
-			const parsed = CredentialRequestSchema.safeParse(body);
-			if (!parsed.success) {
-				return Response.json(
-					{
-						error: "Invalid request body",
-						details: z.prettifyError(parsed.error),
-					},
-					{ status: 400 },
-				);
+			// Parse prompt from plain text body (askpass scripts send raw strings)
+			const prompt = await req.text();
+			if (!prompt) {
+				return new Response("Missing prompt text", { status: 400 });
 			}
 
 			try {
 				// Long-poll: blocks until user responds or timeout
-				const result = await requestCredential(nonce, parsed.data.prompt);
+				const result = await requestCredential(nonce, prompt);
 
 				log.api.info(
-					`Credential prompt for "${parsed.data.prompt}" resolved (${result !== null ? "provided" : "cancelled/timed out"})`,
+					`Credential prompt for "${prompt}" resolved (${result !== null ? "provided" : "cancelled/timed out"})`,
 				);
 
-				return Response.json({ credential: result });
+				// Return raw credential string (or empty for cancelled/timed out)
+				return new Response(result ?? "", {
+					headers: { "Content-Type": "text/plain" },
+				});
 			} catch (error) {
 				// Invalid or expired nonce
 				log.api.warn(
