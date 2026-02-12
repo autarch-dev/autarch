@@ -174,13 +174,6 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 		});
 	}, [personaSessionMap]);
 
-	// Check if all 4 personas completed successfully (no failures)
-	const allPersonasCompleted = useMemo(() => {
-		return PERSONA_TABS.every(
-			(p) => personaSessionMap.get(p.value)?.status === "completed",
-		);
-	}, [personaSessionMap]);
-
 	// Check if any persona failed
 	const hasFailedPersonas = useMemo(() => {
 		return PERSONA_TABS.some(
@@ -286,8 +279,11 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 					: undefined;
 				const isCompleted = session?.status === "completed";
 
-				// Input mode: questions-only while running, disabled after completion
-				const inputMode = isCompleted ? "disabled" : "questions-only";
+				// Input mode: questions-only while running, disabled after completion or failure
+				const inputMode =
+					isCompleted || session?.status === "failed"
+						? "disabled"
+						: "questions-only";
 
 				return (
 					<TabsContent
@@ -337,9 +333,8 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 					<div className="flex flex-col items-center justify-center py-16 text-center px-4 gap-3">
 						<XCircle className="size-8 text-red-500" />
 						<p className="text-muted-foreground text-sm">
-							{allPersonasCompleted
-								? "The synthesis agent will start once all personas have submitted their roadmaps."
-								: "One or more persona agents failed. Synthesis cannot proceed with incomplete results. Please try generating the roadmap again."}
+							One or more persona agents failed. Synthesis cannot proceed with
+							incomplete results. Please try generating the roadmap again.
 						</p>
 					</div>
 				) : (

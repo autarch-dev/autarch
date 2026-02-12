@@ -190,7 +190,9 @@ export const RoadmapView = memo(function RoadmapView({
 
 	// Check if this draft roadmap uses the new persona-based flow
 	const personaSessions = useRoadmapStore((s) => s.personaSessions);
-	const hasPersonaSessions = personaSessions.size > 0;
+	const hasPersonaSessions = [...personaSessions.values()].some(
+		(ps) => ps.roadmapId === roadmap.id,
+	);
 
 	// Draft rendering:
 	// - Persona sessions exist → show PersonaDiscoveryTabs (new multi-persona flow)

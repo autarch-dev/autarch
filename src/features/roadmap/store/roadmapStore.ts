@@ -351,12 +351,31 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 			// Also clean up persona sessions for this roadmap
 			const personaSessions = new Map(state.personaSessions);
 			for (const [sessionId, _ps] of personaSessions) {
-				const conv = state.conversations.get(sessionId);
-				if (conv?.roadmapId === roadmapId) {
+				if (_ps.roadmapId === roadmapId) {
 					personaSessions.delete(sessionId);
 				}
 			}
-			return { roadmaps, roadmapDetails, conversations, personaSessions };
+			// Reset persona UI state if the deleted roadmap is the active one
+			const synthesisConv = state.synthesisSessionId
+				? state.conversations.get(state.synthesisSessionId)
+				: undefined;
+			const resetPersonaState =
+				synthesisConv?.roadmapId === roadmapId ||
+				[...state.personaSessions.values()].some(
+					(ps) => ps.roadmapId === roadmapId,
+				);
+			return {
+				roadmaps,
+				roadmapDetails,
+				conversations,
+				personaSessions,
+				...(resetPersonaState
+					? {
+							synthesisSessionId: null,
+							activePersonaTab: "visionary" as PersonaTab,
+						}
+					: {}),
+			};
 		});
 	},
 
@@ -703,7 +722,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 		const findExistingSessionId = (): string | undefined => {
 			const state = get();
 			for (const [sid, conv] of state.conversations) {
-				if (conv.roadmapId === roadmapId) return sid;
+				if (conv.roadmapId === roadmapId && !conv.persona) return sid;
 			}
 			const roadmap = state.roadmaps.find((r) => r.id === roadmapId);
 			return roadmap?.currentSessionId ?? undefined;
@@ -786,7 +805,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 		// Find sessionId: search conversations by roadmapId field, then fallback to roadmap.currentSessionId
 		let sessionId: string | undefined;
 		for (const [sid, conv] of state.conversations) {
-			if (conv.roadmapId === roadmapId) {
+			if (conv.roadmapId === roadmapId && !conv.persona) {
 				sessionId = sid;
 				break;
 			}
@@ -1076,13 +1095,32 @@ function handleRoadmapDeleted(
 			}
 		}
 		const personaSessions = new Map(state.personaSessions);
-		for (const [sessionId] of personaSessions) {
-			const conv = state.conversations.get(sessionId);
-			if (conv?.roadmapId === payload.roadmapId) {
+		for (const [sessionId, _ps] of personaSessions) {
+			if (_ps.roadmapId === payload.roadmapId) {
 				personaSessions.delete(sessionId);
 			}
 		}
-		return { roadmaps, roadmapDetails, conversations, personaSessions };
+		// Reset persona UI state if the deleted roadmap is the active one
+		const synthesisConv = state.synthesisSessionId
+			? state.conversations.get(state.synthesisSessionId)
+			: undefined;
+		const resetPersonaState =
+			synthesisConv?.roadmapId === payload.roadmapId ||
+			[...state.personaSessions.values()].some(
+				(ps) => ps.roadmapId === payload.roadmapId,
+			);
+		return {
+			roadmaps,
+			roadmapDetails,
+			conversations,
+			personaSessions,
+			...(resetPersonaState
+				? {
+						synthesisSessionId: null,
+						activePersonaTab: "visionary" as PersonaTab,
+					}
+				: {}),
+		};
 	});
 }
 

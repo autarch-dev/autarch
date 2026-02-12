@@ -157,6 +157,7 @@ export type BlockToolName =
 	| "submit_research"
 	| "submit_plan"
 	| "submit_roadmap"
+	| "submit_persona_roadmap"
 	| "request_extension"
 	| "ask_questions"
 	| "complete_pulse"

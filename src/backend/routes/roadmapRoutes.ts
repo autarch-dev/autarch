@@ -20,8 +20,22 @@ import {
 	RoadmapDependencyNodeTypeSchema,
 	RoadmapStatusSchema,
 } from "@/shared/schemas/roadmap";
+import { ModelScenario } from "@/shared/schemas/settings";
 import { AgentRunner, getSessionManager } from "../agents/runner";
-import type { AgentRole } from "../agents/types";
+
+const AgentRoleSchema = z.union([
+	ModelScenario,
+	z.enum([
+		"preflight",
+		"review_sub",
+		"visionary",
+		"iterative",
+		"tech_lead",
+		"pathfinder",
+		"synthesis",
+	]),
+]);
+
 import { getProjectDb } from "../db/project";
 import { findRepoRoot } from "../git";
 import { log } from "../logger";
@@ -253,7 +267,7 @@ async function startPersonaSessions(
 			const session = await sessionManager.startSession({
 				contextType: "persona",
 				contextId: persona.id,
-				agentRole: persona.persona as AgentRole,
+				agentRole: AgentRoleSchema.parse(persona.persona),
 				roadmapId,
 			});
 
@@ -276,17 +290,9 @@ async function startPersonaSessions(
 				sessionManager.errorSession(session.id, errorMsg);
 
 				// Mark the persona_roadmaps record as failed and check if all siblings are terminal
-				const { allCompleted, allTerminal } = await failPersonaAndCheckDone(
-					db,
-					persona.id,
-				);
+				const { allTerminal } = await failPersonaAndCheckDone(db, persona.id);
 
-				if (allTerminal && allCompleted) {
-					log.agent.info(
-						`All personas completed for roadmap ${roadmapId} — launching synthesis session`,
-					);
-					startSynthesisSession(projectRoot, roadmapId, db);
-				} else if (allTerminal) {
+				if (allTerminal) {
 					log.agent.info(
 						`All personas terminal for roadmap ${roadmapId} (some failed) — launching synthesis with partial results`,
 					);
@@ -294,15 +300,19 @@ async function startPersonaSessions(
 				}
 			});
 		} catch (err) {
-			await db
-				.updateTable("persona_roadmaps")
-				.set({ status: "failed", updated_at: Date.now() })
-				.where("id", "=", persona.id)
-				.execute();
 			const errorMsg = err instanceof Error ? err.message : "Unknown error";
 			log.agent.error(
 				`Failed to spawn persona ${persona.persona} for roadmap ${roadmapId}: ${errorMsg}`,
 			);
+
+			const { allTerminal } = await failPersonaAndCheckDone(db, persona.id);
+
+			if (allTerminal) {
+				log.agent.info(
+					`All personas terminal for roadmap ${roadmapId} (some failed) — launching synthesis with partial results`,
+				);
+				startSynthesisSession(projectRoot, roadmapId, db);
+			}
 		}
 	}
 }
