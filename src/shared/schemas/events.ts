@@ -775,6 +775,29 @@ export const RoadmapDeletedEventSchema = z.object({
 export type RoadmapDeletedEvent = z.infer<typeof RoadmapDeletedEventSchema>;
 
 // =============================================================================
+// Persona Roadmap Events
+// =============================================================================
+
+// persona:roadmap_submitted
+export const PersonaRoadmapSubmittedPayloadSchema = z.object({
+	sessionId: z.string(),
+	roadmapId: z.string(),
+	persona: z.string(),
+	personaRoadmapId: z.string(),
+});
+export type PersonaRoadmapSubmittedPayload = z.infer<
+	typeof PersonaRoadmapSubmittedPayloadSchema
+>;
+
+export const PersonaRoadmapSubmittedEventSchema = z.object({
+	type: z.literal("persona:roadmap_submitted"),
+	payload: PersonaRoadmapSubmittedPayloadSchema,
+});
+export type PersonaRoadmapSubmittedEvent = z.infer<
+	typeof PersonaRoadmapSubmittedEventSchema
+>;
+
+// =============================================================================
 // WebSocket Event Union
 // =============================================================================
 
@@ -833,6 +856,8 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	RoadmapCreatedEventSchema,
 	RoadmapUpdatedEventSchema,
 	RoadmapDeletedEventSchema,
+	// Persona roadmap events
+	PersonaRoadmapSubmittedEventSchema,
 ]);
 
 export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
@@ -1087,4 +1112,11 @@ export function createRoadmapDeletedEvent(
 	payload: RoadmapDeletedPayload,
 ): RoadmapDeletedEvent {
 	return { type: "roadmap:deleted", payload };
+}
+
+// Persona roadmap events
+export function createPersonaRoadmapSubmittedEvent(
+	payload: PersonaRoadmapSubmittedPayload,
+): PersonaRoadmapSubmittedEvent {
+	return { type: "persona:roadmap_submitted", payload };
 }
