@@ -848,7 +848,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 				const conversations = new Map(state.conversations);
 
 				// Populate persona sessions and their conversations
-				for (const session of data.personaSessions ?? []) {
+				for (const session of data.personas ?? []) {
 					personaSessions.set(session.sessionId, {
 						persona: session.persona,
 						sessionId: session.sessionId,
@@ -870,7 +870,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 				}
 
 				// Populate synthesis session if present
-				const synthesis = data.synthesisSession;
+				const synthesis = data.synthesis;
 				let synthesisSessionId = state.synthesisSessionId;
 				if (synthesis?.sessionId) {
 					synthesisSessionId = synthesis.sessionId;

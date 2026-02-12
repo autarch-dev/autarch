@@ -46,8 +46,12 @@ import type {
 	RoadmapStatus,
 	VisionDocument,
 } from "@/shared/schemas/roadmap";
-import type { RoadmapConversationState } from "../store/roadmapStore";
+import {
+	type RoadmapConversationState,
+	useRoadmapStore,
+} from "../store/roadmapStore";
 import { InitiativeDetail } from "./InitiativeDetail";
+import { PersonaDiscoveryTabs } from "./PersonaDiscoveryTabs";
 import { PlanningConversation } from "./PlanningConversation";
 import { roadmapToMarkdown } from "./roadmapMarkdown";
 import { TableView } from "./TableView";
@@ -184,9 +188,21 @@ export const RoadmapView = memo(function RoadmapView({
 		});
 	}, [initiatives]);
 
-	// Show planning conversation when roadmap is draft and has a session
-	const showPlanningConversation =
-		roadmap.status === "draft" && conversation?.sessionId != null;
+	// Check if this draft roadmap uses the new persona-based flow
+	const personaSessions = useRoadmapStore((s) => s.personaSessions);
+	const hasPersonaSessions = personaSessions.size > 0;
+
+	// Draft rendering:
+	// - Persona sessions exist → show PersonaDiscoveryTabs (new multi-persona flow)
+	// - No persona sessions but legacy conversation exists → show single PlanningConversation (legacy fallback)
+	// - Neither → show PersonaDiscoveryTabs (new roadmap, sessions still loading)
+	const showPersonaTabs =
+		roadmap.status === "draft" &&
+		(hasPersonaSessions || !conversation?.sessionId);
+	const showLegacyConversation =
+		roadmap.status === "draft" &&
+		!hasPersonaSessions &&
+		conversation?.sessionId != null;
 
 	const handleSelectInitiative = useCallback((initiative: Initiative) => {
 		setSelectedInitiative(initiative);
@@ -330,7 +346,9 @@ export const RoadmapView = memo(function RoadmapView({
 			</header>
 
 			{/* Content */}
-			{showPlanningConversation && conversation ? (
+			{showPersonaTabs ? (
+				<PersonaDiscoveryTabs roadmapId={roadmap.id} />
+			) : showLegacyConversation && conversation ? (
 				<PlanningConversation
 					roadmapId={roadmap.id}
 					conversation={conversation}

@@ -226,50 +226,6 @@ function wouldCreateCycle(
 }
 
 /**
- * Start an AI planning session for a roadmap.
- * Creates session, updates current_session_id on roadmap.
- */
-async function _startAiSession(
-	roadmapId: string,
-	initialPrompt?: string,
-): Promise<string> {
-	const sessionManager = getSessionManager();
-	const session = await sessionManager.startSession({
-		contextType: "roadmap",
-		contextId: roadmapId,
-		agentRole: "roadmap_planning",
-	});
-
-	const repos = getRepositories();
-	await repos.roadmaps.updateRoadmap(roadmapId, {
-		currentSessionId: session.id,
-	});
-
-	// Send the initial prompt as the first message to kick off the AI agent
-	const prompt =
-		initialPrompt ||
-		"Generate a roadmap based on the existing vision and milestones";
-	const projectRoot = findRepoRoot(process.cwd());
-	const runner = new AgentRunner(session, {
-		projectRoot,
-		conversationRepo: repos.conversations,
-	});
-
-	runner.run(prompt).catch((error) => {
-		log.agent.error(
-			`Agent run failed for roadmap session ${session.id}:`,
-			error,
-		);
-		sessionManager.errorSession(
-			session.id,
-			error instanceof Error ? error.message : "Unknown error",
-		);
-	});
-
-	return session.id;
-}
-
-/**
  * Start parallel persona planning sessions for a roadmap.
  * Creates 4 persona records and launches an agent session for each.
  * Follows the spawnReviewTasks fire-and-forget pattern.
@@ -950,6 +906,7 @@ export const roadmapRoutes = {
 		},
 	},
 
+	/** @deprecated Legacy single-agent history endpoint. Kept for backward compatibility with roadmaps created before the multi-persona flow. New roadmaps use /api/roadmaps/:id/persona-sessions instead. */
 	"/api/roadmaps/:id/history": {
 		async GET(req: Request) {
 			const params = parseParams(req, IdParamSchema);
