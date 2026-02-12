@@ -1823,8 +1823,6 @@ function handleShellApprovalNeeded(
 	set: SetState,
 	_get: GetState,
 ): void {
-	console.log("[ShellApproval] Received approval_needed:", payload);
-
 	set((state) => {
 		const pendingShellApprovals = new Map(state.pendingShellApprovals);
 		pendingShellApprovals.set(payload.approvalId, {
@@ -1836,11 +1834,6 @@ function handleShellApprovalNeeded(
 			agentRole: payload.agentRole,
 		});
 
-		console.log(
-			"[ShellApproval] Added to pendingShellApprovals, count:",
-			pendingShellApprovals.size,
-		);
-
 		return { pendingShellApprovals };
 	});
 }
@@ -1850,20 +1843,9 @@ function handleShellApprovalResolved(
 	set: SetState,
 	_get: GetState,
 ): void {
-	console.log(
-		"[ShellApproval] Resolved:",
-		payload.approvalId,
-		payload.approved ? "approved" : "denied",
-	);
-
 	set((state) => {
 		const pendingShellApprovals = new Map(state.pendingShellApprovals);
 		pendingShellApprovals.delete(payload.approvalId);
-
-		console.log(
-			"[ShellApproval] Removed from pendingShellApprovals, count:",
-			pendingShellApprovals.size,
-		);
 
 		return { pendingShellApprovals };
 	});

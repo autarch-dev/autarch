@@ -134,15 +134,6 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 					return;
 				}
 
-				// Log shell approval events for debugging
-				if (parsed.data.type.startsWith("shell:")) {
-					console.log(
-						"[WS] Shell event received:",
-						parsed.data.type,
-						parsed.data,
-					);
-				}
-
 				handleEvent(parsed.data, set, get);
 			} catch (err) {
 				console.warn("Failed to parse WebSocket message:", err);
