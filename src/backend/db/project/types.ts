@@ -40,6 +40,7 @@ export interface ProjectDatabase {
 	preflight_command_baselines: PreflightCommandBaselinesTable;
 	sessions: SessionsTable;
 	subtasks: SubtasksTable;
+	persona_roadmaps: PersonaRoadmapsTable;
 	session_notes: SessionNotesTable;
 	session_todos: SessionTodosTable;
 	turns: TurnsTable;
@@ -310,6 +311,27 @@ export interface SubtasksTable {
 	/** JSON-encoded findings/results (null until completed) */
 	findings: string | null;
 	status: SubtaskStatus;
+	created_at: number;
+	updated_at: number;
+}
+
+// =============================================================================
+// Persona Roadmaps
+// =============================================================================
+
+export type PersonaRoadmapStatus =
+	| "pending"
+	| "running"
+	| "completed"
+	| "failed";
+
+export interface PersonaRoadmapsTable {
+	id: string;
+	roadmap_id: string;
+	persona: string;
+	session_id: string | null;
+	roadmap_data: string | null;
+	status: PersonaRoadmapStatus;
 	created_at: number;
 	updated_at: number;
 }
