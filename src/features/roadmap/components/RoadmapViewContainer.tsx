@@ -26,7 +26,7 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 			roadmap: s.roadmaps.find((r) => r.id === roadmapId),
 			roadmapsLoading: s.roadmapsLoading,
 			details: s.roadmapDetails.get(roadmapId),
-			conversation: s.conversations.get(roadmapId),
+			conversation: s.getConversation(roadmapId),
 		})),
 	);
 
