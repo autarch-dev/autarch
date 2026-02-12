@@ -39,15 +39,27 @@ export class CostCalculator {
 		}
 
 		// Special case for long context pricing for Anthropic
-		if (promptTokens > 200_000 && model.data === 'claude-opus-4-6') {
-			return (promptTokens / 1_000_000) * 10 + (completionTokens / 1_000_000) * cost.completionTokenCost * 37.5;
+		if (promptTokens > 200_000 && model.data === "claude-opus-4-6") {
+			return (
+				(promptTokens / 1_000_000) * 10 +
+				(completionTokens / 1_000_000) * cost.completionTokenCost * 37.5
+			);
 		}
 
-		if (promptTokens > 200_000 && (model.data === 'claude-sonnet-4-5' || model.data === 'claude-sonnet-4-0')) {
-			return (promptTokens / 1_000_000) * 6 + (completionTokens / 1_000_000) * cost.completionTokenCost * 22.5;
+		if (
+			promptTokens > 200_000 &&
+			(model.data === "claude-sonnet-4-5" || model.data === "claude-sonnet-4-0")
+		) {
+			return (
+				(promptTokens / 1_000_000) * 6 +
+				(completionTokens / 1_000_000) * cost.completionTokenCost * 22.5
+			);
 		}
 
-		return (promptTokens / 1_000_000) * cost.promptTokenCost + (completionTokens / 1_000_000) * cost.completionTokenCost;
+		return (
+			(promptTokens / 1_000_000) * cost.promptTokenCost +
+			(completionTokens / 1_000_000) * cost.completionTokenCost
+		);
 	}
 
 	/**

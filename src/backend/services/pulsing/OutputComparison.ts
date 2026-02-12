@@ -171,12 +171,14 @@ export class OutputComparisonService {
 
 		// Fast-path: if both exit codes are 0, it was a success, so they're equivalent
 		if (baseline.exit_code === 0 && current.exit_code === 0) {
-			log.workflow.debug("Fast-path: both exit codes are 0, they're equivalent");
+			log.workflow.debug(
+				"Fast-path: both exit codes are 0, they're equivalent",
+			);
 			return {
 				areEquivalent: true,
 				isStrictlyImprovement: false,
 				newIssues: [],
-			}
+			};
 		}
 
 		// Normalize outputs for comparison

@@ -34,12 +34,12 @@ export const COST_DICTIONARY = [
 		promptTokenCost: 3,
 		completionTokenCost: 15,
 	},
-    {
+	{
 		modelName: "claude-3-7-sonnet-latest",
 		promptTokenCost: 3,
 		completionTokenCost: 15,
 	},
-    {
+	{
 		modelName: "claude-3-5-haiku-latest",
 		promptTokenCost: 0.8,
 		completionTokenCost: 4,
@@ -128,20 +128,44 @@ export const COST_DICTIONARY = [
 		promptTokenCost: 0.1,
 		completionTokenCost: 0.4,
 	},
-    { "modelName": "grok-4-1-fast-reasoning", "promptTokenCost": 0.2, "completionTokenCost": 0.5 },
-  { "modelName": "grok-4-1-fast-non-reasoning", "promptTokenCost": 0.2, "completionTokenCost": 0.5 },
-  { "modelName": "grok-code-fast-1", "promptTokenCost": 0.2, "completionTokenCost": 1.5 },
-  { "modelName": "grok-4-fast-reasoning", "promptTokenCost": 0.2, "completionTokenCost": 0.5 },
-  { "modelName": "grok-4-fast-non-reasoning", "promptTokenCost": 0.2, "completionTokenCost": 0.5 },
-  { "modelName": "grok-3-mini", "promptTokenCost": 0.3, "completionTokenCost": 0.5 },
-  { "modelName": "grok-3", "promptTokenCost": 3.0, "completionTokenCost": 15.0 },
+	{
+		modelName: "grok-4-1-fast-reasoning",
+		promptTokenCost: 0.2,
+		completionTokenCost: 0.5,
+	},
+	{
+		modelName: "grok-4-1-fast-non-reasoning",
+		promptTokenCost: 0.2,
+		completionTokenCost: 0.5,
+	},
+	{
+		modelName: "grok-code-fast-1",
+		promptTokenCost: 0.2,
+		completionTokenCost: 1.5,
+	},
+	{
+		modelName: "grok-4-fast-reasoning",
+		promptTokenCost: 0.2,
+		completionTokenCost: 0.5,
+	},
+	{
+		modelName: "grok-4-fast-non-reasoning",
+		promptTokenCost: 0.2,
+		completionTokenCost: 0.5,
+	},
+	{ modelName: "grok-3-mini", promptTokenCost: 0.3, completionTokenCost: 0.5 },
+	{ modelName: "grok-3", promptTokenCost: 3.0, completionTokenCost: 15.0 },
 ] as const satisfies {
 	modelName: ModelName;
 	promptTokenCost: number;
 	completionTokenCost: number;
 }[];
 
-type MissingModels = Exclude<ModelName, (typeof COST_DICTIONARY)[number]["modelName"]>;
+type MissingModels = Exclude<
+	ModelName,
+	(typeof COST_DICTIONARY)[number]["modelName"]
+>;
 
 // If any modelName from the schema is missing, this will error.
-const _assertAllModelsCovered: MissingModels extends never ? true : never = true;
+const _assertAllModelsCovered: MissingModels extends never ? true : never =
+	true;
