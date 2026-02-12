@@ -8,6 +8,8 @@
 import { create } from "zustand";
 import type { ChannelMessage, MessageQuestion } from "@/shared/schemas/channel";
 import type {
+	CredentialPromptNeededPayload,
+	CredentialPromptResolvedPayload,
 	PreflightCompletedPayload,
 	PreflightFailedPayload,
 	PreflightStartedPayload,
@@ -58,6 +60,12 @@ export interface StreamingSegment {
 	index: number;
 	content: string;
 	isComplete: boolean;
+}
+
+/** Pending credential prompt state */
+export interface PendingCredentialPrompt {
+	promptId: string;
+	prompt: string;
 }
 
 /** Pending shell approval state */
@@ -153,6 +161,9 @@ interface WorkflowsState {
 	// Pending shell approvals (keyed by approvalId)
 	pendingShellApprovals: Map<string, PendingShellApproval>;
 
+	// Pending credential prompts (keyed by promptId)
+	pendingCredentialPrompts: Map<string, PendingCredentialPrompt>;
+
 	// Subtasks per workflow (keyed by workflowId)
 	subtasks: Map<string, Subtask[]>;
 
@@ -243,6 +254,7 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 	pulses: new Map(),
 	preflightSetups: new Map(),
 	pendingShellApprovals: new Map(),
+	pendingCredentialPrompts: new Map(),
 	subtasks: new Map(),
 
 	// ===========================================================================
@@ -814,6 +826,14 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				break;
 			case "shell:approval_resolved":
 				handleShellApprovalResolved(event.payload, set, get);
+				break;
+
+			// Credential prompt events
+			case "credential:prompt_needed":
+				handleCredentialPromptNeeded(event.payload, set, get);
+				break;
+			case "credential:prompt_resolved":
+				handleCredentialPromptResolved(event.payload, set, get);
 				break;
 
 			// Pulse events
@@ -1846,6 +1866,33 @@ function handleShellApprovalResolved(
 		);
 
 		return { pendingShellApprovals };
+	});
+}
+
+function handleCredentialPromptNeeded(
+	payload: CredentialPromptNeededPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const pendingCredentialPrompts = new Map(state.pendingCredentialPrompts);
+		pendingCredentialPrompts.set(payload.promptId, {
+			promptId: payload.promptId,
+			prompt: payload.prompt,
+		});
+		return { pendingCredentialPrompts };
+	});
+}
+
+function handleCredentialPromptResolved(
+	payload: CredentialPromptResolvedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const pendingCredentialPrompts = new Map(state.pendingCredentialPrompts);
+		pendingCredentialPrompts.delete(payload.promptId);
+		return { pendingCredentialPrompts };
 	});
 }
 
