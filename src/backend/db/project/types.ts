@@ -55,6 +55,8 @@ export interface ProjectDatabase {
 	vision_documents: VisionDocumentTable;
 	dependencies: DependencyTable;
 	cost_records: CostRecordsTable;
+	stage_transitions: StageTransitionsTable;
+	workflow_errors: WorkflowErrorsTable;
 }
 
 // =============================================================================
@@ -565,4 +567,29 @@ export interface CostRecordsTable {
 	completion_tokens: number;
 	cost_usd: number;
 	created_at: number;
+}
+
+// =============================================================================
+// Stage Transitions
+// =============================================================================
+
+export interface StageTransitionsTable {
+	id: string;
+	workflow_id: string;
+	previous_stage: string;
+	new_stage: string;
+	timestamp: number;
+}
+
+// =============================================================================
+// Workflow Errors
+// =============================================================================
+
+export interface WorkflowErrorsTable {
+	id: string;
+	workflow_id: string;
+	stage: string;
+	error_type: string;
+	error_message: string;
+	timestamp: number;
 }

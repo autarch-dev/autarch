@@ -41,6 +41,8 @@ import { migrate as migrate0034Subtasks } from "./0034-subtasks";
 import { migrate as migrate0035ParentSessionId } from "./0035-parent-session-id";
 import { migrate as migrate0036CostRecords } from "./0036-cost-records";
 import { migrate as migrate0037CostRecordsIndexes } from "./0037-cost-records-indexes";
+import { migrate as migrate0038StageTransitions } from "./0038-stage-transitions";
+import { migrate as migrate0039WorkflowErrors } from "./0039-workflow-errors";
 
 /**
  * Run all migrations for the project database.
@@ -102,4 +104,8 @@ export async function migrateProjectDb(
 
 	// Cost records indexes for aggregation queries (0037)
 	await migrate0037CostRecordsIndexes(db);
+
+	// Analytics tables (0038-0039)
+	await migrate0038StageTransitions(db);
+	await migrate0039WorkflowErrors(db);
 }
