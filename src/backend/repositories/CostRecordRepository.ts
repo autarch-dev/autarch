@@ -162,9 +162,7 @@ export class CostRecordRepository implements Repository {
 		let q = query;
 
 		if (filters.startDate) {
-			const startEpoch = Math.floor(
-				new Date(filters.startDate).getTime(),
-			);
+			const startEpoch = Math.floor(new Date(filters.startDate).getTime());
 			if (Number.isNaN(startEpoch)) {
 				throw new Error(`Invalid startDate: ${filters.startDate}`);
 			}
