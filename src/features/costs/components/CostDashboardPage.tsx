@@ -1,14 +1,21 @@
 /**
  * CostDashboardPage - Main cost analytics dashboard
  *
- * Reads URL query params on mount to initialize filters, then fetches all
- * cost data. Composes FilterBar and SummaryCard into a responsive layout.
+ * Reads a 'range' URL query param on mount to initialize the preset, then
+ * fetches all cost data. Renders a preset dropdown alongside the page title.
  */
 
 import { useEffect } from "react";
 import { useSearch } from "wouter";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { PRESET_LABELS, type TimeRangePreset } from "@/shared/schemas/costs";
 import { useCostStore } from "../store/costStore";
-import { FilterBar } from "./FilterBar";
 import { ModelBreakdownChart } from "./ModelBreakdownChart";
 import { RoleBreakdownChart } from "./RoleBreakdownChart";
 import { SummaryCard } from "./SummaryCard";
@@ -16,48 +23,53 @@ import { TokenUsageChart } from "./TokenUsageChart";
 import { TrendChart } from "./TrendChart";
 import { WorkflowCostTable } from "./WorkflowCostTable";
 
-/** Parse filter values from a URL search string */
-function parseFiltersFromSearch(search: string) {
-	const params = new URLSearchParams(search);
-	const filters: Record<string, string> = {};
+/** All valid preset keys for URL param validation */
+const VALID_PRESETS = new Set<string>(Object.keys(PRESET_LABELS));
 
-	const workflowId = params.get("workflowId");
-	if (workflowId) filters.workflowId = workflowId;
-
-	const startDate = params.get("startDate");
-	if (startDate) filters.startDate = startDate;
-
-	const endDate = params.get("endDate");
-	if (endDate) filters.endDate = endDate;
-
-	const modelId = params.get("modelId");
-	if (modelId) filters.modelId = modelId;
-
-	return filters;
+function isTimeRangePreset(value: string): value is TimeRangePreset {
+	return VALID_PRESETS.has(value);
 }
 
 export function CostDashboardPage() {
-	const setFilters = useCostStore((s) => s.setFilters);
+	const preset = useCostStore((s) => s.preset);
+	const setPreset = useCostStore((s) => s.setPreset);
 	const fetchAll = useCostStore((s) => s.fetchAll);
 	const search = useSearch();
 
 	useEffect(() => {
-		const filters = parseFiltersFromSearch(search);
-		// Replace filters entirely rather than merge
-		setFilters({
-			startDate: undefined,
-			endDate: undefined,
-			modelId: undefined,
-			workflowId: undefined,
-			...filters,
-		});
-		fetchAll();
-	}, [search, setFilters, fetchAll]);
+		const params = new URLSearchParams(search);
+		const range = params.get("range");
+		if (range && isTimeRangePreset(range)) {
+			setPreset(range);
+		} else {
+			fetchAll();
+		}
+	}, [search, setPreset, fetchAll]);
 
 	return (
 		<div className="flex flex-col gap-6 p-6 overflow-auto h-full">
-			<h1 className="text-2xl font-bold tracking-tight">Cost Dashboard</h1>
-			<FilterBar />
+			<div className="flex items-center gap-3">
+				<h1 className="text-2xl font-bold tracking-tight">
+					Cost Dashboard &mdash; {PRESET_LABELS[preset]}
+				</h1>
+				<Select
+					value={preset}
+					onValueChange={(v) => setPreset(v as TimeRangePreset)}
+				>
+					<SelectTrigger className="w-[180px]">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						{(Object.entries(PRESET_LABELS) as [TimeRangePreset, string][]).map(
+							([value, label]) => (
+								<SelectItem key={value} value={value}>
+									{label}
+								</SelectItem>
+							),
+						)}
+					</SelectContent>
+				</Select>
+			</div>
 			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 				<SummaryCard />
 			</div>

@@ -10,10 +10,10 @@ import type {
 	CostByModel,
 	CostByRole,
 	CostByWorkflow,
-	CostFilters,
 	CostSummary,
 	CostTokenUsage,
 	CostTrend,
+	TimeRangePreset,
 } from "@/shared/schemas/costs";
 import {
 	fetchCostByModel,
@@ -23,6 +23,7 @@ import {
 	fetchCostTokenUsage,
 	fetchCostTrends,
 } from "../api/costApi";
+import { granularityForPreset, presetToDateRange } from "../utils/presetUtils";
 
 // =============================================================================
 // Types
@@ -34,9 +35,6 @@ interface DataSection<T> {
 	loading: boolean;
 	error: string | null;
 }
-
-/** Granularity for trend data */
-type Granularity = "daily" | "weekly";
 
 // =============================================================================
 // Store State
@@ -52,12 +50,10 @@ interface CostDashboardState {
 	byWorkflow: DataSection<CostByWorkflow>;
 
 	// Filters
-	filters: CostFilters;
-	granularity: Granularity;
+	preset: TimeRangePreset;
 
 	// Actions
-	setFilters: (partial: Partial<CostFilters>) => void;
-	setGranularity: (granularity: Granularity) => void;
+	setPreset: (preset: TimeRangePreset) => void;
 	fetchAll: () => Promise<void>;
 	fetchSummary: () => Promise<void>;
 	fetchByModel: () => Promise<void>;
@@ -97,21 +93,15 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 	tokens: initialSection(),
 	byWorkflow: initialSection(),
 
-	filters: {},
-	granularity: "daily",
+	preset: "last30",
 
 	// ---------------------------------------------------------------------------
 	// Actions - Filters
 	// ---------------------------------------------------------------------------
 
-	setFilters: (partial) => {
-		set((state) => ({
-			filters: { ...state.filters, ...partial },
-		}));
-	},
-
-	setGranularity: (granularity) => {
-		set({ granularity });
+	setPreset: (preset) => {
+		set({ preset });
+		get().fetchAll();
 	},
 
 	// ---------------------------------------------------------------------------
@@ -146,7 +136,7 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 		const id = _fetchId;
 		set((s) => ({ summary: { ...s.summary, loading: true, error: null } }));
 		try {
-			const data = await fetchCostSummary(get().filters);
+			const data = await fetchCostSummary(presetToDateRange(get().preset));
 			if (_fetchId !== id) return;
 			set({ summary: { data, loading: false, error: null } });
 		} catch (error) {
@@ -165,7 +155,7 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 		const id = _fetchId;
 		set((s) => ({ byModel: { ...s.byModel, loading: true, error: null } }));
 		try {
-			const data = await fetchCostByModel(get().filters);
+			const data = await fetchCostByModel(presetToDateRange(get().preset));
 			if (_fetchId !== id) return;
 			set({ byModel: { data, loading: false, error: null } });
 		} catch (error) {
@@ -184,7 +174,7 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 		const id = _fetchId;
 		set((s) => ({ byRole: { ...s.byRole, loading: true, error: null } }));
 		try {
-			const data = await fetchCostByRole(get().filters);
+			const data = await fetchCostByRole(presetToDateRange(get().preset));
 			if (_fetchId !== id) return;
 			set({ byRole: { data, loading: false, error: null } });
 		} catch (error) {
@@ -203,7 +193,10 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 		const id = _fetchId;
 		set((s) => ({ trends: { ...s.trends, loading: true, error: null } }));
 		try {
-			const data = await fetchCostTrends(get().filters, get().granularity);
+			const data = await fetchCostTrends(
+				presetToDateRange(get().preset),
+				granularityForPreset(get().preset),
+			);
 			if (_fetchId !== id) return;
 			set({ trends: { data, loading: false, error: null } });
 		} catch (error) {
@@ -222,7 +215,7 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 		const id = _fetchId;
 		set((s) => ({ tokens: { ...s.tokens, loading: true, error: null } }));
 		try {
-			const data = await fetchCostTokenUsage(get().filters);
+			const data = await fetchCostTokenUsage(presetToDateRange(get().preset));
 			if (_fetchId !== id) return;
 			set({ tokens: { data, loading: false, error: null } });
 		} catch (error) {
@@ -243,7 +236,7 @@ export const useCostStore = create<CostDashboardState>((set, get) => ({
 			byWorkflow: { ...s.byWorkflow, loading: true, error: null },
 		}));
 		try {
-			const data = await fetchCostByWorkflow(get().filters);
+			const data = await fetchCostByWorkflow(presetToDateRange(get().preset));
 			if (_fetchId !== id) return;
 			set({ byWorkflow: { data, loading: false, error: null } });
 		} catch (error) {

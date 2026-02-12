@@ -2,10 +2,11 @@
  * RoleBreakdownChart - Cost distribution by agent role
  *
  * Recharts PieChart showing how costs are distributed across agent roles.
- * Uses ROLE_DISPLAY_LABELS for human-readable slice labels and distinct
+ * Uses AGENT_ROLE_DISPLAY_LABELS for human-readable slice labels and distinct
  * colors per entry via Recharts Cell elements.
  */
 
+import { useMemo } from "react";
 import {
 	Cell,
 	Legend,
@@ -15,8 +16,7 @@ import {
 	Tooltip,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ROLE_DISPLAY_LABELS } from "@/shared/schemas/costs";
-import type { ModelScenario } from "@/shared/schemas/settings";
+import { AGENT_ROLE_DISPLAY_LABELS } from "@/shared/schemas/costs";
 import { useCostStore } from "../store/costStore";
 
 const COLORS = [
@@ -33,9 +33,34 @@ const COLORS = [
 export function RoleBreakdownChart() {
 	const { data, loading, error } = useCostStore((s) => s.byRole);
 
-	const chartData = (data ?? []).map((entry) => ({
-		name:
-			ROLE_DISPLAY_LABELS[entry.agentRole as ModelScenario] ?? entry.agentRole,
+	const aggregated = useMemo(() => {
+		const entries = data ?? [];
+		const reviewSubs = entries.filter((e) => e.agentRole === "review_sub");
+		if (reviewSubs.length === 0) return entries;
+
+		const others = entries.filter((e) => e.agentRole !== "review_sub");
+		const reviewEntry = others.find((e) => e.agentRole === "review");
+
+		const merged = {
+			agentRole: "review" as const,
+			totalCost: reviewEntry?.totalCost ?? 0,
+			promptTokens: reviewEntry?.promptTokens ?? 0,
+			completionTokens: reviewEntry?.completionTokens ?? 0,
+		};
+		for (const sub of reviewSubs) {
+			merged.totalCost += sub.totalCost;
+			merged.promptTokens += sub.promptTokens;
+			merged.completionTokens += sub.completionTokens;
+		}
+
+		if (reviewEntry) {
+			return others.map((e) => (e.agentRole === "review" ? merged : e));
+		}
+		return [...others, merged];
+	}, [data]);
+
+	const chartData = aggregated.map((entry) => ({
+		name: AGENT_ROLE_DISPLAY_LABELS[entry.agentRole] ?? entry.agentRole,
 		value: entry.totalCost,
 	}));
 
@@ -63,7 +88,7 @@ export function RoleBreakdownChart() {
 								cx="50%"
 								cy="50%"
 								outerRadius={100}
-								label
+								label={({ value }) => `$${Number(value).toFixed(2)}`}
 							>
 								{chartData.map((entry, index) => (
 									<Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
