@@ -111,7 +111,7 @@ Provide:
 								const timeoutId = setTimeout(() => {
 									proc.kill();
 									reject(new Error("Command timed out"));
-								}, 30_000);
+								}, 180_000);
 								// Clean up if the command finishes first
 								proc.exited.then(() => clearTimeout(timeoutId));
 							}),
