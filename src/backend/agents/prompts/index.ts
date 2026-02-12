@@ -10,6 +10,11 @@ export { preflightPrompt } from "./preflight";
 export { getResearchPrompt } from "./research";
 export { reviewPrompt } from "./review";
 export { reviewSubPrompt } from "./reviewSub";
+export { iterativeImprovementsPrompt } from "./roadmap/iterative";
+export { strategicPathfinderPrompt } from "./roadmap/pathfinder";
+export { synthesisMediatorPrompt } from "./roadmap/synthesis";
+export { techLeadPrompt } from "./roadmap/techLead";
+export { visionaryFounderPrompt } from "./roadmap/visionary";
 export { roadmapPlanningPrompt } from "./roadmapPlanning";
 export { scopingPrompt } from "./scoping";
 
@@ -22,6 +27,11 @@ import { preflightPrompt } from "./preflight";
 import { getResearchPrompt } from "./research";
 import { reviewPrompt } from "./review";
 import { reviewSubPrompt } from "./reviewSub";
+import { iterativeImprovementsPrompt } from "./roadmap/iterative";
+import { strategicPathfinderPrompt } from "./roadmap/pathfinder";
+import { synthesisMediatorPrompt } from "./roadmap/synthesis";
+import { techLeadPrompt } from "./roadmap/techLead";
+import { visionaryFounderPrompt } from "./roadmap/visionary";
 import { roadmapPlanningPrompt } from "./roadmapPlanning";
 import { scopingPrompt } from "./scoping";
 
@@ -37,11 +47,11 @@ export const agentPrompts = {
 	review: () => reviewPrompt,
 	review_sub: reviewSubPrompt,
 	roadmap_planning: () => roadmapPlanningPrompt,
-	visionary: () => roadmapPlanningPrompt,
-	iterative: () => roadmapPlanningPrompt,
-	tech_lead: () => roadmapPlanningPrompt,
-	pathfinder: () => roadmapPlanningPrompt,
-	synthesis: () => roadmapPlanningPrompt,
+	visionary: () => visionaryFounderPrompt,
+	iterative: () => iterativeImprovementsPrompt,
+	tech_lead: () => techLeadPrompt,
+	pathfinder: () => strategicPathfinderPrompt,
+	synthesis: () => synthesisMediatorPrompt,
 } as const satisfies Record<AgentRole, (options: AgentPromptOptions) => string>;
 
 /** Get the system prompt for an agent role */
