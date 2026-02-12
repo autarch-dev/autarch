@@ -84,7 +84,6 @@ export function roadmapToMarkdown(
 	if (roadmap.description) {
 		lines.push("");
 		lines.push(roadmap.description);
-		lines.push("");
 	}
 
 	lines.push("");
