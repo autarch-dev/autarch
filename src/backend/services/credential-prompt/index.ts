@@ -92,13 +92,16 @@ export async function createAskpassContext(
 		scriptPath = join(tmpdir(), `autarch-askpass-${nonce}.cmd`);
 		// Use -EncodedCommand to avoid issues with single quotes and special
 		// characters in git prompt text (e.g., "Password for 'https://user@host':")
-		const psCommand = `$r = Invoke-WebRequest -Uri 'http://127.0.0.1:${serverPort}/api/credential-prompt' -Method POST -Headers @{'X-Askpass-Nonce'='${nonce}';'Content-Type'='text/plain'} -Body $args[0] -UseBasicParsing; $r.Content`;
+		// The prompt is passed via ASKPASS_PROMPT env var because -EncodedCommand
+		// does not support passing arguments ($args will be empty).
+		const psCommand = `$r = Invoke-WebRequest -Uri 'http://127.0.0.1:${serverPort}/api/credential-prompt' -Method POST -Headers @{'X-Askpass-Nonce'='${nonce}';'Content-Type'='text/plain'} -Body $env:ASKPASS_PROMPT -UseBasicParsing; $r.Content`;
 		const encodedCommand = Buffer.from(psCommand, "utf-16le").toString(
 			"base64",
 		);
 		const script = [
 			"@echo off",
-			`powershell -EncodedCommand ${encodedCommand} -- %*`,
+			`set "ASKPASS_PROMPT=%~1"`,
+			`powershell -EncodedCommand ${encodedCommand}`,
 		].join("\r\n");
 		await writeFile(scriptPath, script, "utf-8");
 	} else {

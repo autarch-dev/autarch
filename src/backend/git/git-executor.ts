@@ -39,6 +39,8 @@ export async function execGit(
 					GIT_ASKPASS: askpassCtx.scriptPath,
 					SSH_ASKPASS: askpassCtx.scriptPath,
 					SSH_ASKPASS_REQUIRE: "force",
+					// Prevent git from attempting terminal-based credential prompting
+					GIT_TERMINAL_PROMPT: "0",
 					// DISPLAY must be non-empty for SSH_ASKPASS on older OpenSSH (<8.4); value is unused
 					DISPLAY: ":0",
 				}

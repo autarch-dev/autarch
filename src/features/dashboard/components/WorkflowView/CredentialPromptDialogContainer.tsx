@@ -45,8 +45,8 @@ export function CredentialPromptDialogContainer() {
 				},
 			);
 			if (!response.ok) {
-				const errorText = await response.text();
-				console.error("Failed to submit credential:", errorText);
+				const errorBody = await response.json();
+				console.error("Failed to submit credential:", errorBody.error);
 				setError("Failed to submit credential. The prompt may have expired.");
 			}
 		} catch (err) {
@@ -67,8 +67,8 @@ export function CredentialPromptDialogContainer() {
 				},
 			);
 			if (!response.ok) {
-				const errorText = await response.text();
-				console.error("Failed to cancel credential prompt:", errorText);
+				const errorBody = await response.json();
+				console.error("Failed to cancel credential prompt:", errorBody.error);
 				setError("Failed to cancel prompt. The prompt may have expired.");
 			}
 		} catch (err) {
