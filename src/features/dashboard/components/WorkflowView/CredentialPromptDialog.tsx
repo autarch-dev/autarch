@@ -85,7 +85,7 @@ export function CredentialPromptDialog({
 
 				<div className="py-2">
 					<Input
-						type="password"
+						type={/^Username/i.test(prompt) ? "text" : "password"}
 						value={inputValue}
 						onChange={(e) => setInputValue(e.target.value)}
 						onKeyDown={handleKeyDown}

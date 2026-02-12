@@ -461,7 +461,7 @@ export async function mergeWorkflowBranch(
 				cwd: mergePath,
 				askpass: true,
 			});
-			if (pushResult.exitCode !== 0) {
+			if (!pushResult.success) {
 				log.git.warn(
 					`Push to origin failed (exit ${pushResult.exitCode}): ${pushResult.stderr}. Local merge succeeded, push skipped.`,
 				);

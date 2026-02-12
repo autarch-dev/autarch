@@ -39,6 +39,7 @@ export async function execGit(
 					GIT_ASKPASS: askpassCtx.scriptPath,
 					SSH_ASKPASS: askpassCtx.scriptPath,
 					SSH_ASKPASS_REQUIRE: "force",
+					// DISPLAY must be non-empty for SSH_ASKPASS on older OpenSSH (<8.4); value is unused
 					DISPLAY: ":0",
 				}
 			: {};

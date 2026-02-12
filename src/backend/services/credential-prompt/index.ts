@@ -52,6 +52,9 @@ const pendingPrompts = new Map<string, PendingCredentialPrompt>();
 /** Active nonces for currently-running git commands */
 const activeNonces = new Set<string>();
 
+/** Tracks which promptIds belong to each nonce, so cleanup can resolve stale prompts */
+const nonceToPromptIds = new Map<string, Set<string>>();
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -75,9 +78,15 @@ export async function createAskpassContext(
 
 	if (platform === "win32") {
 		scriptPath = join(tmpdir(), `autarch-askpass-${nonce}.cmd`);
+		// Use -EncodedCommand to avoid issues with single quotes and special
+		// characters in git prompt text (e.g., "Password for 'https://user@host':")
+		const psCommand = `$r = Invoke-WebRequest -Uri 'http://127.0.0.1:${serverPort}/api/credential-prompt' -Method POST -Headers @{'X-Askpass-Nonce'='${nonce}';'Content-Type'='text/plain'} -Body $args[0] -UseBasicParsing; $r.Content`;
+		const encodedCommand = Buffer.from(psCommand, "utf-16le").toString(
+			"base64",
+		);
 		const script = [
 			"@echo off",
-			`powershell -Command "$r = Invoke-WebRequest -Uri 'http://127.0.0.1:${serverPort}/api/credential-prompt' -Method POST -Headers @{'X-Askpass-Nonce'='${nonce}';'Content-Type'='text/plain'} -Body $args[0] -UseBasicParsing; $r.Content"`,
+			`powershell -EncodedCommand ${encodedCommand}`,
 		].join("\r\n");
 		await writeFile(scriptPath, script, "utf-8");
 	} else {
@@ -96,6 +105,25 @@ export async function createAskpassContext(
 
 	const cleanup = async () => {
 		activeNonces.delete(nonce);
+
+		// Resolve any pending prompts for this nonce so the UI doesn't show stale dialogs
+		const promptIds = nonceToPromptIds.get(nonce);
+		if (promptIds) {
+			for (const promptId of promptIds) {
+				const pending = pendingPrompts.get(promptId);
+				if (pending) {
+					log.git.info(
+						`Cleaning up stale credential prompt on nonce cleanup: ${promptId}`,
+					);
+					clearTimeout(pending.timer);
+					pending.resolve(null);
+					pendingPrompts.delete(promptId);
+					broadcast(createCredentialPromptResolvedEvent({ promptId }));
+				}
+			}
+			nonceToPromptIds.delete(nonce);
+		}
+
 		try {
 			await unlink(scriptPath);
 		} catch (err: unknown) {
@@ -135,6 +163,14 @@ export function requestCredential(
 	}
 
 	const promptId = crypto.randomUUID();
+
+	// Track this promptId under its nonce so cleanup can resolve it
+	let promptIds = nonceToPromptIds.get(nonce);
+	if (!promptIds) {
+		promptIds = new Set();
+		nonceToPromptIds.set(nonce, promptIds);
+	}
+	promptIds.add(promptId);
 
 	log.git.info(
 		`Credential prompt requested: "${prompt}" (promptId: ${promptId})`,
