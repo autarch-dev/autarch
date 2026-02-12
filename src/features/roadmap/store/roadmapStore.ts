@@ -78,11 +78,13 @@ export interface StreamingMessage {
 }
 
 /** Persona name literals for the 4 discovery personas */
-export type PersonaName =
-	| "visionary"
-	| "iterative"
-	| "tech_lead"
-	| "pathfinder";
+export const PERSONA_NAMES = [
+	"visionary",
+	"iterative",
+	"tech_lead",
+	"pathfinder",
+] as const;
+export type PersonaName = (typeof PERSONA_NAMES)[number];
 
 /** Tab name including synthesis */
 export type PersonaTab = PersonaName | "synthesis";
@@ -986,9 +988,10 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 
 	getConversation: (roadmapId: string) => {
 		const { conversations, roadmaps } = get();
-		// Search conversations for one with matching roadmapId field
+		// Search conversations for one with matching roadmapId field,
+		// filtering out persona conversations to return only the main/synthesis conversation
 		for (const conv of conversations.values()) {
-			if (conv.roadmapId === roadmapId) {
+			if (conv.roadmapId === roadmapId && !conv.persona) {
 				return conv;
 			}
 		}
@@ -1115,13 +1118,15 @@ function handleSessionStarted(
 		const persona = payload.agentRole ?? "unknown";
 
 		set((state) => {
-			// Try to resolve roadmapId from an existing persona session for the same persona
-			// (populated by fetchPersonaSessions if it ran before this WS event)
-			let roadmapId: string | undefined;
-			for (const [, ps] of state.personaSessions) {
-				if (ps.persona === persona && ps.roadmapId) {
-					roadmapId = ps.roadmapId;
-					break;
+			// Use roadmapId from the session:started event payload (set by backend).
+			// Falls back to searching existing personaSessions for compatibility.
+			let roadmapId: string | undefined = payload.roadmapId;
+			if (!roadmapId) {
+				for (const [, ps] of state.personaSessions) {
+					if (ps.persona === persona && ps.roadmapId) {
+						roadmapId = ps.roadmapId;
+						break;
+					}
 				}
 			}
 
@@ -1659,8 +1664,6 @@ function handlePersonaRoadmapSubmitted(
 	set: SetState,
 	_get: GetState,
 ): void {
-	const PERSONA_NAMES = ["visionary", "iterative", "tech_lead", "pathfinder"];
-
 	set((state) => {
 		const personaSessions = new Map(state.personaSessions);
 		const ps = personaSessions.get(payload.sessionId);
@@ -1672,10 +1675,13 @@ function handlePersonaRoadmapSubmitted(
 			});
 		}
 
-		// Check if all 4 personas are completed
+		// Check if all 4 personas are completed — scoped to the specific roadmapId
 		const completedPersonas = new Set<string>();
 		for (const [, session] of personaSessions) {
-			if (session.status === "completed") {
+			if (
+				session.roadmapId === payload.roadmapId &&
+				session.status === "completed"
+			) {
 				completedPersonas.add(session.persona);
 			}
 		}

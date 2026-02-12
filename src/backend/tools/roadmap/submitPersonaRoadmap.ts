@@ -107,8 +107,8 @@ This is a terminal tool — your session ends after submission.`,
 
 				// Atomically complete persona and check if all siblings are done.
 				// The transaction ensures that when two personas complete near-simultaneously,
-				// only one caller gets allDone === true.
-				const { allDone, roadmapId } = await completePersonaAndCheckDone(
+				// only one caller gets allCompleted === true.
+				const { allCompleted, roadmapId } = await completePersonaAndCheckDone(
 					db,
 					personaRoadmapId,
 					roadmapData,
@@ -130,12 +130,12 @@ This is a terminal tool — your session ends after submission.`,
 				);
 
 				log.tools.info(
-					`Persona roadmap submitted: ${persona} for roadmap ${roadmapId} (allDone=${allDone})`,
+					`Persona roadmap submitted: ${persona} for roadmap ${roadmapId} (allCompleted=${allCompleted})`,
 				);
 
-				if (allDone) {
+				if (allCompleted) {
 					log.tools.info(
-						`All personas done for roadmap ${roadmapId} — launching synthesis session`,
+						`All personas completed for roadmap ${roadmapId} — launching synthesis session`,
 					);
 					startSynthesisSession(context.projectRoot, roadmapId, db);
 				}

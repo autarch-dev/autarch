@@ -10,6 +10,7 @@
 
 import { AlertCircle, CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
+import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ChannelMessage } from "@/shared/schemas/channel";
 import {
@@ -47,16 +48,25 @@ const EMPTY_CONVERSATION: RoadmapConversationState = {
 
 type TabStatus = "running" | "questions" | "completed" | "failed" | "idle";
 
+/** Zod schema for validating persona roadmap data from the backend */
+const PersonaRoadmapDataSchema = z.object({
+	vision: z.string(),
+	milestones: z.array(
+		z.object({
+			title: z.string(),
+			description: z.string().optional(),
+			initiatives: z.array(
+				z.object({
+					title: z.string(),
+				}),
+			),
+		}),
+	),
+});
+
 /** Runtime type guard for persona roadmap data from the backend */
 function isValidRoadmapData(data: unknown): data is PersonaRoadmapData {
-	return (
-		typeof data === "object" &&
-		data !== null &&
-		"vision" in data &&
-		typeof (data as Record<string, unknown>).vision === "string" &&
-		"milestones" in data &&
-		Array.isArray((data as Record<string, unknown>).milestones)
-	);
+	return PersonaRoadmapDataSchema.safeParse(data).success;
 }
 
 /** Derive the tab status from a persona session and its conversation state */
@@ -156,12 +166,26 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 		return map;
 	}, [personaSessions]);
 
-	// Determine if all 4 personas are completed
-	const allPersonasComplete = useMemo(() => {
+	// Determine if all 4 personas have reached a terminal state
+	const allPersonasTerminal = useMemo(() => {
 		return PERSONA_TABS.every((p) => {
 			const status = personaSessionMap.get(p.value)?.status;
 			return status === "completed" || status === "failed";
 		});
+	}, [personaSessionMap]);
+
+	// Check if all 4 personas completed successfully (no failures)
+	const allPersonasCompleted = useMemo(() => {
+		return PERSONA_TABS.every(
+			(p) => personaSessionMap.get(p.value)?.status === "completed",
+		);
+	}, [personaSessionMap]);
+
+	// Check if any persona failed
+	const hasFailedPersonas = useMemo(() => {
+		return PERSONA_TABS.some(
+			(p) => personaSessionMap.get(p.value)?.status === "failed",
+		);
 	}, [personaSessionMap]);
 
 	// Synthesis conversation state
@@ -191,9 +215,10 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 	const handleSendMessage = useCallback(
 		async (sessionId: string, content: string) => {
 			// Optimistically add the user message
+			const tempId = crypto.randomUUID();
 			const userMessage: ChannelMessage = {
-				id: `temp_${Date.now()}`,
-				turnId: `temp_${Date.now()}`,
+				id: `temp_${tempId}`,
+				turnId: `temp_${tempId}`,
 				role: "user",
 				segments: [{ index: 0, content }],
 				timestamp: Date.now(),
@@ -247,7 +272,7 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 							</TabsTrigger>
 						);
 					})}
-					<TabsTrigger value="synthesis" disabled={!allPersonasComplete}>
+					<TabsTrigger value="synthesis" disabled={!allPersonasTerminal}>
 						Synthesis
 						<TabStatusIcon status={synthesisStatus} />
 					</TabsTrigger>
@@ -308,6 +333,15 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 								: "full"
 						}
 					/>
+				) : allPersonasTerminal && hasFailedPersonas ? (
+					<div className="flex flex-col items-center justify-center py-16 text-center px-4 gap-3">
+						<XCircle className="size-8 text-red-500" />
+						<p className="text-muted-foreground text-sm">
+							{allPersonasCompleted
+								? "The synthesis agent will start once all personas have submitted their roadmaps."
+								: "One or more persona agents failed. Synthesis cannot proceed with incomplete results. Please try generating the roadmap again."}
+						</p>
+					</div>
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center px-4">
 						<p className="text-muted-foreground text-sm">

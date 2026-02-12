@@ -174,6 +174,8 @@ export const SessionStartedPayloadSchema = z.object({
 	contextType: SessionContextTypeSchema,
 	contextId: z.string(),
 	agentRole: z.string(),
+	/** Parent roadmap ID — included for persona/synthesis sessions so the frontend can associate them without a race */
+	roadmapId: z.string().optional(),
 });
 export type SessionStartedPayload = z.infer<typeof SessionStartedPayloadSchema>;
 

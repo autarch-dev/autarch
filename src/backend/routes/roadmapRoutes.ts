@@ -28,7 +28,9 @@ import { log } from "../logger";
 import { getRepositories } from "../repositories";
 import {
 	createPersonaRoadmaps,
+	failPersonaAndCheckDone,
 	getPersonaRoadmaps,
+	startSynthesisSession,
 	updatePersonaSession,
 } from "../services/personaRoadmaps";
 import { broadcast } from "../ws";
@@ -252,6 +254,7 @@ async function startPersonaSessions(
 				contextType: "persona",
 				contextId: persona.id,
 				agentRole: persona.persona as AgentRole,
+				roadmapId,
 			});
 
 			await updatePersonaSession(db, persona.id, session.id);
@@ -271,6 +274,24 @@ async function startPersonaSessions(
 					`Persona ${persona.persona} session ${session.id} failed: ${errorMsg}`,
 				);
 				sessionManager.errorSession(session.id, errorMsg);
+
+				// Mark the persona_roadmaps record as failed and check if all siblings are terminal
+				const { allCompleted, allTerminal } = await failPersonaAndCheckDone(
+					db,
+					persona.id,
+				);
+
+				if (allTerminal && allCompleted) {
+					log.agent.info(
+						`All personas completed for roadmap ${roadmapId} — launching synthesis session`,
+					);
+					startSynthesisSession(projectRoot, roadmapId, db);
+				} else if (allTerminal) {
+					log.agent.info(
+						`All personas terminal for roadmap ${roadmapId} (some failed) — launching synthesis with partial results`,
+					);
+					startSynthesisSession(projectRoot, roadmapId, db);
+				}
 			});
 		} catch (err) {
 			await db

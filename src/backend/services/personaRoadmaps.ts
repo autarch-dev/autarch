@@ -45,8 +45,10 @@ export interface PersonaRoadmapRow {
 }
 
 export interface PersonaCompletionResult {
-	/** Whether all 4 persona roadmaps have completed */
-	allDone: boolean;
+	/** Whether all 4 persona roadmaps are in a terminal state (completed or failed) */
+	allTerminal: boolean;
+	/** Whether all 4 persona roadmaps completed successfully (none failed) */
+	allCompleted: boolean;
 	/** The parent roadmap ID */
 	roadmapId: string;
 }
@@ -121,7 +123,15 @@ function formatSynthesisMessage(rows: PersonaRoadmapsTable[]): string {
 				if (Array.isArray(m.initiatives)) {
 					for (const initiative of m.initiatives) {
 						const ini = initiative as Record<string, unknown>;
-						sections.push(`      • ${ini.title ?? "Untitled initiative"}`);
+						const parts: string[] = [
+							String(ini.title ?? "Untitled initiative"),
+						];
+						if (ini.priority) parts.push(`[Priority: ${String(ini.priority)}]`);
+						if (ini.size) parts.push(`[Size: ${String(ini.size)}]`);
+						sections.push(`      • ${parts.join(" ")}`);
+						if (ini.description) {
+							sections.push(`        ${String(ini.description)}`);
+						}
 					}
 				}
 			}
@@ -241,7 +251,11 @@ export async function completePersonaAndCheckDone(
 				.select("roadmap_id")
 				.where("id", "=", personaRoadmapId)
 				.executeTakeFirstOrThrow();
-			return { allDone: false, roadmapId: row.roadmap_id };
+			return {
+				allTerminal: false,
+				allCompleted: false,
+				roadmapId: row.roadmap_id,
+			};
 		}
 
 		// 2. Read back the completed row for the roadmap_id
@@ -265,9 +279,19 @@ export async function completePersonaAndCheckDone(
 			.where("status", "not in", ["completed", "failed"])
 			.executeTakeFirstOrThrow();
 
-		const allDone = Number(pendingCount.count) === 0;
+		const allTerminal = Number(pendingCount.count) === 0;
 
-		return { allDone, roadmapId: row.roadmap_id };
+		// Also check if any siblings have failed
+		const failedCount = await tx
+			.selectFrom("persona_roadmaps")
+			.select(tx.fn.countAll().as("count"))
+			.where("roadmap_id", "=", row.roadmap_id)
+			.where("status", "=", "failed")
+			.executeTakeFirstOrThrow();
+
+		const allCompleted = allTerminal && Number(failedCount.count) === 0;
+
+		return { allTerminal, allCompleted, roadmapId: row.roadmap_id };
 	});
 
 	return result;
@@ -308,6 +332,74 @@ export async function getPersonaRoadmap(
 }
 
 /**
+ * Atomically mark a persona roadmap as failed and check whether all siblings are terminal.
+ *
+ * Mirrors completePersonaAndCheckDone but sets status to 'failed' without roadmap data.
+ * Used when a persona agent crashes mid-run.
+ */
+export async function failPersonaAndCheckDone(
+	db: ProjectDb,
+	personaRoadmapId: string,
+): Promise<PersonaCompletionResult> {
+	const now = Date.now();
+
+	const result = await db.transaction().execute(async (tx) => {
+		// 1. Mark the persona roadmap as failed (only if still running — idempotency guard)
+		const updateResult = await tx
+			.updateTable("persona_roadmaps")
+			.set({
+				status: "failed",
+				updated_at: now,
+			})
+			.where("id", "=", personaRoadmapId)
+			.where("status", "in", ["pending", "running"])
+			.execute();
+
+		// If no rows updated, the persona was already completed/failed — skip re-evaluation
+		if (Number(updateResult[0]?.numUpdatedRows ?? 0) === 0) {
+			const row = await tx
+				.selectFrom("persona_roadmaps")
+				.select("roadmap_id")
+				.where("id", "=", personaRoadmapId)
+				.executeTakeFirstOrThrow();
+			return {
+				allTerminal: false,
+				allCompleted: false,
+				roadmapId: row.roadmap_id,
+			};
+		}
+
+		// 2. Read back the row for the roadmap_id
+		const row = await tx
+			.selectFrom("persona_roadmaps")
+			.selectAll()
+			.where("id", "=", personaRoadmapId)
+			.executeTakeFirst();
+
+		if (!row) {
+			throw new Error(
+				`Persona roadmap ${personaRoadmapId} not found after update`,
+			);
+		}
+
+		// 3. Count siblings still in non-terminal state (pending or running)
+		const pendingCount = await tx
+			.selectFrom("persona_roadmaps")
+			.select(tx.fn.countAll().as("count"))
+			.where("roadmap_id", "=", row.roadmap_id)
+			.where("status", "not in", ["completed", "failed"])
+			.executeTakeFirstOrThrow();
+
+		const allTerminal = Number(pendingCount.count) === 0;
+
+		// This one just failed, so allCompleted is always false
+		return { allTerminal, allCompleted: false, roadmapId: row.roadmap_id };
+	});
+
+	return result;
+}
+
+/**
  * Start a synthesis session after all 4 persona roadmaps have completed.
  *
  * Retrieves all completed persona roadmaps, formats them into a structured
@@ -329,11 +421,17 @@ export function startSynthesisSession(
 		.orderBy("persona", "asc")
 		.execute()
 		.then(async (rows) => {
-			if (rows.length < PERSONAS.length) {
+			if (rows.length === 0) {
 				log.tools.error(
-					`Cannot start synthesis for roadmap ${roadmapId}: only ${rows.length}/${PERSONAS.length} personas completed`,
+					`Cannot start synthesis for roadmap ${roadmapId}: no personas completed successfully`,
 				);
 				return;
+			}
+
+			if (rows.length < PERSONAS.length) {
+				log.tools.warn(
+					`Starting synthesis for roadmap ${roadmapId} with partial results: ${rows.length}/${PERSONAS.length} personas completed`,
+				);
 			}
 
 			const message = formatSynthesisMessage(rows);
@@ -342,6 +440,7 @@ export function startSynthesisSession(
 				contextType: "roadmap",
 				contextId: roadmapId,
 				agentRole: "synthesis",
+				roadmapId,
 			});
 
 			const { conversations: conversationRepo } = getRepositories();
