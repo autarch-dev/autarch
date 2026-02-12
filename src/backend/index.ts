@@ -7,6 +7,7 @@ import { log } from "./logger";
 import { initProjectRoot } from "./projectRoot";
 import { initRepositories } from "./repositories";
 import { agentRoutes, settingsRoutes } from "./routes";
+import { initServerPort } from "./serverPort";
 import { startWatching } from "./services/embedding";
 import { handleClose, handleMessage, handleOpen } from "./ws";
 
@@ -52,6 +53,7 @@ const server = serve({
 });
 
 serverRef = server;
+initServerPort(Number(new URL(server.url).port));
 
 // Find project root first - required for agent system
 // Accepts an optional positional CLI argument for the target project directory
