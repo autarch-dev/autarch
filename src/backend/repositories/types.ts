@@ -28,6 +28,7 @@ export interface Repository {
 // Repository Factory (uses concrete classes)
 // =============================================================================
 
+import type { AnalyticsRepository } from "./AnalyticsRepository";
 import type { ArtifactRepository } from "./ArtifactRepository";
 import type { ChannelRepository } from "./ChannelRepository";
 import type { ConversationRepository } from "./ConversationRepository";
@@ -41,6 +42,7 @@ import type { WorkflowRepository } from "./WorkflowRepository";
  * Factory that provides access to all repositories with a shared db instance
  */
 export interface Repositories {
+	analytics: AnalyticsRepository;
 	workflows: WorkflowRepository;
 	channels: ChannelRepository;
 	sessions: SessionRepository;
