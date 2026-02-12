@@ -33,6 +33,8 @@ import { workflowRoutes } from "./workflowRoutes";
 export const agentRoutes = {
 	...workflowRoutes,
 	...channelRoutes,
+	// Note: credentialPromptRoutes includes a POST endpoint called by the
+	// askpass shell/cmd script (not the browser). Auth middleware must not gate it.
 	...credentialPromptRoutes,
 	...sessionRoutes,
 	...questionRoutes,

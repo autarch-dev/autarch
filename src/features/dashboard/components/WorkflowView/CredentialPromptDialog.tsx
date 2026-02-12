@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 interface CredentialPromptDialogProps {
 	promptId: string;
 	prompt: string;
+	error?: string | null;
 	onSubmit: (promptId: string, credential: string) => Promise<void>;
 	onCancel: (promptId: string) => Promise<void>;
 }
@@ -29,6 +30,7 @@ interface CredentialPromptDialogProps {
 export function CredentialPromptDialog({
 	promptId,
 	prompt,
+	error,
 	onSubmit,
 	onCancel,
 }: CredentialPromptDialogProps) {
@@ -93,6 +95,7 @@ export function CredentialPromptDialog({
 						disabled={isSubmitting}
 						autoFocus
 					/>
+					{error && <p className="mt-2 text-sm text-destructive">{error}</p>}
 				</div>
 
 				<DialogFooter>

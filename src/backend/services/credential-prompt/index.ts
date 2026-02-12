@@ -98,7 +98,7 @@ export async function createAskpassContext(
 		);
 		const script = [
 			"@echo off",
-			`powershell -EncodedCommand ${encodedCommand}`,
+			`powershell -EncodedCommand ${encodedCommand} -- %*`,
 		].join("\r\n");
 		await writeFile(scriptPath, script, "utf-8");
 	} else {
@@ -113,7 +113,7 @@ export async function createAskpassContext(
 		await chmod(scriptPath, 0o700);
 	}
 
-	log.git.info(`Created askpass script: ${scriptPath} (nonce: ${nonce})`);
+	log.git.debug(`Created askpass script: ${scriptPath} (nonce: ${nonce})`);
 
 	const cleanup = async () => {
 		activeNonces.delete(nonce);
