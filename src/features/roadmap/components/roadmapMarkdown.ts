@@ -122,7 +122,10 @@ export function roadmapToMarkdown(
 				milestones,
 				initiatives,
 			);
-			const deps = depNames.length > 0 ? depNames.join(", ") : "\u2014";
+			const deps =
+				depNames.length > 0
+					? depNames.map((n) => n.replace(/\|/g, "\\|")).join(", ")
+					: "\u2014";
 
 			lines.push(`| ${title} | ${status} | ${priority} | ${size} | ${deps} |`);
 		}
