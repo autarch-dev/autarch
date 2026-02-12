@@ -5,6 +5,11 @@
  * depend on this foundation layer.
  */
 
+import { getServerPort } from "@/backend/serverPort";
+import {
+	type AskpassContext,
+	createAskpassContext,
+} from "@/backend/services/credential-prompt";
 import type { GitResult } from "./types";
 
 // =============================================================================
@@ -16,29 +21,57 @@ import type { GitResult } from "./types";
  */
 export async function execGit(
 	args: string[],
-	options: { cwd?: string; env?: Record<string, string> } = {},
+	options: {
+		cwd?: string;
+		env?: Record<string, string>;
+		askpass?: boolean;
+	} = {},
 ): Promise<GitResult> {
-	const proc = Bun.spawn(["git", ...args], {
-		cwd: options.cwd,
-		env: { ...process.env, ...options.env },
-		stdin: "ignore",
-		stdout: "pipe",
-		stderr: "pipe",
-	});
+	let askpassCtx: AskpassContext | null = null;
 
-	const [stdout, stderr] = await Promise.all([
-		new Response(proc.stdout).text(),
-		new Response(proc.stderr).text(),
-	]);
+	if (options.askpass) {
+		askpassCtx = await createAskpassContext(getServerPort());
+	}
 
-	const exitCode = await proc.exited;
+	try {
+		const askpassEnv = askpassCtx
+			? {
+					GIT_ASKPASS: askpassCtx.scriptPath,
+					SSH_ASKPASS: askpassCtx.scriptPath,
+					SSH_ASKPASS_REQUIRE: "force",
+					// Prevent git from attempting terminal-based credential prompting
+					GIT_TERMINAL_PROMPT: "0",
+					// DISPLAY must be non-empty for SSH_ASKPASS on older OpenSSH (<8.4); value is unused
+					DISPLAY: ":0",
+				}
+			: {};
 
-	return {
-		success: exitCode === 0,
-		stdout: stdout.trim(),
-		stderr: stderr.trim(),
-		exitCode,
-	};
+		const proc = Bun.spawn(["git", ...args], {
+			cwd: options.cwd,
+			env: { ...process.env, ...options.env, ...askpassEnv },
+			stdin: "ignore",
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+
+		const [stdout, stderr] = await Promise.all([
+			new Response(proc.stdout).text(),
+			new Response(proc.stderr).text(),
+		]);
+
+		const exitCode = await proc.exited;
+
+		return {
+			success: exitCode === 0,
+			stdout: stdout.trim(),
+			stderr: stderr.trim(),
+			exitCode,
+		};
+	} finally {
+		if (askpassCtx) {
+			await askpassCtx.cleanup();
+		}
+	}
 }
 
 /**
@@ -46,7 +79,11 @@ export async function execGit(
  */
 export async function execGitOrThrow(
 	args: string[],
-	options: { cwd?: string; env?: Record<string, string> } = {},
+	options: {
+		cwd?: string;
+		env?: Record<string, string>;
+		askpass?: boolean;
+	} = {},
 ): Promise<string> {
 	const result = await execGit(args, options);
 	if (!result.success) {

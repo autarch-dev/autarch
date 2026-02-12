@@ -1,7 +1,11 @@
 import type { ServerWebSocket } from "bun";
 import type { WebSocketEvent } from "@/shared/schemas/events";
-import { createShellApprovalNeededEvent } from "@/shared/schemas/events";
+import {
+	createCredentialPromptNeededEvent,
+	createShellApprovalNeededEvent,
+} from "@/shared/schemas/events";
 import { log } from "../logger";
+import { getAllPendingPrompts } from "../services/credential-prompt";
 import { shellApprovalService } from "../services/shell-approval";
 
 // =============================================================================
@@ -32,6 +36,14 @@ export function handleOpen(ws: ServerWebSocket<unknown>): void {
 		});
 		ws.send(JSON.stringify(event));
 		log.ws.debug(`Re-sent pending shell approval ${approvalId} to new client`);
+	}
+
+	// Re-send any pending credential prompts to the newly connected client
+	const pendingCredentialPrompts = getAllPendingPrompts();
+	for (const { promptId, prompt } of pendingCredentialPrompts) {
+		const event = createCredentialPromptNeededEvent({ promptId, prompt });
+		ws.send(JSON.stringify(event));
+		log.ws.debug(`Re-sent pending credential prompt ${promptId} to new client`);
 	}
 }
 

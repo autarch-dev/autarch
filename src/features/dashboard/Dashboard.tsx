@@ -7,6 +7,7 @@ import { ChannelViewContainer } from "./components/ChannelView";
 import { CompletedWorkflowsPage } from "./components/CompletedWorkflows/CompletedWorkflowsPage";
 import { AppSidebar } from "./components/Sidebar";
 import {
+	CredentialPromptDialogContainer,
 	ShellApprovalDialogContainer,
 	WorkflowViewContainer,
 } from "./components/WorkflowView";
@@ -104,6 +105,9 @@ export function Dashboard() {
 
 			{/* Global shell approval dialog - renders when there are pending approvals */}
 			<ShellApprovalDialogContainer />
+
+			{/* Global credential prompt dialog - renders when git needs credentials */}
+			<CredentialPromptDialogContainer />
 		</SidebarProvider>
 	);
 }

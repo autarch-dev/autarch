@@ -456,10 +456,23 @@ export async function mergeWorkflowBranch(
 	});
 
 	if (remoteResult.success) {
-		await execGitOrThrow(["push", "origin", baseBranch], {
-			cwd: mergePath,
-		});
-		log.git.info(`Pushed ${baseBranch} to origin`);
+		try {
+			const pushResult = await execGit(["push", "origin", baseBranch], {
+				cwd: mergePath,
+				askpass: true,
+			});
+			if (!pushResult.success) {
+				log.git.warn(
+					`Push to origin failed (exit ${pushResult.exitCode}): ${pushResult.stderr}. Local merge succeeded, push skipped.`,
+				);
+			} else {
+				log.git.info(`Pushed ${baseBranch} to origin`);
+			}
+		} catch (error) {
+			log.git.warn(
+				`Push to origin failed: ${error instanceof Error ? error.message : String(error)}. Local merge succeeded, push skipped.`,
+			);
+		}
 	}
 
 	log.git.info(
