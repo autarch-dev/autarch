@@ -109,3 +109,34 @@ export const ROLE_DISPLAY_LABELS: Record<ModelScenario, string> = {
 	review: "Review",
 	roadmap_planning: "Roadmap Planning",
 };
+
+// =============================================================================
+// Time Range Presets
+// =============================================================================
+
+export type TimeRangePreset =
+	| "today"
+	| "yesterday"
+	| "last7"
+	| "last30"
+	| "last90"
+	| "all";
+
+export const PRESET_LABELS: Record<TimeRangePreset, string> = {
+	today: "Today",
+	yesterday: "Yesterday",
+	last7: "Last 7 Days",
+	last30: "Last 30 Days",
+	last90: "Last 90 Days",
+	all: "All Time",
+};
+
+// =============================================================================
+// Agent Role Display Labels
+// =============================================================================
+
+export const AGENT_ROLE_DISPLAY_LABELS: Record<string, string> = {
+	...ROLE_DISPLAY_LABELS,
+	preflight: "Preflight",
+	review_sub: "Review Sub",
+};
