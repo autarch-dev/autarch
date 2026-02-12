@@ -4,6 +4,7 @@
  * Combines all API routes into a single export for the server.
  */
 
+export { analyticsRoutes } from "./analyticsRoutes";
 export { channelRoutes } from "./channelRoutes";
 export { costRoutes } from "./costRoutes";
 export { credentialPromptRoutes } from "./credentialPromptRoutes";
@@ -16,6 +17,7 @@ export { toolRoutes } from "./toolRoutes";
 export { workflowRoutes } from "./workflowRoutes";
 
 // Combined routes for easy import
+import { analyticsRoutes } from "./analyticsRoutes";
 import { channelRoutes } from "./channelRoutes";
 import { costRoutes } from "./costRoutes";
 import { credentialPromptRoutes } from "./credentialPromptRoutes";
@@ -32,6 +34,7 @@ import { workflowRoutes } from "./workflowRoutes";
  */
 export const agentRoutes = {
 	...workflowRoutes,
+	...analyticsRoutes,
 	...channelRoutes,
 	// Note: credentialPromptRoutes includes a POST endpoint called by the
 	// askpass shell/cmd script (not the browser). Auth middleware must not gate it.

@@ -9,6 +9,7 @@
 
 import type { Kysely } from "kysely";
 import type { ProjectDatabase } from "@/backend/db/project";
+import { AnalyticsRepository } from "./AnalyticsRepository";
 import { ArtifactRepository } from "./ArtifactRepository";
 import { ChannelRepository } from "./ChannelRepository";
 import { ConversationRepository } from "./ConversationRepository";
@@ -20,6 +21,7 @@ import type { Repositories } from "./types";
 import { WorkflowRepository } from "./WorkflowRepository";
 
 // Re-export repository classes
+export { AnalyticsRepository } from "./AnalyticsRepository";
 export { ArtifactRepository } from "./ArtifactRepository";
 export { ChannelRepository } from "./ChannelRepository";
 export { ConversationRepository } from "./ConversationRepository";
@@ -44,6 +46,7 @@ let repositoriesInstance: Repositories | null = null;
  */
 export function initRepositories(db: Kysely<ProjectDatabase>): Repositories {
 	repositoriesInstance = {
+		analytics: new AnalyticsRepository(db),
 		workflows: new WorkflowRepository(db),
 		channels: new ChannelRepository(db),
 		sessions: new SessionRepository(db),

@@ -6,6 +6,7 @@ import {
 import type { Channel } from "@/shared/schemas/channel";
 import type { Roadmap } from "@/shared/schemas/roadmap";
 import type { Workflow } from "@/shared/schemas/workflow";
+import { AnalyticsSection } from "./AnalyticsSection";
 import { DiscussionsSection } from "./DiscussionsSection";
 import { RoadmapsSection } from "./RoadmapsSection";
 import { SidebarFooter } from "./SidebarFooter";
@@ -61,6 +62,10 @@ export function AppSidebar({
 				<SidebarSeparator />
 
 				<SpendingSection />
+
+				<SidebarSeparator />
+
+				<AnalyticsSection />
 			</SidebarContent>
 
 			<SidebarFooter />

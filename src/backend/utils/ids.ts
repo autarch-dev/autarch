@@ -48,4 +48,6 @@ export const ids = {
 	dep: () => generateId("dep"),
 	subtask: () => generateId("subtask"),
 	cost: () => generateId("cost"),
+	stageTransition: () => generateId("stagetx"),
+	workflowError: () => generateId("wferror"),
 } as const;
