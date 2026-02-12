@@ -103,7 +103,7 @@ function formatSynthesisMessage(rows: PersonaRoadmapsTable[]): string {
 			}
 		}
 
-		const personaLabel = row.persona.replace("_", " ").toUpperCase();
+		const personaLabel = row.persona.replaceAll("_", " ").toUpperCase();
 		sections.push(`--- ${personaLabel} PERSONA ---`);
 
 		if (data.vision) {
@@ -146,36 +146,41 @@ export async function createPersonaRoadmaps(
 	roadmapId: string,
 ): Promise<PersonaRoadmapRow[]> {
 	const now = Date.now();
-	const rows: PersonaRoadmapRow[] = [];
 
-	for (const persona of PERSONAS) {
-		const id = generateId("persona");
+	const rows = await db.transaction().execute(async (tx) => {
+		const result: PersonaRoadmapRow[] = [];
 
-		await db
-			.insertInto("persona_roadmaps")
-			.values({
+		for (const persona of PERSONAS) {
+			const id = generateId("persona");
+
+			await tx
+				.insertInto("persona_roadmaps")
+				.values({
+					id,
+					roadmap_id: roadmapId,
+					persona,
+					session_id: null,
+					roadmap_data: null,
+					status: "pending",
+					created_at: now,
+					updated_at: now,
+				})
+				.execute();
+
+			result.push({
 				id,
-				roadmap_id: roadmapId,
+				roadmapId,
 				persona,
-				session_id: null,
-				roadmap_data: null,
+				sessionId: null,
+				roadmapData: null,
 				status: "pending",
-				created_at: now,
-				updated_at: now,
-			})
-			.execute();
+				createdAt: now,
+				updatedAt: now,
+			});
+		}
 
-		rows.push({
-			id,
-			roadmapId,
-			persona,
-			sessionId: null,
-			roadmapData: null,
-			status: "pending",
-			createdAt: now,
-			updatedAt: now,
-		});
-	}
+		return result;
+	});
 
 	return rows;
 }
@@ -217,8 +222,8 @@ export async function completePersonaAndCheckDone(
 	const roadmapDataJson = JSON.stringify(roadmapData);
 
 	const result = await db.transaction().execute(async (tx) => {
-		// 1. Mark the persona roadmap as completed
-		await tx
+		// 1. Mark the persona roadmap as completed (only if still running — idempotency guard)
+		const updateResult = await tx
 			.updateTable("persona_roadmaps")
 			.set({
 				roadmap_data: roadmapDataJson,
@@ -226,7 +231,18 @@ export async function completePersonaAndCheckDone(
 				updated_at: now,
 			})
 			.where("id", "=", personaRoadmapId)
+			.where("status", "=", "running")
 			.execute();
+
+		// If no rows updated, the persona was already completed (or failed) — skip re-evaluation
+		if (Number(updateResult[0]?.numUpdatedRows ?? 0) === 0) {
+			const row = await tx
+				.selectFrom("persona_roadmaps")
+				.select("roadmap_id")
+				.where("id", "=", personaRoadmapId)
+				.executeTakeFirstOrThrow();
+			return { allDone: false, roadmapId: row.roadmap_id };
+		}
 
 		// 2. Read back the completed row for the roadmap_id
 		const row = await tx
@@ -241,12 +257,12 @@ export async function completePersonaAndCheckDone(
 			);
 		}
 
-		// 3. Count siblings still in non-completed state
+		// 3. Count siblings still in non-terminal state (pending or running)
 		const pendingCount = await tx
 			.selectFrom("persona_roadmaps")
 			.select(tx.fn.countAll().as("count"))
 			.where("roadmap_id", "=", row.roadmap_id)
-			.where("status", "!=", "completed")
+			.where("status", "not in", ["completed", "failed"])
 			.executeTakeFirstOrThrow();
 
 		const allDone = Number(pendingCount.count) === 0;

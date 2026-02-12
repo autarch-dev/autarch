@@ -118,13 +118,14 @@ This is a terminal tool — your session ends after submission.`,
 				const personaRecord = await getPersonaRoadmap(db, personaRoadmapId);
 				const persona = personaRecord?.persona ?? "unknown";
 
-				// Broadcast persona completion event
+				// Broadcast persona completion event (include roadmapData so the UI updates immediately)
 				broadcast(
 					createPersonaRoadmapSubmittedEvent({
 						sessionId: context.sessionId,
 						roadmapId,
 						persona,
 						personaRoadmapId,
+						roadmapData,
 					}),
 				);
 

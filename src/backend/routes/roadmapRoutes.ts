@@ -273,6 +273,11 @@ async function startPersonaSessions(
 				sessionManager.errorSession(session.id, errorMsg);
 			});
 		} catch (err) {
+			await db
+				.updateTable("persona_roadmaps")
+				.set({ status: "failed", updated_at: Date.now() })
+				.where("id", "=", persona.id)
+				.execute();
 			const errorMsg = err instanceof Error ? err.message : "Unknown error";
 			log.agent.error(
 				`Failed to spawn persona ${persona.persona} for roadmap ${roadmapId}: ${errorMsg}`,

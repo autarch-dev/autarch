@@ -75,10 +75,10 @@ const TERMINAL_TOOLS: Record<string, string[]> = {
 	review: ["complete_review", "spawn_review_tasks", "request_extension"],
 	review_sub: ["submit_sub_review", "request_extension"],
 	roadmap_planning: ["submit_roadmap", "request_extension", "ask_questions"],
-	visionary: ["submit_persona_roadmap"],
-	iterative: ["submit_persona_roadmap"],
-	tech_lead: ["submit_persona_roadmap"],
-	pathfinder: ["submit_persona_roadmap"],
+	visionary: ["submit_persona_roadmap", "ask_questions", "request_extension"],
+	iterative: ["submit_persona_roadmap", "ask_questions", "request_extension"],
+	tech_lead: ["submit_persona_roadmap", "ask_questions", "request_extension"],
+	pathfinder: ["submit_persona_roadmap", "ask_questions", "request_extension"],
 	synthesis: ["submit_roadmap", "request_extension", "ask_questions"],
 	// discussion and basic agents don't require terminal tools
 	discussion: [],
@@ -154,25 +154,37 @@ Please continue planning the roadmap. If you have enough information, call \`sub
 
 	visionary: `You did not end your turn with a required tool call.
 
-As a reminder, you MUST end your turn by calling \`submit_persona_roadmap\` with your roadmap proposal.
+As a reminder, every message MUST end with exactly one of:
+- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`ask_questions\` — if you need clarification from the user
+- \`request_extension\` — if you need another turn to explore or refine
 
 Please finalize your roadmap vision and call \`submit_persona_roadmap\` to submit your proposal.`,
 
 	iterative: `You did not end your turn with a required tool call.
 
-As a reminder, you MUST end your turn by calling \`submit_persona_roadmap\` with your roadmap proposal.
+As a reminder, every message MUST end with exactly one of:
+- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`ask_questions\` — if you need clarification from the user
+- \`request_extension\` — if you need another turn to explore or refine
 
 Please finalize your incremental roadmap plan and call \`submit_persona_roadmap\` to submit your proposal.`,
 
 	tech_lead: `You did not end your turn with a required tool call.
 
-As a reminder, you MUST end your turn by calling \`submit_persona_roadmap\` with your roadmap proposal.
+As a reminder, every message MUST end with exactly one of:
+- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`ask_questions\` — if you need clarification from the user
+- \`request_extension\` — if you need another turn to explore or refine
 
 Please finalize your technical roadmap assessment and call \`submit_persona_roadmap\` to submit your proposal.`,
 
 	pathfinder: `You did not end your turn with a required tool call.
 
-As a reminder, you MUST end your turn by calling \`submit_persona_roadmap\` with your roadmap proposal.
+As a reminder, every message MUST end with exactly one of:
+- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`ask_questions\` — if you need clarification from the user
+- \`request_extension\` — if you need another turn to explore or refine
 
 Please finalize your strategic roadmap proposal and call \`submit_persona_roadmap\` to submit your proposal.`,
 

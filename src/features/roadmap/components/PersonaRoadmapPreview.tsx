@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 // Types
 // =============================================================================
 
-interface PersonaRoadmapData {
+export interface PersonaRoadmapData {
 	vision: string;
 	milestones: Array<{
 		title: string;
@@ -25,6 +25,7 @@ interface PersonaRoadmapData {
 }
 
 interface PersonaRoadmapPreviewProps {
+	persona: string;
 	roadmapData: PersonaRoadmapData;
 }
 
@@ -33,6 +34,7 @@ interface PersonaRoadmapPreviewProps {
 // =============================================================================
 
 export function PersonaRoadmapPreview({
+	persona,
 	roadmapData,
 }: PersonaRoadmapPreviewProps) {
 	const [isVisionExpanded, setIsVisionExpanded] = useState(false);
@@ -87,7 +89,7 @@ export function PersonaRoadmapPreview({
 				<div className="space-y-1.5 pt-1 border-t">
 					{milestones.map((milestone) => (
 						<div
-							key={milestone.title}
+							key={`${persona}-${milestone.title}`}
 							className="flex items-center gap-2 text-sm"
 						>
 							<Target className="size-3.5 text-muted-foreground shrink-0" />

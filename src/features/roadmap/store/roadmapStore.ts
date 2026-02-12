@@ -92,6 +92,7 @@ export interface PersonaSessionState {
 	persona: string;
 	sessionId: string;
 	status: "pending" | "running" | "completed" | "failed";
+	roadmapId?: string;
 	roadmapData?: unknown;
 }
 
@@ -853,6 +854,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 						persona: session.persona,
 						sessionId: session.sessionId,
 						status: session.status,
+						roadmapId,
 						roadmapData: session.roadmapData,
 					});
 
@@ -1071,10 +1073,11 @@ function handleRoadmapDeleted(
 			}
 		}
 		const personaSessions = new Map(state.personaSessions);
-		for (const [sessionId, _ps] of personaSessions) {
-			if (conversations.has(sessionId)) continue;
-			// Clean up persona sessions that had matching roadmapId
-			personaSessions.delete(sessionId);
+		for (const [sessionId] of personaSessions) {
+			const conv = state.conversations.get(sessionId);
+			if (conv?.roadmapId === payload.roadmapId) {
+				personaSessions.delete(sessionId);
+			}
 		}
 		return { roadmaps, roadmapDetails, conversations, personaSessions };
 	});
@@ -1112,6 +1115,16 @@ function handleSessionStarted(
 		const persona = payload.agentRole ?? "unknown";
 
 		set((state) => {
+			// Try to resolve roadmapId from an existing persona session for the same persona
+			// (populated by fetchPersonaSessions if it ran before this WS event)
+			let roadmapId: string | undefined;
+			for (const [, ps] of state.personaSessions) {
+				if (ps.persona === persona && ps.roadmapId) {
+					roadmapId = ps.roadmapId;
+					break;
+				}
+			}
+
 			const conversations = new Map(state.conversations);
 			conversations.set(payload.sessionId, {
 				messages: [],
@@ -1119,7 +1132,7 @@ function handleSessionStarted(
 				sessionId: payload.sessionId,
 				sessionStatus: "active",
 				persona,
-				roadmapId: undefined,
+				roadmapId,
 			});
 
 			const personaSessions = new Map(state.personaSessions);
@@ -1127,6 +1140,7 @@ function handleSessionStarted(
 				persona,
 				sessionId: payload.sessionId,
 				status: "running",
+				roadmapId,
 			});
 
 			return { conversations, personaSessions };
@@ -1654,6 +1668,7 @@ function handlePersonaRoadmapSubmitted(
 			personaSessions.set(payload.sessionId, {
 				...ps,
 				status: "completed",
+				roadmapData: payload.roadmapData,
 			});
 		}
 
@@ -1676,25 +1691,3 @@ function handlePersonaRoadmapSubmitted(
 // =============================================================================
 // Helpers
 // =============================================================================
-
-/**
- * Find the roadmap ID that a session belongs to.
- * Checks the conversation's roadmapId field (conversations are keyed by sessionId)
- * and falls back to checking roadmaps for currentSessionId.
- */
-function _findRoadmapBySession(
-	sessionId: string,
-	get: GetState,
-): string | undefined {
-	const { conversations, roadmaps } = get();
-
-	// Check conversation's roadmapId field (conversations are keyed by sessionId)
-	const conversation = conversations.get(sessionId);
-	if (conversation?.roadmapId) {
-		return conversation.roadmapId;
-	}
-
-	// Fall back to checking roadmaps for currentSessionId
-	const roadmap = roadmaps.find((r) => r.currentSessionId === sessionId);
-	return roadmap?.id;
-}

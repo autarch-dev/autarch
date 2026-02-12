@@ -8,7 +8,7 @@
  * 4 personas complete.
  */
 
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ChannelMessage } from "@/shared/schemas/channel";
@@ -19,7 +19,10 @@ import {
 	type RoadmapConversationState,
 	useRoadmapStore,
 } from "../store/roadmapStore";
-import { PersonaRoadmapPreview } from "./PersonaRoadmapPreview";
+import {
+	type PersonaRoadmapData,
+	PersonaRoadmapPreview,
+} from "./PersonaRoadmapPreview";
 import { PlanningConversation } from "./PlanningConversation";
 
 // =============================================================================
@@ -42,7 +45,19 @@ const EMPTY_CONVERSATION: RoadmapConversationState = {
 // Status Helpers
 // =============================================================================
 
-type TabStatus = "running" | "questions" | "completed" | "idle";
+type TabStatus = "running" | "questions" | "completed" | "failed" | "idle";
+
+/** Runtime type guard for persona roadmap data from the backend */
+function isValidRoadmapData(data: unknown): data is PersonaRoadmapData {
+	return (
+		typeof data === "object" &&
+		data !== null &&
+		"vision" in data &&
+		typeof (data as Record<string, unknown>).vision === "string" &&
+		"milestones" in data &&
+		Array.isArray((data as Record<string, unknown>).milestones)
+	);
+}
 
 /** Derive the tab status from a persona session and its conversation state */
 function getPersonaTabStatus(
@@ -51,6 +66,7 @@ function getPersonaTabStatus(
 ): TabStatus {
 	if (!session) return "idle";
 	if (session.status === "completed") return "completed";
+	if (session.status === "failed") return "failed";
 
 	// Check for unanswered questions in the conversation
 	if (conversation && hasUnansweredQuestions(conversation)) {
@@ -100,6 +116,8 @@ function TabStatusIcon({ status }: { status: TabStatus }) {
 			return <AlertCircle className="size-3.5 text-amber-500" />;
 		case "completed":
 			return <CheckCircle2 className="size-3.5 text-green-500" />;
+		case "failed":
+			return <XCircle className="size-3.5 text-red-500" />;
 		default:
 			return null;
 	}
@@ -140,9 +158,10 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 
 	// Determine if all 4 personas are completed
 	const allPersonasComplete = useMemo(() => {
-		return PERSONA_TABS.every(
-			(p) => personaSessionMap.get(p.value)?.status === "completed",
-		);
+		return PERSONA_TABS.every((p) => {
+			const status = personaSessionMap.get(p.value)?.status;
+			return status === "completed" || status === "failed";
+		});
 	}, [personaSessionMap]);
 
 	// Synthesis conversation state
@@ -261,19 +280,11 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 							}}
 							inputMode={inputMode}
 						/>
-						{isCompleted && session?.roadmapData != null && (
+						{isCompleted && isValidRoadmapData(session?.roadmapData) && (
 							<div className="shrink-0 border-t">
 								<PersonaRoadmapPreview
-									roadmapData={
-										session.roadmapData as {
-											vision: string;
-											milestones: Array<{
-												title: string;
-												description: string;
-												initiatives: Array<{ title: string }>;
-											}>;
-										}
-									}
+									persona={persona.label}
+									roadmapData={session.roadmapData}
 								/>
 							</div>
 						)}

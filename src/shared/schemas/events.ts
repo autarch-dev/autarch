@@ -784,6 +784,7 @@ export const PersonaRoadmapSubmittedPayloadSchema = z.object({
 	roadmapId: z.string(),
 	persona: z.string(),
 	personaRoadmapId: z.string(),
+	roadmapData: z.unknown().optional(),
 });
 export type PersonaRoadmapSubmittedPayload = z.infer<
 	typeof PersonaRoadmapSubmittedPayloadSchema
