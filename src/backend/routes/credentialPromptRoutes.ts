@@ -54,10 +54,9 @@ export const credentialPromptRoutes = {
 			// Validate nonce header
 			const nonce = req.headers.get("X-Askpass-Nonce");
 			if (!nonce) {
-				return Response.json(
-					{ error: "Missing X-Askpass-Nonce header" },
-					{ status: 400 },
-				);
+				return new Response("Missing X-Askpass-Nonce header", {
+					status: 400,
+				});
 			}
 
 			// Parse prompt from plain text body (askpass scripts send raw strings)
@@ -83,10 +82,7 @@ export const credentialPromptRoutes = {
 				log.api.warn(
 					`Credential prompt rejected: ${error instanceof Error ? error.message : "unknown error"}`,
 				);
-				return Response.json(
-					{ error: "Invalid or expired nonce" },
-					{ status: 403 },
-				);
+				return new Response("Invalid or expired nonce", { status: 403 });
 			}
 		},
 	},

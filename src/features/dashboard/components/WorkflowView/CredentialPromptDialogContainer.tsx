@@ -35,7 +35,7 @@ export function CredentialPromptDialogContainer() {
 				},
 			);
 			if (!response.ok) {
-				const error = await response.json();
+				const error = await response.text();
 				console.error("Failed to submit credential:", error);
 			}
 		} catch (err) {
@@ -54,7 +54,7 @@ export function CredentialPromptDialogContainer() {
 				},
 			);
 			if (!response.ok) {
-				const error = await response.json();
+				const error = await response.text();
 				console.error("Failed to cancel credential prompt:", error);
 			}
 		} catch (err) {

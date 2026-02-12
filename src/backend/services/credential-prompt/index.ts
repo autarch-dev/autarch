@@ -55,6 +55,18 @@ const activeNonces = new Set<string>();
 /** Tracks which promptIds belong to each nonce, so cleanup can resolve stale prompts */
 const nonceToPromptIds = new Map<string, Set<string>>();
 
+/**
+ * Remove a promptId from its nonceToPromptIds Set.
+ * Prevents stale entries from accumulating between nonce cleanup cycles.
+ */
+function removePromptIdFromNonce(promptId: string): void {
+	for (const [, promptIds] of nonceToPromptIds) {
+		if (promptIds.delete(promptId)) {
+			return;
+		}
+	}
+}
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -93,7 +105,7 @@ export async function createAskpassContext(
 		scriptPath = join(tmpdir(), `autarch-askpass-${nonce}.sh`);
 		const script = [
 			"#!/bin/sh",
-			`CREDENTIAL=$(curl -s -X POST -H 'Content-Type: text/plain' -H 'X-Askpass-Nonce: ${nonce}' --data-binary "$1" http://127.0.0.1:${serverPort}/api/credential-prompt)`,
+			`CREDENTIAL=$(curl -sf -X POST -H 'Content-Type: text/plain' -H 'X-Askpass-Nonce: ${nonce}' --data-binary "$1" http://127.0.0.1:${serverPort}/api/credential-prompt)`,
 			`if [ -z "$CREDENTIAL" ]; then exit 1; fi`,
 			`printf '%s' "$CREDENTIAL"`,
 		].join("\n");
@@ -180,9 +192,10 @@ export function requestCredential(
 		const timer = setTimeout(() => {
 			log.git.warn(`Credential prompt timed out: ${promptId} ("${prompt}")`);
 			pendingPrompts.delete(promptId);
+			removePromptIdFromNonce(promptId);
 			broadcast(createCredentialPromptResolvedEvent({ promptId }));
 			resolve(null);
-		}, 60_000);
+		}, 180_000);
 
 		pendingPrompts.set(promptId, {
 			promptId,
@@ -223,6 +236,7 @@ export function resolveCredentialPrompt(
 	clearTimeout(pending.timer);
 	pending.resolve(credential);
 	pendingPrompts.delete(promptId);
+	removePromptIdFromNonce(promptId);
 
 	// Broadcast resolution so frontend can update UI state
 	broadcast(createCredentialPromptResolvedEvent({ promptId }));
