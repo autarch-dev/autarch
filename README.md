@@ -2,7 +2,7 @@
 
 Autarch is a local development tool that gives a solo developer the leverage of a small team. Instead of tickets and task boards, you work in **Workflows** — threaded conversations tied to Git branches — where every decision, line of reasoning, and approval lives right next to the code it produced.
 
-<img width="1863" height="1138" alt="image" src="https://github.com/user-attachments/assets/62ab9117-5378-440a-833e-e3d74d2b4f55" />
+<img width="1861" height="991" alt="image" src="https://github.com/user-attachments/assets/4016ddfb-bd92-447c-bd74-fcc3aecf650f" />
 
 ## The Problem
 
