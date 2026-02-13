@@ -63,8 +63,18 @@ export function KnowledgePage() {
 	const hasData = items.data !== null;
 
 	// "No items exist at all" — distinguished from "no results matching filters"
+	const hasActiveFilters =
+		filters.category != null ||
+		filters.workflowId != null ||
+		filters.startDate != null ||
+		filters.endDate != null ||
+		filters.archived != null;
 	const isEmptyKnowledgeBase =
-		!items.loading && hasData && items.data?.total === 0 && !searchQuery;
+		!items.loading &&
+		hasData &&
+		items.data?.total === 0 &&
+		!searchQuery &&
+		!hasActiveFilters;
 
 	const isSearchActive = searchQuery.length > 0;
 

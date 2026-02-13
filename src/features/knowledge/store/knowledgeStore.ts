@@ -124,7 +124,7 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 		} catch (error) {
 			set({
 				items: {
-					data: null,
+					data: get().items.data,
 					loading: false,
 					error: error instanceof Error ? error.message : "Unknown error",
 				},
@@ -145,7 +145,7 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 		} catch (error) {
 			set({
 				searchResults: {
-					data: null,
+					data: get().searchResults.data,
 					loading: false,
 					error: error instanceof Error ? error.message : "Unknown error",
 				},

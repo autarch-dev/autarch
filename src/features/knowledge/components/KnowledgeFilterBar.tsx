@@ -51,29 +51,30 @@ export function KnowledgeFilterBar() {
 		const value = e.target.value;
 		setFilters({
 			category: value ? (value as KnowledgeCategory) : undefined,
+			offset: 0,
 		});
 		debouncedFetch();
 	}
 
 	function handleWorkflowIdChange(e: React.ChangeEvent<HTMLInputElement>) {
-		setFilters({ workflowId: e.target.value || undefined });
+		setFilters({ workflowId: e.target.value || undefined, offset: 0 });
 		debouncedFetch();
 	}
 
 	function handleStartDateChange(e: React.ChangeEvent<HTMLInputElement>) {
 		const ms = e.target.value ? Date.parse(e.target.value) : undefined;
-		setFilters({ startDate: ms });
+		setFilters({ startDate: ms, offset: 0 });
 		debouncedFetch();
 	}
 
 	function handleEndDateChange(e: React.ChangeEvent<HTMLInputElement>) {
 		const ms = e.target.value ? Date.parse(e.target.value) : undefined;
-		setFilters({ endDate: ms });
+		setFilters({ endDate: ms, offset: 0 });
 		debouncedFetch();
 	}
 
 	function handleArchivedChange(checked: boolean | "indeterminate") {
-		setFilters({ archived: checked === true ? true : undefined });
+		setFilters({ archived: checked === true ? true : undefined, offset: 0 });
 		debouncedFetch();
 	}
 
@@ -84,6 +85,7 @@ export function KnowledgeFilterBar() {
 			startDate: undefined,
 			endDate: undefined,
 			archived: undefined,
+			offset: 0,
 		});
 		setSearchQuery("");
 		fetchItems();

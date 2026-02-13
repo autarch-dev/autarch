@@ -26,17 +26,29 @@ interface KnowledgeItemCardProps {
 
 export function KnowledgeItemCard({ item }: KnowledgeItemCardProps) {
 	const [editOpen, setEditOpen] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const { archiveItem, deleteItem } = useKnowledgeStore();
 
-	const handleArchive = () => {
-		archiveItem(item.id, !item.archived);
+	const handleArchive = async () => {
+		setError(null);
+		try {
+			await archiveItem(item.id, !item.archived);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to archive item");
+		}
 	};
 
-	const handleDelete = () => {
+	const handleDelete = async () => {
 		if (
-			window.confirm("Are you sure you want to delete this knowledge item?")
+			!window.confirm("Are you sure you want to delete this knowledge item?")
 		) {
-			deleteItem(item.id);
+			return;
+		}
+		setError(null);
+		try {
+			await deleteItem(item.id);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to delete item");
 		}
 	};
 
@@ -110,6 +122,7 @@ export function KnowledgeItemCard({ item }: KnowledgeItemCardProps) {
 							{new Date(item.createdAt).toLocaleDateString()}
 						</span>
 					</div>
+					{error && <p className="text-destructive text-sm">{error}</p>}
 				</CardContent>
 			</Card>
 
