@@ -26,8 +26,19 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 			roadmap: s.roadmaps.find((r) => r.id === roadmapId),
 			roadmapsLoading: s.roadmapsLoading,
 			details: s.roadmapDetails.get(roadmapId),
-			conversation: s.conversations.get(roadmapId),
+			conversation: s.getConversation(roadmapId),
 		})),
+	);
+
+	// Check if this roadmap uses the new persona-based flow
+	const hasPersonaSessions = useRoadmapStore(
+		useCallback(
+			(s) =>
+				[...s.personaSessions.values()].some(
+					(ps) => ps.roadmapId === roadmapId,
+				),
+			[roadmapId],
+		),
 	);
 
 	// Actions are stable references — select individually without shallow comparison
@@ -199,6 +210,7 @@ export function RoadmapViewContainer({ roadmapId }: RoadmapViewContainerProps) {
 			onDeleteInitiative={handleDeleteInitiative}
 			onReorderMilestones={handleReorderMilestones}
 			onReorderInitiatives={handleReorderInitiatives}
+			hasPersonaSessions={hasPersonaSessions}
 		/>
 	);
 }

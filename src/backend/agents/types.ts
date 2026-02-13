@@ -1,4 +1,5 @@
-import type { ModelScenario } from "@/shared/schemas/settings";
+import { z } from "zod";
+import { ModelScenario } from "@/shared/schemas/settings";
 import type { RegisteredTool } from "../tools/types";
 
 // =============================================================================
@@ -10,7 +11,19 @@ import type { RegisteredTool } from "../tools/types";
  * Preflight is an internal role that uses the execution model,
  * so it's not exposed in user-facing model preferences
  */
-export type AgentRole = ModelScenario | "preflight" | "review_sub";
+export const AgentRoleSchema = z.union([
+	ModelScenario,
+	z.enum([
+		"preflight",
+		"review_sub",
+		"visionary",
+		"iterative",
+		"tech_lead",
+		"pathfinder",
+		"synthesis",
+	]),
+]);
+export type AgentRole = z.infer<typeof AgentRoleSchema>;
 
 export interface AgentPromptOptions {
 	hasWebCodeSearch?: boolean;

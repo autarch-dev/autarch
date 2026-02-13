@@ -21,9 +21,19 @@ import {
 	RoadmapStatusSchema,
 } from "@/shared/schemas/roadmap";
 import { AgentRunner, getSessionManager } from "../agents/runner";
+import { AgentRoleSchema } from "../agents/types";
+
+import { getProjectDb } from "../db/project";
 import { findRepoRoot } from "../git";
 import { log } from "../logger";
 import { getRepositories } from "../repositories";
+import {
+	createPersonaRoadmaps,
+	failPersonaAndCheckDone,
+	getPersonaRoadmaps,
+	startSynthesisSession,
+	updatePersonaSession,
+} from "../services/personaRoadmaps";
 import { broadcast } from "../ws";
 
 // =============================================================================
@@ -219,47 +229,93 @@ function wouldCreateCycle(
 }
 
 /**
- * Start an AI planning session for a roadmap.
- * Creates session, updates current_session_id on roadmap.
+ * Start parallel persona planning sessions for a roadmap.
+ * Creates 4 persona records and launches an agent session for each.
+ * Follows the spawnReviewTasks fire-and-forget pattern.
  */
-async function startAiSession(
+async function startPersonaSessions(
 	roadmapId: string,
+	title: string,
 	initialPrompt?: string,
-): Promise<string> {
-	const sessionManager = getSessionManager();
-	const session = await sessionManager.startSession({
-		contextType: "roadmap",
-		contextId: roadmapId,
-		agentRole: "roadmap_planning",
-	});
-
-	const repos = getRepositories();
-	await repos.roadmaps.updateRoadmap(roadmapId, {
-		currentSessionId: session.id,
-	});
-
-	// Send the initial prompt as the first message to kick off the AI agent
-	const prompt =
-		initialPrompt ||
-		"Generate a roadmap based on the existing vision and milestones";
+): Promise<void> {
 	const projectRoot = findRepoRoot(process.cwd());
-	const runner = new AgentRunner(session, {
-		projectRoot,
-		conversationRepo: repos.conversations,
-	});
+	const db = await getProjectDb(projectRoot);
+	const sessionManager = getSessionManager();
+	const repos = getRepositories();
 
-	runner.run(prompt).catch((error) => {
-		log.agent.error(
-			`Agent run failed for roadmap session ${session.id}:`,
-			error,
-		);
-		sessionManager.errorSession(
-			session.id,
-			error instanceof Error ? error.message : "Unknown error",
-		);
-	});
+	const personaRecords = await createPersonaRoadmaps(db, roadmapId);
 
-	return session.id;
+	const context = initialPrompt
+		? `\n\nAdditional context from the user:\n${initialPrompt}`
+		: "";
+
+	for (const persona of personaRecords) {
+		try {
+			const session = await sessionManager.startSession({
+				contextType: "persona",
+				contextId: persona.id,
+				agentRole: AgentRoleSchema.parse(persona.persona),
+				roadmapId,
+			});
+
+			await updatePersonaSession(db, persona.id, session.id);
+
+			const initialMessage =
+				`You are working on a roadmap titled "${title}".${context}\n\n` +
+				"Please analyze this from your unique perspective and produce a complete roadmap proposal.";
+
+			const runner = new AgentRunner(session, {
+				projectRoot,
+				conversationRepo: repos.conversations,
+			});
+
+			runner.run(initialMessage).catch(async (err) => {
+				const errorMsg = err instanceof Error ? err.message : "Unknown error";
+				log.agent.error(
+					`Persona ${persona.persona} session ${session.id} failed: ${errorMsg}`,
+				);
+				sessionManager.errorSession(session.id, errorMsg);
+
+				// Mark the persona_roadmaps record as failed and check if all siblings are terminal
+				try {
+					const { allTerminal } = await failPersonaAndCheckDone(db, persona.id);
+
+					if (allTerminal) {
+						log.agent.info(
+							`All personas terminal for roadmap ${roadmapId} (some failed) — launching synthesis with partial results`,
+						);
+						startSynthesisSession(projectRoot, roadmapId, db);
+					}
+				} catch (failErr) {
+					log.agent.error(
+						`Failed to handle persona failure for ${persona.persona} (roadmap ${roadmapId}):`,
+						failErr,
+					);
+				}
+			});
+		} catch (err) {
+			const errorMsg = err instanceof Error ? err.message : "Unknown error";
+			log.agent.error(
+				`Failed to spawn persona ${persona.persona} for roadmap ${roadmapId}: ${errorMsg}`,
+			);
+
+			try {
+				const { allTerminal } = await failPersonaAndCheckDone(db, persona.id);
+
+				if (allTerminal) {
+					log.agent.info(
+						`All personas terminal for roadmap ${roadmapId} (some failed) — launching synthesis with partial results`,
+					);
+					startSynthesisSession(projectRoot, roadmapId, db);
+				}
+			} catch (failErr) {
+				log.agent.error(
+					`Failed to handle persona failure for ${persona.persona} (roadmap ${roadmapId}):`,
+					failErr,
+				);
+			}
+		}
+	}
 }
 
 // =============================================================================
@@ -303,7 +359,11 @@ export const roadmapRoutes = {
 				});
 
 				if (parsed.data.mode === "ai") {
-					await startAiSession(roadmap.id, parsed.data.prompt);
+					await startPersonaSessions(
+						roadmap.id,
+						parsed.data.title,
+						parsed.data.prompt,
+					);
 				}
 
 				broadcast(
@@ -314,14 +374,8 @@ export const roadmapRoutes = {
 					}),
 				);
 
-				// Re-fetch to include updated current_session_id if AI mode
-				const result =
-					parsed.data.mode === "ai"
-						? ((await repos.roadmaps.getRoadmap(roadmap.id)) ?? roadmap)
-						: roadmap;
-
-				log.api.success(`Created roadmap: ${result.id}`);
-				return Response.json(result, { status: 201 });
+				log.api.success(`Created roadmap: ${roadmap.id}`);
+				return Response.json(roadmap, { status: 201 });
 			} catch (error) {
 				log.api.error("Failed to create roadmap:", error);
 				return Response.json(
@@ -871,14 +925,14 @@ export const roadmapRoutes = {
 					return Response.json({ error: "Roadmap not found" }, { status: 404 });
 				}
 
-				const sessionId = await startAiSession(params.id);
+				await startPersonaSessions(params.id, roadmap.title);
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));
 
 				log.api.success(
-					`Started AI planning session ${sessionId} for roadmap: ${params.id}`,
+					`Started persona planning sessions for roadmap: ${params.id}`,
 				);
-				return Response.json({ sessionId }, { status: 201 });
+				return Response.json({ roadmapId: params.id }, { status: 201 });
 			} catch (error) {
 				log.api.error("Failed to start AI planning session:", error);
 				return Response.json(
@@ -889,6 +943,7 @@ export const roadmapRoutes = {
 		},
 	},
 
+	/** @deprecated Legacy single-agent history endpoint. Kept for backward compatibility with roadmaps created before the multi-persona flow. New roadmaps use /api/roadmaps/:id/persona-sessions instead. */
 	"/api/roadmaps/:id/history": {
 		async GET(req: Request) {
 			const params = parseParams(req, IdParamSchema);
@@ -913,6 +968,100 @@ export const roadmapRoutes = {
 				});
 			} catch (error) {
 				log.api.error("Failed to get roadmap history:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/roadmaps/:id/persona-sessions": {
+		async GET(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid roadmap ID" }, { status: 400 });
+			}
+			try {
+				const projectRoot = findRepoRoot(process.cwd());
+				const db = await getProjectDb(projectRoot);
+				const repos = getRepositories();
+
+				const roadmap = await repos.roadmaps.getRoadmap(params.id);
+				if (!roadmap) {
+					return Response.json({ error: "Roadmap not found" }, { status: 404 });
+				}
+
+				const personaRecords = await getPersonaRoadmaps(db, params.id);
+
+				const personas = await Promise.all(
+					personaRecords.map(async (record) => {
+						const messages = record.sessionId
+							? await repos.conversations.buildSessionMessages(record.sessionId)
+							: [];
+						return {
+							persona: record.persona,
+							sessionId: record.sessionId,
+							status: record.status,
+							roadmapData: record.roadmapData,
+							messages,
+						};
+					}),
+				);
+
+				// Check for a synthesis session
+				const roadmapSessions = await repos.sessions.getByContext(
+					"roadmap",
+					params.id,
+				);
+				const synthesisSession = roadmapSessions.find(
+					(s) => s.agentRole === "synthesis",
+				);
+
+				let synthesis = null;
+				if (synthesisSession) {
+					const messages = await repos.conversations.buildSessionMessages(
+						synthesisSession.id,
+					);
+					synthesis = {
+						sessionId: synthesisSession.id,
+						status: synthesisSession.status,
+						messages,
+					};
+				}
+
+				return Response.json({ personas, synthesis });
+			} catch (error) {
+				log.api.error("Failed to get persona sessions:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/roadmaps/:id/persona-roadmaps": {
+		async GET(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid roadmap ID" }, { status: 400 });
+			}
+			try {
+				const projectRoot = findRepoRoot(process.cwd());
+				const db = await getProjectDb(projectRoot);
+				const repos = getRepositories();
+
+				const roadmap = await repos.roadmaps.getRoadmap(params.id);
+				if (!roadmap) {
+					return Response.json({ error: "Roadmap not found" }, { status: 404 });
+				}
+
+				const personaRoadmaps = await getPersonaRoadmaps(db, params.id);
+
+				return Response.json(personaRoadmaps);
+			} catch (error) {
+				log.api.error("Failed to get persona roadmaps:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },

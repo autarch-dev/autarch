@@ -8,6 +8,7 @@
 import { create } from "zustand";
 import type { ChannelMessage, MessageQuestion } from "@/shared/schemas/channel";
 import type {
+	PersonaRoadmapSubmittedPayload,
 	QuestionsAnsweredPayload,
 	QuestionsAskedPayload,
 	QuestionsSubmittedPayload,
@@ -76,7 +77,28 @@ export interface StreamingMessage {
 	agentRole?: string;
 }
 
-/** Per-roadmap conversation state */
+/** Persona name literals for the 4 discovery personas */
+export const PERSONA_NAMES = [
+	"visionary",
+	"iterative",
+	"tech_lead",
+	"pathfinder",
+] as const;
+export type PersonaName = (typeof PERSONA_NAMES)[number];
+
+/** Tab name including synthesis */
+export type PersonaTab = PersonaName | "synthesis";
+
+/** Tracking state for a single persona session */
+export interface PersonaSessionState {
+	persona: string;
+	sessionId: string;
+	status: "pending" | "running" | "completed" | "failed";
+	roadmapId?: string;
+	roadmapData?: unknown;
+}
+
+/** Per-session conversation state */
 export interface RoadmapConversationState {
 	sessionId?: string;
 	sessionStatus?: "active" | "completed" | "error";
@@ -84,6 +106,10 @@ export interface RoadmapConversationState {
 	streamingMessage?: StreamingMessage;
 	isLoading: boolean;
 	error?: string;
+	/** Persona name if this is a persona conversation */
+	persona?: string;
+	/** Roadmap ID this conversation belongs to */
+	roadmapId?: string;
 }
 
 /** Roadmap details (milestones, initiatives, vision, dependencies) */
@@ -110,8 +136,13 @@ interface RoadmapState {
 	// Per-roadmap details
 	roadmapDetails: Map<string, RoadmapDetails>;
 
-	// Per-roadmap conversation state
+	// Per-session conversation state (keyed by sessionId)
 	conversations: Map<string, RoadmapConversationState>;
+
+	// Persona session tracking (keyed by sessionId)
+	personaSessions: Map<string, PersonaSessionState>;
+	synthesisSessionId: string | null;
+	activePersonaTab: PersonaTab;
 
 	// Actions - Roadmap CRUD
 	fetchRoadmaps: () => Promise<void>;
@@ -191,6 +222,7 @@ interface RoadmapState {
 	// Actions - Conversation
 	fetchHistory: (roadmapId: string) => Promise<void>;
 	sendMessage: (roadmapId: string, content: string) => Promise<void>;
+	fetchPersonaSessions: (roadmapId: string) => Promise<void>;
 
 	// Actions - WebSocket event handling
 	handleWebSocketEvent: (event: WebSocketEvent) => void;
@@ -199,6 +231,9 @@ interface RoadmapState {
 	getRoadmap: (roadmapId: string) => Roadmap | undefined;
 	getRoadmapDetails: (roadmapId: string) => RoadmapDetails | undefined;
 	getConversation: (roadmapId: string) => RoadmapConversationState | undefined;
+	getConversationBySession: (
+		sessionId: string,
+	) => RoadmapConversationState | undefined;
 	getSelectedConversation: () => RoadmapConversationState | undefined;
 }
 
@@ -214,6 +249,9 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 	selectedRoadmapId: null,
 	roadmapDetails: new Map(),
 	conversations: new Map(),
+	personaSessions: new Map(),
+	synthesisSessionId: null,
+	activePersonaTab: "visionary" as PersonaTab,
 
 	// ===========================================================================
 	// Roadmap CRUD
@@ -299,14 +337,7 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 			throw new Error(error.error ?? "Failed to delete roadmap");
 		}
 
-		set((state) => {
-			const roadmaps = state.roadmaps.filter((r) => r.id !== roadmapId);
-			const roadmapDetails = new Map(state.roadmapDetails);
-			roadmapDetails.delete(roadmapId);
-			const conversations = new Map(state.conversations);
-			conversations.delete(roadmapId);
-			return { roadmaps, roadmapDetails, conversations };
-		});
+		set((state) => cleanupRoadmapState(state, roadmapId));
 	},
 
 	// ===========================================================================
@@ -648,14 +679,34 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 	// ===========================================================================
 
 	fetchHistory: async (roadmapId) => {
+		// Find existing conversation for this roadmap (may be keyed by sessionId)
+		const findExistingSessionId = (): string | undefined => {
+			const state = get();
+			for (const [sid, conv] of state.conversations) {
+				if (
+					conv.roadmapId === roadmapId &&
+					!conv.persona &&
+					!sid.startsWith("pending_")
+				)
+					return sid;
+			}
+			const roadmap = state.roadmaps.find((r) => r.id === roadmapId);
+			return roadmap?.currentSessionId ?? undefined;
+		};
+
+		const existingSessionId = findExistingSessionId();
+
 		// Mark as loading
 		set((state) => {
 			const conversations = new Map(state.conversations);
-			const existing = conversations.get(roadmapId) ?? {
+			// Use existing sessionId as key, or a temporary roadmapId key until we get the real sessionId
+			const key = existingSessionId ?? `pending_${roadmapId}`;
+			const existing = conversations.get(key) ?? {
 				messages: [],
 				isLoading: true,
+				roadmapId,
 			};
-			conversations.set(roadmapId, { ...existing, isLoading: true });
+			conversations.set(key, { ...existing, isLoading: true });
 			return { conversations };
 		});
 
@@ -669,12 +720,20 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 
 			set((state) => {
 				const conversations = new Map(state.conversations);
-				const existing = conversations.get(roadmapId);
-				conversations.set(roadmapId, {
+				// Clean up temporary pending key if it existed
+				conversations.delete(`pending_${roadmapId}`);
+				// Also clean up any previous sessionId entry for this roadmap
+				if (existingSessionId && existingSessionId !== history.sessionId) {
+					conversations.delete(existingSessionId);
+				}
+
+				const existing = conversations.get(history.sessionId);
+				conversations.set(history.sessionId, {
 					sessionId: history.sessionId,
 					sessionStatus: history.sessionStatus,
 					messages: history.messages ?? [],
 					isLoading: false,
+					roadmapId,
 					// Preserve streamingMessage if it exists (race with WebSocket events)
 					streamingMessage: existing?.streamingMessage,
 				});
@@ -691,11 +750,13 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 		} catch (error) {
 			set((state) => {
 				const conversations = new Map(state.conversations);
-				const existing = conversations.get(roadmapId);
-				conversations.set(roadmapId, {
+				const key = existingSessionId ?? `pending_${roadmapId}`;
+				const existing = conversations.get(key);
+				conversations.set(key, {
 					...existing,
 					messages: existing?.messages ?? [],
 					isLoading: false,
+					roadmapId,
 					error: error instanceof Error ? error.message : "Unknown error",
 				});
 				return { conversations };
@@ -706,9 +767,19 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 	sendMessage: async (roadmapId, content) => {
 		const state = get();
 		const roadmap = state.roadmaps.find((r) => r.id === roadmapId);
-		let sessionId = state.conversations.get(roadmapId)?.sessionId;
 
-		// Use current session from roadmap if available
+		// Find sessionId: search conversations by roadmapId field, then fallback to roadmap.currentSessionId
+		let sessionId: string | undefined;
+		for (const [sid, conv] of state.conversations) {
+			if (
+				conv.roadmapId === roadmapId &&
+				!conv.persona &&
+				!sid.startsWith("pending_")
+			) {
+				sessionId = sid;
+				break;
+			}
+		}
 		if (!sessionId && roadmap?.currentSessionId) {
 			sessionId = roadmap.currentSessionId;
 		}
@@ -728,13 +799,14 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 
 		set((state) => {
 			const conversations = new Map(state.conversations);
-			const existing = conversations.get(roadmapId);
-			conversations.set(roadmapId, {
+			const existing = conversations.get(sessionId);
+			conversations.set(sessionId, {
 				...existing,
 				messages: [...(existing?.messages ?? []), userMessage],
 				isLoading: false,
 				sessionId,
 				sessionStatus: "active",
+				roadmapId,
 			});
 			return { conversations };
 		});
@@ -749,6 +821,67 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 		if (!response.ok) {
 			const error = await response.json();
 			throw new Error(error.error ?? "Failed to send message");
+		}
+	},
+
+	fetchPersonaSessions: async (roadmapId) => {
+		try {
+			const response = await fetch(
+				`/api/roadmaps/${roadmapId}/persona-sessions`,
+			);
+			if (!response.ok) {
+				throw new Error("Failed to fetch persona sessions");
+			}
+
+			const data = await response.json();
+
+			set((state) => {
+				const personaSessions = new Map(state.personaSessions);
+				const conversations = new Map(state.conversations);
+
+				// Populate persona sessions and their conversations
+				for (const session of data.personas ?? []) {
+					personaSessions.set(session.sessionId, {
+						persona: session.persona,
+						sessionId: session.sessionId,
+						status: session.status,
+						roadmapId,
+						roadmapData: session.roadmapData,
+					});
+
+					if (session.sessionId) {
+						conversations.set(session.sessionId, {
+							sessionId: session.sessionId,
+							sessionStatus:
+								session.status === "completed" ? "completed" : "active",
+							messages: session.messages ?? [],
+							isLoading: false,
+							persona: session.persona,
+							roadmapId,
+						});
+					}
+				}
+
+				// Populate synthesis session if present
+				const synthesis = data.synthesis;
+				let synthesisSessionId = state.synthesisSessionId;
+				if (synthesis?.sessionId) {
+					synthesisSessionId = synthesis.sessionId;
+					conversations.set(synthesis.sessionId, {
+						sessionId: synthesis.sessionId,
+						sessionStatus:
+							synthesis.status === "completed" ? "completed" : "active",
+						messages: synthesis.messages ?? [],
+						isLoading: false,
+						persona: "synthesis",
+						roadmapId,
+					});
+				}
+
+				return { personaSessions, conversations, synthesisSessionId };
+			});
+		} catch (_error) {
+			// Ignore fetch errors - persona sessions are optional (legacy roadmaps won't have them)
 		}
 	},
 
@@ -822,6 +955,11 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 			case "questions:submitted":
 				handleQuestionsSubmitted(event.payload, set, get);
 				break;
+
+			// Persona events
+			case "persona:roadmap_submitted":
+				handlePersonaRoadmapSubmitted(event.payload, set, get);
+				break;
 		}
 	},
 
@@ -838,13 +976,34 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 	},
 
 	getConversation: (roadmapId: string) => {
-		return get().conversations.get(roadmapId);
+		const { conversations, roadmaps } = get();
+		// Search conversations for one with matching roadmapId field,
+		// filtering out persona conversations and pending placeholders
+		for (const [sid, conv] of conversations) {
+			if (
+				conv.roadmapId === roadmapId &&
+				!conv.persona &&
+				!sid.startsWith("pending_")
+			) {
+				return conv;
+			}
+		}
+		// Fallback: find via roadmap's currentSessionId for legacy support
+		const roadmap = roadmaps.find((r) => r.id === roadmapId);
+		if (roadmap?.currentSessionId) {
+			return conversations.get(roadmap.currentSessionId);
+		}
+		return undefined;
+	},
+
+	getConversationBySession: (sessionId: string) => {
+		return get().conversations.get(sessionId);
 	},
 
 	getSelectedConversation: () => {
-		const { selectedRoadmapId, conversations } = get();
-		if (!selectedRoadmapId) return undefined;
-		return conversations.get(selectedRoadmapId);
+		const state = get();
+		if (!state.selectedRoadmapId) return undefined;
+		return state.getConversation(state.selectedRoadmapId);
 	},
 }));
 
@@ -894,19 +1053,58 @@ function handleRoadmapUpdated(
 	}
 }
 
+/**
+ * Shared helper to clean up all state associated with a deleted roadmap.
+ * Used by both deleteRoadmap action and handleRoadmapDeleted event handler.
+ */
+function cleanupRoadmapState(
+	state: RoadmapState,
+	roadmapId: string,
+): Partial<RoadmapState> {
+	const roadmaps = state.roadmaps.filter((r) => r.id !== roadmapId);
+	const roadmapDetails = new Map(state.roadmapDetails);
+	roadmapDetails.delete(roadmapId);
+	const conversations = new Map(state.conversations);
+	for (const [sessionId, conv] of conversations) {
+		if (conv.roadmapId === roadmapId) {
+			conversations.delete(sessionId);
+		}
+	}
+	const personaSessions = new Map(state.personaSessions);
+	for (const [sessionId, _ps] of personaSessions) {
+		if (_ps.roadmapId === roadmapId) {
+			personaSessions.delete(sessionId);
+		}
+	}
+	// Reset persona UI state if the deleted roadmap is the active one
+	const synthesisConv = state.synthesisSessionId
+		? state.conversations.get(state.synthesisSessionId)
+		: undefined;
+	const resetPersonaState =
+		synthesisConv?.roadmapId === roadmapId ||
+		[...state.personaSessions.values()].some(
+			(ps) => ps.roadmapId === roadmapId,
+		);
+	return {
+		roadmaps,
+		roadmapDetails,
+		conversations,
+		personaSessions,
+		...(resetPersonaState
+			? {
+					synthesisSessionId: null,
+					activePersonaTab: "visionary" as PersonaTab,
+				}
+			: {}),
+	};
+}
+
 function handleRoadmapDeleted(
 	payload: RoadmapDeletedPayload,
 	set: SetState,
 	_get: GetState,
 ): void {
-	set((state) => {
-		const roadmaps = state.roadmaps.filter((r) => r.id !== payload.roadmapId);
-		const roadmapDetails = new Map(state.roadmapDetails);
-		roadmapDetails.delete(payload.roadmapId);
-		const conversations = new Map(state.conversations);
-		conversations.delete(payload.roadmapId);
-		return { roadmaps, roadmapDetails, conversations };
-	});
+	set((state) => cleanupRoadmapState(state, payload.roadmapId));
 }
 
 function handleSessionStarted(
@@ -914,49 +1112,110 @@ function handleSessionStarted(
 	set: SetState,
 	_get: GetState,
 ): void {
-	if (payload.contextType !== "roadmap") return;
+	if (payload.contextType === "roadmap") {
+		const isSynthesis = payload.agentRole === "synthesis";
 
-	set((state) => {
-		const conversations = new Map(state.conversations);
-		const existing = conversations.get(payload.contextId);
-		conversations.set(payload.contextId, {
-			...existing,
-			messages: existing?.messages ?? [],
-			isLoading: false,
-			sessionId: payload.sessionId,
-			sessionStatus: "active",
+		set((state) => {
+			const conversations = new Map(state.conversations);
+			const existing = conversations.get(payload.sessionId);
+			conversations.set(payload.sessionId, {
+				...existing,
+				messages: existing?.messages ?? [],
+				isLoading: false,
+				sessionId: payload.sessionId,
+				sessionStatus: "active",
+				roadmapId: payload.contextId,
+				// Tag synthesis conversations so getConversation() won't match them as the main roadmap conversation
+				...(isSynthesis ? { persona: "synthesis" } : {}),
+			});
+
+			// Update roadmap's currentSessionId only for non-synthesis sessions.
+			// Synthesis sessions have their own tracking via synthesisSessionId;
+			// overwriting currentSessionId would break the legacy fallback in getConversation().
+			const roadmaps = isSynthesis
+				? state.roadmaps
+				: state.roadmaps.map((r) =>
+						r.id === payload.contextId
+							? { ...r, currentSessionId: payload.sessionId }
+							: r,
+					);
+
+			return {
+				conversations,
+				roadmaps,
+				// Track synthesis session so PersonaDiscoveryTabs can render it
+				...(isSynthesis
+					? {
+							synthesisSessionId: payload.sessionId,
+							activePersonaTab: "synthesis" as PersonaTab,
+						}
+					: {}),
+			};
 		});
+	} else if (payload.contextType === "persona") {
+		// Persona session started — derive persona name from agentRole
+		const persona = payload.agentRole ?? "unknown";
 
-		// Also update roadmap's currentSessionId
-		const roadmaps = state.roadmaps.map((r) =>
-			r.id === payload.contextId
-				? { ...r, currentSessionId: payload.sessionId }
-				: r,
-		);
+		set((state) => {
+			// Use roadmapId from the session:started event payload (set by backend).
+			// Falls back to searching existing personaSessions for compatibility.
+			let roadmapId: string | undefined = payload.roadmapId;
+			if (!roadmapId) {
+				for (const [, ps] of state.personaSessions) {
+					if (ps.persona === persona && ps.roadmapId) {
+						roadmapId = ps.roadmapId;
+						break;
+					}
+				}
+			}
 
-		return { conversations, roadmaps };
-	});
+			const conversations = new Map(state.conversations);
+			conversations.set(payload.sessionId, {
+				messages: [],
+				isLoading: false,
+				sessionId: payload.sessionId,
+				sessionStatus: "active",
+				persona,
+				roadmapId,
+			});
+
+			const personaSessions = new Map(state.personaSessions);
+			personaSessions.set(payload.sessionId, {
+				persona,
+				sessionId: payload.sessionId,
+				status: "running",
+				roadmapId,
+			});
+
+			return { conversations, personaSessions };
+		});
+	}
 }
 
 function handleSessionCompleted(
 	sessionId: string,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	const roadmapId = findRoadmapBySession(sessionId, get);
-	if (!roadmapId) return;
-
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(sessionId);
 		if (existing) {
-			conversations.set(roadmapId, {
+			conversations.set(sessionId, {
 				...existing,
 				sessionStatus: "completed",
 				streamingMessage: undefined,
 			});
 		}
-		return { conversations };
+
+		// Also update persona session status if applicable
+		const personaSessions = new Map(state.personaSessions);
+		const ps = personaSessions.get(sessionId);
+		if (ps) {
+			personaSessions.set(sessionId, { ...ps, status: "completed" });
+		}
+
+		return { conversations, personaSessions };
 	});
 }
 
@@ -964,51 +1223,68 @@ function handleSessionError(
 	sessionId: string,
 	error: string,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	const roadmapId = findRoadmapBySession(sessionId, get);
-	if (!roadmapId) return;
-
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(sessionId);
 		if (existing) {
-			conversations.set(roadmapId, {
+			conversations.set(sessionId, {
 				...existing,
 				sessionStatus: "error",
 				error,
 				streamingMessage: undefined,
 			});
 		}
-		return { conversations };
+
+		// Also update persona session status if applicable
+		const personaSessions = new Map(state.personaSessions);
+		const ps = personaSessions.get(sessionId);
+		if (ps) {
+			personaSessions.set(sessionId, { ...ps, status: "failed" });
+		}
+
+		return { conversations, personaSessions };
 	});
 }
 
 function handleTurnStarted(
 	payload: TurnStartedPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	// Use contextId directly if available, otherwise fall back to session lookup
-	const roadmapId =
-		(payload.contextType === "roadmap" ? payload.contextId : undefined) ??
-		findRoadmapBySession(payload.sessionId, get);
-	if (!roadmapId) return;
-
 	// Only create streaming state for assistant turns
 	if (payload.role !== "assistant") return;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
 		// Get existing or create minimal state (handles page refresh during active session)
-		const existing = conversations.get(roadmapId) ?? {
-			sessionId: payload.sessionId,
-			sessionStatus: "active" as const,
-			messages: [],
-			isLoading: false,
-		};
+		const existing =
+			conversations.get(payload.sessionId) ??
+			(() => {
+				// Derive roadmapId and persona from context so getConversation() can find this entry
+				let roadmapId: string | undefined;
+				let persona: string | undefined;
+				if (payload.contextType === "roadmap") {
+					roadmapId = payload.contextId;
+				} else if (payload.contextType === "persona") {
+					persona = payload.agentRole;
+					// For persona sessions, contextId is the persona record ID, not the roadmap ID.
+					// Look up roadmapId from existing personaSessions.
+					const ps = state.personaSessions.get(payload.sessionId);
+					roadmapId = ps?.roadmapId;
+				}
+				return {
+					sessionId: payload.sessionId,
+					sessionStatus: "active" as const,
+					messages: [],
+					isLoading: false,
+					roadmapId,
+					persona,
+				};
+			})();
 
-		conversations.set(roadmapId, {
+		conversations.set(payload.sessionId, {
 			...existing,
 			sessionId: payload.sessionId,
 			sessionStatus: "active",
@@ -1031,17 +1307,11 @@ function handleTurnStarted(
 function handleTurnCompleted(
 	payload: TurnCompletedPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	// Use contextId directly if available, otherwise fall back to session lookup
-	const roadmapId =
-		(payload.contextType === "roadmap" ? payload.contextId : undefined) ??
-		findRoadmapBySession(payload.sessionId, get);
-	if (!roadmapId) return;
-
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(payload.sessionId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
 			// Build segments array from streaming segments
 			const segments = existing.streamingMessage.segments.map((s) => ({
@@ -1068,7 +1338,7 @@ function handleTurnCompleted(
 				agentRole: existing.streamingMessage.agentRole,
 			};
 
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...existing,
 				messages: [...existing.messages, completedMessage],
 				streamingMessage: undefined,
@@ -1081,19 +1351,13 @@ function handleTurnCompleted(
 function handleMessageDelta(
 	payload: TurnMessageDeltaPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	// Use contextId directly if available, otherwise fall back to session lookup
-	const roadmapId =
-		(payload.contextType === "roadmap" ? payload.contextId : undefined) ??
-		findRoadmapBySession(payload.sessionId, get);
-	if (!roadmapId) return;
-
 	const segmentIndex = payload.segmentIndex ?? 0;
 
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(payload.sessionId);
 
 		// If no streaming message exists for this turn, create one
 		// This handles reconnection after page refresh during an active turn
@@ -1101,12 +1365,28 @@ function handleMessageDelta(
 			!existing?.streamingMessage ||
 			existing.streamingMessage.turnId !== payload.turnId
 		) {
-			const baseConversation = existing ?? {
-				sessionId: payload.sessionId,
-				sessionStatus: "active" as const,
-				messages: [],
-				isLoading: false,
-			};
+			const baseConversation =
+				existing ??
+				(() => {
+					// Derive roadmapId and persona from context so getConversation() can find this entry
+					let roadmapId: string | undefined;
+					let persona: string | undefined;
+					if (payload.contextType === "roadmap") {
+						roadmapId = payload.contextId;
+					} else if (payload.contextType === "persona") {
+						persona = payload.agentRole;
+						const ps = state.personaSessions.get(payload.sessionId);
+						roadmapId = ps?.roadmapId;
+					}
+					return {
+						sessionId: payload.sessionId,
+						sessionStatus: "active" as const,
+						messages: [],
+						isLoading: false,
+						roadmapId,
+						persona,
+					};
+				})();
 
 			// Create streaming message with the delta content
 			const segments = [];
@@ -1118,7 +1398,7 @@ function handleMessageDelta(
 				});
 			}
 
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...baseConversation,
 				sessionId: payload.sessionId,
 				sessionStatus: "active",
@@ -1158,7 +1438,7 @@ function handleMessageDelta(
 			};
 		}
 
-		conversations.set(roadmapId, {
+		conversations.set(payload.sessionId, {
 			...existing,
 			streamingMessage: {
 				...existing.streamingMessage,
@@ -1173,14 +1453,11 @@ function handleMessageDelta(
 function handleSegmentComplete(
 	payload: TurnSegmentCompletePayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	const roadmapId = findRoadmapBySession(payload.sessionId, get);
-	if (!roadmapId) return;
-
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(payload.sessionId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
 			const segments = [...existing.streamingMessage.segments];
 
@@ -1213,7 +1490,7 @@ function handleSegmentComplete(
 				});
 			}
 
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -1229,16 +1506,13 @@ function handleSegmentComplete(
 function handleThoughtDelta(
 	payload: TurnThoughtDeltaPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	const roadmapId = findRoadmapBySession(payload.sessionId, get);
-	if (!roadmapId) return;
-
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(payload.sessionId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -1253,17 +1527,14 @@ function handleThoughtDelta(
 function handleToolStarted(
 	payload: TurnToolStartedPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	const roadmapId = findRoadmapBySession(payload.sessionId, get);
-	if (!roadmapId) return;
-
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(payload.sessionId);
 
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -1287,14 +1558,11 @@ function handleToolStarted(
 function handleToolCompleted(
 	payload: TurnToolCompletedPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	const roadmapId = findRoadmapBySession(payload.sessionId, get);
-	if (!roadmapId) return;
-
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(payload.sessionId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
 			const tools = existing.streamingMessage.tools.map((t) =>
 				t.id === payload.toolId
@@ -1307,7 +1575,7 @@ function handleToolCompleted(
 						}
 					: t,
 			);
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -1322,14 +1590,11 @@ function handleToolCompleted(
 function handleQuestionsAsked(
 	payload: QuestionsAskedPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	const roadmapId = findRoadmapBySession(payload.sessionId, get);
-	if (!roadmapId) return;
-
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(payload.sessionId);
 		if (existing?.streamingMessage?.turnId === payload.turnId) {
 			// Add questions to streaming message
 			const questions: StreamingQuestion[] = payload.questions.map((q) => ({
@@ -1341,7 +1606,7 @@ function handleQuestionsAsked(
 				status: "pending" as const,
 			}));
 
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -1367,7 +1632,7 @@ function handleQuestionsAsked(
 					questions: [...(lastMessage.questions ?? []), ...questions],
 				};
 
-				conversations.set(roadmapId, {
+				conversations.set(payload.sessionId, {
 					...existing,
 					messages,
 				});
@@ -1380,14 +1645,11 @@ function handleQuestionsAsked(
 function handleQuestionsAnswered(
 	payload: QuestionsAnsweredPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	const roadmapId = findRoadmapBySession(payload.sessionId, get);
-	if (!roadmapId) return;
-
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(payload.sessionId);
 		if (!existing) return { conversations };
 
 		// Update question in streaming message if present
@@ -1398,7 +1660,7 @@ function handleQuestionsAnswered(
 					: q,
 			);
 
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -1421,7 +1683,7 @@ function handleQuestionsAnswered(
 				return msg;
 			});
 
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...existing,
 				messages,
 			});
@@ -1434,19 +1696,16 @@ function handleQuestionsAnswered(
 function handleQuestionsSubmitted(
 	payload: QuestionsSubmittedPayload,
 	set: SetState,
-	get: GetState,
+	_get: GetState,
 ): void {
-	const roadmapId = findRoadmapBySession(payload.sessionId, get);
-	if (!roadmapId) return;
-
 	set((state) => {
 		const conversations = new Map(state.conversations);
-		const existing = conversations.get(roadmapId);
+		const existing = conversations.get(payload.sessionId);
 		if (!existing) return { conversations };
 
 		// Update questionsComment in streaming message if present
 		if (existing.streamingMessage?.turnId === payload.turnId) {
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...existing,
 				streamingMessage: {
 					...existing.streamingMessage,
@@ -1471,7 +1730,7 @@ function handleQuestionsSubmitted(
 				return msg;
 			});
 
-			conversations.set(roadmapId, {
+			conversations.set(payload.sessionId, {
 				...existing,
 				messages,
 			});
@@ -1481,27 +1740,29 @@ function handleQuestionsSubmitted(
 	});
 }
 
+function handlePersonaRoadmapSubmitted(
+	payload: PersonaRoadmapSubmittedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const personaSessions = new Map(state.personaSessions);
+		const ps = personaSessions.get(payload.sessionId);
+		personaSessions.set(payload.sessionId, {
+			persona: ps?.persona ?? payload.persona,
+			sessionId: payload.sessionId,
+			roadmapId: ps?.roadmapId ?? payload.roadmapId,
+			status: "completed",
+			roadmapData: payload.roadmapData,
+		});
+
+		// Note: activePersonaTab is set to "synthesis" when the synthesis session:started
+		// event arrives (in handleSessionStarted), not here — avoids showing a blank/spinner
+		// tab before the synthesis session is actually running.
+		return { personaSessions };
+	});
+}
+
 // =============================================================================
 // Helpers
 // =============================================================================
-
-/**
- * Find the roadmap ID that a session belongs to
- */
-function findRoadmapBySession(
-	sessionId: string,
-	get: GetState,
-): string | undefined {
-	const { conversations, roadmaps } = get();
-
-	// First check conversations map
-	for (const [roadmapId, conversation] of conversations) {
-		if (conversation.sessionId === sessionId) {
-			return roadmapId;
-		}
-	}
-
-	// Also check roadmaps for currentSessionId
-	const roadmap = roadmaps.find((r) => r.currentSessionId === sessionId);
-	return roadmap?.id;
-}

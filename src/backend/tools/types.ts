@@ -52,6 +52,8 @@ export interface ToolContext {
 	agentRole?: string;
 	/** Current subtask ID (if in a subtask context) */
 	subtaskId?: string;
+	/** Current persona roadmap ID (if in a persona context) */
+	personaRoadmapId?: string;
 }
 
 /**
@@ -155,6 +157,7 @@ export type BlockToolName =
 	| "submit_research"
 	| "submit_plan"
 	| "submit_roadmap"
+	| "submit_persona_roadmap"
 	| "request_extension"
 	| "ask_questions"
 	| "complete_pulse"

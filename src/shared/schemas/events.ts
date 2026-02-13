@@ -164,6 +164,7 @@ export const SessionContextTypeSchema = z.enum([
 	"workflow",
 	"roadmap",
 	"subtask",
+	"persona",
 ]);
 export type SessionContextType = z.infer<typeof SessionContextTypeSchema>;
 
@@ -173,6 +174,8 @@ export const SessionStartedPayloadSchema = z.object({
 	contextType: SessionContextTypeSchema,
 	contextId: z.string(),
 	agentRole: z.string(),
+	/** Parent roadmap ID — included for persona/synthesis sessions so the frontend can associate them without a race */
+	roadmapId: z.string().optional(),
 });
 export type SessionStartedPayload = z.infer<typeof SessionStartedPayloadSchema>;
 
@@ -221,9 +224,9 @@ export const TurnStartedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	role: TurnRoleSchema,
-	/** Context type (channel, workflow, roadmap, or subtask) */
-	contextType: z.enum(["channel", "workflow", "roadmap", "subtask"]).optional(),
-	/** Context ID (channel ID, workflow ID, roadmap ID, or subtask ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, roadmap, subtask, or persona) */
+	contextType: SessionContextTypeSchema.optional(),
+	/** Context ID (channel ID, workflow ID, roadmap ID, subtask ID, or persona roadmap ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
@@ -243,9 +246,9 @@ export const TurnCompletedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	tokenCount: z.number().optional(),
-	/** Context type (channel, workflow, roadmap, or subtask) */
-	contextType: z.enum(["channel", "workflow", "roadmap", "subtask"]).optional(),
-	/** Context ID (channel ID, workflow ID, roadmap ID, or subtask ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, roadmap, subtask, or persona) */
+	contextType: SessionContextTypeSchema.optional(),
+	/** Context ID (channel ID, workflow ID, roadmap ID, subtask ID, or persona roadmap ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session (e.g., scoping, research, planning, execution) */
 	agentRole: z.string().optional(),
@@ -270,9 +273,9 @@ export const TurnMessageDeltaPayloadSchema = z.object({
 	turnId: z.string(),
 	segmentIndex: z.number().default(0), // Index of the current text segment (increments after tool calls)
 	delta: z.string(),
-	/** Context type (channel, workflow, roadmap, or subtask) */
-	contextType: z.enum(["channel", "workflow", "roadmap", "subtask"]).optional(),
-	/** Context ID (channel ID, workflow ID, roadmap ID, or subtask ID) - enables direct routing without session lookup */
+	/** Context type (channel, workflow, roadmap, subtask, or persona) */
+	contextType: SessionContextTypeSchema.optional(),
+	/** Context ID (channel ID, workflow ID, roadmap ID, subtask ID, or persona roadmap ID) - enables direct routing without session lookup */
 	contextId: z.string().optional(),
 	/** Agent role from session - enables streaming message creation on reconnect */
 	agentRole: z.string().optional(),
@@ -768,6 +771,30 @@ export const RoadmapDeletedEventSchema = z.object({
 export type RoadmapDeletedEvent = z.infer<typeof RoadmapDeletedEventSchema>;
 
 // =============================================================================
+// Persona Roadmap Events
+// =============================================================================
+
+// persona:roadmap_submitted
+export const PersonaRoadmapSubmittedPayloadSchema = z.object({
+	sessionId: z.string(),
+	roadmapId: z.string(),
+	persona: z.string(),
+	personaRoadmapId: z.string(),
+	roadmapData: z.unknown().optional(),
+});
+export type PersonaRoadmapSubmittedPayload = z.infer<
+	typeof PersonaRoadmapSubmittedPayloadSchema
+>;
+
+export const PersonaRoadmapSubmittedEventSchema = z.object({
+	type: z.literal("persona:roadmap_submitted"),
+	payload: PersonaRoadmapSubmittedPayloadSchema,
+});
+export type PersonaRoadmapSubmittedEvent = z.infer<
+	typeof PersonaRoadmapSubmittedEventSchema
+>;
+
+// =============================================================================
 // WebSocket Event Union
 // =============================================================================
 
@@ -826,6 +853,8 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	RoadmapCreatedEventSchema,
 	RoadmapUpdatedEventSchema,
 	RoadmapDeletedEventSchema,
+	// Persona roadmap events
+	PersonaRoadmapSubmittedEventSchema,
 ]);
 
 export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
@@ -1080,4 +1109,11 @@ export function createRoadmapDeletedEvent(
 	payload: RoadmapDeletedPayload,
 ): RoadmapDeletedEvent {
 	return { type: "roadmap:deleted", payload };
+}
+
+// Persona roadmap events
+export function createPersonaRoadmapSubmittedEvent(
+	payload: PersonaRoadmapSubmittedPayload,
+): PersonaRoadmapSubmittedEvent {
+	return { type: "persona:roadmap_submitted", payload };
 }

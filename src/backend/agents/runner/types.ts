@@ -38,6 +38,8 @@ export interface SessionContext {
 	agentRole: _AgentRole;
 	/** Optional pulse ID to link execution sessions to their associated pulse */
 	pulseId?: string;
+	/** Parent roadmap ID — included for persona/synthesis sessions so the frontend can associate them without a race */
+	roadmapId?: string;
 }
 
 /**

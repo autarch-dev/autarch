@@ -75,6 +75,11 @@ const TERMINAL_TOOLS: Record<string, string[]> = {
 	review: ["complete_review", "spawn_review_tasks", "request_extension"],
 	review_sub: ["submit_sub_review", "request_extension"],
 	roadmap_planning: ["submit_roadmap", "request_extension", "ask_questions"],
+	visionary: ["submit_persona_roadmap", "ask_questions", "request_extension"],
+	iterative: ["submit_persona_roadmap", "ask_questions", "request_extension"],
+	tech_lead: ["submit_persona_roadmap", "ask_questions", "request_extension"],
+	pathfinder: ["submit_persona_roadmap", "ask_questions", "request_extension"],
+	synthesis: ["submit_roadmap", "request_extension", "ask_questions"],
 	// discussion and basic agents don't require terminal tools
 	discussion: [],
 	basic: [],
@@ -146,6 +151,51 @@ As a reminder, every message MUST end with exactly one of:
 - \`request_extension\` — if you need another turn to explore or synthesize
 
 Please continue planning the roadmap. If you have enough information, call \`submit_roadmap\` to finalize.`,
+
+	visionary: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`ask_questions\` — if you need clarification from the user
+- \`request_extension\` — if you need another turn to explore or refine
+
+Please finalize your roadmap vision and call \`submit_persona_roadmap\` to submit your proposal.`,
+
+	iterative: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`ask_questions\` — if you need clarification from the user
+- \`request_extension\` — if you need another turn to explore or refine
+
+Please finalize your incremental roadmap plan and call \`submit_persona_roadmap\` to submit your proposal.`,
+
+	tech_lead: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`ask_questions\` — if you need clarification from the user
+- \`request_extension\` — if you need another turn to explore or refine
+
+Please finalize your technical roadmap assessment and call \`submit_persona_roadmap\` to submit your proposal.`,
+
+	pathfinder: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`ask_questions\` — if you need clarification from the user
+- \`request_extension\` — if you need another turn to explore or refine
+
+Please finalize your strategic roadmap proposal and call \`submit_persona_roadmap\` to submit your proposal.`,
+
+	synthesis: `You did not end your turn with a required tool call.
+
+As a reminder, every message MUST end with exactly one of:
+- \`submit_roadmap\` — if you have synthesized the final roadmap
+- \`ask_questions\` — if you need the user to resolve conflicts between personas
+- \`request_extension\` — if you need another turn to analyze and merge proposals
+
+Please continue synthesizing the persona roadmaps. If you have a final merged roadmap, call \`submit_roadmap\` to finalize.`,
 };
 
 // =============================================================================
@@ -1136,6 +1186,31 @@ export class AgentRunner {
 			);
 
 			return { ...ctx, subtaskId: this.session.contextId };
+		}
+		// Persona sessions store the persona_roadmaps record ID as contextId —
+		// look up the parent roadmap ID so the tool context points at the right roadmap.
+		if (this.session.contextType === "persona") {
+			const db = await getProjectDb(this.config.projectRoot);
+			const personaRecord = await db
+				.selectFrom("persona_roadmaps")
+				.where("id", "=", this.session.contextId)
+				.selectAll()
+				.executeTakeFirst();
+
+			if (!personaRecord) {
+				throw new Error(`Persona roadmap not found: ${this.session.contextId}`);
+			}
+
+			const ctx = await createRoadmapToolContext(
+				this.config.projectRoot,
+				personaRecord.roadmap_id,
+				this.session.id,
+				toolResultMap,
+				turnId,
+				this.session.agentRole,
+			);
+
+			return { ...ctx, personaRoadmapId: this.session.contextId };
 		}
 
 		return await createWorkflowToolContext(

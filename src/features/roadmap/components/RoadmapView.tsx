@@ -48,6 +48,7 @@ import type {
 } from "@/shared/schemas/roadmap";
 import type { RoadmapConversationState } from "../store/roadmapStore";
 import { InitiativeDetail } from "./InitiativeDetail";
+import { PersonaDiscoveryTabs } from "./PersonaDiscoveryTabs";
 import { PlanningConversation } from "./PlanningConversation";
 import { roadmapToMarkdown } from "./roadmapMarkdown";
 import { TableView } from "./TableView";
@@ -80,6 +81,11 @@ const statusConfig: Record<
 		label: "Archived",
 		color: "text-gray-700 dark:text-gray-400",
 		bg: "bg-gray-100 dark:bg-gray-950",
+	},
+	error: {
+		label: "Error",
+		color: "text-red-700 dark:text-red-400",
+		bg: "bg-red-100 dark:bg-red-950",
 	},
 };
 
@@ -128,6 +134,7 @@ interface RoadmapViewProps {
 		milestoneId: string,
 		reorderedIds: { id: string; sortOrder: number }[],
 	) => void;
+	hasPersonaSessions: boolean;
 }
 
 // =============================================================================
@@ -153,6 +160,7 @@ export const RoadmapView = memo(function RoadmapView({
 	onDeleteInitiative,
 	onReorderMilestones,
 	onReorderInitiatives,
+	hasPersonaSessions,
 }: RoadmapViewProps) {
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [editTitle, setEditTitle] = useState(roadmap.title);
@@ -184,9 +192,17 @@ export const RoadmapView = memo(function RoadmapView({
 		});
 	}, [initiatives]);
 
-	// Show planning conversation when roadmap is draft and has a session
-	const showPlanningConversation =
-		roadmap.status === "draft" && conversation?.sessionId != null;
+	// Draft rendering:
+	// - Persona sessions exist → show PersonaDiscoveryTabs (new multi-persona flow)
+	// - No persona sessions but legacy conversation exists → show single PlanningConversation (legacy fallback)
+	// - Neither → show PersonaDiscoveryTabs (new roadmap, sessions still loading)
+	const showPersonaTabs =
+		roadmap.status === "draft" &&
+		(hasPersonaSessions || !conversation?.sessionId);
+	const showLegacyConversation =
+		roadmap.status === "draft" &&
+		!hasPersonaSessions &&
+		conversation?.sessionId != null;
 
 	const handleSelectInitiative = useCallback((initiative: Initiative) => {
 		setSelectedInitiative(initiative);
@@ -330,7 +346,9 @@ export const RoadmapView = memo(function RoadmapView({
 			</header>
 
 			{/* Content */}
-			{showPlanningConversation && conversation ? (
+			{showPersonaTabs ? (
+				<PersonaDiscoveryTabs roadmapId={roadmap.id} />
+			) : showLegacyConversation && conversation ? (
 				<PlanningConversation
 					roadmapId={roadmap.id}
 					conversation={conversation}

@@ -144,11 +144,10 @@ export class ConversationRepository implements Repository {
 	}
 
 	/**
-	 * Build messages for a single session
+	 * Build messages for a single session.
+	 * Public to allow per-session history retrieval (e.g., persona session histories).
 	 */
-	private async buildSessionMessages(
-		sessionId: string,
-	): Promise<ChannelMessage[]> {
+	async buildSessionMessages(sessionId: string): Promise<ChannelMessage[]> {
 		// Get turns for this session with agent_role and pulse_id via JOIN (excluding hidden turns like nudges)
 		const turns = await this.db
 			.selectFrom("turns")

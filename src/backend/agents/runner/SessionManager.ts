@@ -90,6 +90,7 @@ export class SessionManager {
 				contextType: context.contextType,
 				contextId: context.contextId,
 				agentRole: context.agentRole,
+				roadmapId: context.roadmapId,
 			}),
 		);
 

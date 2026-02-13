@@ -27,6 +27,7 @@ import type { RoadmapConversationState } from "../store/roadmapStore";
 /** Friendly labels for tool calls during roadmap planning */
 const TOOL_LABELS: Record<string, string> = {
 	submit_roadmap: "Generating roadmap...",
+	submit_persona_roadmap: "Submitting persona roadmap...",
 	ask_questions: "Preparing questions...",
 	request_extension: "Thinking...",
 };
@@ -43,6 +44,12 @@ interface PlanningConversationProps {
 	roadmapId: string;
 	conversation: RoadmapConversationState;
 	onSendMessage: (content: string) => void;
+	/** Controls which input elements are visible.
+	 * - 'full': default — free-text input shown (current behavior).
+	 * - 'questions-only': free-text input hidden; inline question UI remains interactive.
+	 * - 'disabled': all input hidden (same as session completed).
+	 */
+	inputMode?: "full" | "questions-only" | "disabled";
 }
 
 // =============================================================================
@@ -152,6 +159,7 @@ export function PlanningConversation({
 	roadmapId: _roadmapId,
 	conversation,
 	onSendMessage,
+	inputMode = "full",
 }: PlanningConversationProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const { messages, streamingMessage, isLoading, sessionStatus } = conversation;
@@ -192,8 +200,9 @@ export function PlanningConversation({
 							{streamingMessage && (
 								<StreamingMessageBubble message={streamingMessage} />
 							)}
-							{/* Show prominent tool indicator for submit_roadmap */}
-							{activeToolName === "submit_roadmap" && (
+							{/* Show prominent tool indicator for roadmap submission tools */}
+							{(activeToolName === "submit_roadmap" ||
+								activeToolName === "submit_persona_roadmap") && (
 								<ActiveToolIndicator toolName={activeToolName} />
 							)}
 						</>
@@ -208,8 +217,8 @@ export function PlanningConversation({
 				</div>
 			</ScrollArea>
 
-			{/* Message input - hidden when session is completed */}
-			{!isSessionCompleted && (
+			{/* Message input - hidden when session is completed or input is disabled/questions-only */}
+			{!isSessionCompleted && inputMode === "full" && (
 				<div className="shrink-0 p-4 border-t bg-background">
 					<PlanningMessageInput onSend={onSendMessage} disabled={isStreaming} />
 				</div>

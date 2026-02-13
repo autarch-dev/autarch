@@ -44,6 +44,7 @@ import { migrate as migrate0037CostRecordsIndexes } from "./0037-cost-records-in
 import { migrate as migrate0038StageTransitions } from "./0038-stage-transitions";
 import { migrate as migrate0039WorkflowErrors } from "./0039-workflow-errors";
 import { migrate as migrate0040CorrectCost } from "./0040-correct-cost";
+import { migrate as migrate0040PersonaRoadmaps } from "./0040-persona-roadmaps";
 
 /**
  * Run all migrations for the project database.
@@ -112,4 +113,7 @@ export async function migrateProjectDb(
 
 	// Fix long-context cost records (0040)
 	await migrate0040CorrectCost(db);
+
+	// Persona roadmaps (0040)
+	await migrate0040PersonaRoadmaps(db);
 }

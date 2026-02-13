@@ -32,6 +32,7 @@ import {
 	spawnReviewTasksTool,
 	submitSubReviewTool,
 } from "../tools/review";
+import { submitPersonaRoadmapTool } from "../tools/roadmap/submitPersonaRoadmap";
 import { typescriptTools } from "../tools/typescript";
 import { agentPrompts } from "./prompts";
 import type { AgentConfig, AgentRole } from "./types";
@@ -107,6 +108,15 @@ const ROADMAP_PLANNING_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...typescriptTools,
 	registerTool(submitRoadmapTool),
+	registerTool(askQuestionsTool),
+	registerTool(requestExtensionTool),
+];
+
+/** Persona roadmap agent: base tools + submit_persona_roadmap + ask_questions + request_extension */
+const PERSONA_ROADMAP_TOOLS: RegisteredTool[] = [
+	...baseTools,
+	...typescriptTools,
+	registerTool(submitPersonaRoadmapTool),
 	registerTool(askQuestionsTool),
 	registerTool(requestExtensionTool),
 ];
@@ -198,6 +208,41 @@ export const agentRegistry = {
 		tools: REVIEW_SUB_TOOLS,
 		maxTokens: 16384,
 		temperature: 0,
+	},
+	visionary: {
+		role: "visionary",
+		systemPrompt: agentPrompts.visionary,
+		tools: PERSONA_ROADMAP_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
+	},
+	iterative: {
+		role: "iterative",
+		systemPrompt: agentPrompts.iterative,
+		tools: PERSONA_ROADMAP_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
+	},
+	tech_lead: {
+		role: "tech_lead",
+		systemPrompt: agentPrompts.tech_lead,
+		tools: PERSONA_ROADMAP_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
+	},
+	pathfinder: {
+		role: "pathfinder",
+		systemPrompt: agentPrompts.pathfinder,
+		tools: PERSONA_ROADMAP_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
+	},
+	synthesis: {
+		role: "synthesis",
+		systemPrompt: agentPrompts.synthesis,
+		tools: ROADMAP_PLANNING_TOOLS,
+		maxTokens: 16384,
+		temperature: 0.7,
 	},
 } as const satisfies Record<AgentRole, AgentConfig>;
 
