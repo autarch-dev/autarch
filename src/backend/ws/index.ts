@@ -48,13 +48,22 @@ export function handleOpen(ws: ServerWebSocket<unknown>): void {
 }
 
 /**
- * Handle WebSocket message (currently unused, but available for bidirectional communication)
+ * Handle WebSocket message
  */
 export function handleMessage(
-	_ws: ServerWebSocket<unknown>,
-	_message: string | Buffer,
+	ws: ServerWebSocket<unknown>,
+	message: string | Buffer,
 ): void {
-	// Reserved for future client-to-server messages
+	try {
+		const text = typeof message === "string" ? message : message.toString();
+		const parsed = JSON.parse(text);
+		if (parsed.type === "ping") {
+			ws.send(JSON.stringify({ type: "pong", payload: {} }));
+		}
+		// Other message types reserved for future use
+	} catch {
+		log.ws.debug("Received malformed WebSocket message");
+	}
 }
 
 /**
