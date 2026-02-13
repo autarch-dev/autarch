@@ -3,6 +3,7 @@ import {
 	SidebarContent,
 	SidebarSeparator,
 } from "@/components/ui/sidebar";
+import type { RoadmapPerspective } from "@/features/roadmap";
 import type { Channel } from "@/shared/schemas/channel";
 import type { Roadmap } from "@/shared/schemas/roadmap";
 import type { Workflow } from "@/shared/schemas/workflow";
@@ -21,7 +22,7 @@ interface AppSidebarProps {
 	onCreateWorkflow?: (title: string) => Promise<void>;
 	onCreateRoadmap: (
 		title: string,
-		mode: "ai" | "blank",
+		perspective: RoadmapPerspective,
 		prompt?: string,
 	) => Promise<void>;
 }

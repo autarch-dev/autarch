@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { RoadmapPerspective } from "@/features/roadmap/store/roadmapStore";
 import { cn } from "@/lib/utils";
 
 interface CreateRoadmapFormData {
@@ -24,7 +25,7 @@ interface CreateRoadmapDialogProps {
 	onOpenChange: (open: boolean) => void;
 	onCreate: (
 		title: string,
-		mode: "ai" | "blank",
+		perspective: RoadmapPerspective,
 		prompt?: string,
 	) => Promise<void>;
 }
@@ -34,7 +35,8 @@ export function CreateRoadmapDialog({
 	onOpenChange,
 	onCreate,
 }: CreateRoadmapDialogProps) {
-	const [selectedMode, setSelectedMode] = useState<"ai" | "blank" | null>(null);
+	const [selectedPerspective, setSelectedPerspective] =
+		useState<RoadmapPerspective | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -50,13 +52,13 @@ export function CreateRoadmapDialog({
 	useEffect(() => {
 		if (!open) {
 			reset();
-			setSelectedMode(null);
+			setSelectedPerspective(null);
 			setError(null);
 		}
 	}, [open, reset]);
 
 	const handleCreate = async (data: CreateRoadmapFormData) => {
-		if (!selectedMode) return;
+		if (!selectedPerspective) return;
 
 		setIsSubmitting(true);
 		setError(null);
@@ -64,8 +66,8 @@ export function CreateRoadmapDialog({
 		try {
 			await onCreate(
 				data.title.trim(),
-				selectedMode,
-				selectedMode === "ai" ? data.prompt.trim() || undefined : undefined,
+				selectedPerspective,
+				data.prompt.trim() || undefined,
 			);
 			reset();
 			onOpenChange(false);
@@ -103,11 +105,11 @@ export function CreateRoadmapDialog({
 							<button
 								type="button"
 								disabled={!hasTitle || isSubmitting}
-								onClick={() => setSelectedMode("ai")}
+								onClick={() => setSelectedPerspective("balanced")}
 								className={cn(
 									"flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors",
 									"hover:bg-accent/50 disabled:pointer-events-none disabled:opacity-50",
-									selectedMode === "ai" &&
+									selectedPerspective === "balanced" &&
 										"border-primary bg-accent ring-1 ring-primary",
 								)}
 							>
@@ -122,11 +124,11 @@ export function CreateRoadmapDialog({
 							<button
 								type="button"
 								disabled={!hasTitle || isSubmitting}
-								onClick={() => setSelectedMode("blank")}
+								onClick={() => setSelectedPerspective("iterative")}
 								className={cn(
 									"flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors",
 									"hover:bg-accent/50 disabled:pointer-events-none disabled:opacity-50",
-									selectedMode === "blank" &&
+									selectedPerspective === "iterative" &&
 										"border-primary bg-accent ring-1 ring-primary",
 								)}
 							>
@@ -139,7 +141,7 @@ export function CreateRoadmapDialog({
 							</button>
 						</div>
 
-						{selectedMode === "ai" && (
+						{selectedPerspective && (
 							<div className="space-y-2">
 								<Label htmlFor="roadmap-prompt">
 									Describe your product or goals
@@ -168,13 +170,9 @@ export function CreateRoadmapDialog({
 						</Button>
 						<Button
 							type="submit"
-							disabled={!hasTitle || !selectedMode || isSubmitting}
+							disabled={!hasTitle || !selectedPerspective || isSubmitting}
 						>
-							{isSubmitting
-								? "Creating..."
-								: selectedMode === "ai"
-									? "Create with AI"
-									: "Create Roadmap"}
+							{isSubmitting ? "Creating..." : "Create Roadmap"}
 						</Button>
 					</div>
 				</form>

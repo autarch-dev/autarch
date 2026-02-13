@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AnalyticsDashboardPage } from "@/features/analytics/components/AnalyticsDashboardPage";
 import { CostDashboardPage } from "@/features/costs/components/CostDashboardPage";
-import { RoadmapViewContainer, useRoadmapStore } from "@/features/roadmap";
+import {
+	type RoadmapPerspective,
+	RoadmapViewContainer,
+	useRoadmapStore,
+} from "@/features/roadmap";
 import { ChannelViewContainer } from "./components/ChannelView";
 import { CompletedWorkflowsPage } from "./components/CompletedWorkflows/CompletedWorkflowsPage";
 import { AppSidebar } from "./components/Sidebar";
@@ -98,8 +102,8 @@ export function Dashboard() {
 	);
 
 	const handleCreateRoadmap = useCallback(
-		async (title: string, mode: "ai" | "blank", prompt?: string) => {
-			const roadmap = await createRoadmap(title, mode, prompt);
+		async (title: string, perspective: RoadmapPerspective, prompt?: string) => {
+			const roadmap = await createRoadmap(title, perspective, prompt);
 			// Navigate to the new roadmap
 			setLocation(`/roadmap/${roadmap.id}`);
 		},

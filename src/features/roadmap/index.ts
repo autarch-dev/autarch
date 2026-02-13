@@ -5,6 +5,7 @@ export type {
 	PersonaSessionState,
 	RoadmapConversationState,
 	RoadmapDetails,
+	RoadmapPerspective,
 	StreamingMessage,
 	StreamingQuestion,
 	StreamingSegment,
