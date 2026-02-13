@@ -18,8 +18,9 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
-import { clearTSProjectCache, getDiagnostics } from "./diagnostics";
+import { getDiagnosticsThreadPool } from "./diagnostics";
 import { executePostWriteHooks } from "./hooks";
+import { clearTSProjectCache } from "./tsProject";
 
 // =============================================================================
 // Schema
@@ -107,7 +108,7 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 
 			// Check for type errors if it's a TypeScript file
 			let diagnosticOutput = "";
-			const diagnostics = await getDiagnostics(context, fullPath);
+			const diagnostics = await getDiagnosticsThreadPool.run(context, fullPath);
 			if (diagnostics) {
 				diagnosticOutput = `\n\n⚠️ Type errors:\n${diagnostics}`;
 			}

@@ -37,6 +37,7 @@
 		"@zip.js/zip.js": "^2.8.15",
 		"ai": "^6.0.72",
 		"bun-plugin-tailwind": "^0.1.2",
+		"bun-threads": "^1.1.1",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"consola": "^3.4.2",

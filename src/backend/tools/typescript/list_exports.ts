@@ -2,7 +2,7 @@ import * as path from "node:path";
 import { Glob } from "bun";
 import { Node } from "ts-morph";
 import { z } from "zod";
-import { getTSProject } from "../pulsing/diagnostics";
+import { getTSProject } from "../pulsing/tsProject";
 import type { ToolDefinition, ToolResult } from "../types";
 
 // =============================================================================

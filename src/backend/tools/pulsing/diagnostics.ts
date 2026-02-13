@@ -1,69 +1,42 @@
-import { Project } from "ts-morph";
-import { log } from "@/backend/logger";
-import { getTsconfigPath } from "@/backend/services/project";
+import { ThreadPool } from "bun-threads";
 import type { ToolContext } from "../types";
 
-const PROJECT_CACHE = new Map<string, Project>();
+export const getDiagnosticsThreadPool = new ThreadPool(
+	async (context: ToolContext, fullPath: string) => {
+		const { Project } = await import("ts-morph");
+		const { log } = await import("@/backend/logger");
+		const { getTsconfigPath } = await import("@/backend/services/project");
 
-export async function getTSProject(
-	context: ToolContext,
-): Promise<Project | null> {
-	const tsconfigPath = await getTsconfigPath(
-		context.worktreePath ?? context.projectRoot,
-	);
-
-	if (tsconfigPath) {
-		let project = PROJECT_CACHE.get(tsconfigPath);
-
-		if (!project) {
-			project = new Project({
-				tsConfigFilePath: tsconfigPath,
-			});
-			PROJECT_CACHE.set(tsconfigPath, project);
+		if (!/\.tsx?$/.test(fullPath)) {
+			log.tools.info(`getDiagnostics: ${fullPath} is not a TypeScript file`);
+			return null;
 		}
-		return project;
-	}
 
-	return null;
-}
-
-export function clearTSProjectCache() {
-	PROJECT_CACHE.clear();
-}
-
-export async function getDiagnostics(
-	context: ToolContext,
-	fullPath: string,
-): Promise<string | null> {
-	if (!/\.tsx?$/.test(fullPath)) {
-		log.tools.info(`getDiagnostics: ${fullPath} is not a TypeScript file`);
-		return null;
-	}
-
-	const tsconfigPath = await getTsconfigPath(
-		context.worktreePath ?? context.projectRoot,
-	);
-	if (!tsconfigPath) {
-		log.tools.info(
-			`getDiagnostics: no tsconfig.json found for project ${context.worktreePath ?? context.projectRoot}`,
+		const tsconfigPath = await getTsconfigPath(
+			context.worktreePath ?? context.projectRoot,
 		);
-		return null;
-	}
+		if (!tsconfigPath) {
+			log.tools.info(
+				`getDiagnostics: no tsconfig.json found for project ${context.worktreePath ?? context.projectRoot}`,
+			);
+			return null;
+		}
 
-	const project = new Project({
-		tsConfigFilePath: tsconfigPath,
-	});
+		const project = new Project({
+			tsConfigFilePath: tsconfigPath,
+		});
 
-	project.resolveSourceFileDependencies();
-	const diagnostics = project.getPreEmitDiagnostics();
+		project.resolveSourceFileDependencies();
+		const diagnostics = project.getPreEmitDiagnostics();
 
-	log.tools.info(
-		`getDiagnostics: ${fullPath} has ${diagnostics.length} type error(s)`,
-	);
+		log.tools.info(
+			`getDiagnostics: ${fullPath} has ${diagnostics.length} type error(s)`,
+		);
 
-	if (diagnostics.length === 0) {
-		return "✅ No type errors found";
-	}
+		if (diagnostics.length === 0) {
+			return "✅ No type errors found";
+		}
 
-	return project.formatDiagnosticsWithColorAndContext(diagnostics);
-}
+		return project.formatDiagnosticsWithColorAndContext(diagnostics);
+	},
+);

@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { Node, SyntaxKind } from "ts-morph";
 import { z } from "zod";
-import { getTSProject } from "../pulsing/diagnostics";
+import { getTSProject } from "../pulsing/tsProject";
 import type { ToolDefinition, ToolResult } from "../types";
 
 type Def = { path: string; line: number; kind: string; signature: string };
