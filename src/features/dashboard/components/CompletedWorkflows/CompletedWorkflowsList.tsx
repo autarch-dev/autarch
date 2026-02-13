@@ -74,6 +74,12 @@ export function CompletedWorkflowsList({
 			: "\u2014";
 	}, [enrichedWorkflows]);
 
+	const avgDurationDisplay = useMemo(() => {
+		if (enrichedWorkflows.length === 0) return "\u2014";
+		const totalMs = enrichedWorkflows.reduce((sum, ew) => sum + ew.duration, 0);
+		return formatDuration(totalMs / enrichedWorkflows.length);
+	}, [enrichedWorkflows]);
+
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
 			{/* Page header */}
@@ -109,12 +115,7 @@ export function CompletedWorkflowsList({
 								</div>
 								<div>
 									<div className="text-2xl font-semibold">
-										{formatDuration(
-											enrichedWorkflows.reduce(
-												(sum, ew) => sum + ew.duration,
-												0,
-											) / enrichedWorkflows.length,
-										)}
+										{avgDurationDisplay}
 									</div>
 									<div className="text-muted-foreground">Avg Duration</div>
 								</div>
