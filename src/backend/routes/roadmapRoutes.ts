@@ -18,6 +18,7 @@ import {
 	InitiativeStatusSchema,
 	type RoadmapDependency,
 	RoadmapDependencyNodeTypeSchema,
+	RoadmapPerspectiveSchema,
 	RoadmapStatusSchema,
 } from "@/shared/schemas/roadmap";
 import { ROADMAP_PLANNING_TOOLS } from "../agents/registry";
@@ -43,13 +44,7 @@ import { broadcast } from "../ws";
 
 const CreateRoadmapRequestSchema = z.object({
 	title: z.string().min(1),
-	perspective: z.enum([
-		"balanced",
-		"visionary",
-		"iterative",
-		"tech_lead",
-		"pathfinder",
-	]),
+	perspective: RoadmapPerspectiveSchema,
 	prompt: z.string().optional(),
 });
 
@@ -434,6 +429,7 @@ export const roadmapRoutes = {
 						roadmapId: roadmap.id,
 						title: roadmap.title,
 						status: roadmap.status,
+						perspective: roadmap.perspective,
 					}),
 				);
 
@@ -988,10 +984,12 @@ export const roadmapRoutes = {
 					return Response.json({ error: "Roadmap not found" }, { status: 404 });
 				}
 
+				// Note: the user's original prompt is not stored on the roadmap record,
+				// so retried generation loses that context.
 				await startPersonaSessions(
 					params.id,
 					roadmap.title,
-					roadmap.perspective ?? "balanced",
+					roadmap.perspective,
 				);
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));

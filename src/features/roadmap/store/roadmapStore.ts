@@ -30,6 +30,7 @@ import type {
 	Milestone,
 	Roadmap,
 	RoadmapDependency,
+	RoadmapPerspective,
 	VisionDocument,
 } from "@/shared/schemas/roadmap";
 
@@ -37,13 +38,8 @@ import type {
 // Types
 // =============================================================================
 
-/** The perspective for roadmap creation */
-export type RoadmapPerspective =
-	| "balanced"
-	| "visionary"
-	| "iterative"
-	| "tech_lead"
-	| "pathfinder";
+/** The perspective for roadmap creation — re-exported from shared schema */
+export type { RoadmapPerspective } from "@/shared/schemas/roadmap";
 
 /** A text segment within a streaming message */
 export interface StreamingSegment {
@@ -1039,6 +1035,7 @@ function handleRoadmapCreated(
 			id: payload.roadmapId,
 			title: payload.title,
 			status: payload.status,
+			perspective: payload.perspective,
 			createdAt: Date.now(),
 			updatedAt: Date.now(),
 		};

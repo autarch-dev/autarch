@@ -35,6 +35,15 @@ export const InitiativeSizeSchema = z.union(
 );
 export type InitiativeSize = z.infer<typeof InitiativeSizeSchema>;
 
+export const RoadmapPerspectiveSchema = z.enum([
+	"balanced",
+	"visionary",
+	"iterative",
+	"tech_lead",
+	"pathfinder",
+]);
+export type RoadmapPerspective = z.infer<typeof RoadmapPerspectiveSchema>;
+
 // =============================================================================
 // Roadmap
 // =============================================================================
@@ -44,7 +53,7 @@ export const RoadmapSchema = z.object({
 	title: z.string(),
 	description: z.string().optional(),
 	status: RoadmapStatusSchema,
-	perspective: z.string().optional(),
+	perspective: RoadmapPerspectiveSchema,
 	currentSessionId: z.string().optional(),
 	createdAt: z.number(),
 	updatedAt: z.number(),

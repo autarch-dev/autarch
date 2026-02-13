@@ -47,10 +47,10 @@ export const agentPrompts = {
 	review: () => reviewPrompt,
 	review_sub: reviewSubPrompt,
 	roadmap_planning: () => roadmapPlanningPrompt,
-	visionary: () => visionaryFounderPrompt,
-	iterative: () => iterativeImprovementsPrompt,
-	tech_lead: () => techLeadPrompt,
-	pathfinder: () => strategicPathfinderPrompt,
+	visionary: (options) => visionaryFounderPrompt(options.submitToolName),
+	iterative: (options) => iterativeImprovementsPrompt(options.submitToolName),
+	tech_lead: (options) => techLeadPrompt(options.submitToolName),
+	pathfinder: (options) => strategicPathfinderPrompt(options.submitToolName),
 	synthesis: () => synthesisMediatorPrompt,
 } as const satisfies Record<AgentRole, (options: AgentPromptOptions) => string>;
 

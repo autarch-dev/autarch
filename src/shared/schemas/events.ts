@@ -730,13 +730,14 @@ export type KnowledgeExtractionFailedEvent = z.infer<
 // Roadmap Events
 // =============================================================================
 
-import { RoadmapStatusSchema } from "./roadmap";
+import { RoadmapPerspectiveSchema, RoadmapStatusSchema } from "./roadmap";
 
 // roadmap:created
 export const RoadmapCreatedPayloadSchema = z.object({
 	roadmapId: z.string(),
 	title: z.string(),
 	status: RoadmapStatusSchema,
+	perspective: RoadmapPerspectiveSchema,
 });
 export type RoadmapCreatedPayload = z.infer<typeof RoadmapCreatedPayloadSchema>;
 

@@ -21,6 +21,7 @@ import type {
 	Roadmap,
 	RoadmapDependency,
 	RoadmapDependencyNodeType,
+	RoadmapPerspective,
 	RoadmapStatus,
 	VisionDocument,
 } from "@/shared/schemas/roadmap";
@@ -117,7 +118,7 @@ export class RoadmapRepository implements Repository {
 			title: row.title,
 			description: row.description ?? undefined,
 			status: row.status as RoadmapStatus,
-			perspective: row.perspective,
+			perspective: row.perspective as RoadmapPerspective,
 			currentSessionId: row.current_session_id ?? undefined,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
