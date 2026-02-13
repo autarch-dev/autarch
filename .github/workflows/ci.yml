@@ -23,7 +23,7 @@ jobs:
         run: bun test --concurrent
 
       - name: Lint
-        run: biome ci .
+        run: bun biome ci .
 
       - name: Typecheck
         run: tsc --noEmit
