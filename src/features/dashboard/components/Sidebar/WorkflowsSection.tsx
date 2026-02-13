@@ -128,8 +128,7 @@ export function WorkflowsSection({
 																<Circle
 																	className={cn(
 																		"size-3 shrink-0",
-																		workflow.awaitingApproval &&
-																			"fill-current",
+																		workflow.awaitingApproval && "fill-current",
 																		statusColors[workflow.status],
 																	)}
 																/>
@@ -141,9 +140,7 @@ export function WorkflowsSection({
 																	)}
 																/>
 															)}
-															<span className="truncate">
-																{workflow.title}
-															</span>
+															<span className="truncate">{workflow.title}</span>
 														</Link>
 													</SidebarMenuButton>
 												</SidebarMenuItem>
@@ -190,9 +187,7 @@ export function WorkflowsSection({
 													asChild
 													className="text-muted-foreground text-xs"
 												>
-													<Link href="/completed">
-														View all completed
-													</Link>
+													<Link href="/completed">View all completed</Link>
 												</SidebarMenuButton>
 											</SidebarMenuItem>
 										)}

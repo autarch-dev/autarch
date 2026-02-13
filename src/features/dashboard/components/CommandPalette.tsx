@@ -195,9 +195,7 @@ export function CommandPalette() {
 			switch (e.key) {
 				case "ArrowDown":
 					e.preventDefault();
-					setSelectedIndex((i) =>
-						Math.min(i + 1, filteredItems.length - 1),
-					);
+					setSelectedIndex((i) => Math.min(i + 1, filteredItems.length - 1));
 					break;
 				case "ArrowUp":
 					e.preventDefault();
@@ -252,50 +250,39 @@ export function CommandPalette() {
 				</div>
 
 				{/* Results */}
-				<div
-					ref={scrollRef}
-					className="max-h-[320px] overflow-y-auto p-2"
-				>
+				<div ref={scrollRef} className="max-h-[320px] overflow-y-auto p-2">
 					{filteredItems.length === 0 ? (
 						<div className="py-8 text-center text-sm text-muted-foreground">
 							No results found
 						</div>
 					) : (
-						Object.entries(groups).map(
-							([groupName, groupItems]) => (
-								<div key={groupName} className="mb-1 last:mb-0">
-									<div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-										{groupName}
-									</div>
-									{groupItems.map((item) => (
-										<button
-											key={item.id}
-											type="button"
-											data-index={item.flatIndex}
-											className={cn(
-												"flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors text-left outline-none",
-												item.flatIndex === selectedIndex
-													? "bg-accent text-accent-foreground"
-													: "hover:bg-accent/50",
-											)}
-											onClick={() =>
-												handleSelect(item.href)
-											}
-											onMouseEnter={() =>
-												setSelectedIndex(item.flatIndex)
-											}
-										>
-											<span className="shrink-0 text-muted-foreground">
-												{item.icon}
-											</span>
-											<span className="truncate">
-												{item.label}
-											</span>
-										</button>
-									))}
+						Object.entries(groups).map(([groupName, groupItems]) => (
+							<div key={groupName} className="mb-1 last:mb-0">
+								<div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+									{groupName}
 								</div>
-							),
-						)
+								{groupItems.map((item) => (
+									<button
+										key={item.id}
+										type="button"
+										data-index={item.flatIndex}
+										className={cn(
+											"flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors text-left outline-none",
+											item.flatIndex === selectedIndex
+												? "bg-accent text-accent-foreground"
+												: "hover:bg-accent/50",
+										)}
+										onClick={() => handleSelect(item.href)}
+										onMouseEnter={() => setSelectedIndex(item.flatIndex)}
+									>
+										<span className="shrink-0 text-muted-foreground">
+											{item.icon}
+										</span>
+										<span className="truncate">{item.label}</span>
+									</button>
+								))}
+							</div>
+						))
 					)}
 				</div>
 			</DialogContent>

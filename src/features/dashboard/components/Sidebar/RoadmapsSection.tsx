@@ -111,9 +111,7 @@ export function RoadmapsSection({
 																roadmapStatusColors[roadmap.status],
 															)}
 														/>
-														<span className="truncate">
-															{roadmap.title}
-														</span>
+														<span className="truncate">{roadmap.title}</span>
 													</Link>
 												</SidebarMenuButton>
 											</SidebarMenuItem>

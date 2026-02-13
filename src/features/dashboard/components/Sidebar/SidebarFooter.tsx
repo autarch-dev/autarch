@@ -20,8 +20,7 @@ function StatusBar() {
 	const progressPercent =
 		indexingProgress && indexingProgress.totalFiles > 0
 			? Math.round(
-					(indexingProgress.filesProcessed / indexingProgress.totalFiles) *
-						100,
+					(indexingProgress.filesProcessed / indexingProgress.totalFiles) * 100,
 				)
 			: 0;
 
@@ -37,9 +36,7 @@ function StatusBar() {
 			{connectionStatus === "reconnecting" && (
 				<div className="flex items-center gap-1.5">
 					<Loader2 className="size-3 animate-spin text-amber-500 shrink-0" />
-					<span>
-						Reconnecting ({retryCount}/10)
-					</span>
+					<span>Reconnecting ({retryCount}/10)</span>
 				</div>
 			)}
 			{connectionStatus === "disconnected" && (

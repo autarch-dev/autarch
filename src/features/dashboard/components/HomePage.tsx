@@ -14,8 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-	type RoadmapPerspective,
 	CreateRoadmapDialog,
+	type RoadmapPerspective,
 	useRoadmapStore,
 } from "@/features/roadmap";
 import { cn } from "@/lib/utils";
@@ -25,10 +25,14 @@ import {
 	WORKFLOW_STATUS_LABELS,
 	type WorkflowStatus,
 } from "@/shared/schemas/workflow";
+import {
+	useDiscussionsStore,
+	useProjectStore,
+	useWorkflowsStore,
+} from "../store";
 import { CreateChannelDialog } from "./Sidebar/CreateChannelDialog";
 import { CreateWorkflowDialog } from "./Sidebar/CreateWorkflowDialog";
 import { statusColors } from "./Sidebar/constants";
-import { useDiscussionsStore, useProjectStore, useWorkflowsStore } from "../store";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -168,9 +172,7 @@ export function HomePage() {
 				{/* Hero: Greeting + Quick Action */}
 				<div className="flex items-start justify-between">
 					<div>
-						<p className="text-sm text-muted-foreground">
-							{getGreeting()}
-						</p>
+						<p className="text-sm text-muted-foreground">{getGreeting()}</p>
 						<h1 className="text-2xl font-semibold tracking-tight mt-1">
 							{project?.name ?? "Your Project"}
 						</h1>
@@ -228,10 +230,7 @@ export function HomePage() {
 							{activeWorkflows.map((workflow, i) => {
 								const status = workflow.status as WorkflowStatus;
 								return (
-									<Link
-										key={workflow.id}
-										href={`/workflow/${workflow.id}`}
-									>
+									<Link key={workflow.id} href={`/workflow/${workflow.id}`}>
 										<div
 											className={cn(
 												"flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors cursor-pointer",
@@ -320,10 +319,7 @@ export function HomePage() {
 								</div>
 							) : (
 								sortedChannels.map((channel, i) => (
-									<Link
-										key={channel.id}
-										href={`/channel/${channel.id}`}
-									>
+									<Link key={channel.id} href={`/channel/${channel.id}`}>
 										<div
 											className={cn(
 												"flex items-center gap-2.5 px-4 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer text-sm",
@@ -331,9 +327,7 @@ export function HomePage() {
 											)}
 										>
 											<Hash className="size-3.5 text-muted-foreground shrink-0" />
-											<span className="truncate">
-												{channel.name}
-											</span>
+											<span className="truncate">{channel.name}</span>
 										</div>
 									</Link>
 								))
@@ -373,10 +367,7 @@ export function HomePage() {
 								</div>
 							) : (
 								sortedRoadmaps.map((roadmap: Roadmap, i: number) => (
-									<Link
-										key={roadmap.id}
-										href={`/roadmap/${roadmap.id}`}
-									>
+									<Link key={roadmap.id} href={`/roadmap/${roadmap.id}`}>
 										<div
 											className={cn(
 												"flex items-center gap-2.5 px-4 py-2.5 hover:bg-accent/50 transition-colors cursor-pointer text-sm",
@@ -390,9 +381,7 @@ export function HomePage() {
 														"text-muted-foreground",
 												)}
 											/>
-											<span className="truncate">
-												{roadmap.title}
-											</span>
+											<span className="truncate">{roadmap.title}</span>
 										</div>
 									</Link>
 								))
