@@ -86,21 +86,21 @@ export function Dashboard() {
 				<Switch>
 					<Route path="/channel/:id">
 						{(params) => (
-							<ErrorBoundary featureName="Channel">
+							<ErrorBoundary key={params.id} featureName="Channel">
 								<ChannelViewContainer channelId={params.id} />
 							</ErrorBoundary>
 						)}
 					</Route>
 					<Route path="/workflow/:id">
 						{(params) => (
-							<ErrorBoundary featureName="Workflow">
+							<ErrorBoundary key={params.id} featureName="Workflow">
 								<WorkflowViewContainer workflowId={params.id} />
 							</ErrorBoundary>
 						)}
 					</Route>
 					<Route path="/roadmap/:id">
 						{(params) => (
-							<ErrorBoundary featureName="Roadmap">
+							<ErrorBoundary key={params.id} featureName="Roadmap">
 								<RoadmapViewContainer roadmapId={params.id} />
 							</ErrorBoundary>
 						)}

@@ -6,7 +6,7 @@ import {
 	ClipboardCopy,
 	RotateCcw,
 } from "lucide-react";
-import React from "react";
+import React, { Fragment } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -91,16 +91,21 @@ export class ErrorBoundary extends React.Component<
 
 		const text = sections.join("\n\n");
 
-		navigator.clipboard.writeText(text).then(() => {
-			this.setState({ copied: true });
-			if (this.copiedTimeout) {
-				clearTimeout(this.copiedTimeout);
-			}
-			this.copiedTimeout = setTimeout(
-				() => this.setState({ copied: false }),
-				2000,
-			);
-		});
+		navigator.clipboard
+			.writeText(text)
+			.then(() => {
+				this.setState({ copied: true });
+				if (this.copiedTimeout) {
+					clearTimeout(this.copiedTimeout);
+				}
+				this.copiedTimeout = setTimeout(
+					() => this.setState({ copied: false }),
+					2000,
+				);
+			})
+			.catch(() => {
+				// Silently fail — clipboard access may be unavailable in insecure contexts
+			});
 	};
 
 	override render(): React.ReactNode {
@@ -137,10 +142,6 @@ export class ErrorBoundary extends React.Component<
 			);
 		}
 
-		return (
-			<div key={resetKey} className={className}>
-				{children}
-			</div>
-		);
+		return <Fragment key={resetKey}>{children}</Fragment>;
 	}
 }
