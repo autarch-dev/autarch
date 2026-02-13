@@ -6,13 +6,7 @@
  * including duration, cost, review summary, diff stats, and linked initiative.
  */
 
-import {
-	CheckCircle2,
-	Clock,
-	Code2,
-	DollarSign,
-	Search,
-} from "lucide-react";
+import { CheckCircle2, Clock, Code2, DollarSign, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
@@ -149,9 +143,7 @@ export function CompletedWorkflowsList({
 						</h1>
 						<p className="text-sm text-muted-foreground mt-1">
 							{enrichedWorkflows.length}{" "}
-							{enrichedWorkflows.length === 1
-								? "workflow"
-								: "workflows"}{" "}
+							{enrichedWorkflows.length === 1 ? "workflow" : "workflows"}{" "}
 							completed
 						</p>
 					</div>
@@ -172,10 +164,7 @@ export function CompletedWorkflowsList({
 					<div className="space-y-6">
 						<div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
 							{[1, 2, 3, 4].map((i) => (
-								<div
-									key={i}
-									className="rounded-xl border bg-card p-4"
-								>
+								<div key={i} className="rounded-xl border bg-card p-4">
 									<Skeleton className="h-7 w-12 mb-1.5" />
 									<Skeleton className="h-3 w-20" />
 								</div>
@@ -185,13 +174,7 @@ export function CompletedWorkflowsList({
 							<Skeleton className="h-4 w-24 mb-3" />
 							<Card className="py-0 gap-0 overflow-hidden">
 								{[1, 2, 3].map((i) => (
-									<div
-										key={i}
-										className={cn(
-											"px-4 py-4",
-											i > 1 && "border-t",
-										)}
-									>
+									<div key={i} className={cn("px-4 py-4", i > 1 && "border-t")}>
 										<Skeleton className="h-4 w-48 mb-2" />
 										<Skeleton className="h-3 w-72 mb-2" />
 										<Skeleton className="h-3 w-36" />
@@ -212,9 +195,8 @@ export function CompletedWorkflowsList({
 							No completed workflows yet
 						</h2>
 						<p className="text-sm text-muted-foreground max-w-sm mx-auto">
-							Workflows will appear here once they finish running.
-							Completed workflows include cost, duration, and diff
-							stats.
+							Workflows will appear here once they finish running. Completed
+							workflows include cost, duration, and diff stats.
 						</p>
 					</div>
 				)}
@@ -252,9 +234,7 @@ export function CompletedWorkflowsList({
 								<div className="size-10 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
 									<Search className="size-5 text-muted-foreground" />
 								</div>
-								<h3 className="font-medium mb-1">
-									No matching workflows
-								</h3>
+								<h3 className="font-medium mb-1">No matching workflows</h3>
 								<p className="text-sm text-muted-foreground">
 									Try a different search term or{" "}
 									<button
@@ -297,33 +277,24 @@ export function CompletedWorkflowsList({
 															{ew.workflow.title}
 														</span>
 														<span className="text-xs text-muted-foreground tabular-nums shrink-0">
-															{formatDuration(
-																ew.duration,
-															)}
+															{formatDuration(ew.duration)}
 														</span>
 													</div>
 
 													{/* Description or review summary */}
-													{(ew.reviewSummary ||
-														ew.workflow
-															.description) && (
+													{(ew.reviewSummary || ew.workflow.description) && (
 														<p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-															{ew.reviewSummary ??
-																ew.workflow
-																	.description}
+															{ew.reviewSummary ?? ew.workflow.description}
 														</p>
 													)}
 
 													{/* Metadata row */}
 													<div className="flex items-center gap-3 mt-2 flex-wrap">
-														{ew.totalCost !=
-															null && (
+														{ew.totalCost != null && (
 															<button
 																type="button"
 																className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-																onClick={(
-																	e,
-																) => {
+																onClick={(e) => {
 																	e.stopPropagation();
 																	e.preventDefault();
 																	setLocation(
@@ -333,9 +304,7 @@ export function CompletedWorkflowsList({
 															>
 																<DollarSign className="size-3" />
 																<span className="tabular-nums">
-																	{ew.totalCost.toFixed(
-																		2,
-																	)}
+																	{ew.totalCost.toFixed(2)}
 																</span>
 															</button>
 														)}
@@ -344,32 +313,16 @@ export function CompletedWorkflowsList({
 															<span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
 																<Code2 className="size-3" />
 																<span>
-																	{
-																		ew
-																			.diffStats
-																			.fileCount
-																	}{" "}
-																	{ew.diffStats
-																		.fileCount ===
-																	1
+																	{ew.diffStats.fileCount}{" "}
+																	{ew.diffStats.fileCount === 1
 																		? "file"
 																		: "files"}
 																</span>
 																<span className="text-green-600 dark:text-green-400 tabular-nums">
-																	+
-																	{
-																		ew
-																			.diffStats
-																			.additions
-																	}
+																	+{ew.diffStats.additions}
 																</span>
 																<span className="text-red-600 dark:text-red-400 tabular-nums">
-																	-
-																	{
-																		ew
-																			.diffStats
-																			.deletions
-																	}
+																	-{ew.diffStats.deletions}
 																</span>
 															</span>
 														)}
@@ -379,9 +332,7 @@ export function CompletedWorkflowsList({
 																variant="secondary"
 																className="text-xs py-0"
 															>
-																{
-																	ew.initiativeTitle
-																}
+																{ew.initiativeTitle}
 															</Badge>
 														)}
 													</div>

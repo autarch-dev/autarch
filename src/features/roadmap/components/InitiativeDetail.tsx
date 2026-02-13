@@ -115,499 +115,510 @@ interface InitiativeDetailProps {
 // Component
 // =============================================================================
 
-export const InitiativeDetail = memo(({
-	initiative,
-	open,
-	onOpenChange,
-	onUpdateInitiative,
-	onDeleteInitiative,
-}: InitiativeDetailProps) => {
-	// Workflow store for linking
-	const { workflows, fetchWorkflows, createWorkflow } = useWorkflowsStore();
+export const InitiativeDetail = memo(
+	({
+		initiative,
+		open,
+		onOpenChange,
+		onUpdateInitiative,
+		onDeleteInitiative,
+	}: InitiativeDetailProps) => {
+		// Workflow store for linking
+		const { workflows, createWorkflow } = useWorkflowsStore();
 
-	const [editTitle, setEditTitle] = useState("");
-	const [editDescription, setEditDescription] = useState("");
-	const [isEditingTitle, setIsEditingTitle] = useState(false);
-	const [isEditingDescription, setIsEditingDescription] = useState(false);
-	const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
-	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [isDeleting, setIsDeleting] = useState(false);
+		const [editTitle, setEditTitle] = useState("");
+		const [editDescription, setEditDescription] = useState("");
+		const [isEditingTitle, setIsEditingTitle] = useState(false);
+		const [isEditingDescription, setIsEditingDescription] = useState(false);
+		const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false);
+		const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+		const [isDeleting, setIsDeleting] = useState(false);
 
-	const prevInitiativeIdRef = useRef<string | null>(null);
-	const isEditingTitleRef = useRef(false);
-	const isEditingDescriptionRef = useRef(false);
+		const prevInitiativeIdRef = useRef<string | null>(null);
+		const isEditingTitleRef = useRef(false);
+		const isEditingDescriptionRef = useRef(false);
 
-	// Keep refs in sync with editing state
-	isEditingTitleRef.current = isEditingTitle;
-	isEditingDescriptionRef.current = isEditingDescription;
+		// Keep refs in sync with editing state
+		isEditingTitleRef.current = isEditingTitle;
+		isEditingDescriptionRef.current = isEditingDescription;
 
-	// Sync local state from initiative prop:
-	// - Full reset (including editing state) when initiative identity changes
-	// - Only sync non-editing fields when the same initiative updates
-	useEffect(() => {
-		if (!initiative) {
-			prevInitiativeIdRef.current = null;
-			return;
-		}
-		const identityChanged = initiative.id !== prevInitiativeIdRef.current;
-		prevInitiativeIdRef.current = initiative.id;
+		// Sync local state from initiative prop:
+		// - Full reset (including editing state) when initiative identity changes
+		// - Only sync non-editing fields when the same initiative updates
+		useEffect(() => {
+			if (!initiative) {
+				prevInitiativeIdRef.current = null;
+				return;
+			}
+			const identityChanged = initiative.id !== prevInitiativeIdRef.current;
+			prevInitiativeIdRef.current = initiative.id;
 
-		if (identityChanged) {
-			setEditTitle(initiative.title);
-			setEditDescription(initiative.description ?? "");
-			setIsEditingTitle(false);
-			setIsEditingDescription(false);
-			return;
-		}
-
-		if (!isEditingTitleRef.current) {
-			setEditTitle(initiative.title);
-		}
-		if (!isEditingDescriptionRef.current) {
-			setEditDescription(initiative.description ?? "");
-		}
-	}, [initiative]);
-
-	// Find linked workflow
-	const linkedWorkflow = initiative?.workflowId
-		? workflows.find((w) => w.id === initiative.workflowId)
-		: undefined;
-
-	// Available workflows for linking (non-archived, not already linked)
-	const availableWorkflows = workflows.filter(
-		(w) => !w.archived && w.id !== initiative?.workflowId,
-	);
-
-	// -------------------------------------------------------------------------
-	// Handlers
-	// -------------------------------------------------------------------------
-
-	const handleTitleSave = useCallback(async () => {
-		if (!initiative) return;
-		const trimmed = editTitle.trim();
-		if (trimmed && trimmed !== initiative.title) {
-			await onUpdateInitiative(initiative.id, { title: trimmed });
-		}
-		setIsEditingTitle(false);
-	}, [initiative, editTitle, onUpdateInitiative]);
-
-	const handleTitleKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			if (e.key === "Enter") {
-				handleTitleSave();
-			} else if (e.key === "Escape") {
-				setEditTitle(initiative?.title ?? "");
+			if (identityChanged) {
+				setEditTitle(initiative.title);
+				setEditDescription(initiative.description ?? "");
 				setIsEditingTitle(false);
-			}
-		},
-		[handleTitleSave, initiative?.title],
-	);
-
-	const handleDescriptionSave = useCallback(async () => {
-		if (!initiative) return;
-		const trimmed = editDescription.trim();
-		if (trimmed !== (initiative.description ?? "")) {
-			await onUpdateInitiative(initiative.id, {
-				description: trimmed || undefined,
-			});
-		}
-		setIsEditingDescription(false);
-	}, [initiative, editDescription, onUpdateInitiative]);
-
-	const handleDescriptionKeyDown = useCallback(
-		(e: React.KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-				e.preventDefault();
-				handleDescriptionSave();
-			} else if (e.key === "Escape") {
-				setEditDescription(initiative?.description ?? "");
 				setIsEditingDescription(false);
+				return;
 			}
-		},
-		[handleDescriptionSave, initiative?.description],
-	);
 
-	const handleStatusChange = useCallback(
-		async (status: InitiativeStatus) => {
-			if (!initiative) return;
-			await onUpdateInitiative(initiative.id, { status });
-		},
-		[initiative, onUpdateInitiative],
-	);
+			if (!isEditingTitleRef.current) {
+				setEditTitle(initiative.title);
+			}
+			if (!isEditingDescriptionRef.current) {
+				setEditDescription(initiative.description ?? "");
+			}
+		}, [initiative]);
 
-	const handlePriorityChange = useCallback(
-		async (priority: InitiativePriority) => {
-			if (!initiative) return;
-			await onUpdateInitiative(initiative.id, { priority });
-		},
-		[initiative, onUpdateInitiative],
-	);
+		// Find linked workflow
+		const linkedWorkflow = initiative?.workflowId
+			? workflows.find((w) => w.id === initiative.workflowId)
+			: undefined;
 
-	const handleSizeChange = useCallback(
-		async (value: string) => {
+		// Available workflows for linking (non-archived, not already linked)
+		const availableWorkflows = workflows.filter(
+			(w) => !w.archived && w.id !== initiative?.workflowId,
+		);
+
+		// -------------------------------------------------------------------------
+		// Handlers
+		// -------------------------------------------------------------------------
+
+		const handleTitleSave = useCallback(async () => {
 			if (!initiative) return;
-			if (value === "none") {
-				await onUpdateInitiative(initiative.id, { size: null });
-			} else {
+			const trimmed = editTitle.trim();
+			if (trimmed && trimmed !== initiative.title) {
+				await onUpdateInitiative(initiative.id, { title: trimmed });
+			}
+			setIsEditingTitle(false);
+		}, [initiative, editTitle, onUpdateInitiative]);
+
+		const handleTitleKeyDown = useCallback(
+			(e: React.KeyboardEvent) => {
+				if (e.key === "Enter") {
+					handleTitleSave();
+				} else if (e.key === "Escape") {
+					setEditTitle(initiative?.title ?? "");
+					setIsEditingTitle(false);
+				}
+			},
+			[handleTitleSave, initiative?.title],
+		);
+
+		const handleDescriptionSave = useCallback(async () => {
+			if (!initiative) return;
+			const trimmed = editDescription.trim();
+			if (trimmed !== (initiative.description ?? "")) {
 				await onUpdateInitiative(initiative.id, {
-					size: Number(value) as Initiative["size"],
+					description: trimmed || undefined,
 				});
 			}
-		},
-		[initiative, onUpdateInitiative],
-	);
+			setIsEditingDescription(false);
+		}, [initiative, editDescription, onUpdateInitiative]);
 
-	const handleLinkWorkflow = useCallback(
-		async (workflowId: string) => {
+		const handleDescriptionKeyDown = useCallback(
+			(e: React.KeyboardEvent) => {
+				if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+					e.preventDefault();
+					handleDescriptionSave();
+				} else if (e.key === "Escape") {
+					setEditDescription(initiative?.description ?? "");
+					setIsEditingDescription(false);
+				}
+			},
+			[handleDescriptionSave, initiative?.description],
+		);
+
+		const handleStatusChange = useCallback(
+			async (status: InitiativeStatus) => {
+				if (!initiative) return;
+				await onUpdateInitiative(initiative.id, { status });
+			},
+			[initiative, onUpdateInitiative],
+		);
+
+		const handlePriorityChange = useCallback(
+			async (priority: InitiativePriority) => {
+				if (!initiative) return;
+				await onUpdateInitiative(initiative.id, { priority });
+			},
+			[initiative, onUpdateInitiative],
+		);
+
+		const handleSizeChange = useCallback(
+			async (value: string) => {
+				if (!initiative) return;
+				if (value === "none") {
+					await onUpdateInitiative(initiative.id, { size: null });
+				} else {
+					await onUpdateInitiative(initiative.id, {
+						size: Number(value) as Initiative["size"],
+					});
+				}
+			},
+			[initiative, onUpdateInitiative],
+		);
+
+		const handleLinkWorkflow = useCallback(
+			async (workflowId: string) => {
+				if (!initiative) return;
+				await onUpdateInitiative(initiative.id, {
+					workflowId,
+					...(initiative.status === "not_started"
+						? { status: "in_progress" as const }
+						: {}),
+				});
+			},
+			[initiative, onUpdateInitiative],
+		);
+
+		const handleUnlinkWorkflow = useCallback(async () => {
 			if (!initiative) return;
 			await onUpdateInitiative(initiative.id, {
-				workflowId,
-				...(initiative.status === "not_started"
-					? { status: "in_progress" as const }
-					: {}),
+				workflowId: null,
 			});
-		},
-		[initiative, onUpdateInitiative],
-	);
+		}, [initiative, onUpdateInitiative]);
 
-	const handleUnlinkWorkflow = useCallback(async () => {
-		if (!initiative) return;
-		await onUpdateInitiative(initiative.id, {
-			workflowId: null,
-		});
-	}, [initiative, onUpdateInitiative]);
+		const handleCreateAndLinkWorkflow = useCallback(async () => {
+			if (!initiative) return;
+			setIsCreatingWorkflow(true);
+			try {
+				const workflow = await createWorkflow(
+					`# ${initiative.title}${initiative.description ? `\n\n${initiative.description}` : ""}`,
+				);
+				await onUpdateInitiative(initiative.id, {
+					workflowId: workflow.id,
+					...(initiative.status === "not_started"
+						? { status: "in_progress" as const }
+						: {}),
+				});
+			} catch (error) {
+				console.error("Failed to create workflow:", error);
+			} finally {
+				setIsCreatingWorkflow(false);
+			}
+		}, [initiative, createWorkflow, onUpdateInitiative]);
 
-	const handleCreateAndLinkWorkflow = useCallback(async () => {
-		if (!initiative) return;
-		setIsCreatingWorkflow(true);
-		try {
-			const workflow = await createWorkflow(
-				`# ${initiative.title}${initiative.description ? `\n\n${initiative.description}` : ""}`,
-			);
-			await onUpdateInitiative(initiative.id, {
-				workflowId: workflow.id,
-				...(initiative.status === "not_started"
-					? { status: "in_progress" as const }
-					: {}),
-			});
-		} catch (error) {
-			console.error("Failed to create workflow:", error);
-		} finally {
-			setIsCreatingWorkflow(false);
-		}
-	}, [initiative, createWorkflow, onUpdateInitiative]);
+		if (!initiative) return null;
 
-	if (!initiative) return null;
+		return (
+			<Sheet open={open} onOpenChange={onOpenChange}>
+				<SheetContent
+					side="right"
+					className="w-full sm:max-w-lg overflow-y-auto"
+				>
+					<SheetHeader>
+						<SheetTitle className="sr-only">Initiative Details</SheetTitle>
+						<SheetDescription className="sr-only">
+							View and edit initiative details
+						</SheetDescription>
+					</SheetHeader>
 
-	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-				<SheetHeader>
-					<SheetTitle className="sr-only">Initiative Details</SheetTitle>
-					<SheetDescription className="sr-only">
-						View and edit initiative details
-					</SheetDescription>
-				</SheetHeader>
-
-				<div className="space-y-6 px-4 pb-4">
-					{/* Title */}
-					<div className="space-y-1.5">
-						<Label>Title</Label>
-						{isEditingTitle ? (
-							<Input
-								value={editTitle}
-								onChange={(e) => setEditTitle(e.target.value)}
-								onBlur={handleTitleSave}
-								onKeyDown={handleTitleKeyDown}
-								autoFocus
-							/>
-						) : (
-							<button
-								type="button"
-								className="w-full text-left font-semibold text-lg bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80"
-								onClick={() => {
-									setEditTitle(initiative.title);
-									setIsEditingTitle(true);
-								}}
-							>
-								{initiative.title}
-							</button>
-						)}
-					</div>
-
-					{/* Description */}
-					<div className="space-y-1.5">
-						<Label>Description</Label>
-						{isEditingDescription ? (
-							<Textarea
-								value={editDescription}
-								onChange={(e) => setEditDescription(e.target.value)}
-								onBlur={handleDescriptionSave}
-								onKeyDown={handleDescriptionKeyDown}
-								placeholder="Describe this initiative (supports markdown)..."
-								className="min-h-[100px]"
-								autoFocus
-							/>
-						) : (
-							<button
-								type="button"
-								className="w-full text-left text-sm bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80 min-h-[24px]"
-								onClick={() => {
-									setEditDescription(initiative.description ?? "");
-									setIsEditingDescription(true);
-								}}
-							>
-								{initiative.description ? (
-									<span className="text-muted-foreground whitespace-pre-wrap">
-										{initiative.description}
-									</span>
-								) : (
-									<span className="text-muted-foreground italic">
-										Click to add description...
-									</span>
-								)}
-							</button>
-						)}
-					</div>
-
-					<Separator />
-
-					{/* Status and Priority */}
-					<div className="grid grid-cols-2 gap-4">
+					<div className="space-y-6 px-4 pb-4">
+						{/* Title */}
 						<div className="space-y-1.5">
-							<Label>Status</Label>
-							<Select
-								value={initiative.status}
-								onValueChange={(v) => handleStatusChange(v as InitiativeStatus)}
-							>
-								<SelectTrigger className="w-full">
-									<SelectValue>
+							<Label>Title</Label>
+							{isEditingTitle ? (
+								<Input
+									value={editTitle}
+									onChange={(e) => setEditTitle(e.target.value)}
+									onBlur={handleTitleSave}
+									onKeyDown={handleTitleKeyDown}
+									autoFocus
+								/>
+							) : (
+								<button
+									type="button"
+									className="w-full text-left font-semibold text-lg bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80"
+									onClick={() => {
+										setEditTitle(initiative.title);
+										setIsEditingTitle(true);
+									}}
+								>
+									{initiative.title}
+								</button>
+							)}
+						</div>
+
+						{/* Description */}
+						<div className="space-y-1.5">
+							<Label>Description</Label>
+							{isEditingDescription ? (
+								<Textarea
+									value={editDescription}
+									onChange={(e) => setEditDescription(e.target.value)}
+									onBlur={handleDescriptionSave}
+									onKeyDown={handleDescriptionKeyDown}
+									placeholder="Describe this initiative (supports markdown)..."
+									className="min-h-[100px]"
+									autoFocus
+								/>
+							) : (
+								<button
+									type="button"
+									className="w-full text-left text-sm bg-transparent border-none p-0 cursor-pointer hover:text-foreground/80 min-h-[24px]"
+									onClick={() => {
+										setEditDescription(initiative.description ?? "");
+										setIsEditingDescription(true);
+									}}
+								>
+									{initiative.description ? (
+										<span className="text-muted-foreground whitespace-pre-wrap">
+											{initiative.description}
+										</span>
+									) : (
+										<span className="text-muted-foreground italic">
+											Click to add description...
+										</span>
+									)}
+								</button>
+							)}
+						</div>
+
+						<Separator />
+
+						{/* Status and Priority */}
+						<div className="grid grid-cols-2 gap-4">
+							<div className="space-y-1.5">
+								<Label>Status</Label>
+								<Select
+									value={initiative.status}
+									onValueChange={(v) =>
+										handleStatusChange(v as InitiativeStatus)
+									}
+								>
+									<SelectTrigger className="w-full">
+										<SelectValue>
+											<Badge
+												variant="secondary"
+												className={cn(
+													"text-xs",
+													STATUS_COLORS[initiative.status],
+												)}
+											>
+												{STATUS_OPTIONS.find(
+													(o) => o.value === initiative.status,
+												)?.label ?? initiative.status}
+											</Badge>
+										</SelectValue>
+									</SelectTrigger>
+									<SelectContent>
+										{STATUS_OPTIONS.map((opt) => (
+											<SelectItem key={opt.value} value={opt.value}>
+												<Badge
+													variant="secondary"
+													className={cn("text-xs", STATUS_COLORS[opt.value])}
+												>
+													{opt.label}
+												</Badge>
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="space-y-1.5">
+								<Label>Priority</Label>
+								<Select
+									value={initiative.priority}
+									onValueChange={(v) =>
+										handlePriorityChange(v as InitiativePriority)
+									}
+								>
+									<SelectTrigger className="w-full">
+										<SelectValue>
+											{PRIORITY_OPTIONS.find(
+												(o) => o.value === initiative.priority,
+											)?.label ?? initiative.priority}
+										</SelectValue>
+									</SelectTrigger>
+									<SelectContent>
+										{PRIORITY_OPTIONS.map((opt) => (
+											<SelectItem key={opt.value} value={opt.value}>
+												{opt.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+
+						{/* Size */}
+						<div className="grid grid-cols-2 gap-4">
+							<div className="space-y-1.5">
+								<Label>Size</Label>
+								<Select
+									value={String(initiative.size ?? "none")}
+									onValueChange={handleSizeChange}
+								>
+									<SelectTrigger className="w-full">
+										<SelectValue placeholder="Unset" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="none">Unset</SelectItem>
+										{FIBONACCI_SIZES.map((size) => (
+											<SelectItem key={size} value={String(size)}>
+												{size}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+
+						<Separator />
+
+						{/* Progress Controls */}
+						<ProgressControls
+							initiative={initiative}
+							linkedWorkflowStatus={linkedWorkflow?.status}
+						/>
+
+						<Separator />
+
+						{/* Linked Workflow Section */}
+						<div className="space-y-3">
+							<Label>Linked Workflow</Label>
+
+							{linkedWorkflow ? (
+								<div className="rounded-md border p-3 space-y-2">
+									<div className="flex items-center justify-between">
+										<a
+											href={`/workflow/${linkedWorkflow.id}`}
+											className="text-sm font-medium hover:underline flex items-center gap-1.5"
+										>
+											<GitBranch className="size-3.5" />
+											{linkedWorkflow.title}
+											<ExternalLink className="size-3" />
+										</a>
 										<Badge
 											variant="secondary"
 											className={cn(
 												"text-xs",
-												STATUS_COLORS[initiative.status],
+												WORKFLOW_STATUS_COLORS[linkedWorkflow.status],
 											)}
 										>
-											{STATUS_OPTIONS.find((o) => o.value === initiative.status)
-												?.label ?? initiative.status}
+											{WORKFLOW_STATUS_LABELS[linkedWorkflow.status]}
 										</Badge>
-									</SelectValue>
-								</SelectTrigger>
-								<SelectContent>
-									{STATUS_OPTIONS.map((opt) => (
-										<SelectItem key={opt.value} value={opt.value}>
-											<Badge
-												variant="secondary"
-												className={cn("text-xs", STATUS_COLORS[opt.value])}
-											>
-												{opt.label}
-											</Badge>
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-
-						<div className="space-y-1.5">
-							<Label>Priority</Label>
-							<Select
-								value={initiative.priority}
-								onValueChange={(v) =>
-									handlePriorityChange(v as InitiativePriority)
-								}
-							>
-								<SelectTrigger className="w-full">
-									<SelectValue>
-										{PRIORITY_OPTIONS.find(
-											(o) => o.value === initiative.priority,
-										)?.label ?? initiative.priority}
-									</SelectValue>
-								</SelectTrigger>
-								<SelectContent>
-									{PRIORITY_OPTIONS.map((opt) => (
-										<SelectItem key={opt.value} value={opt.value}>
-											{opt.label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-					</div>
-
-					{/* Size */}
-					<div className="grid grid-cols-2 gap-4">
-						<div className="space-y-1.5">
-							<Label>Size</Label>
-							<Select
-								value={String(initiative.size ?? "none")}
-								onValueChange={handleSizeChange}
-							>
-								<SelectTrigger className="w-full">
-									<SelectValue placeholder="Unset" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="none">Unset</SelectItem>
-									{FIBONACCI_SIZES.map((size) => (
-										<SelectItem key={size} value={String(size)}>
-											{size}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-					</div>
-
-					<Separator />
-
-					{/* Progress Controls */}
-					<ProgressControls
-						initiative={initiative}
-						linkedWorkflowStatus={linkedWorkflow?.status}
-					/>
-
-					<Separator />
-
-					{/* Linked Workflow Section */}
-					<div className="space-y-3">
-						<Label>Linked Workflow</Label>
-
-						{linkedWorkflow ? (
-							<div className="rounded-md border p-3 space-y-2">
-								<div className="flex items-center justify-between">
-									<a
-										href={`/workflow/${linkedWorkflow.id}`}
-										className="text-sm font-medium hover:underline flex items-center gap-1.5"
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={handleUnlinkWorkflow}
+										className="w-full"
 									>
-										<GitBranch className="size-3.5" />
-										{linkedWorkflow.title}
-										<ExternalLink className="size-3" />
-									</a>
-									<Badge
-										variant="secondary"
-										className={cn(
-											"text-xs",
-											WORKFLOW_STATUS_COLORS[linkedWorkflow.status],
-										)}
-									>
-										{WORKFLOW_STATUS_LABELS[linkedWorkflow.status]}
-									</Badge>
+										<Link2Off className="size-3.5 mr-1.5" />
+										Unlink
+									</Button>
 								</div>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleUnlinkWorkflow}
-									className="w-full"
-								>
-									<Link2Off className="size-3.5 mr-1.5" />
-									Unlink
-								</Button>
-							</div>
-						) : (
-							<div className="rounded-md border border-dashed p-3">
-								<DropdownMenu>
-									<DropdownMenuTrigger asChild>
-										<Button variant="outline" size="sm" className="w-full">
-											<Link2 className="size-3.5 mr-1.5" />
-											Link Workflow
-										</Button>
-									</DropdownMenuTrigger>
-									<DropdownMenuContent
-										align="start"
-										className="w-[300px] max-h-[300px] overflow-y-auto"
-									>
-										<DropdownMenuItem
-											onClick={handleCreateAndLinkWorkflow}
-											disabled={isCreatingWorkflow}
+							) : (
+								<div className="rounded-md border border-dashed p-3">
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button variant="outline" size="sm" className="w-full">
+												<Link2 className="size-3.5 mr-1.5" />
+												Link Workflow
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent
+											align="start"
+											className="w-[300px] max-h-[300px] overflow-y-auto"
 										>
-											<Plus className="size-3.5 mr-1.5" />
-											{isCreatingWorkflow
-												? "Creating..."
-												: "Create New Workflow"}
-										</DropdownMenuItem>
-										{availableWorkflows.length > 0 ? (
-											<>
-												<DropdownMenuSeparator />
-												{availableWorkflows.map((w) => (
-													<DropdownMenuItem
-														key={w.id}
-														onClick={() => handleLinkWorkflow(w.id)}
-													>
-														<div className="flex items-center justify-between w-full">
-															<span className="truncate mr-2">{w.title}</span>
-															<Badge
-																variant="secondary"
-																className={cn(
-																	"text-xs shrink-0",
-																	WORKFLOW_STATUS_COLORS[w.status],
-																)}
-															>
-																{WORKFLOW_STATUS_LABELS[w.status]}
-															</Badge>
-														</div>
-													</DropdownMenuItem>
-												))}
-											</>
-										) : null}
-									</DropdownMenuContent>
-								</DropdownMenu>
-							</div>
-						)}
-					</div>
+											<DropdownMenuItem
+												onClick={handleCreateAndLinkWorkflow}
+												disabled={isCreatingWorkflow}
+											>
+												<Plus className="size-3.5 mr-1.5" />
+												{isCreatingWorkflow
+													? "Creating..."
+													: "Create New Workflow"}
+											</DropdownMenuItem>
+											{availableWorkflows.length > 0 ? (
+												<>
+													<DropdownMenuSeparator />
+													{availableWorkflows.map((w) => (
+														<DropdownMenuItem
+															key={w.id}
+															onClick={() => handleLinkWorkflow(w.id)}
+														>
+															<div className="flex items-center justify-between w-full">
+																<span className="truncate mr-2">{w.title}</span>
+																<Badge
+																	variant="secondary"
+																	className={cn(
+																		"text-xs shrink-0",
+																		WORKFLOW_STATUS_COLORS[w.status],
+																	)}
+																>
+																	{WORKFLOW_STATUS_LABELS[w.status]}
+																</Badge>
+															</div>
+														</DropdownMenuItem>
+													))}
+												</>
+											) : null}
+										</DropdownMenuContent>
+									</DropdownMenu>
+								</div>
+							)}
+						</div>
 
-					<Separator />
+						<Separator />
 
-					{/* Delete Initiative */}
-					<div className="space-y-1.5">
-						<Button
-							variant="destructive"
-							className="w-full"
-							onClick={() => setIsDeleteDialogOpen(true)}
-						>
-							<Trash2 className="size-3.5 mr-1.5" />
-							Delete Initiative
-						</Button>
-					</div>
-				</div>
-
-				{/* Delete Confirmation Dialog */}
-				<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-					<DialogContent>
-						<DialogHeader>
-							<DialogTitle>Delete Initiative</DialogTitle>
-							<DialogDescription>
-								Delete this initiative? This action cannot be undone.
-							</DialogDescription>
-						</DialogHeader>
-						<DialogFooter>
-							<Button
-								variant="outline"
-								onClick={() => setIsDeleteDialogOpen(false)}
-							>
-								Cancel
-							</Button>
+						{/* Delete Initiative */}
+						<div className="space-y-1.5">
 							<Button
 								variant="destructive"
-								disabled={isDeleting}
-								onClick={async () => {
-									setIsDeleting(true);
-									try {
-										await onDeleteInitiative(initiative.id);
-										setIsDeleteDialogOpen(false);
-										onOpenChange(false);
-									} catch (error) {
-										console.error("Failed to delete initiative:", error);
-									} finally {
-										setIsDeleting(false);
-									}
-								}}
+								className="w-full"
+								onClick={() => setIsDeleteDialogOpen(true)}
 							>
-								{isDeleting ? "Deleting..." : "Delete"}
+								<Trash2 className="size-3.5 mr-1.5" />
+								Delete Initiative
 							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
-			</SheetContent>
-		</Sheet>
-	);
-});
+						</div>
+					</div>
+
+					{/* Delete Confirmation Dialog */}
+					<Dialog
+						open={isDeleteDialogOpen}
+						onOpenChange={setIsDeleteDialogOpen}
+					>
+						<DialogContent>
+							<DialogHeader>
+								<DialogTitle>Delete Initiative</DialogTitle>
+								<DialogDescription>
+									Delete this initiative? This action cannot be undone.
+								</DialogDescription>
+							</DialogHeader>
+							<DialogFooter>
+								<Button
+									variant="outline"
+									onClick={() => setIsDeleteDialogOpen(false)}
+								>
+									Cancel
+								</Button>
+								<Button
+									variant="destructive"
+									disabled={isDeleting}
+									onClick={async () => {
+										setIsDeleting(true);
+										try {
+											await onDeleteInitiative(initiative.id);
+											setIsDeleteDialogOpen(false);
+											onOpenChange(false);
+										} catch (error) {
+											console.error("Failed to delete initiative:", error);
+										} finally {
+											setIsDeleting(false);
+										}
+									}}
+								>
+									{isDeleting ? "Deleting..." : "Delete"}
+								</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
+				</SheetContent>
+			</Sheet>
+		);
+	},
+);
