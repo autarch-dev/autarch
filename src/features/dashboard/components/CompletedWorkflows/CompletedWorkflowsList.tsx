@@ -7,6 +7,7 @@
  */
 
 import { ArrowLeft } from "lucide-react";
+import { useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,6 +54,26 @@ export function CompletedWorkflowsList({
 		(ew) => ew.workflow.updatedAt,
 	);
 
+	const totalCostDisplay = useMemo(() => {
+		const costs = enrichedWorkflows
+			.map((ew) => ew.totalCost)
+			.filter((c): c is number => c != null);
+		return costs.length > 0
+			? `$${costs.reduce((sum, c) => sum + c, 0).toFixed(2)}`
+			: "\u2014";
+	}, [enrichedWorkflows]);
+
+	const totalLinesChangedDisplay = useMemo(() => {
+		const diffs = enrichedWorkflows
+			.map((ew) => ew.diffStats)
+			.filter((d): d is NonNullable<typeof d> => d != null);
+		return diffs.length > 0
+			? diffs
+					.reduce((sum, d) => sum + d.additions + d.deletions, 0)
+					.toLocaleString()
+			: "\u2014";
+	}, [enrichedWorkflows]);
+
 	return (
 		<div className="flex flex-col h-full overflow-y-auto">
 			{/* Page header */}
@@ -82,14 +103,7 @@ export function CompletedWorkflowsList({
 								</div>
 								<div>
 									<div className="text-2xl font-semibold">
-										{(() => {
-											const costs = enrichedWorkflows
-												.map((ew) => ew.totalCost)
-												.filter((c): c is number => c != null);
-											return costs.length > 0
-												? `$${costs.reduce((sum, c) => sum + c, 0).toFixed(2)}`
-												: "—";
-										})()}
+										{totalCostDisplay}
 									</div>
 									<div className="text-muted-foreground">Total Cost</div>
 								</div>
@@ -106,19 +120,7 @@ export function CompletedWorkflowsList({
 								</div>
 								<div>
 									<div className="text-2xl font-semibold">
-										{(() => {
-											const diffs = enrichedWorkflows
-												.map((ew) => ew.diffStats)
-												.filter((d): d is NonNullable<typeof d> => d != null);
-											return diffs.length > 0
-												? diffs
-														.reduce(
-															(sum, d) => sum + d.additions + d.deletions,
-															0,
-														)
-														.toLocaleString()
-												: "—";
-										})()}
+										{totalLinesChangedDisplay}
 									</div>
 									<div className="text-muted-foreground">Lines Changed</div>
 								</div>
