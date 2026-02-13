@@ -9,11 +9,8 @@
  * message indicating the roadmap has been generated.
  */
 
-import { CheckCircle, Loader2, MapPin, Send, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
+import { CheckCircle, Loader2, Sparkles } from "lucide-react";
+import { useEffect, useRef } from "react";
 import {
 	ChannelMessageBubble,
 	StreamingMessageBubble,
@@ -99,67 +96,12 @@ function ActiveToolIndicator({ toolName }: { toolName: string }) {
 	);
 }
 
-function PlanningMessageInput({
-	onSend,
-	disabled,
-}: {
-	onSend: (content: string) => void;
-	disabled: boolean;
-}) {
-	const [message, setMessage] = useState("");
-
-	const handleSend = () => {
-		if (message.trim()) {
-			onSend(message);
-			setMessage("");
-		}
-	};
-
-	const handleKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
-			handleSend();
-		}
-	};
-
-	return (
-		<div className="border rounded-lg bg-background">
-			<Textarea
-				value={message}
-				onChange={(e) => setMessage(e.target.value)}
-				onKeyDown={handleKeyDown}
-				placeholder="Describe your product goals or answer the questions above..."
-				disabled={disabled}
-				className="min-h-[60px] max-h-[200px] resize-none border-0 px-3 py-3 focus-visible:ring-0 focus-visible:ring-offset-0"
-			/>
-			<div className="flex items-center justify-between px-3 py-2 border-t bg-muted/30">
-				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					<MapPin className="size-3.5" />
-					<span>AI Roadmap Planning</span>
-				</div>
-				<Button
-					size="sm"
-					onClick={handleSend}
-					disabled={disabled || !message.trim()}
-					className="h-7 gap-1.5"
-				>
-					<Send className="size-3.5" />
-					<span className="text-xs">Send</span>
-				</Button>
-			</div>
-		</div>
-	);
-}
-
 // =============================================================================
 // Main Component
 // =============================================================================
 
 export function PlanningConversation({
-	roadmapId: _roadmapId,
 	conversation,
-	onSendMessage,
-	inputMode = "full",
 }: PlanningConversationProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const { messages, streamingMessage, isLoading, sessionStatus } = conversation;
