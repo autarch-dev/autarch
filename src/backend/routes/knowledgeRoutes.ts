@@ -167,8 +167,11 @@ export const knowledgeRoutes = {
 					filters.endDate = data.endDate;
 				}
 
-				const items = await repo.search(filters);
-				return Response.json({ items, total: items.length });
+				const [items, total] = await Promise.all([
+					repo.search(filters),
+					repo.count(filters),
+				]);
+				return Response.json({ items, total });
 			} catch (error) {
 				log.api.error("Failed to list knowledge items:", error);
 				return Response.json(

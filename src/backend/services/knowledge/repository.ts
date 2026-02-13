@@ -263,6 +263,44 @@ export class KnowledgeRepository {
 	}
 
 	/**
+	 * Count knowledge items matching optional filters.
+	 * Applies the same filter logic as search() without offset/limit.
+	 */
+	async count(
+		filters: Omit<KnowledgeSearchFilters, "offset" | "limit">,
+	): Promise<number> {
+		let query = this.db
+			.selectFrom("knowledge_items")
+			.select(this.db.fn.countAll<number>().as("count"));
+
+		if (filters.category !== undefined) {
+			query = query.where("category", "=", filters.category);
+		}
+
+		if (filters.workflowId !== undefined) {
+			query = query.where("workflow_id", "=", filters.workflowId);
+		}
+
+		if (filters.startDate !== undefined) {
+			query = query.where("created_at", ">=", filters.startDate);
+		}
+
+		if (filters.endDate !== undefined) {
+			query = query.where("created_at", "<=", filters.endDate);
+		}
+
+		if (filters.tags !== undefined && filters.tags.length > 0) {
+			for (const tag of filters.tags) {
+				const escapedTag = tag.replace(/[%_\\]/g, "\\$&");
+				query = query.where("tags_json", "like", `%"${escapedTag}"%`);
+			}
+		}
+
+		const result = await query.executeTakeFirstOrThrow();
+		return Number(result.count);
+	}
+
+	/**
 	 * Update a knowledge item by ID.
 	 * Returns the updated item, or null if not found.
 	 */
