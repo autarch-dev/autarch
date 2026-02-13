@@ -75,10 +75,30 @@ const TERMINAL_TOOLS: Record<string, string[]> = {
 	review: ["complete_review", "spawn_review_tasks", "request_extension"],
 	review_sub: ["submit_sub_review", "request_extension"],
 	roadmap_planning: ["submit_roadmap", "request_extension", "ask_questions"],
-	visionary: ["submit_persona_roadmap", "ask_questions", "request_extension"],
-	iterative: ["submit_persona_roadmap", "ask_questions", "request_extension"],
-	tech_lead: ["submit_persona_roadmap", "ask_questions", "request_extension"],
-	pathfinder: ["submit_persona_roadmap", "ask_questions", "request_extension"],
+	visionary: [
+		"submit_persona_roadmap",
+		"submit_roadmap",
+		"ask_questions",
+		"request_extension",
+	],
+	iterative: [
+		"submit_persona_roadmap",
+		"submit_roadmap",
+		"ask_questions",
+		"request_extension",
+	],
+	tech_lead: [
+		"submit_persona_roadmap",
+		"submit_roadmap",
+		"ask_questions",
+		"request_extension",
+	],
+	pathfinder: [
+		"submit_persona_roadmap",
+		"submit_roadmap",
+		"ask_questions",
+		"request_extension",
+	],
 	synthesis: ["submit_roadmap", "request_extension", "ask_questions"],
 	// discussion and basic agents don't require terminal tools
 	discussion: [],
@@ -155,38 +175,38 @@ Please continue planning the roadmap. If you have enough information, call \`sub
 	visionary: `You did not end your turn with a required tool call.
 
 As a reminder, every message MUST end with exactly one of:
-- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`submit_persona_roadmap\` or \`submit_roadmap\` — if you have finalized your roadmap proposal
 - \`ask_questions\` — if you need clarification from the user
 - \`request_extension\` — if you need another turn to explore or refine
 
-Please finalize your roadmap vision and call \`submit_persona_roadmap\` to submit your proposal.`,
+Please finalize your roadmap vision and use \`submit_persona_roadmap\` or \`submit_roadmap\` to submit your proposal.`,
 
 	iterative: `You did not end your turn with a required tool call.
 
 As a reminder, every message MUST end with exactly one of:
-- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`submit_persona_roadmap\` or \`submit_roadmap\` — if you have finalized your roadmap proposal
 - \`ask_questions\` — if you need clarification from the user
 - \`request_extension\` — if you need another turn to explore or refine
 
-Please finalize your incremental roadmap plan and call \`submit_persona_roadmap\` to submit your proposal.`,
+Please finalize your incremental roadmap plan and use \`submit_persona_roadmap\` or \`submit_roadmap\` to submit your proposal.`,
 
 	tech_lead: `You did not end your turn with a required tool call.
 
 As a reminder, every message MUST end with exactly one of:
-- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`submit_persona_roadmap\` or \`submit_roadmap\` — if you have finalized your roadmap proposal
 - \`ask_questions\` — if you need clarification from the user
 - \`request_extension\` — if you need another turn to explore or refine
 
-Please finalize your technical roadmap assessment and call \`submit_persona_roadmap\` to submit your proposal.`,
+Please finalize your technical roadmap assessment and use \`submit_persona_roadmap\` or \`submit_roadmap\` to submit your proposal.`,
 
 	pathfinder: `You did not end your turn with a required tool call.
 
 As a reminder, every message MUST end with exactly one of:
-- \`submit_persona_roadmap\` — if you have finalized your roadmap proposal
+- \`submit_persona_roadmap\` or \`submit_roadmap\` — if you have finalized your roadmap proposal
 - \`ask_questions\` — if you need clarification from the user
 - \`request_extension\` — if you need another turn to explore or refine
 
-Please finalize your strategic roadmap proposal and call \`submit_persona_roadmap\` to submit your proposal.`,
+Please finalize your strategic roadmap proposal and use \`submit_persona_roadmap\` or \`submit_roadmap\` to submit your proposal.`,
 
 	synthesis: `You did not end your turn with a required tool call.
 
@@ -236,6 +256,11 @@ export class AgentRunner {
 		nudgeCount = 0,
 	): Promise<void> {
 		const agentConfig = getAgentConfig(this.session.agentRole);
+
+		// Allow callers to override the tool set while keeping the persona's system prompt
+		if (this.config.toolsOverride) {
+			agentConfig.tools = this.config.toolsOverride;
+		}
 
 		log.agent.info(
 			`Running agent [${this.session.agentRole}] for session ${this.session.id}${nudgeCount > 0 ? ` (nudge ${nudgeCount})` : ""}`,
