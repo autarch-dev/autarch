@@ -34,10 +34,15 @@ export function AnalyticsDashboardPage() {
 	const setFilters = useAnalyticsStore((s) => s.setFilters);
 	const fetchAll = useAnalyticsStore((s) => s.fetchAll);
 	const summary = useAnalyticsStore((s) => s.summary);
+	const stages = useAnalyticsStore((s) => s.stages);
+	const failures = useAnalyticsStore((s) => s.failures);
+	const throughput = useAnalyticsStore((s) => s.throughput);
 	const search = useSearch();
 
+	const isAnyLoading =
+		summary.loading || stages.loading || failures.loading || throughput.loading;
 	const isEmpty =
-		!summary.loading && summary.data !== null && summary.data.length === 0;
+		!isAnyLoading && summary.data !== null && summary.data.length === 0;
 
 	useEffect(() => {
 		const filters = parseFiltersFromSearch(search);
@@ -70,7 +75,7 @@ export function AnalyticsDashboardPage() {
 					</p>
 					<div className="mt-4 flex items-center justify-center gap-2">
 						<Button asChild>
-							<Link href="/">Go to Dashboard</Link>
+							<Link to="/">Go to Dashboard</Link>
 						</Button>
 					</div>
 				</div>

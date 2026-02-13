@@ -196,8 +196,22 @@ export function CompletedWorkflowsList({
 				{!isLoading &&
 					enrichedWorkflows.length > 0 &&
 					filteredWorkflows.length === 0 && (
-						<div className="flex items-center justify-center h-full">
-							<p className="text-muted-foreground">No matching workflows</p>
+						<div className="px-4 py-8 text-center">
+							<div className="size-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+								<Search className="size-6 text-muted-foreground" />
+							</div>
+							<h4 className="font-medium mb-1">No matching workflows</h4>
+							<p className="text-sm text-muted-foreground max-w-sm mx-auto">
+								No completed workflows match your search. Try a different query
+								or clear the search to see all {enrichedWorkflows.length}{" "}
+								completed{" "}
+								{enrichedWorkflows.length === 1 ? "workflow" : "workflows"}.
+							</p>
+							<div className="mt-4 flex items-center justify-center gap-2">
+								<Button variant="outline" onClick={() => setSearchText("")}>
+									Clear search
+								</Button>
+							</div>
 						</div>
 					)}
 
