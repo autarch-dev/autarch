@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Sheet,
 	SheetContent,
@@ -53,41 +54,42 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent
 				side="right"
-				className="w-full overflow-y-auto sm:max-w-lg border-l-0 bg-zinc-950 p-6"
+				className="w-full overflow-y-clip sm:max-w-lg border-l-0 bg-zinc-950"
 			>
-				<SheetHeader className="pb-2">
-					<SheetTitle className="text-xl font-medium tracking-tight text-zinc-100">
-						Settings
-					</SheetTitle>
-				</SheetHeader>
+				<Tabs defaultValue="keys" className="w-full h-screen flex flex-col">
+					<SheetHeader className="shrink-0">
+						<SheetTitle className="text-xl font-medium tracking-tight text-zinc-100">
+							Settings
+						</SheetTitle>
+						<TabsList className="w-full bg-zinc-900/50">
+							<TabsTrigger value="keys" className="flex-1">
+								API Keys
+							</TabsTrigger>
+							<TabsTrigger value="models" className="flex-1">
+								Models
+							</TabsTrigger>
+							<TabsTrigger value="project" className="flex-1">
+								Project
+							</TabsTrigger>
+						</TabsList>
+					</SheetHeader>
 
-				<Tabs defaultValue="keys" className="w-full">
-					<TabsList className="w-full bg-zinc-900/50">
-						<TabsTrigger value="keys" className="flex-1">
-							API Keys
-						</TabsTrigger>
-						<TabsTrigger value="models" className="flex-1">
-							Models
-						</TabsTrigger>
-						<TabsTrigger value="project" className="flex-1">
-							Project
-						</TabsTrigger>
-					</TabsList>
+					<ScrollArea className="flex-1 min-h-0 px-8">
+						<TabsContent value="keys" className="mt-6 space-y-6">
+							<ApiProviderKeysSection />
+							<IntegrationsSection />
+						</TabsContent>
 
-					<TabsContent value="keys" className="mt-6 space-y-6">
-						<ApiProviderKeysSection />
-						<IntegrationsSection />
-					</TabsContent>
+						<TabsContent value="models" className="mt-6">
+							<ModelPreferencesSection />
+						</TabsContent>
 
-					<TabsContent value="models" className="mt-6">
-						<ModelPreferencesSection />
-					</TabsContent>
-
-					<TabsContent value="project" className="mt-6 space-y-6">
-						<GitIdentitySection />
-						<HooksSection />
-						<PersistentApprovalsSection />
-					</TabsContent>
+						<TabsContent value="project" className="mt-6 space-y-6">
+							<GitIdentitySection />
+							<HooksSection />
+							<PersistentApprovalsSection />
+						</TabsContent>
+					</ScrollArea>
 				</Tabs>
 			</SheetContent>
 		</Sheet>

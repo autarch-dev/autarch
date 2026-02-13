@@ -18,6 +18,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Select,
 	SelectContent,
@@ -201,409 +202,414 @@ function SortableHeader({
 // Component: TableView
 // =============================================================================
 
-export const TableView = memo(({
-	roadmapId: _roadmapId,
-	milestones,
-	initiatives,
-	dependencies,
-	onUpdateMilestone,
-	onUpdateInitiative,
-	onCreateMilestone,
-	onCreateInitiative,
-	onSelectInitiative,
-	onDeleteMilestone,
-	onDeleteInitiative,
-}: TableViewProps) => {
-	// -------------------------------------------------------------------------
-	// State
-	// -------------------------------------------------------------------------
-	const [collapsedMilestones, setCollapsedMilestones] = useState<Set<string>>(
-		new Set(),
-	);
-	const [sort, setSort] = useState<SortConfig | null>(null);
-	const [filterStatus, setFilterStatus] = useState<string>("all");
-	const [filterPriority, setFilterPriority] = useState<string>("all");
-	const [searchText, setSearchText] = useState("");
-	const [deleteTarget, setDeleteTarget] = useState<{
-		type: "milestone" | "initiative";
-		id: string;
-		title: string;
-	} | null>(null);
-	const [newlyCreatedInitiativeId, setNewlyCreatedInitiativeId] = useState<
-		string | null
-	>(null);
-	const isCreatingRef = useRef(false);
-
-	const { fetchWorkflows } = useWorkflowsStore();
-
-	useEffect(() => {
-		fetchWorkflows();
-	}, [fetchWorkflows]);
-
-	// -------------------------------------------------------------------------
-	// Handlers
-	// -------------------------------------------------------------------------
-	const toggleMilestone = useCallback((milestoneId: string) => {
-		setCollapsedMilestones((prev) => {
-			const next = new Set(prev);
-			if (next.has(milestoneId)) {
-				next.delete(milestoneId);
-			} else {
-				next.add(milestoneId);
-			}
-			return next;
-		});
-	}, []);
-
-	const handleSort = useCallback((field: SortField) => {
-		setSort((prev) => {
-			if (prev?.field === field) {
-				if (prev.direction === "asc") return { field, direction: "desc" };
-				return null; // Clear sort on third click
-			}
-			return { field, direction: "asc" };
-		});
-	}, []);
-
-	const handleCreateMilestone = useCallback(async () => {
-		await onCreateMilestone({ title: "New Milestone" });
-	}, [onCreateMilestone]);
-
-	const handleCreateInitiative = useCallback(
-		async (milestoneId: string) => {
-			if (isCreatingRef.current) return;
-			isCreatingRef.current = true;
-			try {
-				const created = await onCreateInitiative(milestoneId, {
-					title: "New Initiative",
-				});
-				setNewlyCreatedInitiativeId(created.id);
-			} catch (error) {
-				console.error("Failed to create initiative:", error);
-			} finally {
-				isCreatingRef.current = false;
-			}
-		},
-		[onCreateInitiative],
-	);
-
-	const handleNewInitiativeTitleSaved = useCallback(
-		(initiative: Initiative) => {
-			onSelectInitiative?.(initiative);
-			setNewlyCreatedInitiativeId(null);
-		},
-		[onSelectInitiative],
-	);
-
-	const handleNewInitiativeTitleCancelled = useCallback(
-		async (initiativeId: string) => {
-			try {
-				await onDeleteInitiative(initiativeId);
-			} catch (error) {
-				console.error("Failed to delete cancelled initiative:", error);
-			}
-			setNewlyCreatedInitiativeId(null);
-		},
-		[onDeleteInitiative],
-	);
-
-	// -------------------------------------------------------------------------
-	// Filtering + Sorting
-	// -------------------------------------------------------------------------
-	const filteredInitiatives = useMemo(() => {
-		let filtered = initiatives;
-
-		if (filterStatus !== "all") {
-			filtered = filtered.filter(
-				(i) => i.status === filterStatus || i.id === newlyCreatedInitiativeId,
-			);
-		}
-
-		if (filterPriority !== "all") {
-			filtered = filtered.filter(
-				(i) =>
-					i.priority === filterPriority || i.id === newlyCreatedInitiativeId,
-			);
-		}
-
-		if (searchText.trim()) {
-			const search = searchText.trim().toLowerCase();
-			filtered = filtered.filter(
-				(i) =>
-					i.title.toLowerCase().includes(search) ||
-					i.id === newlyCreatedInitiativeId,
-			);
-		}
-
-		if (sort) {
-			filtered = [...filtered].sort((a, b) => {
-				let cmp = 0;
-				switch (sort.field) {
-					case "title":
-						cmp = a.title.localeCompare(b.title);
-						break;
-					case "status":
-						cmp = STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status];
-						break;
-					case "priority":
-						cmp =
-							PRIORITY_SORT_ORDER[a.priority] - PRIORITY_SORT_ORDER[b.priority];
-						break;
-					case "progress":
-						cmp = a.progress - b.progress;
-						break;
-				}
-				return sort.direction === "desc" ? -cmp : cmp;
-			});
-		}
-
-		return filtered;
-	}, [
+export const TableView = memo(
+	({
+		roadmapId: _roadmapId,
+		milestones,
 		initiatives,
-		filterStatus,
-		filterPriority,
-		searchText,
-		sort,
-		newlyCreatedInitiativeId,
-	]);
+		dependencies,
+		onUpdateMilestone,
+		onUpdateInitiative,
+		onCreateMilestone,
+		onCreateInitiative,
+		onSelectInitiative,
+		onDeleteMilestone,
+		onDeleteInitiative,
+	}: TableViewProps) => {
+		// -------------------------------------------------------------------------
+		// State
+		// -------------------------------------------------------------------------
+		const [collapsedMilestones, setCollapsedMilestones] = useState<Set<string>>(
+			new Set(),
+		);
+		const [sort, setSort] = useState<SortConfig | null>(null);
+		const [filterStatus, setFilterStatus] = useState<string>("all");
+		const [filterPriority, setFilterPriority] = useState<string>("all");
+		const [searchText, setSearchText] = useState("");
+		const [deleteTarget, setDeleteTarget] = useState<{
+			type: "milestone" | "initiative";
+			id: string;
+			title: string;
+		} | null>(null);
+		const [newlyCreatedInitiativeId, setNewlyCreatedInitiativeId] = useState<
+			string | null
+		>(null);
+		const isCreatingRef = useRef(false);
 
-	// Group filtered initiatives by milestone
-	const initiativesByMilestone = useMemo(() => {
-		const grouped = new Map<string, Initiative[]>();
-		for (const milestone of milestones) {
-			grouped.set(milestone.id, []);
-		}
-		for (const initiative of filteredInitiatives) {
-			const list = grouped.get(initiative.milestoneId);
-			if (list) {
-				list.push(initiative);
+		const { fetchWorkflows } = useWorkflowsStore();
+
+		useEffect(() => {
+			fetchWorkflows();
+		}, [fetchWorkflows]);
+
+		// -------------------------------------------------------------------------
+		// Handlers
+		// -------------------------------------------------------------------------
+		const toggleMilestone = useCallback((milestoneId: string) => {
+			setCollapsedMilestones((prev) => {
+				const next = new Set(prev);
+				if (next.has(milestoneId)) {
+					next.delete(milestoneId);
+				} else {
+					next.add(milestoneId);
+				}
+				return next;
+			});
+		}, []);
+
+		const handleSort = useCallback((field: SortField) => {
+			setSort((prev) => {
+				if (prev?.field === field) {
+					if (prev.direction === "asc") return { field, direction: "desc" };
+					return null; // Clear sort on third click
+				}
+				return { field, direction: "asc" };
+			});
+		}, []);
+
+		const handleCreateMilestone = useCallback(async () => {
+			await onCreateMilestone({ title: "New Milestone" });
+		}, [onCreateMilestone]);
+
+		const handleCreateInitiative = useCallback(
+			async (milestoneId: string) => {
+				if (isCreatingRef.current) return;
+				isCreatingRef.current = true;
+				try {
+					const created = await onCreateInitiative(milestoneId, {
+						title: "New Initiative",
+					});
+					setNewlyCreatedInitiativeId(created.id);
+				} catch (error) {
+					console.error("Failed to create initiative:", error);
+				} finally {
+					isCreatingRef.current = false;
+				}
+			},
+			[onCreateInitiative],
+		);
+
+		const handleNewInitiativeTitleSaved = useCallback(
+			(initiative: Initiative) => {
+				onSelectInitiative?.(initiative);
+				setNewlyCreatedInitiativeId(null);
+			},
+			[onSelectInitiative],
+		);
+
+		const handleNewInitiativeTitleCancelled = useCallback(
+			async (initiativeId: string) => {
+				try {
+					await onDeleteInitiative(initiativeId);
+				} catch (error) {
+					console.error("Failed to delete cancelled initiative:", error);
+				}
+				setNewlyCreatedInitiativeId(null);
+			},
+			[onDeleteInitiative],
+		);
+
+		// -------------------------------------------------------------------------
+		// Filtering + Sorting
+		// -------------------------------------------------------------------------
+		const filteredInitiatives = useMemo(() => {
+			let filtered = initiatives;
+
+			if (filterStatus !== "all") {
+				filtered = filtered.filter(
+					(i) => i.status === filterStatus || i.id === newlyCreatedInitiativeId,
+				);
 			}
-		}
-		return grouped;
-	}, [milestones, filteredInitiatives]);
 
-	// Sort milestones by sortOrder
-	const sortedMilestones = useMemo(
-		() => [...milestones].sort((a, b) => a.sortOrder - b.sortOrder),
-		[milestones],
-	);
+			if (filterPriority !== "all") {
+				filtered = filtered.filter(
+					(i) =>
+						i.priority === filterPriority || i.id === newlyCreatedInitiativeId,
+				);
+			}
 
-	// Check if any filters are active
-	const hasActiveFilters =
-		filterStatus !== "all" ||
-		filterPriority !== "all" ||
-		searchText.trim() !== "";
+			if (searchText.trim()) {
+				const search = searchText.trim().toLowerCase();
+				filtered = filtered.filter(
+					(i) =>
+						i.title.toLowerCase().includes(search) ||
+						i.id === newlyCreatedInitiativeId,
+				);
+			}
 
-	// -------------------------------------------------------------------------
-	// Render
-	// -------------------------------------------------------------------------
-	return (
-		<div className="flex flex-col gap-3 h-full">
-			{/* Filter Bar */}
-			<div className="flex items-center gap-2 flex-wrap">
-				<div className="relative flex-1 min-w-[200px] max-w-[300px]">
-					<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-					<Input
-						placeholder="Search initiatives..."
-						value={searchText}
-						onChange={(e) => setSearchText(e.target.value)}
-						className="h-8 pl-8 text-sm"
-					/>
-				</div>
+			if (sort) {
+				filtered = [...filtered].sort((a, b) => {
+					let cmp = 0;
+					switch (sort.field) {
+						case "title":
+							cmp = a.title.localeCompare(b.title);
+							break;
+						case "status":
+							cmp = STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status];
+							break;
+						case "priority":
+							cmp =
+								PRIORITY_SORT_ORDER[a.priority] -
+								PRIORITY_SORT_ORDER[b.priority];
+							break;
+						case "progress":
+							cmp = a.progress - b.progress;
+							break;
+					}
+					return sort.direction === "desc" ? -cmp : cmp;
+				});
+			}
 
-				<Select value={filterStatus} onValueChange={setFilterStatus}>
-					<SelectTrigger size="sm" className="h-8 w-[140px]">
-						<SelectValue placeholder="Status" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="all">All Statuses</SelectItem>
-						{STATUS_OPTIONS.map((opt) => (
-							<SelectItem key={opt.value} value={opt.value}>
-								{opt.label}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+			return filtered;
+		}, [
+			initiatives,
+			filterStatus,
+			filterPriority,
+			searchText,
+			sort,
+			newlyCreatedInitiativeId,
+		]);
 
-				<Select value={filterPriority} onValueChange={setFilterPriority}>
-					<SelectTrigger size="sm" className="h-8 w-[140px]">
-						<SelectValue placeholder="Priority" />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="all">All Priorities</SelectItem>
-						{PRIORITY_OPTIONS.map((opt) => (
-							<SelectItem key={opt.value} value={opt.value}>
-								{opt.label}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+		// Group filtered initiatives by milestone
+		const initiativesByMilestone = useMemo(() => {
+			const grouped = new Map<string, Initiative[]>();
+			for (const milestone of milestones) {
+				grouped.set(milestone.id, []);
+			}
+			for (const initiative of filteredInitiatives) {
+				const list = grouped.get(initiative.milestoneId);
+				if (list) {
+					list.push(initiative);
+				}
+			}
+			return grouped;
+		}, [milestones, filteredInitiatives]);
 
-				{hasActiveFilters && (
-					<Button
-						variant="ghost"
-						size="sm"
-						className="h-8 text-xs"
-						onClick={() => {
-							setFilterStatus("all");
-							setFilterPriority("all");
-							setSearchText("");
-						}}
-					>
-						Clear filters
-					</Button>
-				)}
+		// Sort milestones by sortOrder
+		const sortedMilestones = useMemo(
+			() => [...milestones].sort((a, b) => a.sortOrder - b.sortOrder),
+			[milestones],
+		);
 
-				<div className="flex-1" />
+		// Check if any filters are active
+		const hasActiveFilters =
+			filterStatus !== "all" ||
+			filterPriority !== "all" ||
+			searchText.trim() !== "";
 
-				<Button
-					variant="outline"
-					size="sm"
-					className="h-8"
-					onClick={handleCreateMilestone}
-				>
-					<Plus className="size-3.5 mr-1" />
-					New Milestone
-				</Button>
-			</div>
+		// -------------------------------------------------------------------------
+		// Render
+		// -------------------------------------------------------------------------
+		return (
+			<div className="flex flex-col gap-3 h-full">
+				{/* Filter Bar */}
+				<div className="flex items-center gap-2 flex-wrap">
+					<div className="relative flex-1 min-w-[200px] max-w-[300px]">
+						<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+						<Input
+							placeholder="Search initiatives..."
+							value={searchText}
+							onChange={(e) => setSearchText(e.target.value)}
+							className="h-8 pl-8 text-sm"
+						/>
+					</div>
 
-			{/* Table */}
-			<div className="flex-1 min-h-0 overflow-auto rounded-md border">
-				<Table>
-					<TableHeader className="sticky top-0 z-10 bg-background">
-						<TableRow>
-							<TableHead className="w-[400px]">
-								<SortableHeader
-									label="Title"
-									field="title"
-									sort={sort}
-									onSort={handleSort}
-								/>
-							</TableHead>
-							<TableHead className="w-[120px]">
-								<SortableHeader
-									label="Status"
-									field="status"
-									sort={sort}
-									onSort={handleSort}
-								/>
-							</TableHead>
-							<TableHead className="w-[110px]">
-								<SortableHeader
-									label="Priority"
-									field="priority"
-									sort={sort}
-									onSort={handleSort}
-								/>
-							</TableHead>
-							<TableHead className="w-[90px]">Size</TableHead>
-							<TableHead className="w-[180px]">Dependencies</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{sortedMilestones.length === 0 ? (
-							<TableRow>
-								<TableCell
-									colSpan={6}
-									className="h-24 text-center text-muted-foreground"
-								>
-									No milestones yet. Create one to get started.
-								</TableCell>
-							</TableRow>
-						) : (
-							sortedMilestones.map((milestone) => {
-								const isCollapsed = collapsedMilestones.has(milestone.id);
-								const milestoneInitiatives =
-									initiativesByMilestone.get(milestone.id) ?? [];
-								const milestoneDepNames = getDependencyNames(
-									milestone.id,
-									"milestone",
-									dependencies,
-									milestones,
-									initiatives,
-								);
-								const hasMilestoneDeps = hasDependencies(
-									milestone.id,
-									"milestone",
-									dependencies,
-								);
+					<Select value={filterStatus} onValueChange={setFilterStatus}>
+						<SelectTrigger size="sm" className="h-8 w-[140px]">
+							<SelectValue placeholder="Status" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All Statuses</SelectItem>
+							{STATUS_OPTIONS.map((opt) => (
+								<SelectItem key={opt.value} value={opt.value}>
+									{opt.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 
-								return (
-									<MilestoneGroup
-										key={milestone.id}
-										milestone={milestone}
-										initiatives={milestoneInitiatives}
-										dependencies={dependencies}
-										allMilestones={milestones}
-										allInitiatives={initiatives}
-										dependencyNames={milestoneDepNames}
-										hasDependencies={hasMilestoneDeps}
-										isCollapsed={isCollapsed}
-										onToggle={() => toggleMilestone(milestone.id)}
-										onUpdateMilestone={onUpdateMilestone}
-										onUpdateInitiative={onUpdateInitiative}
-										onCreateInitiative={() =>
-											handleCreateInitiative(milestone.id)
-										}
-										onSelectInitiative={onSelectInitiative}
-										onRequestDeleteMilestone={(id, title) =>
-											setDeleteTarget({ type: "milestone", id, title })
-										}
-										onRequestDeleteInitiative={(id, title) =>
-											setDeleteTarget({ type: "initiative", id, title })
-										}
-										newlyCreatedInitiativeId={newlyCreatedInitiativeId}
-										onTitleSaved={handleNewInitiativeTitleSaved}
-										onTitleCancelled={handleNewInitiativeTitleCancelled}
-									/>
-								);
-							})
-						)}
-					</TableBody>
-				</Table>
-			</div>
+					<Select value={filterPriority} onValueChange={setFilterPriority}>
+						<SelectTrigger size="sm" className="h-8 w-[140px]">
+							<SelectValue placeholder="Priority" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All Priorities</SelectItem>
+							{PRIORITY_OPTIONS.map((opt) => (
+								<SelectItem key={opt.value} value={opt.value}>
+									{opt.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 
-			{/* Delete Confirmation Dialog */}
-			<Dialog
-				open={deleteTarget !== null}
-				onOpenChange={(open) => {
-					if (!open) setDeleteTarget(null);
-				}}
-			>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>
-							Delete{" "}
-							{deleteTarget?.type === "milestone" ? "Milestone" : "Initiative"}
-						</DialogTitle>
-						<DialogDescription>
-							Are you sure you want to delete &ldquo;{deleteTarget?.title}
-							&rdquo;? This action cannot be undone.
-							{deleteTarget?.type === "milestone" &&
-								" All initiatives in this milestone will also be deleted."}
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setDeleteTarget(null)}>
-							Cancel
-						</Button>
+					{hasActiveFilters && (
 						<Button
-							variant="destructive"
-							onClick={async () => {
-								if (!deleteTarget) return;
-								if (deleteTarget.type === "milestone") {
-									await onDeleteMilestone(deleteTarget.id);
-								} else {
-									await onDeleteInitiative(deleteTarget.id);
-								}
-								setDeleteTarget(null);
+							variant="ghost"
+							size="sm"
+							className="h-8 text-xs"
+							onClick={() => {
+								setFilterStatus("all");
+								setFilterPriority("all");
+								setSearchText("");
 							}}
 						>
-							Delete
+							Clear filters
 						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</div>
-	);
-});
+					)}
+
+					<div className="flex-1" />
+
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-8"
+						onClick={handleCreateMilestone}
+					>
+						<Plus className="size-3.5 mr-1" />
+						New Milestone
+					</Button>
+				</div>
+
+				{/* Table */}
+				<ScrollArea className="flex-1 min-h-0 rounded-md border">
+					<Table>
+						<TableHeader className="sticky top-0 z-10 bg-background">
+							<TableRow>
+								<TableHead className="w-[400px]">
+									<SortableHeader
+										label="Title"
+										field="title"
+										sort={sort}
+										onSort={handleSort}
+									/>
+								</TableHead>
+								<TableHead className="w-[120px]">
+									<SortableHeader
+										label="Status"
+										field="status"
+										sort={sort}
+										onSort={handleSort}
+									/>
+								</TableHead>
+								<TableHead className="w-[110px]">
+									<SortableHeader
+										label="Priority"
+										field="priority"
+										sort={sort}
+										onSort={handleSort}
+									/>
+								</TableHead>
+								<TableHead className="w-[90px]">Size</TableHead>
+								<TableHead className="w-[180px]">Dependencies</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{sortedMilestones.length === 0 ? (
+								<TableRow>
+									<TableCell
+										colSpan={6}
+										className="h-24 text-center text-muted-foreground"
+									>
+										No milestones yet. Create one to get started.
+									</TableCell>
+								</TableRow>
+							) : (
+								sortedMilestones.map((milestone) => {
+									const isCollapsed = collapsedMilestones.has(milestone.id);
+									const milestoneInitiatives =
+										initiativesByMilestone.get(milestone.id) ?? [];
+									const milestoneDepNames = getDependencyNames(
+										milestone.id,
+										"milestone",
+										dependencies,
+										milestones,
+										initiatives,
+									);
+									const hasMilestoneDeps = hasDependencies(
+										milestone.id,
+										"milestone",
+										dependencies,
+									);
+
+									return (
+										<MilestoneGroup
+											key={milestone.id}
+											milestone={milestone}
+											initiatives={milestoneInitiatives}
+											dependencies={dependencies}
+											allMilestones={milestones}
+											allInitiatives={initiatives}
+											dependencyNames={milestoneDepNames}
+											hasDependencies={hasMilestoneDeps}
+											isCollapsed={isCollapsed}
+											onToggle={() => toggleMilestone(milestone.id)}
+											onUpdateMilestone={onUpdateMilestone}
+											onUpdateInitiative={onUpdateInitiative}
+											onCreateInitiative={() =>
+												handleCreateInitiative(milestone.id)
+											}
+											onSelectInitiative={onSelectInitiative}
+											onRequestDeleteMilestone={(id, title) =>
+												setDeleteTarget({ type: "milestone", id, title })
+											}
+											onRequestDeleteInitiative={(id, title) =>
+												setDeleteTarget({ type: "initiative", id, title })
+											}
+											newlyCreatedInitiativeId={newlyCreatedInitiativeId}
+											onTitleSaved={handleNewInitiativeTitleSaved}
+											onTitleCancelled={handleNewInitiativeTitleCancelled}
+										/>
+									);
+								})
+							)}
+						</TableBody>
+					</Table>
+				</ScrollArea>
+
+				{/* Delete Confirmation Dialog */}
+				<Dialog
+					open={deleteTarget !== null}
+					onOpenChange={(open) => {
+						if (!open) setDeleteTarget(null);
+					}}
+				>
+					<DialogContent>
+						<DialogHeader>
+							<DialogTitle>
+								Delete{" "}
+								{deleteTarget?.type === "milestone"
+									? "Milestone"
+									: "Initiative"}
+							</DialogTitle>
+							<DialogDescription>
+								Are you sure you want to delete &ldquo;{deleteTarget?.title}
+								&rdquo;? This action cannot be undone.
+								{deleteTarget?.type === "milestone" &&
+									" All initiatives in this milestone will also be deleted."}
+							</DialogDescription>
+						</DialogHeader>
+						<DialogFooter>
+							<Button variant="outline" onClick={() => setDeleteTarget(null)}>
+								Cancel
+							</Button>
+							<Button
+								variant="destructive"
+								onClick={async () => {
+									if (!deleteTarget) return;
+									if (deleteTarget.type === "milestone") {
+										await onDeleteMilestone(deleteTarget.id);
+									} else {
+										await onDeleteInitiative(deleteTarget.id);
+									}
+									setDeleteTarget(null);
+								}}
+							>
+								Delete
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
+			</div>
+		);
+	},
+);

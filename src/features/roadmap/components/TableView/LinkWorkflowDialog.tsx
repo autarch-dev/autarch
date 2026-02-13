@@ -9,6 +9,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { Workflow } from "@/shared/schemas/workflow";
 import {
@@ -57,7 +58,7 @@ export function LinkWorkflowDialog({
 						No available workflows to link.
 					</p>
 				) : (
-					<div className="max-h-[300px] overflow-y-auto space-y-1">
+					<ScrollArea className="max-h-[300px] space-y-1">
 						{workflows.map((w) => (
 							<button
 								key={w.id}
@@ -80,7 +81,7 @@ export function LinkWorkflowDialog({
 								</Badge>
 							</button>
 						))}
-					</div>
+					</ScrollArea>
 				)}
 
 				<DialogFooter>
