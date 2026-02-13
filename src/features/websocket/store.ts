@@ -21,6 +21,9 @@ import {
 // Types
 // =============================================================================
 
+/** Connection status for the WebSocket */
+export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
+
 /** State of an active tool call */
 export interface ToolCallState {
 	id: string;
@@ -59,7 +62,8 @@ export interface SessionState {
 
 interface WebSocketState {
 	// Connection state
-	connected: boolean;
+	connectionStatus: ConnectionStatus;
+	retryCount: number;
 	error: string | null;
 
 	// Indexing state
@@ -71,6 +75,7 @@ interface WebSocketState {
 	// Actions
 	connect: () => void;
 	disconnect: () => void;
+	reconnect: () => void;
 
 	// Session actions
 	getSession: (sessionId: string) => SessionState | undefined;
@@ -81,10 +86,174 @@ interface WebSocketState {
 }
 
 // =============================================================================
-// WebSocket Instance
+// WebSocket Instance & Timers
 // =============================================================================
 
 let ws: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+let pongTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+let retryCount = 0;
+let intentionalDisconnect = false;
+let isReconnecting = false;
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function clearAllTimers(): void {
+	if (reconnectTimer !== null) {
+		clearTimeout(reconnectTimer);
+		reconnectTimer = null;
+	}
+	if (heartbeatInterval !== null) {
+		clearInterval(heartbeatInterval);
+		heartbeatInterval = null;
+	}
+	if (pongTimeoutTimer !== null) {
+		clearTimeout(pongTimeoutTimer);
+		pongTimeoutTimer = null;
+	}
+}
+
+function handlePongTimeout(): void {
+	if (ws?.readyState === WebSocket.OPEN) {
+		ws.close(4000);
+	}
+}
+
+function startHeartbeat(): void {
+	heartbeatInterval = setInterval(() => {
+		if (ws?.readyState === WebSocket.OPEN) {
+			ws.send(JSON.stringify({ type: "ping" }));
+			pongTimeoutTimer = setTimeout(handlePongTimeout, 7000);
+		}
+	}, 30000);
+}
+
+function getActiveView(): { view: string; id: string } | null {
+	const match = window.location.pathname.match(
+		/\/dashboard\/(channel|workflow|roadmap)\/(.+)/,
+	);
+	if (match?.[1] && match[2]) {
+		return { view: match[1], id: match[2] };
+	}
+	return null;
+}
+
+function scheduleReconnect(
+	set: (
+		state:
+			| Partial<WebSocketState>
+			| ((state: WebSocketState) => Partial<WebSocketState>),
+	) => void,
+): void {
+	const delay = Math.min(1000 * 2 ** retryCount, 30000);
+
+	if (retryCount >= 10) {
+		set({ connectionStatus: "disconnected" });
+		isReconnecting = false;
+		return;
+	}
+
+	retryCount++;
+	set({ connectionStatus: "reconnecting", retryCount });
+
+	reconnectTimer = setTimeout(() => {
+		if (!intentionalDisconnect) {
+			isReconnecting = true;
+			connectInternal(set);
+		}
+	}, delay);
+}
+
+function connectInternal(
+	set: (
+		state:
+			| Partial<WebSocketState>
+			| ((state: WebSocketState) => Partial<WebSocketState>),
+	) => void,
+): void {
+	if (
+		ws?.readyState === WebSocket.OPEN ||
+		ws?.readyState === WebSocket.CONNECTING
+	) {
+		return;
+	}
+
+	const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+	const url = `${protocol}//${window.location.host}/ws`;
+
+	ws = new WebSocket(url);
+
+	ws.onopen = () => {
+		set({ connectionStatus: "connected", error: null, retryCount: 0 });
+		startHeartbeat();
+
+		if (isReconnecting) {
+			const activeView = getActiveView();
+			if (activeView) {
+				const { view, id } = activeView;
+				switch (view) {
+					case "channel":
+						useDiscussionsStore.getState().fetchChannels();
+						useDiscussionsStore.getState().fetchHistory(id);
+						break;
+					case "workflow":
+						useWorkflowsStore.getState().fetchWorkflows();
+						useWorkflowsStore.getState().fetchHistory(id);
+						break;
+					case "roadmap":
+						useRoadmapStore.getState().fetchRoadmaps();
+						useRoadmapStore.getState().fetchHistory(id);
+						break;
+				}
+			}
+			retryCount = 0;
+			isReconnecting = false;
+		}
+	};
+
+	ws.onclose = () => {
+		clearAllTimers();
+		ws = null;
+
+		if (intentionalDisconnect) {
+			set({ connectionStatus: "disconnected" });
+			return;
+		}
+
+		scheduleReconnect(set);
+	};
+
+	ws.onerror = () => {
+		set({ error: "WebSocket connection error" });
+	};
+
+	ws.onmessage = (event) => {
+		try {
+			const data = JSON.parse(event.data);
+			const parsed = WebSocketEventSchema.safeParse(data);
+
+			if (!parsed.success) {
+				console.warn("Invalid WebSocket event:", parsed.error);
+				return;
+			}
+
+			if (parsed.data.type === "pong") {
+				if (pongTimeoutTimer !== null) {
+					clearTimeout(pongTimeoutTimer);
+					pongTimeoutTimer = null;
+				}
+				return;
+			}
+
+			handleEvent(parsed.data, set, useWebSocketStore.getState);
+		} catch (err) {
+			console.warn("Failed to parse WebSocket message:", err);
+		}
+	};
+}
 
 // =============================================================================
 // Store
@@ -92,61 +261,42 @@ let ws: WebSocket | null = null;
 
 export const useWebSocketStore = create<WebSocketState>((set, get) => ({
 	// Initial state
-	connected: false,
+	connectionStatus: "disconnected",
+	retryCount: 0,
 	error: null,
 	indexingProgress: null,
 	sessions: new Map(),
 
 	// Connection actions
 	connect: () => {
-		if (
-			ws?.readyState === WebSocket.OPEN ||
-			ws?.readyState === WebSocket.CONNECTING
-		) {
-			return;
-		}
-
-		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-		const url = `${protocol}//${window.location.host}/ws`;
-
-		ws = new WebSocket(url);
-
-		ws.onopen = () => {
-			set({ connected: true, error: null });
-		};
-
-		ws.onclose = () => {
-			set({ connected: false });
-			ws = null;
-		};
-
-		ws.onerror = () => {
-			set({ error: "WebSocket connection error" });
-		};
-
-		ws.onmessage = (event) => {
-			try {
-				const data = JSON.parse(event.data);
-				const parsed = WebSocketEventSchema.safeParse(data);
-
-				if (!parsed.success) {
-					console.warn("Invalid WebSocket event:", parsed.error);
-					return;
-				}
-
-				handleEvent(parsed.data, set, get);
-			} catch (err) {
-				console.warn("Failed to parse WebSocket message:", err);
-			}
-		};
+		intentionalDisconnect = false;
+		clearAllTimers();
+		connectInternal(set);
 	},
 
 	disconnect: () => {
-		if (ws) {
+		intentionalDisconnect = true;
+		clearAllTimers();
+		retryCount = 0;
+		isReconnecting = false;
+		if (
+			ws &&
+			(ws.readyState === WebSocket.OPEN ||
+				ws.readyState === WebSocket.CONNECTING)
+		) {
 			ws.close();
-			ws = null;
 		}
-		set({ connected: false });
+		ws = null;
+		set({ connectionStatus: "disconnected", retryCount: 0 });
+	},
+
+	reconnect: () => {
+		intentionalDisconnect = false;
+		retryCount = 0;
+		isReconnecting = false;
+		clearAllTimers();
+		set({ connectionStatus: "reconnecting", retryCount: 0 });
+		connectInternal(set);
 	},
 
 	// Session getters
