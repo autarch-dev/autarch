@@ -26,6 +26,7 @@ export interface SearchFilters {
 	endDate?: number;
 	tags?: string[];
 	limit?: number;
+	archived?: boolean;
 }
 
 /**
@@ -116,8 +117,17 @@ export async function searchKnowledge(
 			tags: filters.tags,
 		});
 
+		// Filter by archived status: if explicitly true, keep only archived;
+		// otherwise exclude archived items by default
+		let filteredItems = items;
+		if (filters.archived === true) {
+			filteredItems = filteredItems.filter((item) => item.archived === true);
+		} else {
+			filteredItems = filteredItems.filter((item) => item.archived !== true);
+		}
+
 		// Return items with similarity of 1.0 (perfect match for structured search)
-		return items.slice(0, limit).map((item) => ({
+		return filteredItems.slice(0, limit).map((item) => ({
 			...item,
 			similarity: 1.0,
 		}));
@@ -210,6 +220,14 @@ export async function searchKnowledge(
 		filteredItems = filteredItems.filter((item) =>
 			filterTags.every((tag) => item.tags.includes(tag)),
 		);
+	}
+
+	// Filter by archived status: if explicitly true, keep only archived;
+	// otherwise exclude archived items by default
+	if (filters.archived === true) {
+		filteredItems = filteredItems.filter((item) => item.archived === true);
+	} else {
+		filteredItems = filteredItems.filter((item) => item.archived !== true);
 	}
 
 	// Map to results with similarity scores
