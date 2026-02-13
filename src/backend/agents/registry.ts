@@ -104,7 +104,7 @@ const REVIEW_TOOLS: RegisteredTool[] = [
 ];
 
 /** Roadmap planning agent: base tools + submit_roadmap + ask_questions + request_extension */
-const ROADMAP_PLANNING_TOOLS: RegisteredTool[] = [
+export const ROADMAP_PLANNING_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...typescriptTools,
 	registerTool(submitRoadmapTool),

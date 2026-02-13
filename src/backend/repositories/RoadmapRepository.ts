@@ -21,6 +21,7 @@ import type {
 	Roadmap,
 	RoadmapDependency,
 	RoadmapDependencyNodeType,
+	RoadmapPerspective,
 	RoadmapStatus,
 	VisionDocument,
 } from "@/shared/schemas/roadmap";
@@ -34,6 +35,7 @@ export interface CreateRoadmapData {
 	title: string;
 	description?: string;
 	status?: RoadmapStatus;
+	perspective?: string;
 }
 
 export interface UpdateRoadmapData {
@@ -116,6 +118,7 @@ export class RoadmapRepository implements Repository {
 			title: row.title,
 			description: row.description ?? undefined,
 			status: row.status as RoadmapStatus,
+			perspective: row.perspective as RoadmapPerspective,
 			currentSessionId: row.current_session_id ?? undefined,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
@@ -203,6 +206,7 @@ export class RoadmapRepository implements Repository {
 				title: data.title,
 				description: data.description ?? null,
 				status: data.status ?? "draft",
+				perspective: data.perspective ?? "balanced",
 				current_session_id: null,
 				created_at: now,
 				updated_at: now,

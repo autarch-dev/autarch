@@ -30,12 +30,16 @@ import type {
 	Milestone,
 	Roadmap,
 	RoadmapDependency,
+	RoadmapPerspective,
 	VisionDocument,
 } from "@/shared/schemas/roadmap";
 
 // =============================================================================
 // Types
 // =============================================================================
+
+/** The perspective for roadmap creation — re-exported from shared schema */
+export type { RoadmapPerspective } from "@/shared/schemas/roadmap";
 
 /** A text segment within a streaming message */
 export interface StreamingSegment {
@@ -148,7 +152,7 @@ interface RoadmapState {
 	fetchRoadmaps: () => Promise<void>;
 	createRoadmap: (
 		title: string,
-		mode: "ai" | "blank",
+		perspective: RoadmapPerspective,
 		prompt?: string,
 	) => Promise<Roadmap>;
 	selectRoadmap: (roadmapId: string | null) => void;
@@ -276,13 +280,13 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 
 	createRoadmap: async (
 		title: string,
-		mode: "ai" | "blank",
+		perspective: RoadmapPerspective,
 		prompt?: string,
 	) => {
 		const response = await fetch("/api/roadmaps", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ title, mode, prompt }),
+			body: JSON.stringify({ title, perspective, prompt }),
 		});
 
 		if (!response.ok) {
@@ -1031,6 +1035,7 @@ function handleRoadmapCreated(
 			id: payload.roadmapId,
 			title: payload.title,
 			status: payload.status,
+			perspective: payload.perspective,
 			createdAt: Date.now(),
 			updatedAt: Date.now(),
 		};

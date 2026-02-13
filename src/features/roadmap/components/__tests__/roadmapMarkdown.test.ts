@@ -34,6 +34,7 @@ function makeRoadmap(overrides: Partial<Roadmap> = {}): Roadmap {
 		id: "roadmap-1",
 		title: "Test Roadmap",
 		status: "active",
+		perspective: "balanced",
 		createdAt: now,
 		updatedAt: now,
 		...overrides,

@@ -10,7 +10,10 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { CreateRoadmapDialog } from "@/features/roadmap";
+import {
+	CreateRoadmapDialog,
+	type RoadmapPerspective,
+} from "@/features/roadmap";
 import { cn } from "@/lib/utils";
 import type { Roadmap } from "@/shared/schemas/roadmap";
 
@@ -26,7 +29,7 @@ interface RoadmapsSectionProps {
 	roadmaps: Roadmap[];
 	onCreateRoadmap: (
 		title: string,
-		mode: "ai" | "blank",
+		perspective: RoadmapPerspective,
 		prompt?: string,
 	) => Promise<void>;
 }

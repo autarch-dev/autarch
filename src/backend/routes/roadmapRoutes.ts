@@ -18,8 +18,10 @@ import {
 	InitiativeStatusSchema,
 	type RoadmapDependency,
 	RoadmapDependencyNodeTypeSchema,
+	RoadmapPerspectiveSchema,
 	RoadmapStatusSchema,
 } from "@/shared/schemas/roadmap";
+import { ROADMAP_PLANNING_TOOLS } from "../agents/registry";
 import { AgentRunner, getSessionManager } from "../agents/runner";
 import { AgentRoleSchema } from "../agents/types";
 
@@ -42,7 +44,7 @@ import { broadcast } from "../ws";
 
 const CreateRoadmapRequestSchema = z.object({
 	title: z.string().min(1),
-	mode: z.enum(["ai", "blank"]),
+	perspective: RoadmapPerspectiveSchema,
 	prompt: z.string().optional(),
 });
 
@@ -236,6 +238,7 @@ function wouldCreateCycle(
 async function startPersonaSessions(
 	roadmapId: string,
 	title: string,
+	perspective: string,
 	initialPrompt?: string,
 ): Promise<void> {
 	const projectRoot = findRepoRoot(process.cwd());
@@ -243,11 +246,66 @@ async function startPersonaSessions(
 	const sessionManager = getSessionManager();
 	const repos = getRepositories();
 
-	const personaRecords = await createPersonaRoadmaps(db, roadmapId);
-
 	const context = initialPrompt
 		? `\n\nAdditional context from the user:\n${initialPrompt}`
 		: "";
+
+	// Single-persona mode: skip persona_roadmaps entirely, write directly to roadmap tables
+	if (perspective !== "balanced") {
+		try {
+			const session = await sessionManager.startSession({
+				contextType: "roadmap",
+				contextId: roadmapId,
+				agentRole: AgentRoleSchema.parse(perspective),
+				roadmapId,
+			});
+
+			const initialMessage =
+				`You are working on a roadmap titled "${title}".${context}\n\n` +
+				"Please analyze this and create a comprehensive roadmap. Use the submit_roadmap tool to submit your final roadmap. Provide sortOrder as sequential numbers starting from 0 for milestones and initiatives.";
+
+			const runner = new AgentRunner(session, {
+				projectRoot,
+				conversationRepo: repos.conversations,
+				toolsOverride: ROADMAP_PLANNING_TOOLS,
+			});
+
+			runner.run(initialMessage).catch(async (err) => {
+				const errorMsg = err instanceof Error ? err.message : "Unknown error";
+				log.agent.error(
+					`Single-persona ${perspective} session ${session.id} failed: ${errorMsg}`,
+				);
+				sessionManager.errorSession(session.id, errorMsg);
+
+				try {
+					await repos.roadmaps.updateRoadmap(roadmapId, { status: "error" });
+				} catch (failErr) {
+					log.agent.error(
+						`Failed to set roadmap ${roadmapId} to error status:`,
+						failErr,
+					);
+				}
+			});
+		} catch (err) {
+			const errorMsg = err instanceof Error ? err.message : "Unknown error";
+			log.agent.error(
+				`Failed to spawn single-persona ${perspective} for roadmap ${roadmapId}: ${errorMsg}`,
+			);
+
+			try {
+				await repos.roadmaps.updateRoadmap(roadmapId, { status: "error" });
+			} catch (failErr) {
+				log.agent.error(
+					`Failed to set roadmap ${roadmapId} to error status:`,
+					failErr,
+				);
+			}
+		}
+		return;
+	}
+
+	// Balanced mode: create 4 persona roadmaps and run all persona sessions
+	const personaRecords = await createPersonaRoadmaps(db, roadmapId);
 
 	for (const persona of personaRecords) {
 		try {
@@ -356,21 +414,22 @@ export const roadmapRoutes = {
 				const roadmap = await repos.roadmaps.createRoadmap({
 					title: parsed.data.title,
 					status: "draft",
+					perspective: parsed.data.perspective,
 				});
 
-				if (parsed.data.mode === "ai") {
-					await startPersonaSessions(
-						roadmap.id,
-						parsed.data.title,
-						parsed.data.prompt,
-					);
-				}
+				await startPersonaSessions(
+					roadmap.id,
+					parsed.data.title,
+					parsed.data.perspective,
+					parsed.data.prompt,
+				);
 
 				broadcast(
 					createRoadmapCreatedEvent({
 						roadmapId: roadmap.id,
 						title: roadmap.title,
 						status: roadmap.status,
+						perspective: roadmap.perspective,
 					}),
 				);
 
@@ -925,7 +984,13 @@ export const roadmapRoutes = {
 					return Response.json({ error: "Roadmap not found" }, { status: 404 });
 				}
 
-				await startPersonaSessions(params.id, roadmap.title);
+				// Note: the user's original prompt is not stored on the roadmap record,
+				// so retried generation loses that context.
+				await startPersonaSessions(
+					params.id,
+					roadmap.title,
+					roadmap.perspective,
+				);
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));
 

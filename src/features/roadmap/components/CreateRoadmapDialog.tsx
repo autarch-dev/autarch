@@ -1,4 +1,11 @@
-import { FileText, Sparkles } from "lucide-react";
+import {
+	Compass,
+	Cpu,
+	Layers,
+	Lightbulb,
+	ListChecks,
+	type LucideIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -12,7 +19,54 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { RoadmapPerspective } from "@/features/roadmap/store/roadmapStore";
 import { cn } from "@/lib/utils";
+
+interface PerspectiveOption {
+	id: RoadmapPerspective;
+	label: string;
+	description: string;
+	icon: LucideIcon;
+}
+
+const BALANCED_OPTION: PerspectiveOption = {
+	id: "balanced",
+	label: "Balanced View",
+	description:
+		"Get a comprehensive roadmap that synthesizes multiple planning perspectives into a unified plan.",
+	icon: Layers,
+};
+
+const INDIVIDUAL_OPTIONS: PerspectiveOption[] = [
+	{
+		id: "visionary",
+		label: "The Visionary",
+		description:
+			"Bold, big-picture thinking focused on long-term impact and transformative goals.",
+		icon: Lightbulb,
+	},
+	{
+		id: "iterative",
+		label: "Step by Step",
+		description:
+			"Practical, incremental approach focused on delivering value through small, steady wins.",
+		icon: ListChecks,
+	},
+	{
+		id: "tech_lead",
+		label: "Technical Blueprint",
+		description:
+			"Architecture-first planning driven by technical feasibility and engineering excellence.",
+		icon: Cpu,
+	},
+	{
+		id: "pathfinder",
+		label: "Strategic Pathfinder",
+		description:
+			"Navigate uncertainty with adaptive strategies that balance risk and opportunity.",
+		icon: Compass,
+	},
+];
 
 interface CreateRoadmapFormData {
 	title: string;
@@ -24,7 +78,7 @@ interface CreateRoadmapDialogProps {
 	onOpenChange: (open: boolean) => void;
 	onCreate: (
 		title: string,
-		mode: "ai" | "blank",
+		perspective: RoadmapPerspective,
 		prompt?: string,
 	) => Promise<void>;
 }
@@ -34,7 +88,8 @@ export function CreateRoadmapDialog({
 	onOpenChange,
 	onCreate,
 }: CreateRoadmapDialogProps) {
-	const [selectedMode, setSelectedMode] = useState<"ai" | "blank" | null>(null);
+	const [selectedPerspective, setSelectedPerspective] =
+		useState<RoadmapPerspective>("balanced");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -50,13 +105,13 @@ export function CreateRoadmapDialog({
 	useEffect(() => {
 		if (!open) {
 			reset();
-			setSelectedMode(null);
+			setSelectedPerspective("balanced");
 			setError(null);
 		}
 	}, [open, reset]);
 
 	const handleCreate = async (data: CreateRoadmapFormData) => {
-		if (!selectedMode) return;
+		if (!selectedPerspective) return;
 
 		setIsSubmitting(true);
 		setError(null);
@@ -64,8 +119,8 @@ export function CreateRoadmapDialog({
 		try {
 			await onCreate(
 				data.title.trim(),
-				selectedMode,
-				selectedMode === "ai" ? data.prompt.trim() || undefined : undefined,
+				selectedPerspective,
+				data.prompt.trim() || undefined,
 			);
 			reset();
 			onOpenChange(false);
@@ -83,8 +138,8 @@ export function CreateRoadmapDialog({
 					<DialogHeader>
 						<DialogTitle>Create Roadmap</DialogTitle>
 						<DialogDescription>
-							Create a new product roadmap. Start with AI-assisted planning or a
-							blank canvas.
+							Choose a planning perspective to shape how your roadmap is
+							generated.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -99,60 +154,39 @@ export function CreateRoadmapDialog({
 							/>
 						</div>
 
-						<div className="grid grid-cols-2 gap-3">
-							<button
-								type="button"
+						<div className="space-y-3">
+							<PerspectiveCard
+								option={BALANCED_OPTION}
+								selected={selectedPerspective === BALANCED_OPTION.id}
 								disabled={!hasTitle || isSubmitting}
-								onClick={() => setSelectedMode("ai")}
-								className={cn(
-									"flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors",
-									"hover:bg-accent/50 disabled:pointer-events-none disabled:opacity-50",
-									selectedMode === "ai" &&
-										"border-primary bg-accent ring-1 ring-primary",
-								)}
-							>
-								<Sparkles className="size-5 text-primary" />
-								<div className="font-medium text-sm">Start with AI</div>
-								<div className="text-muted-foreground text-xs leading-relaxed">
-									Describe your product goals and let AI help you build a
-									roadmap
-								</div>
-							</button>
+								onClick={() => setSelectedPerspective(BALANCED_OPTION.id)}
+							/>
 
-							<button
-								type="button"
-								disabled={!hasTitle || isSubmitting}
-								onClick={() => setSelectedMode("blank")}
-								className={cn(
-									"flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors",
-									"hover:bg-accent/50 disabled:pointer-events-none disabled:opacity-50",
-									selectedMode === "blank" &&
-										"border-primary bg-accent ring-1 ring-primary",
-								)}
-							>
-								<FileText className="size-5 text-primary" />
-								<div className="font-medium text-sm">Blank Canvas</div>
-								<div className="text-muted-foreground text-xs leading-relaxed">
-									Start with an empty roadmap and add milestones and initiatives
-									manually
-								</div>
-							</button>
+							<div className="grid grid-cols-2 gap-3">
+								{INDIVIDUAL_OPTIONS.map((option) => (
+									<PerspectiveCard
+										key={option.id}
+										option={option}
+										selected={selectedPerspective === option.id}
+										disabled={!hasTitle || isSubmitting}
+										onClick={() => setSelectedPerspective(option.id)}
+									/>
+								))}
+							</div>
 						</div>
 
-						{selectedMode === "ai" && (
-							<div className="space-y-2">
-								<Label htmlFor="roadmap-prompt">
-									Describe your product or goals
-								</Label>
-								<Textarea
-									id="roadmap-prompt"
-									placeholder="e.g., We're building a SaaS platform for project management targeting small teams..."
-									className="max-h-[200px] overflow-y-auto"
-									rows={4}
-									{...register("prompt")}
-								/>
-							</div>
-						)}
+						<div className="space-y-2">
+							<Label htmlFor="roadmap-prompt">
+								Describe your product or goals
+							</Label>
+							<Textarea
+								id="roadmap-prompt"
+								placeholder="e.g., We're building a SaaS platform for project management targeting small teams..."
+								className="max-h-[200px] overflow-y-auto"
+								rows={4}
+								{...register("prompt")}
+							/>
+						</div>
 
 						{error && <p className="text-sm text-destructive">{error}</p>}
 					</div>
@@ -168,17 +202,50 @@ export function CreateRoadmapDialog({
 						</Button>
 						<Button
 							type="submit"
-							disabled={!hasTitle || !selectedMode || isSubmitting}
+							disabled={!hasTitle || !selectedPerspective || isSubmitting}
 						>
-							{isSubmitting
-								? "Creating..."
-								: selectedMode === "ai"
-									? "Create with AI"
-									: "Create Roadmap"}
+							{isSubmitting ? "Creating..." : "Create Roadmap"}
 						</Button>
 					</div>
 				</form>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+function PerspectiveCard({
+	option,
+	selected,
+	disabled,
+	onClick,
+}: {
+	option: PerspectiveOption;
+	selected: boolean;
+	disabled: boolean;
+	onClick: () => void;
+}) {
+	const Icon = option.icon;
+
+	return (
+		<button
+			type="button"
+			disabled={disabled}
+			onClick={onClick}
+			className={cn(
+				"flex flex-col items-start gap-3 rounded-lg border p-4 text-left transition-colors",
+				"hover:bg-accent/50 disabled:pointer-events-none disabled:opacity-50",
+				selected && "ring-2 ring-primary bg-accent/50",
+			)}
+		>
+			<div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+				<Icon className="h-4 w-4 text-primary" />
+			</div>
+			<div>
+				<div className="font-medium text-sm">{option.label}</div>
+				<div className="mt-1 text-sm text-muted-foreground">
+					{option.description}
+				</div>
+			</div>
+		</button>
 	);
 }
