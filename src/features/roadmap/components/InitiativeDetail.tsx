@@ -14,7 +14,7 @@ import {
 	Plus,
 	Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -115,13 +115,13 @@ interface InitiativeDetailProps {
 // Component
 // =============================================================================
 
-export function InitiativeDetail({
+export const InitiativeDetail = memo(({
 	initiative,
 	open,
 	onOpenChange,
 	onUpdateInitiative,
 	onDeleteInitiative,
-}: InitiativeDetailProps) {
+}: InitiativeDetailProps) => {
 	// Workflow store for linking
 	const { workflows, fetchWorkflows, createWorkflow } = useWorkflowsStore();
 
@@ -167,13 +167,6 @@ export function InitiativeDetail({
 			setEditDescription(initiative.description ?? "");
 		}
 	}, [initiative]);
-
-	// Fetch workflows on open for linking
-	useEffect(() => {
-		if (open) {
-			fetchWorkflows();
-		}
-	}, [open, fetchWorkflows]);
 
 	// Find linked workflow
 	const linkedWorkflow = initiative?.workflowId
@@ -617,4 +610,4 @@ export function InitiativeDetail({
 			</SheetContent>
 		</Sheet>
 	);
-}
+});

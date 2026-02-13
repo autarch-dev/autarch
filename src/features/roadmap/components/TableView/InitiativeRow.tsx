@@ -7,7 +7,7 @@
  */
 
 import { GitBranch, MoreHorizontal, Trash2 } from "lucide-react";
-import { useRef } from "react";
+import { memo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -28,7 +28,7 @@ import { EditableTextCell } from "./EditableTextCell";
 import { PrioritySelect } from "./PrioritySelect";
 import { StatusSelect } from "./StatusSelect";
 
-export function InitiativeRow({
+export const InitiativeRow = memo(({
 	initiative,
 	dependencyNames,
 	hasDependencies: hasDeps,
@@ -53,7 +53,7 @@ export function InitiativeRow({
 	isNewlyCreated?: boolean;
 	onTitleSaved?: (initiative: Initiative) => void;
 	onTitleCancelled?: (initiativeId: string) => void;
-}) {
+}) => {
 	const menuOpenRef = useRef(false);
 
 	const handleMenuOpenChange = (open: boolean) => {
@@ -165,4 +165,4 @@ export function InitiativeRow({
 			</TableCell>
 		</TableRow>
 	);
-}
+});

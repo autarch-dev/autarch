@@ -7,7 +7,7 @@
  */
 
 import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -201,7 +201,7 @@ function SortableHeader({
 // Component: TableView
 // =============================================================================
 
-export function TableView({
+export const TableView = memo(({
 	roadmapId: _roadmapId,
 	milestones,
 	initiatives,
@@ -213,7 +213,7 @@ export function TableView({
 	onSelectInitiative,
 	onDeleteMilestone,
 	onDeleteInitiative,
-}: TableViewProps) {
+}: TableViewProps) => {
 	// -------------------------------------------------------------------------
 	// State
 	// -------------------------------------------------------------------------
@@ -606,4 +606,4 @@ export function TableView({
 			</Dialog>
 		</div>
 	);
-}
+});

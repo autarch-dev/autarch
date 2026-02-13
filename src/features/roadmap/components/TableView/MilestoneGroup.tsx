@@ -5,7 +5,7 @@ import {
 	Plus,
 	Trash2,
 } from "lucide-react";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,7 +64,7 @@ function hasDependencies(
 	);
 }
 
-export function MilestoneGroup({
+export const MilestoneGroup = memo(({
 	milestone,
 	initiatives,
 	dependencies,
@@ -109,7 +109,7 @@ export function MilestoneGroup({
 	newlyCreatedInitiativeId?: string | null;
 	onTitleSaved?: (initiative: Initiative) => void;
 	onTitleCancelled?: (initiativeId: string) => void;
-}) {
+}) => {
 	// Calculate milestone progress from initiatives
 	const milestoneProgress = useMemo(() => {
 		if (initiatives.length === 0) return 0;
@@ -254,4 +254,4 @@ export function MilestoneGroup({
 			)}
 		</>
 	);
-}
+});
