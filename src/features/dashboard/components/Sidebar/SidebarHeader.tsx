@@ -1,4 +1,4 @@
-import { ChevronDown, Folder, Search } from "lucide-react";
+import { ChevronDown, Folder } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import {
@@ -58,19 +58,6 @@ export function SidebarHeader() {
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
-				</SidebarMenuItem>
-			</SidebarMenu>
-
-			{/* Search */}
-			<SidebarMenu>
-				<SidebarMenuItem>
-					<SidebarMenuButton tooltip="Search">
-						<Search className="size-4 shrink-0" />
-						<span className="truncate">Search...</span>
-						<kbd className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded pointer-events-none shrink-0">
-							⌘K
-						</kbd>
-					</SidebarMenuButton>
 				</SidebarMenuItem>
 			</SidebarMenu>
 		</BaseSidebarHeader>

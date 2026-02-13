@@ -1,6 +1,11 @@
-import { Circle, Plus } from "lucide-react";
+import { ChevronRight, Circle, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
 	SidebarGroup,
 	SidebarGroupAction,
@@ -59,51 +64,67 @@ export function RoadmapsSection({
 				onCreate={onCreateRoadmap}
 			/>
 
-			<SidebarGroup>
-				<SidebarGroupLabel>Roadmaps</SidebarGroupLabel>
-				<SidebarGroupAction
-					title="New roadmap"
-					onClick={() => setDialogOpen(true)}
-				>
-					<Plus className="size-4" />
-					<span className="sr-only">New roadmap</span>
-				</SidebarGroupAction>
-				<SidebarGroupContent>
-					<SidebarMenu>
-						{sortedRoadmaps.length === 0 ? (
-							<SidebarMenuItem>
-								<div className="px-2 py-1.5 text-sm text-muted-foreground">
-									No roadmaps yet
-								</div>
-							</SidebarMenuItem>
-						) : (
-							sortedRoadmaps.map((roadmap) => {
-								const href = `/roadmap/${roadmap.id}`;
-								const isActive = location === `/dashboard${href}`;
-								return (
-									<SidebarMenuItem key={roadmap.id}>
-										<SidebarMenuButton
-											asChild
-											isActive={isActive}
-											tooltip={roadmap.title}
-										>
-											<Link href={href}>
-												<Circle
-													className={cn(
-														"size-3 shrink-0 fill-current",
-														roadmapStatusColors[roadmap.status],
-													)}
-												/>
-												<span className="truncate">{roadmap.title}</span>
-											</Link>
-										</SidebarMenuButton>
+			<Collapsible defaultOpen className="group/collapsible">
+				<SidebarGroup>
+					<SidebarGroupLabel asChild>
+						<CollapsibleTrigger>
+							<ChevronRight className="size-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+							<span>Roadmaps</span>
+							{sortedRoadmaps.length > 0 && (
+								<span className="ml-auto mr-4 text-xs tabular-nums text-sidebar-foreground/50">
+									{sortedRoadmaps.length}
+								</span>
+							)}
+						</CollapsibleTrigger>
+					</SidebarGroupLabel>
+					<SidebarGroupAction
+						title="New roadmap"
+						onClick={() => setDialogOpen(true)}
+					>
+						<Plus className="size-4" />
+						<span className="sr-only">New roadmap</span>
+					</SidebarGroupAction>
+					<CollapsibleContent>
+						<SidebarGroupContent>
+							<SidebarMenu>
+								{sortedRoadmaps.length === 0 ? (
+									<SidebarMenuItem>
+										<div className="px-2 py-1.5 text-sm text-muted-foreground">
+											No roadmaps yet
+										</div>
 									</SidebarMenuItem>
-								);
-							})
-						)}
-					</SidebarMenu>
-				</SidebarGroupContent>
-			</SidebarGroup>
+								) : (
+									sortedRoadmaps.map((roadmap) => {
+										const href = `/roadmap/${roadmap.id}`;
+										const isActive = location === href;
+										return (
+											<SidebarMenuItem key={roadmap.id}>
+												<SidebarMenuButton
+													asChild
+													isActive={isActive}
+													tooltip={roadmap.title}
+												>
+													<Link href={href}>
+														<Circle
+															className={cn(
+																"size-3 shrink-0 fill-current",
+																roadmapStatusColors[roadmap.status],
+															)}
+														/>
+														<span className="truncate">
+															{roadmap.title}
+														</span>
+													</Link>
+												</SidebarMenuButton>
+											</SidebarMenuItem>
+										);
+									})
+								)}
+							</SidebarMenu>
+						</SidebarGroupContent>
+					</CollapsibleContent>
+				</SidebarGroup>
+			</Collapsible>
 		</>
 	);
 }

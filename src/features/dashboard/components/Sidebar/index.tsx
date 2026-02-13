@@ -1,14 +1,15 @@
 import {
 	Sidebar,
 	SidebarContent,
+	SidebarRail,
 	SidebarSeparator,
 } from "@/components/ui/sidebar";
 import type { RoadmapPerspective } from "@/features/roadmap";
 import type { Channel } from "@/shared/schemas/channel";
 import type { Roadmap } from "@/shared/schemas/roadmap";
 import type { Workflow } from "@/shared/schemas/workflow";
-import { AnalyticsSection } from "./AnalyticsSection";
 import { DiscussionsSection } from "./DiscussionsSection";
+import { NavSection } from "./NavSection";
 import { RoadmapsSection } from "./RoadmapsSection";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarHeader } from "./SidebarHeader";
@@ -36,35 +37,32 @@ export function AppSidebar({
 	onCreateRoadmap,
 }: AppSidebarProps) {
 	return (
-		<Sidebar collapsible="icon">
+		<Sidebar collapsible="icon" variant="inset">
 			<SidebarHeader />
 
 			<SidebarContent className="overflow-x-hidden">
+				<NavSection />
+
+				<SidebarSeparator />
+
 				<RoadmapsSection
 					roadmaps={roadmaps}
 					onCreateRoadmap={onCreateRoadmap}
 				/>
-
-				<SidebarSeparator />
 
 				<DiscussionsSection
 					channels={channels}
 					onCreateChannel={onCreateChannel}
 				/>
 
-				<SidebarSeparator />
-
 				<WorkflowsSection
 					workflows={workflows}
 					onCreateWorkflow={onCreateWorkflow}
 				/>
-
-				<SidebarSeparator />
-
-				<AnalyticsSection />
 			</SidebarContent>
 
 			<SidebarFooter />
+			<SidebarRail />
 		</Sidebar>
 	);
 }

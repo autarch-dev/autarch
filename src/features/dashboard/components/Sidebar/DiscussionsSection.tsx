@@ -1,6 +1,11 @@
-import { Hash, Plus } from "lucide-react";
+import { ChevronRight, Hash, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
 	SidebarGroup,
 	SidebarGroupAction,
@@ -35,47 +40,60 @@ export function DiscussionsSection({
 
 	return (
 		<>
-			<SidebarGroup>
-				<SidebarGroupLabel>Discussions</SidebarGroupLabel>
-				<SidebarGroupAction
-					title="New channel"
-					onClick={() => setDialogOpen(true)}
-				>
-					<Plus className="size-4" />
-					<span className="sr-only">New channel</span>
-				</SidebarGroupAction>
-				<SidebarGroupContent>
-					<SidebarMenu>
-						{sortedChannels.length === 0 ? (
-							<SidebarMenuItem>
-								<div className="px-2 py-1.5 text-sm text-muted-foreground">
-									No channels yet
-								</div>
-							</SidebarMenuItem>
-						) : (
-							sortedChannels.map((channel) => {
-								const href = `/channel/${channel.id}`;
-								const isActive = location === `/dashboard${href}`;
-								return (
-									<SidebarMenuItem key={channel.id}>
-										<SidebarMenuButton
-											asChild
-											isActive={isActive}
-											tooltip={`#${channel.name}`}
-										>
-											<Link href={href}>
-												<Hash className="size-4" />
-												<span>{channel.name}</span>
-											</Link>
-										</SidebarMenuButton>
-										{/* TODO: Implement unread count tracking */}
+			<Collapsible defaultOpen className="group/collapsible">
+				<SidebarGroup>
+					<SidebarGroupLabel asChild>
+						<CollapsibleTrigger>
+							<ChevronRight className="size-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+							<span>Discussions</span>
+							{sortedChannels.length > 0 && (
+								<span className="ml-auto mr-4 text-xs tabular-nums text-sidebar-foreground/50">
+									{sortedChannels.length}
+								</span>
+							)}
+						</CollapsibleTrigger>
+					</SidebarGroupLabel>
+					<SidebarGroupAction
+						title="New channel"
+						onClick={() => setDialogOpen(true)}
+					>
+						<Plus className="size-4" />
+						<span className="sr-only">New channel</span>
+					</SidebarGroupAction>
+					<CollapsibleContent>
+						<SidebarGroupContent>
+							<SidebarMenu>
+								{sortedChannels.length === 0 ? (
+									<SidebarMenuItem>
+										<div className="px-2 py-1.5 text-sm text-muted-foreground">
+											No channels yet
+										</div>
 									</SidebarMenuItem>
-								);
-							})
-						)}
-					</SidebarMenu>
-				</SidebarGroupContent>
-			</SidebarGroup>
+								) : (
+									sortedChannels.map((channel) => {
+										const href = `/channel/${channel.id}`;
+										const isActive = location === href;
+										return (
+											<SidebarMenuItem key={channel.id}>
+												<SidebarMenuButton
+													asChild
+													isActive={isActive}
+													tooltip={`#${channel.name}`}
+												>
+													<Link href={href}>
+														<Hash className="size-4" />
+														<span>{channel.name}</span>
+													</Link>
+												</SidebarMenuButton>
+											</SidebarMenuItem>
+										);
+									})
+								)}
+							</SidebarMenu>
+						</SidebarGroupContent>
+					</CollapsibleContent>
+				</SidebarGroup>
+			</Collapsible>
 
 			<CreateChannelDialog
 				open={dialogOpen}
