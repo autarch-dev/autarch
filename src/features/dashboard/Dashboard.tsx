@@ -1,6 +1,8 @@
-import { useCallback, useEffect } from "react";
-import { Route, Switch, useLocation } from "wouter";
+import { Rocket } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Link, Route, Switch, useLocation } from "wouter";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AnalyticsDashboardPage } from "@/features/analytics/components/AnalyticsDashboardPage";
 import { CostDashboardPage } from "@/features/costs/components/CostDashboardPage";
@@ -17,11 +19,43 @@ import { useDiscussionsStore, useWorkflowsStore } from "./store";
 
 /** Empty state shown when no channel or workflow is selected */
 function DashboardEmptyState() {
+	const { createWorkflow } = useWorkflowsStore();
+	const [, setLocation] = useLocation();
+	const [isCreating, setIsCreating] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const handleCreateWorkflow = useCallback(async () => {
+		setIsCreating(true);
+		setError(null);
+		try {
+			const wf = await createWorkflow("My first workflow");
+			setLocation(`/workflow/${wf.id}`);
+		} catch {
+			setError("Failed to create workflow. Please try again.");
+		} finally {
+			setIsCreating(false);
+		}
+	}, [createWorkflow, setLocation]);
+
 	return (
-		<div className="flex items-center justify-center h-full">
-			<p className="text-muted-foreground">
-				Select a channel or workflow to get started
+		<div className="px-4 py-8 text-center">
+			<div className="size-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+				<Rocket className="size-6 text-muted-foreground" />
+			</div>
+			<h4 className="font-medium mb-1">Welcome to your Dashboard</h4>
+			<p className="text-sm text-muted-foreground max-w-sm mx-auto">
+				Get started by creating your first workflow or opening a channel. Your
+				active workflows and channels will appear here.
 			</p>
+			{error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+			<div className="mt-4 flex items-center justify-center gap-2">
+				<Button onClick={handleCreateWorkflow} disabled={isCreating}>
+					{isCreating ? "Creating…" : "Create your first workflow"}
+				</Button>
+				<Button variant="outline" asChild>
+					<Link to="/completed">View completed</Link>
+				</Button>
+			</div>
 		</div>
 	);
 }
