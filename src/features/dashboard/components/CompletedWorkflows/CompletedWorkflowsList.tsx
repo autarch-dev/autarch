@@ -6,10 +6,11 @@
  * duration, cost, review summary, diff stats, and linked initiative.
  */
 
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -174,8 +175,20 @@ export function CompletedWorkflowsList({
 
 				{/* Empty state */}
 				{!isLoading && enrichedWorkflows.length === 0 && (
-					<div className="flex items-center justify-center h-full">
-						<p className="text-muted-foreground">No completed workflows yet</p>
+					<div className="px-4 py-8 text-center">
+						<div className="size-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+							<CheckCircle2 className="size-6 text-muted-foreground" />
+						</div>
+						<h4 className="font-medium mb-1">No completed workflows yet</h4>
+						<p className="text-sm text-muted-foreground max-w-sm mx-auto">
+							Workflows will appear here once they finish running. Completed
+							workflows include cost, duration, and diff stats.
+						</p>
+						<div className="mt-4 flex items-center justify-center gap-2">
+							<Button asChild>
+								<Link href="/">Go to Dashboard</Link>
+							</Button>
+						</div>
 					</div>
 				)}
 
