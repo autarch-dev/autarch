@@ -7,6 +7,7 @@ import {
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { SettingsPanel } from "@/features/settings/components/SettingsPanel";
+import { ConnectionStatus } from "./ConnectionStatus";
 import { EmbeddingStatus } from "./EmbeddingStatus";
 
 export function SidebarFooter() {
@@ -22,6 +23,7 @@ export function SidebarFooter() {
 					</SidebarMenuButton>
 				</SidebarMenuItem>
 				<EmbeddingStatus />
+				<ConnectionStatus />
 			</SidebarMenu>
 			<SettingsPanel open={open} onOpenChange={setOpen} />
 		</BaseSidebarFooter>
