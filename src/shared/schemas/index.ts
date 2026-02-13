@@ -5,6 +5,7 @@ export * from "./embedding";
 export * from "./events";
 export * from "./git-identity";
 export * from "./hooks";
+export * from "./knowledge";
 export * from "./models";
 export * from "./project";
 export * from "./questions";
