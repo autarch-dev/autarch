@@ -1,4 +1,4 @@
-import { BarChart3, DollarSign } from "lucide-react";
+import { BarChart3, BookOpen, DollarSign } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
 	SidebarGroup,
@@ -13,6 +13,7 @@ export function AnalyticsSection() {
 	const [location] = useLocation();
 	const isWorkflowAnalyticsActive = location === "/analytics";
 	const isCostDashboardActive = location === "/costs";
+	const isKnowledgeActive = location === "/knowledge";
 
 	return (
 		<SidebarGroup>
@@ -32,6 +33,14 @@ export function AnalyticsSection() {
 							<Link href="/costs">
 								<DollarSign className="size-4" />
 								<span>Cost Dashboard</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+					<SidebarMenuItem>
+						<SidebarMenuButton asChild isActive={isKnowledgeActive}>
+							<Link href="/knowledge">
+								<BookOpen className="size-4" />
+								<span>Knowledge</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
