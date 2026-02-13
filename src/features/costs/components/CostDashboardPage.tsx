@@ -5,8 +5,10 @@
  * fetches all cost data. Renders a preset dropdown alongside the page title.
  */
 
+import { DollarSign } from "lucide-react";
 import { useEffect } from "react";
-import { useSearch } from "wouter";
+import { Link, useSearch } from "wouter";
+import { Button } from "@/components/ui/button";
 import {
 	Select,
 	SelectContent,
@@ -34,7 +36,11 @@ export function CostDashboardPage() {
 	const preset = useCostStore((s) => s.preset);
 	const setPreset = useCostStore((s) => s.setPreset);
 	const fetchAll = useCostStore((s) => s.fetchAll);
+	const summary = useCostStore((s) => s.summary);
 	const search = useSearch();
+
+	const isEmpty =
+		!summary.loading && summary.data !== null && summary.data.count === 0;
 
 	useEffect(() => {
 		const params = new URLSearchParams(search);
@@ -70,16 +76,40 @@ export function CostDashboardPage() {
 					</Select>
 				</h1>
 			</div>
-			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-				<SummaryCard />
-			</div>
-			<div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-				<ModelBreakdownChart />
-				<TrendChart />
-				<TokenUsageChart />
-				<RoleBreakdownChart />
-			</div>
-			<WorkflowCostTable />
+			{summary.loading && summary.data === null ? (
+				<p className="text-muted-foreground text-center py-12">
+					Loading cost data...
+				</p>
+			) : isEmpty ? (
+				<div className="px-4 py-8 text-center">
+					<div className="size-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+						<DollarSign className="size-6 text-muted-foreground" />
+					</div>
+					<h4 className="font-medium mb-1">No cost data yet</h4>
+					<p className="text-sm text-muted-foreground max-w-sm mx-auto">
+						Cost tracking begins automatically when workflows run. You'll see
+						spending breakdowns by model, role, and workflow here.
+					</p>
+					<div className="mt-4 flex items-center justify-center gap-2">
+						<Button asChild>
+							<Link to="/">Go to Dashboard</Link>
+						</Button>
+					</div>
+				</div>
+			) : (
+				<>
+					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+						<SummaryCard />
+					</div>
+					<div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+						<ModelBreakdownChart />
+						<TrendChart />
+						<TokenUsageChart />
+						<RoleBreakdownChart />
+					</div>
+					<WorkflowCostTable />
+				</>
+			)}
 		</div>
 	);
 }
