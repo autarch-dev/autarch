@@ -1113,6 +1113,8 @@ function handleSessionStarted(
 	_get: GetState,
 ): void {
 	if (payload.contextType === "roadmap") {
+		const isSynthesis = payload.agentRole === "synthesis";
+
 		set((state) => {
 			const conversations = new Map(state.conversations);
 			const existing = conversations.get(payload.sessionId);
@@ -1123,6 +1125,8 @@ function handleSessionStarted(
 				sessionId: payload.sessionId,
 				sessionStatus: "active",
 				roadmapId: payload.contextId,
+				// Tag synthesis conversations so getConversation() won't match them as the main roadmap conversation
+				...(isSynthesis ? { persona: "synthesis" } : {}),
 			});
 
 			// Also update roadmap's currentSessionId
@@ -1132,7 +1136,17 @@ function handleSessionStarted(
 					: r,
 			);
 
-			return { conversations, roadmaps };
+			return {
+				conversations,
+				roadmaps,
+				// Track synthesis session so PersonaDiscoveryTabs can render it
+				...(isSynthesis
+					? {
+							synthesisSessionId: payload.sessionId,
+							activePersonaTab: "synthesis" as PersonaTab,
+						}
+					: {}),
+			};
 		});
 	} else if (payload.contextType === "persona") {
 		// Persona session started — derive persona name from agentRole
@@ -1738,22 +1752,10 @@ function handlePersonaRoadmapSubmitted(
 			roadmapData: payload.roadmapData,
 		});
 
-		// Check if all 4 personas are completed — scoped to the specific roadmapId
-		const completedPersonas = new Set<string>();
-		for (const [, session] of personaSessions) {
-			if (
-				session.roadmapId === payload.roadmapId &&
-				session.status === "completed"
-			) {
-				completedPersonas.add(session.persona);
-			}
-		}
-		const allDone = PERSONA_NAMES.every((p) => completedPersonas.has(p));
-
-		return {
-			personaSessions,
-			...(allDone ? { activePersonaTab: "synthesis" } : {}),
-		};
+		// Note: activePersonaTab is set to "synthesis" when the synthesis session:started
+		// event arrives (in handleSessionStarted), not here — avoids showing a blank/spinner
+		// tab before the synthesis session is actually running.
+		return { personaSessions };
 	});
 }
 
