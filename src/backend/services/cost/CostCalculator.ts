@@ -61,34 +61,6 @@ export class CostCalculator {
 			(completionTokens / 1_000_000) * cost.completionTokenCost
 		);
 	}
-
-	/**
-	 * Calculate total cost for multiple turns.
-	 *
-	 * @param turns - Array of turns with token usage data
-	 * @returns Total cost in USD
-	 */
-	calculateTotal(
-		turns: Array<{
-			modelId: string | null;
-			promptTokens: number | null;
-			completionTokens: number | null;
-		}>,
-	): number {
-		return turns.reduce((total, turn) => {
-			if (
-				!turn.modelId ||
-				turn.promptTokens == null ||
-				turn.completionTokens == null
-			) {
-				return total;
-			}
-			return (
-				total +
-				this.calculate(turn.modelId, turn.promptTokens, turn.completionTokens)
-			);
-		}, 0);
-	}
 }
 
 // Singleton instance for convenience

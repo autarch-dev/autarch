@@ -255,7 +255,7 @@ export class AgentRunner {
 
 		try {
 			// streamLLMResponse handles turn completion with token usage data
-			const { totalInputTokens, totalOutputTokens } =
+			const { totalInputTokens, totalOutputTokens, totalCost } =
 				await this.streamLLMResponse(
 					assistantTurn,
 					agentConfig,
@@ -265,6 +265,7 @@ export class AgentRunner {
 			log.agent.success(`Agent turn ${assistantTurn.id} completed`, {
 				totalInputTokens,
 				totalOutputTokens,
+				totalCost,
 			});
 
 			// Check if a terminal tool was called - if not, nudge the agent
@@ -781,7 +782,7 @@ export class AgentRunner {
 		agentConfig: ReturnType<typeof getAgentConfig>,
 		options: RunOptions,
 		conversationHistory: ModelMessage[],
-	): Promise<{ totalInputTokens: number; totalOutputTokens: number }> {
+	): Promise<{ totalInputTokens: number; totalOutputTokens: number; totalCost: number }> {
 		// Get the model for this agent's scenario
 		const { model, modelId } = await getModelForScenario(agentConfig.role);
 
@@ -883,6 +884,7 @@ export class AgentRunner {
 
 		let totalInputTokens = 0;
 		let totalOutputTokens = 0;
+		let totalCost = 0;
 
 		// Process the stream
 		for await (const part of result.fullStream) {
@@ -1016,34 +1018,21 @@ export class AgentRunner {
 					// A step completed (may include tool calls)
 					// We can track token usage here if needed
 					log.tools.debug("Streaming step completed", part.usage);
-					totalInputTokens += part.usage.inputTokens ?? 0;
-					totalOutputTokens += part.usage.outputTokens ?? 0;
+					const stepInputTokens = part.usage.inputTokens ?? 0;
+					const stepOutputTokens = part.usage.outputTokens ?? 0;
+					totalInputTokens += stepInputTokens;
+					totalOutputTokens += stepOutputTokens;
+					
+					// Calculate cost per-step so long-context thresholds apply correctly
+					totalCost += getCostCalculator().calculate(
+						modelId, stepInputTokens, stepOutputTokens
+					);
 					break;
 				}
 
 				case "finish": {
 					// Stream completed
 					log.tools.debug("Streaming completed", part.totalUsage);
-
-					if (
-						part.totalUsage.inputTokens &&
-						part.totalUsage.inputTokens !== totalInputTokens
-					) {
-						log.tools.error("Streaming input token mismatch", {
-							totalUsage: part.totalUsage,
-							totalInputTokens,
-						});
-					}
-
-					if (
-						part.totalUsage.outputTokens &&
-						part.totalUsage.outputTokens !== totalOutputTokens
-					) {
-						log.tools.error("Streaming output token mismatch", {
-							totalUsage: part.totalUsage,
-							totalOutputTokens,
-						});
-					}
 
 					break;
 				}
@@ -1088,6 +1077,7 @@ export class AgentRunner {
 		return {
 			totalInputTokens,
 			totalOutputTokens,
+			totalCost,
 		};
 	}
 
@@ -1222,32 +1212,19 @@ export class AgentRunner {
 			promptTokens?: number;
 			completionTokens?: number;
 			modelId?: string;
+			cost?: number;
 		},
 	): Promise<void> {
 		// Use repository for DB operation
 		await this.config.conversationRepo.completeTurn(turnId, usage);
-
-		// Calculate cost for the event payload
-		let cost: number | undefined;
-		if (
-			usage?.modelId &&
-			usage.promptTokens != null &&
-			usage.completionTokens != null
-		) {
-			cost = getCostCalculator().calculate(
-				usage.modelId,
-				usage.promptTokens,
-				usage.completionTokens,
-			);
-		}
 
 		// Insert immutable cost record for tracking real provider charges
 		if (
 			usage?.modelId &&
 			usage.promptTokens != null &&
 			usage.completionTokens != null &&
-			cost != null &&
-			cost > 0
+			usage.cost != null &&
+			usage.cost > 0
 		) {
 			try {
 				await getRepositories().costRecords.insert({
@@ -1260,18 +1237,18 @@ export class AgentRunner {
 					agentRole: this.session.agentRole,
 					promptTokens: usage.promptTokens,
 					completionTokens: usage.completionTokens,
-					costUsd: cost,
+					costUsd: usage.cost,
 					createdAt: Date.now(),
 				});
 			} catch (error) {
 				log.agent.error("Failed to insert cost record", error);
 			}
 		} else if (
-			(cost == null || cost === 0) &&
+			(usage?.cost == null || usage?.cost === 0) &&
 			(usage?.promptTokens ?? 0) + (usage?.completionTokens ?? 0) > 0
 		) {
 			log.agent.warn(
-				`Cost is ${cost ?? "null"} but tokens were consumed (prompt: ${usage?.promptTokens}, completion: ${usage?.completionTokens}, model: ${usage?.modelId ?? "unknown"}) - missing pricing configuration?`,
+				`Cost is ${usage?.cost ?? "null"} but tokens were consumed (prompt: ${usage?.promptTokens}, completion: ${usage?.completionTokens}, model: ${usage?.modelId ?? "unknown"}) - missing pricing configuration?`,
 			);
 		}
 
