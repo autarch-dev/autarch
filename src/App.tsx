@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Redirect, Route, Switch } from "wouter";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/sonner";
 import { Dashboard } from "@/features/dashboard";
 import { OnboardingGuard, OnboardingPage } from "@/features/onboarding";
@@ -24,7 +25,11 @@ export function App() {
 					</Route>
 					<Route path="/onboarding" component={OnboardingPage} />
 					<Route path="/dashboard" nest component={Dashboard} />
-					<Route path="/testbench" component={ToolTestbench} />
+					<Route path="/testbench">
+						<ErrorBoundary featureName="Tool Testbench">
+							<ToolTestbench />
+						</ErrorBoundary>
+					</Route>
 					{/* Fallback for unknown routes */}
 					<Route>
 						<Redirect to="/" />

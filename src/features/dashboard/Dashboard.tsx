@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AnalyticsDashboardPage } from "@/features/analytics/components/AnalyticsDashboardPage";
 import { CostDashboardPage } from "@/features/costs/components/CostDashboardPage";
@@ -84,22 +85,40 @@ export function Dashboard() {
 			<SidebarInset className="flex flex-col h-svh overflow-clip">
 				<Switch>
 					<Route path="/channel/:id">
-						{(params) => <ChannelViewContainer channelId={params.id} />}
+						{(params) => (
+							<ErrorBoundary featureName="Channel">
+								<ChannelViewContainer channelId={params.id} />
+							</ErrorBoundary>
+						)}
 					</Route>
 					<Route path="/workflow/:id">
-						{(params) => <WorkflowViewContainer workflowId={params.id} />}
+						{(params) => (
+							<ErrorBoundary featureName="Workflow">
+								<WorkflowViewContainer workflowId={params.id} />
+							</ErrorBoundary>
+						)}
 					</Route>
 					<Route path="/roadmap/:id">
-						{(params) => <RoadmapViewContainer roadmapId={params.id} />}
+						{(params) => (
+							<ErrorBoundary featureName="Roadmap">
+								<RoadmapViewContainer roadmapId={params.id} />
+							</ErrorBoundary>
+						)}
 					</Route>
 					<Route path="/completed">
-						<CompletedWorkflowsPage />
+						<ErrorBoundary featureName="Completed Workflows">
+							<CompletedWorkflowsPage />
+						</ErrorBoundary>
 					</Route>
 					<Route path="/costs">
-						<CostDashboardPage />
+						<ErrorBoundary featureName="Costs">
+							<CostDashboardPage />
+						</ErrorBoundary>
 					</Route>
 					<Route path="/analytics">
-						<AnalyticsDashboardPage />
+						<ErrorBoundary featureName="Analytics">
+							<AnalyticsDashboardPage />
+						</ErrorBoundary>
 					</Route>
 					<Route path="/">
 						<DashboardEmptyState />
