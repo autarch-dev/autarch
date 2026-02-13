@@ -46,10 +46,7 @@ import type {
 	RoadmapStatus,
 	VisionDocument,
 } from "@/shared/schemas/roadmap";
-import {
-	type RoadmapConversationState,
-	useRoadmapStore,
-} from "../store/roadmapStore";
+import type { RoadmapConversationState } from "../store/roadmapStore";
 import { InitiativeDetail } from "./InitiativeDetail";
 import { PersonaDiscoveryTabs } from "./PersonaDiscoveryTabs";
 import { PlanningConversation } from "./PlanningConversation";
@@ -137,6 +134,7 @@ interface RoadmapViewProps {
 		milestoneId: string,
 		reorderedIds: { id: string; sortOrder: number }[],
 	) => void;
+	hasPersonaSessions: boolean;
 }
 
 // =============================================================================
@@ -162,6 +160,7 @@ export const RoadmapView = memo(function RoadmapView({
 	onDeleteInitiative,
 	onReorderMilestones,
 	onReorderInitiatives,
+	hasPersonaSessions,
 }: RoadmapViewProps) {
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [editTitle, setEditTitle] = useState(roadmap.title);
@@ -192,12 +191,6 @@ export const RoadmapView = memo(function RoadmapView({
 			return updated ?? null;
 		});
 	}, [initiatives]);
-
-	// Check if this draft roadmap uses the new persona-based flow
-	const personaSessions = useRoadmapStore((s) => s.personaSessions);
-	const hasPersonaSessions = [...personaSessions.values()].some(
-		(ps) => ps.roadmapId === roadmap.id,
-	);
 
 	// Draft rendering:
 	// - Persona sessions exist → show PersonaDiscoveryTabs (new multi-persona flow)

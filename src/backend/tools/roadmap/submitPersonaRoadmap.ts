@@ -107,7 +107,7 @@ This is a terminal tool — your session ends after submission.`,
 
 				// Atomically complete persona and check if all siblings are done.
 				// The transaction ensures that when two personas complete near-simultaneously,
-				// only one caller gets allCompleted === true.
+				// only one caller gets allTerminal === true, which gates synthesis launch.
 				const { allCompleted, allTerminal, roadmapId } =
 					await completePersonaAndCheckDone(db, personaRoadmapId, roadmapData);
 

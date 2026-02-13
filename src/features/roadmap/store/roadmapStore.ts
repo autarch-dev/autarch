@@ -1241,12 +1241,30 @@ function handleTurnStarted(
 	set((state) => {
 		const conversations = new Map(state.conversations);
 		// Get existing or create minimal state (handles page refresh during active session)
-		const existing = conversations.get(payload.sessionId) ?? {
-			sessionId: payload.sessionId,
-			sessionStatus: "active" as const,
-			messages: [],
-			isLoading: false,
-		};
+		const existing =
+			conversations.get(payload.sessionId) ??
+			(() => {
+				// Derive roadmapId and persona from context so getConversation() can find this entry
+				let roadmapId: string | undefined;
+				let persona: string | undefined;
+				if (payload.contextType === "roadmap") {
+					roadmapId = payload.contextId;
+				} else if (payload.contextType === "persona") {
+					persona = payload.agentRole;
+					// For persona sessions, contextId is the persona record ID, not the roadmap ID.
+					// Look up roadmapId from existing personaSessions.
+					const ps = state.personaSessions.get(payload.sessionId);
+					roadmapId = ps?.roadmapId;
+				}
+				return {
+					sessionId: payload.sessionId,
+					sessionStatus: "active" as const,
+					messages: [],
+					isLoading: false,
+					roadmapId,
+					persona,
+				};
+			})();
 
 		conversations.set(payload.sessionId, {
 			...existing,
@@ -1329,12 +1347,28 @@ function handleMessageDelta(
 			!existing?.streamingMessage ||
 			existing.streamingMessage.turnId !== payload.turnId
 		) {
-			const baseConversation = existing ?? {
-				sessionId: payload.sessionId,
-				sessionStatus: "active" as const,
-				messages: [],
-				isLoading: false,
-			};
+			const baseConversation =
+				existing ??
+				(() => {
+					// Derive roadmapId and persona from context so getConversation() can find this entry
+					let roadmapId: string | undefined;
+					let persona: string | undefined;
+					if (payload.contextType === "roadmap") {
+						roadmapId = payload.contextId;
+					} else if (payload.contextType === "persona") {
+						persona = payload.agentRole;
+						const ps = state.personaSessions.get(payload.sessionId);
+						roadmapId = ps?.roadmapId;
+					}
+					return {
+						sessionId: payload.sessionId,
+						sessionStatus: "active" as const,
+						messages: [],
+						isLoading: false,
+						roadmapId,
+						persona,
+					};
+				})();
 
 			// Create streaming message with the delta content
 			const segments = [];

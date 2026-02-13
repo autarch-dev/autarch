@@ -277,13 +277,20 @@ async function startPersonaSessions(
 				sessionManager.errorSession(session.id, errorMsg);
 
 				// Mark the persona_roadmaps record as failed and check if all siblings are terminal
-				const { allTerminal } = await failPersonaAndCheckDone(db, persona.id);
+				try {
+					const { allTerminal } = await failPersonaAndCheckDone(db, persona.id);
 
-				if (allTerminal) {
-					log.agent.info(
-						`All personas terminal for roadmap ${roadmapId} (some failed) — launching synthesis with partial results`,
+					if (allTerminal) {
+						log.agent.info(
+							`All personas terminal for roadmap ${roadmapId} (some failed) — launching synthesis with partial results`,
+						);
+						startSynthesisSession(projectRoot, roadmapId, db);
+					}
+				} catch (failErr) {
+					log.agent.error(
+						`Failed to handle persona failure for ${persona.persona} (roadmap ${roadmapId}):`,
+						failErr,
 					);
-					startSynthesisSession(projectRoot, roadmapId, db);
 				}
 			});
 		} catch (err) {
@@ -292,13 +299,20 @@ async function startPersonaSessions(
 				`Failed to spawn persona ${persona.persona} for roadmap ${roadmapId}: ${errorMsg}`,
 			);
 
-			const { allTerminal } = await failPersonaAndCheckDone(db, persona.id);
+			try {
+				const { allTerminal } = await failPersonaAndCheckDone(db, persona.id);
 
-			if (allTerminal) {
-				log.agent.info(
-					`All personas terminal for roadmap ${roadmapId} (some failed) — launching synthesis with partial results`,
+				if (allTerminal) {
+					log.agent.info(
+						`All personas terminal for roadmap ${roadmapId} (some failed) — launching synthesis with partial results`,
+					);
+					startSynthesisSession(projectRoot, roadmapId, db);
+				}
+			} catch (failErr) {
+				log.agent.error(
+					`Failed to handle persona failure for ${persona.persona} (roadmap ${roadmapId}):`,
+					failErr,
 				);
-				startSynthesisSession(projectRoot, roadmapId, db);
 			}
 		}
 	}
