@@ -322,6 +322,7 @@ export class KnowledgeRepository {
 			content?: string;
 			category?: KnowledgeCategory;
 			tags?: string[];
+			archived?: boolean;
 		},
 	): Promise<KnowledgeItem | null> {
 		const updateObj: UpdateableKnowledgeItem = {};
@@ -337,6 +338,9 @@ export class KnowledgeRepository {
 		}
 		if (data.tags !== undefined) {
 			updateObj.tags_json = JSON.stringify(data.tags);
+		}
+		if (data.archived !== undefined) {
+			updateObj.archived = data.archived ? 1 : 0;
 		}
 
 		if (Object.keys(updateObj).length === 0) {
