@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { memo, useEffect, useMemo, useState } from "react";
 import { codeToHtml } from "shiki";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -1648,12 +1649,14 @@ export function DiffViewerModal({
 					</div>
 				</SheetHeader>
 				<div className="flex-1 overflow-hidden">
-					<DiffViewer
-						diff={diff}
-						comments={comments}
-						onAddComment={canAddComments ? handleAddComment : undefined}
-						className="h-full"
-					/>
+					<ErrorBoundary featureName="Diff Viewer">
+						<DiffViewer
+							diff={diff}
+							comments={comments}
+							onAddComment={canAddComments ? handleAddComment : undefined}
+							className="h-full"
+						/>
+					</ErrorBoundary>
 				</div>
 
 				{/* Request Fixes Dialog */}
