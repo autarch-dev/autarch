@@ -832,7 +832,11 @@ export class AgentRunner {
 		agentConfig: ReturnType<typeof getAgentConfig>,
 		options: RunOptions,
 		conversationHistory: ModelMessage[],
-	): Promise<{ totalInputTokens: number; totalOutputTokens: number; totalCost: number }> {
+	): Promise<{
+		totalInputTokens: number;
+		totalOutputTokens: number;
+		totalCost: number;
+	}> {
 		// Get the model for this agent's scenario
 		const { model, modelId } = await getModelForScenario(agentConfig.role);
 
@@ -1072,10 +1076,12 @@ export class AgentRunner {
 					const stepOutputTokens = part.usage.outputTokens ?? 0;
 					totalInputTokens += stepInputTokens;
 					totalOutputTokens += stepOutputTokens;
-					
+
 					// Calculate cost per-step so long-context thresholds apply correctly
 					totalCost += getCostCalculator().calculate(
-						modelId, stepInputTokens, stepOutputTokens
+						modelId,
+						stepInputTokens,
+						stepOutputTokens,
 					);
 					break;
 				}

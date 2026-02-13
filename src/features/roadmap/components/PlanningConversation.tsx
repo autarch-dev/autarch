@@ -182,38 +182,38 @@ export function PlanningConversation({
 
 	return (
 		<div className="flex flex-col h-full">
-				<div className="py-2">
-					{isLoading && messages.length === 0 ? (
-						<div className="flex items-center justify-center py-8">
-							<span className="text-muted-foreground text-sm">
-								Loading conversation...
-							</span>
-						</div>
-					) : messages.length === 0 && !streamingMessage ? (
-						<EmptyState />
-					) : (
-						<>
-							{messages.map((message) => (
-								<ChannelMessageBubble key={message.id} message={message} />
-							))}
-							{streamingMessage && (
-								<StreamingMessageBubble message={streamingMessage} />
-							)}
-							{/* Show prominent tool indicator for roadmap submission tools */}
-							{(activeToolName === "submit_roadmap" ||
-								activeToolName === "submit_persona_roadmap") && (
-								<ActiveToolIndicator toolName={activeToolName} />
-							)}
-						</>
-					)}
+			<div className="py-2">
+				{isLoading && messages.length === 0 ? (
+					<div className="flex items-center justify-center py-8">
+						<span className="text-muted-foreground text-sm">
+							Loading conversation...
+						</span>
+					</div>
+				) : messages.length === 0 && !streamingMessage ? (
+					<EmptyState />
+				) : (
+					<>
+						{messages.map((message) => (
+							<ChannelMessageBubble key={message.id} message={message} />
+						))}
+						{streamingMessage && (
+							<StreamingMessageBubble message={streamingMessage} />
+						)}
+						{/* Show prominent tool indicator for roadmap submission tools */}
+						{(activeToolName === "submit_roadmap" ||
+							activeToolName === "submit_persona_roadmap") && (
+							<ActiveToolIndicator toolName={activeToolName} />
+						)}
+					</>
+				)}
 
-					{/* Session completed banner */}
-					{isSessionCompleted && messages.length > 0 && (
-						<SessionCompletedBanner />
-					)}
+				{/* Session completed banner */}
+				{isSessionCompleted && messages.length > 0 && (
+					<SessionCompletedBanner />
+				)}
 
-					<div ref={messagesEndRef} />
-				</div>
+				<div ref={messagesEndRef} />
+			</div>
 		</div>
 	);
 }

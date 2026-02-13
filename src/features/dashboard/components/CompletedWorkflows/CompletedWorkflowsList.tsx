@@ -6,7 +6,8 @@
  * duration, cost, review summary, diff stats, and linked initiative.
  */
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -16,6 +17,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { groupByDateBucket } from "../../utils/dateBuckets";
@@ -48,8 +50,20 @@ export function CompletedWorkflowsList({
 	isLoading,
 }: CompletedWorkflowsListProps) {
 	const [, setLocation] = useLocation();
+	const [searchText, setSearchText] = useState("");
+
+	const filteredWorkflows = useMemo(() => {
+		const query = searchText.trim().toLowerCase();
+		if (!query) return enrichedWorkflows;
+		return enrichedWorkflows.filter((ew) => {
+			const title = ew.workflow.title.toLowerCase();
+			const description = ew.workflow.description?.toLowerCase() ?? "";
+			return title.includes(query) || description.includes(query);
+		});
+	}, [searchText, enrichedWorkflows]);
+
 	const buckets = groupByDateBucket<EnrichedWorkflow>(
-		enrichedWorkflows,
+		filteredWorkflows,
 		(ew) => ew.workflow.updatedAt,
 	);
 
@@ -65,6 +79,15 @@ export function CompletedWorkflowsList({
 						<ArrowLeft className="size-4" />
 					</Link>
 					<h1 className="text-lg font-semibold">Completed Workflows</h1>
+					<div className="relative flex-1 min-w-[200px] max-w-[300px] ml-auto">
+						<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+						<Input
+							placeholder="Search workflows..."
+							value={searchText}
+							onChange={(e) => setSearchText(e.target.value)}
+							className="h-8 pl-8 text-sm"
+						/>
+					</div>
 				</div>
 			</header>
 
@@ -93,6 +116,15 @@ export function CompletedWorkflowsList({
 						<p className="text-muted-foreground">No completed workflows yet</p>
 					</div>
 				)}
+
+				{/* No search results */}
+				{!isLoading &&
+					enrichedWorkflows.length > 0 &&
+					filteredWorkflows.length === 0 && (
+						<div className="flex items-center justify-center h-full">
+							<p className="text-muted-foreground">No matching workflows</p>
+						</div>
+					)}
 
 				{/* Date-bucketed workflow cards */}
 				{buckets.map((bucket) => (

@@ -727,7 +727,6 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 					conversations.delete(existingSessionId);
 				}
 
-
 				if (history.sessionId) {
 					const existing = conversations.get(history.sessionId);
 					conversations.set(history.sessionId, {
