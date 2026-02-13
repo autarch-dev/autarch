@@ -39,6 +39,7 @@ export interface KnowledgeItemsTable {
 	content: string; // Full content/description of the knowledge
 	category: KnowledgeCategory; // Type of knowledge
 	tags_json: string; // JSON array of string tags for filtering
+	archived: number; // 0 = active, 1 = archived
 	created_at: number; // Unix timestamp
 }
 
@@ -69,6 +70,7 @@ export interface InsertableKnowledgeItem {
 	content: string;
 	category: KnowledgeCategory;
 	tags_json: string;
+	archived?: number;
 	created_at: number;
 }
 
@@ -87,6 +89,7 @@ export interface UpdateableKnowledgeItem {
 	content?: string;
 	category?: KnowledgeCategory;
 	tags_json?: string;
+	archived?: number;
 }
 
 export interface UpdateableKnowledgeEmbedding {

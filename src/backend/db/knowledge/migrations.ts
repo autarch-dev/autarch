@@ -1,4 +1,5 @@
 import type { Kysely } from "kysely";
+import { sql } from "kysely";
 import type { KnowledgeDatabase } from "./types";
 
 /**
@@ -9,6 +10,7 @@ export async function migrateKnowledgeDb(
 ): Promise<void> {
 	await createKnowledgeItemsTable(db);
 	await createKnowledgeEmbeddingsTable(db);
+	await addArchivedColumn(db);
 }
 
 /**
@@ -77,4 +79,26 @@ async function createKnowledgeEmbeddingsTable(
 			(cb) => cb.onDelete("cascade"),
 		)
 		.execute();
+}
+
+/**
+ * Add the archived column to knowledge_items table.
+ * Uses try/catch for idempotency — ignores if column already exists.
+ */
+async function addArchivedColumn(db: Kysely<KnowledgeDatabase>): Promise<void> {
+	try {
+		await sql`ALTER TABLE knowledge_items ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`.execute(
+			db,
+		);
+	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (
+			message.includes("duplicate column") ||
+			message.includes("already exists")
+		) {
+			// Column already exists — safe to ignore
+			return;
+		}
+		throw error;
+	}
 }

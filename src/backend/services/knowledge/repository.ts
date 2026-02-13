@@ -35,6 +35,7 @@ export interface KnowledgeItem {
 	content: string;
 	category: KnowledgeCategory;
 	tags: string[];
+	archived: boolean;
 	createdAt: number;
 }
 
@@ -50,6 +51,7 @@ export interface CreateKnowledgeItemData {
 	content: string;
 	category: KnowledgeCategory;
 	tags: string[];
+	archived?: boolean;
 }
 
 /**
@@ -58,6 +60,7 @@ export interface CreateKnowledgeItemData {
 export interface KnowledgeSearchFilters {
 	category?: KnowledgeCategory;
 	workflowId?: string;
+	archived?: boolean;
 	startDate?: number;
 	endDate?: number;
 	tags?: string[];
@@ -95,6 +98,7 @@ export function toKnowledgeItem(row: KnowledgeItemsTable): KnowledgeItem {
 		content: row.content,
 		category: row.category,
 		tags,
+		archived: row.archived === 1,
 		createdAt: row.created_at,
 	};
 }
@@ -106,7 +110,7 @@ export function toKnowledgeItem(row: KnowledgeItemsTable): KnowledgeItem {
 export function toKnowledgeItemRow(
 	data: CreateKnowledgeItemData,
 ): Omit<InsertableKnowledgeItem, "id" | "created_at"> {
-	return {
+	const row: Omit<InsertableKnowledgeItem, "id" | "created_at"> = {
 		workflow_id: data.workflowId,
 		card_id: data.cardId ?? null,
 		session_id: data.sessionId ?? null,
@@ -116,6 +120,12 @@ export function toKnowledgeItemRow(
 		category: data.category,
 		tags_json: JSON.stringify(data.tags),
 	};
+
+	if (data.archived !== undefined) {
+		row.archived = data.archived ? 1 : 0;
+	}
+
+	return row;
 }
 
 // =============================================================================
@@ -139,6 +149,7 @@ export class KnowledgeRepository {
 			.values({
 				id,
 				...row,
+				archived: row.archived ?? 0,
 				created_at: now,
 			})
 			.execute();
@@ -165,6 +176,7 @@ export class KnowledgeRepository {
 				.values({
 					id,
 					...row,
+					archived: row.archived ?? 0,
 					created_at: now,
 				})
 				.execute();
@@ -246,6 +258,14 @@ export class KnowledgeRepository {
 				const escapedTag = tag.replace(/[%_\\]/g, "\\$&");
 				query = query.where("tags_json", "like", `%"${escapedTag}"%`);
 			}
+		}
+
+		// Archived filtering: default to excluding archived items
+		if (filters.archived === true) {
+			query = query.where("archived", "=", 1);
+		} else {
+			// Default: exclude archived items (archived === false or undefined)
+			query = query.where("archived", "=", 0);
 		}
 
 		return query;
