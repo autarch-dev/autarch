@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AnalyticsDashboardPage } from "@/features/analytics/components/AnalyticsDashboardPage";
 import { CostDashboardPage } from "@/features/costs/components/CostDashboardPage";
+import { KnowledgePage } from "@/features/knowledge/components/KnowledgePage";
 import { RoadmapViewContainer, useRoadmapStore } from "@/features/roadmap";
 import { ChannelViewContainer } from "./components/ChannelView";
 import { CompletedWorkflowsPage } from "./components/CompletedWorkflows/CompletedWorkflowsPage";
@@ -152,6 +153,11 @@ export function Dashboard() {
 					<Route path="/analytics">
 						<ErrorBoundary featureName="Analytics">
 							<AnalyticsDashboardPage />
+						</ErrorBoundary>
+					</Route>
+					<Route path="/knowledge">
+						<ErrorBoundary featureName="Knowledge">
+							<KnowledgePage />
 						</ErrorBoundary>
 					</Route>
 					<Route path="/">

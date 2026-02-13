@@ -13,19 +13,22 @@ import {
 	type SearchFilters,
 	searchKnowledge,
 } from "@/backend/services/knowledge/search";
+import {
+	ArchiveKnowledgeItemSchema,
+	KnowledgeCategorySchema,
+	type KnowledgeItem,
+	KnowledgeListFiltersSchema,
+	type KnowledgeListResponse,
+	KnowledgeSearchFiltersSchema,
+	type KnowledgeSearchResponse,
+	UpdateKnowledgeItemSchema,
+} from "@/shared/schemas/knowledge";
 import { log } from "../logger";
 import { getProjectRoot } from "../projectRoot";
 
 // =============================================================================
 // Schemas
 // =============================================================================
-
-const KNOWLEDGE_CATEGORIES = [
-	"pattern",
-	"gotcha",
-	"tool-usage",
-	"process-improvement",
-] as const;
 
 const IdParamSchema = z.object({
 	id: z.string().min(1),
@@ -38,42 +41,8 @@ const CreateKnowledgeItemSchema = z.object({
 	turnId: z.string().nullable().optional(),
 	title: z.string().min(1),
 	content: z.string().min(1),
-	category: z.enum(KNOWLEDGE_CATEGORIES),
+	category: KnowledgeCategorySchema,
 	tags: z.array(z.string()).optional().default([]),
-});
-
-const UpdateKnowledgeItemSchema = z
-	.object({
-		title: z.string().min(1).optional(),
-		content: z.string().min(1).optional(),
-		category: z.enum(KNOWLEDGE_CATEGORIES).optional(),
-		tags: z.array(z.string()).optional(),
-	})
-	.refine(
-		(data) =>
-			data.title !== undefined ||
-			data.content !== undefined ||
-			data.category !== undefined ||
-			data.tags !== undefined,
-		{ message: "At least one field must be provided" },
-	);
-
-const ListQuerySchema = z.object({
-	category: z.enum(KNOWLEDGE_CATEGORIES).optional(),
-	tags: z.string().optional(),
-	startDate: z.coerce.number().optional(),
-	endDate: z.coerce.number().optional(),
-	offset: z.coerce.number().int().min(0).optional().default(0),
-	limit: z.coerce.number().int().min(1).max(100).optional().default(20),
-});
-
-const SearchQuerySchema = z.object({
-	query: z.string().min(1),
-	category: z.enum(KNOWLEDGE_CATEGORIES).optional(),
-	tags: z.string().optional(),
-	startDate: z.coerce.number().optional(),
-	endDate: z.coerce.number().optional(),
-	limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
 // =============================================================================
@@ -117,9 +86,11 @@ export const knowledgeRoutes = {
 
 				for (const key of [
 					"category",
+					"workflowId",
 					"tags",
 					"startDate",
 					"endDate",
+					"archived",
 					"offset",
 					"limit",
 				]) {
@@ -129,7 +100,7 @@ export const knowledgeRoutes = {
 					}
 				}
 
-				const result = ListQuerySchema.safeParse(rawQuery);
+				const result = KnowledgeListFiltersSchema.safeParse(rawQuery);
 				if (!result.success) {
 					return Response.json(
 						{
@@ -145,9 +116,11 @@ export const knowledgeRoutes = {
 
 				const filters: {
 					category?: KnowledgeCategory;
+					workflowId?: string;
 					tags?: string[];
 					startDate?: number;
 					endDate?: number;
+					archived?: boolean;
 					offset?: number;
 					limit?: number;
 				} = {
@@ -158,6 +131,9 @@ export const knowledgeRoutes = {
 				if (data.category !== undefined) {
 					filters.category = data.category;
 				}
+				if (data.workflowId !== undefined) {
+					filters.workflowId = data.workflowId;
+				}
 				if (data.tags !== undefined) {
 					filters.tags = data.tags.split(",").map((t) => t.trim());
 				}
@@ -167,12 +143,13 @@ export const knowledgeRoutes = {
 				if (data.endDate !== undefined) {
 					filters.endDate = data.endDate;
 				}
+				filters.archived = data.archived === true;
 
 				const [items, total] = await Promise.all([
 					repo.search(filters),
 					repo.count(filters),
 				]);
-				return Response.json({ items, total });
+				return Response.json({ items, total } satisfies KnowledgeListResponse);
 			} catch (error) {
 				log.api.error("Failed to list knowledge items:", error);
 				return Response.json(
@@ -202,7 +179,9 @@ export const knowledgeRoutes = {
 				const id = await repo.create(parsed.data);
 				const item = await repo.getById(id);
 
-				return Response.json(item, { status: 201 });
+				return Response.json(item satisfies KnowledgeItem | null, {
+					status: 201,
+				});
 			} catch (error) {
 				log.api.error("Failed to create knowledge item:", error);
 				return Response.json(
@@ -224,9 +203,11 @@ export const knowledgeRoutes = {
 				for (const key of [
 					"query",
 					"category",
+					"workflowId",
 					"tags",
 					"startDate",
 					"endDate",
+					"archived",
 					"limit",
 				]) {
 					const value = searchParams.get(key);
@@ -235,7 +216,7 @@ export const knowledgeRoutes = {
 					}
 				}
 
-				const result = SearchQuerySchema.safeParse(rawQuery);
+				const result = KnowledgeSearchFiltersSchema.safeParse(rawQuery);
 				if (!result.success) {
 					return Response.json(
 						{
@@ -256,6 +237,9 @@ export const knowledgeRoutes = {
 				if (data.category !== undefined) {
 					filters.category = data.category;
 				}
+				if (data.workflowId !== undefined) {
+					filters.workflowId = data.workflowId;
+				}
 				if (data.tags !== undefined) {
 					filters.tags = data.tags.split(",").map((t) => t.trim());
 				}
@@ -265,9 +249,10 @@ export const knowledgeRoutes = {
 				if (data.endDate !== undefined) {
 					filters.endDate = data.endDate;
 				}
+				filters.archived = data.archived === true;
 
 				const results = await searchKnowledge(data.query, filters, projectRoot);
-				return Response.json({ results });
+				return Response.json({ results } satisfies KnowledgeSearchResponse);
 			} catch (error) {
 				log.api.error("Failed to search knowledge:", error);
 				return Response.json(
@@ -281,6 +266,35 @@ export const knowledgeRoutes = {
 	},
 
 	"/api/knowledge/:id": {
+		async GET(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json(
+					{ error: "Invalid or missing id parameter" },
+					{ status: 400 },
+				);
+			}
+			try {
+				const repo = await getKnowledgeRepo();
+				const item = await repo.getById(params.id);
+				if (!item) {
+					return Response.json(
+						{ error: "Knowledge item not found" },
+						{ status: 404 },
+					);
+				}
+				return Response.json(item satisfies KnowledgeItem);
+			} catch (error) {
+				log.api.error("Failed to get knowledge item:", error);
+				return Response.json(
+					{
+						error: error instanceof Error ? error.message : "Unknown error",
+					},
+					{ status: 500 },
+				);
+			}
+		},
+
 		async DELETE(req: Request) {
 			const params = parseParams(req, IdParamSchema);
 			if (!params) {
@@ -339,9 +353,56 @@ export const knowledgeRoutes = {
 						{ status: 404 },
 					);
 				}
-				return Response.json(updatedItem, { status: 200 });
+				return Response.json(updatedItem satisfies KnowledgeItem, {
+					status: 200,
+				});
 			} catch (error) {
 				log.api.error("Failed to update knowledge item:", error);
+				return Response.json(
+					{
+						error: error instanceof Error ? error.message : "Unknown error",
+					},
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/knowledge/:id/archive": {
+		async PATCH(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json(
+					{ error: "Invalid or missing id parameter" },
+					{ status: 400 },
+				);
+			}
+			try {
+				const body = await req.json();
+				const parsed = ArchiveKnowledgeItemSchema.safeParse(body);
+				if (!parsed.success) {
+					return Response.json(
+						{
+							error: "Invalid request body",
+							details: z.prettifyError(parsed.error),
+						},
+						{ status: 400 },
+					);
+				}
+
+				const repo = await getKnowledgeRepo();
+				const updatedItem = await repo.update(params.id, {
+					archived: parsed.data.archived,
+				});
+				if (!updatedItem) {
+					return Response.json(
+						{ error: "Knowledge item not found" },
+						{ status: 404 },
+					);
+				}
+				return Response.json(updatedItem satisfies KnowledgeItem);
+			} catch (error) {
+				log.api.error("Failed to archive knowledge item:", error);
 				return Response.json(
 					{
 						error: error instanceof Error ? error.message : "Unknown error",
