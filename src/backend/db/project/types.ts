@@ -506,6 +506,7 @@ export interface RoadmapTable {
 	title: string;
 	description: string | null;
 	status: string;
+	perspective: string;
 	current_session_id: string | null;
 	created_at: number;
 	updated_at: number;

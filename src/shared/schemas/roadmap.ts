@@ -44,6 +44,7 @@ export const RoadmapSchema = z.object({
 	title: z.string(),
 	description: z.string().optional(),
 	status: RoadmapStatusSchema,
+	perspective: z.string().optional(),
 	currentSessionId: z.string().optional(),
 	createdAt: z.number(),
 	updatedAt: z.number(),

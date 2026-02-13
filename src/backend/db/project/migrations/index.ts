@@ -45,6 +45,7 @@ import { migrate as migrate0038StageTransitions } from "./0038-stage-transitions
 import { migrate as migrate0039WorkflowErrors } from "./0039-workflow-errors";
 import { migrate as migrate0040CorrectCost } from "./0040-correct-cost";
 import { migrate as migrate0040PersonaRoadmaps } from "./0040-persona-roadmaps";
+import { migrate as migrate0041RoadmapPerspective } from "./0041-roadmap-perspective";
 
 /**
  * Run all migrations for the project database.
@@ -116,4 +117,7 @@ export async function migrateProjectDb(
 
 	// Persona roadmaps (0040)
 	await migrate0040PersonaRoadmaps(db);
+
+	// Roadmap perspective column (0041)
+	await migrate0041RoadmapPerspective(db);
 }
