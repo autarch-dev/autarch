@@ -1,5 +1,14 @@
-import { AtSign, Code, Paperclip, Send, Sparkles } from "lucide-react";
-import { useState } from "react";
+import {
+	AtSign,
+	Bold,
+	Code,
+	Italic,
+	List,
+	Paperclip,
+	Send,
+	Sparkles,
+} from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -25,6 +34,71 @@ export function MessageInput({
 }: MessageInputProps) {
 	const [message, setMessage] = useState("");
 	const [aiMode, setAiMode] = useState(true);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+	const applyFormatting = useCallback(
+		(type: "bold" | "italic" | "code" | "list") => {
+			const textarea = textareaRef.current;
+			if (!textarea) return;
+
+			const start = textarea.selectionStart;
+			const end = textarea.selectionEnd;
+			const selected = message.slice(start, end);
+
+			let before: string;
+			let after: string;
+			let cursorOffset: number;
+
+			switch (type) {
+				case "bold": {
+					const text = selected || "bold";
+					before = `${message.slice(0, start)}**${text}**`;
+					after = message.slice(end);
+					cursorOffset = selected ? start + text.length + 4 : start + 2;
+					break;
+				}
+				case "italic": {
+					const text = selected || "italic";
+					before = `${message.slice(0, start)}*${text}*`;
+					after = message.slice(end);
+					cursorOffset = selected ? start + text.length + 2 : start + 1;
+					break;
+				}
+				case "code": {
+					const text = selected || "code";
+					before = `${message.slice(0, start)}\`${text}\``;
+					after = message.slice(end);
+					cursorOffset = selected ? start + text.length + 2 : start + 1;
+					break;
+				}
+				case "list": {
+					const lineStart = message.lastIndexOf("\n", start - 1) + 1;
+					before = `${message.slice(0, lineStart)}- ${message.slice(lineStart, end)}`;
+					after = message.slice(end);
+					cursorOffset = end + 2;
+					break;
+				}
+			}
+
+			const newMessage = before + after;
+			setMessage(newMessage);
+
+			requestAnimationFrame(() => {
+				textarea.focus();
+				if (type !== "list" && !selected) {
+					const placeholder =
+						type === "bold" ? "bold" : type === "italic" ? "italic" : "code";
+					textarea.setSelectionRange(
+						cursorOffset,
+						cursorOffset + placeholder.length,
+					);
+				} else {
+					textarea.setSelectionRange(cursorOffset, cursorOffset);
+				}
+			});
+		},
+		[message],
+	);
 
 	const handleSend = () => {
 		if (message.trim() && onSend) {
@@ -44,6 +118,7 @@ export function MessageInput({
 		<TooltipProvider>
 			<div className="border rounded-lg bg-background">
 				<Textarea
+					ref={textareaRef}
 					value={message}
 					onChange={(e) => setMessage(e.target.value)}
 					onKeyDown={handleKeyDown}
@@ -71,11 +146,55 @@ export function MessageInput({
 						</Tooltip>
 						<Tooltip>
 							<TooltipTrigger asChild>
-								<Button variant="ghost" size="icon-sm" disabled={disabled}>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									disabled={disabled}
+									onClick={() => applyFormatting("bold")}
+								>
+									<Bold className="size-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Bold</TooltipContent>
+						</Tooltip>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									disabled={disabled}
+									onClick={() => applyFormatting("italic")}
+								>
+									<Italic className="size-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Italic</TooltipContent>
+						</Tooltip>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									disabled={disabled}
+									onClick={() => applyFormatting("code")}
+								>
 									<Code className="size-4" />
 								</Button>
 							</TooltipTrigger>
-							<TooltipContent>Insert code block</TooltipContent>
+							<TooltipContent>Insert code</TooltipContent>
+						</Tooltip>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									disabled={disabled}
+									onClick={() => applyFormatting("list")}
+								>
+									<List className="size-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>List</TooltipContent>
 						</Tooltip>
 					</div>
 					<div className="flex items-center gap-2">
