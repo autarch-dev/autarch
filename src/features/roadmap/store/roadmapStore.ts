@@ -1129,12 +1129,16 @@ function handleSessionStarted(
 				...(isSynthesis ? { persona: "synthesis" } : {}),
 			});
 
-			// Also update roadmap's currentSessionId
-			const roadmaps = state.roadmaps.map((r) =>
-				r.id === payload.contextId
-					? { ...r, currentSessionId: payload.sessionId }
-					: r,
-			);
+			// Update roadmap's currentSessionId only for non-synthesis sessions.
+			// Synthesis sessions have their own tracking via synthesisSessionId;
+			// overwriting currentSessionId would break the legacy fallback in getConversation().
+			const roadmaps = isSynthesis
+				? state.roadmaps
+				: state.roadmaps.map((r) =>
+						r.id === payload.contextId
+							? { ...r, currentSessionId: payload.sessionId }
+							: r,
+					);
 
 			return {
 				conversations,

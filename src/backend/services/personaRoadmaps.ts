@@ -439,7 +439,7 @@ export function startSynthesisSession(
 				);
 				await db
 					.updateTable("roadmaps")
-					.set({ status: "error" })
+					.set({ status: "error", updated_at: Date.now() })
 					.where("id", "=", roadmapId)
 					.execute();
 				return;
@@ -474,7 +474,7 @@ export function startSynthesisSession(
 				try {
 					await db
 						.updateTable("roadmaps")
-						.set({ status: "error" })
+						.set({ status: "error", updated_at: Date.now() })
 						.where("id", "=", roadmapId)
 						.execute();
 				} catch {
@@ -492,7 +492,7 @@ export function startSynthesisSession(
 			try {
 				await db
 					.updateTable("roadmaps")
-					.set({ status: "error" })
+					.set({ status: "error", updated_at: Date.now() })
 					.where("id", "=", roadmapId)
 					.execute();
 			} catch {

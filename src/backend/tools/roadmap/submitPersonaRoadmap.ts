@@ -20,7 +20,6 @@ import { createPersonaRoadmapSubmittedEvent } from "@/shared/schemas/events";
 import { InitiativeSizeSchema } from "@/shared/schemas/roadmap";
 import {
 	REASON_DESCRIPTION,
-	registerTool,
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
@@ -154,9 +153,3 @@ This is a terminal tool — your session ends after submission.`,
 			}
 		},
 	};
-
-// =============================================================================
-// Tool Registration
-// =============================================================================
-
-export const PERSONA_ROADMAP_TOOLS = [registerTool(submitPersonaRoadmapTool)];
