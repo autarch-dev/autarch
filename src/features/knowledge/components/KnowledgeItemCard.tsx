@@ -129,9 +129,7 @@ export function KnowledgeItemCard({ item }: KnowledgeItemCardProps) {
 						<p
 							className={cn(
 								"text-sm text-muted-foreground leading-relaxed",
-								expanded
-									? "whitespace-pre-wrap"
-									: "line-clamp-3",
+								expanded ? "whitespace-pre-wrap" : "line-clamp-3",
 							)}
 						>
 							{item.content}

@@ -196,16 +196,12 @@ export function KnowledgeTimeline() {
 							<div className="space-y-0">
 								{group.items.map((item, itemIndex) => {
 									const cfg = CATEGORY_CONFIG[item.category];
-									const isLast =
-										itemIndex === group.items.length - 1;
+									const isLast = itemIndex === group.items.length - 1;
 
 									return (
 										<div
 											key={item.id}
-											className={cn(
-												"relative pl-10",
-												!isLast && "pb-5",
-											)}
+											className={cn("relative pl-10", !isLast && "pb-5")}
 										>
 											{/* Colored dot */}
 											<div

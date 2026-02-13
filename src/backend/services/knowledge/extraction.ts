@@ -191,16 +191,14 @@ function buildExtractionPrompt(data: ExtractionData): string {
 	// Research cards — only send patterns
 	if (data.researchCards.length > 0) {
 		const allPatterns = data.researchCards.flatMap(
-			(card) => card.patterns ?? []
+			(card) => card.patterns ?? [],
 		);
 		if (allPatterns.length > 0) {
 			parts.push("## Codebase Patterns Observed");
-			parts.push(
-				"Evaluate each for durability beyond the immediate task:"
-			);
+			parts.push("Evaluate each for durability beyond the immediate task:");
 			for (const pattern of allPatterns) {
 				parts.push(
-					`- [${pattern.category}] ${pattern.description}\n  Example: ${pattern.example}`
+					`- [${pattern.category}] ${pattern.description}\n  Example: ${pattern.example}`,
 				);
 			}
 			parts.push("");
@@ -215,12 +213,10 @@ function buildExtractionPrompt(data: ExtractionData): string {
 		if (actionableComments.length > 0) {
 			parts.push("## Issues Encountered During Review");
 			parts.push(
-				"Extract only non-obvious architectural issues, not point-in-time defects:"
+				"Extract only non-obvious architectural issues, not point-in-time defects:",
 			);
 			for (const comment of actionableComments) {
-				const category = comment.category
-					? `(${comment.category})`
-					: "";
+				const category = comment.category ? `(${comment.category})` : "";
 				parts.push(`- ${category} ${comment.description}`);
 			}
 			parts.push("");
@@ -243,7 +239,7 @@ function buildExtractionPrompt(data: ExtractionData): string {
 	if (data.scopeCards.length > 0 && parts.length > 0) {
 		parts.push("---");
 		parts.push(
-			"## Background (for context only — do not extract knowledge about the goals themselves)"
+			"## Background (for context only — do not extract knowledge about the goals themselves)",
 		);
 		for (const scope of data.scopeCards) {
 			parts.push(`**${scope.title}**: ${scope.description}`);
