@@ -6,7 +6,7 @@
  * fine-grained insights with full provenance traceability.
  */
 
-import type { Kysely } from "kysely";
+import type { Kysely, SelectQueryBuilder } from "kysely";
 import type {
 	InsertableKnowledgeEmbedding,
 	InsertableKnowledgeItem,
@@ -215,12 +215,13 @@ export class KnowledgeRepository {
 	}
 
 	/**
-	 * Search knowledge items with optional filters.
-	 * Returns items ordered by created_at desc.
+	 * Apply shared filter conditions to a knowledge_items query.
+	 * Used by both search() and count() to keep filter logic in sync.
 	 */
-	async search(filters: KnowledgeSearchFilters): Promise<KnowledgeItem[]> {
-		let query = this.db.selectFrom("knowledge_items").selectAll();
-
+	private applyFilters<O>(
+		query: SelectQueryBuilder<KnowledgeDatabase, "knowledge_items", O>,
+		filters: Omit<KnowledgeSearchFilters, "offset" | "limit">,
+	): SelectQueryBuilder<KnowledgeDatabase, "knowledge_items", O> {
 		if (filters.category !== undefined) {
 			query = query.where("category", "=", filters.category);
 		}
@@ -247,7 +248,19 @@ export class KnowledgeRepository {
 			}
 		}
 
-		let orderedQuery = query.orderBy("created_at", "desc");
+		return query;
+	}
+
+	/**
+	 * Search knowledge items with optional filters.
+	 * Returns items ordered by created_at desc.
+	 */
+	async search(filters: KnowledgeSearchFilters): Promise<KnowledgeItem[]> {
+		const baseQuery = this.db.selectFrom("knowledge_items").selectAll();
+		let orderedQuery = this.applyFilters(baseQuery, filters).orderBy(
+			"created_at",
+			"desc",
+		);
 
 		if (filters.limit !== undefined) {
 			orderedQuery = orderedQuery.limit(filters.limit);
@@ -264,38 +277,16 @@ export class KnowledgeRepository {
 
 	/**
 	 * Count knowledge items matching optional filters.
-	 * Applies the same filter logic as search() without offset/limit.
+	 * Uses the shared applyFilters() helper to stay in sync with search().
 	 */
 	async count(
 		filters: Omit<KnowledgeSearchFilters, "offset" | "limit">,
 	): Promise<number> {
-		let query = this.db
+		const baseQuery = this.db
 			.selectFrom("knowledge_items")
 			.select(this.db.fn.countAll<number>().as("count"));
 
-		if (filters.category !== undefined) {
-			query = query.where("category", "=", filters.category);
-		}
-
-		if (filters.workflowId !== undefined) {
-			query = query.where("workflow_id", "=", filters.workflowId);
-		}
-
-		if (filters.startDate !== undefined) {
-			query = query.where("created_at", ">=", filters.startDate);
-		}
-
-		if (filters.endDate !== undefined) {
-			query = query.where("created_at", "<=", filters.endDate);
-		}
-
-		if (filters.tags !== undefined && filters.tags.length > 0) {
-			for (const tag of filters.tags) {
-				const escapedTag = tag.replace(/[%_\\]/g, "\\$&");
-				query = query.where("tags_json", "like", `%"${escapedTag}"%`);
-			}
-		}
-
+		const query = this.applyFilters(baseQuery, filters);
 		const result = await query.executeTakeFirstOrThrow();
 		return Number(result.count);
 	}

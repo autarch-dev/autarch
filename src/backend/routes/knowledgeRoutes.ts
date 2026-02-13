@@ -20,6 +20,13 @@ import { getProjectRoot } from "../projectRoot";
 // Schemas
 // =============================================================================
 
+const KNOWLEDGE_CATEGORIES = [
+	"pattern",
+	"gotcha",
+	"tool-usage",
+	"process-improvement",
+] as const;
+
 const IdParamSchema = z.object({
 	id: z.string().min(1),
 });
@@ -31,7 +38,7 @@ const CreateKnowledgeItemSchema = z.object({
 	turnId: z.string().nullable().optional(),
 	title: z.string().min(1),
 	content: z.string().min(1),
-	category: z.enum(["pattern", "gotcha", "tool-usage", "process-improvement"]),
+	category: z.enum(KNOWLEDGE_CATEGORIES),
 	tags: z.array(z.string()).optional().default([]),
 });
 
@@ -39,9 +46,7 @@ const UpdateKnowledgeItemSchema = z
 	.object({
 		title: z.string().min(1).optional(),
 		content: z.string().min(1).optional(),
-		category: z
-			.enum(["pattern", "gotcha", "tool-usage", "process-improvement"])
-			.optional(),
+		category: z.enum(KNOWLEDGE_CATEGORIES).optional(),
 		tags: z.array(z.string()).optional(),
 	})
 	.refine(
@@ -54,9 +59,7 @@ const UpdateKnowledgeItemSchema = z
 	);
 
 const ListQuerySchema = z.object({
-	category: z
-		.enum(["pattern", "gotcha", "tool-usage", "process-improvement"])
-		.optional(),
+	category: z.enum(KNOWLEDGE_CATEGORIES).optional(),
 	tags: z.string().optional(),
 	startDate: z.coerce.number().optional(),
 	endDate: z.coerce.number().optional(),
@@ -66,9 +69,7 @@ const ListQuerySchema = z.object({
 
 const SearchQuerySchema = z.object({
 	query: z.string().min(1),
-	category: z
-		.enum(["pattern", "gotcha", "tool-usage", "process-improvement"])
-		.optional(),
+	category: z.enum(KNOWLEDGE_CATEGORIES).optional(),
 	tags: z.string().optional(),
 	startDate: z.coerce.number().optional(),
 	endDate: z.coerce.number().optional(),
@@ -331,15 +332,13 @@ export const knowledgeRoutes = {
 				}
 
 				const repo = await getKnowledgeRepo();
-				const existing = await repo.getById(params.id);
-				if (!existing) {
+				const updatedItem = await repo.update(params.id, parsed.data);
+				if (!updatedItem) {
 					return Response.json(
 						{ error: "Knowledge item not found" },
 						{ status: 404 },
 					);
 				}
-
-				const updatedItem = await repo.update(params.id, parsed.data);
 				return Response.json(updatedItem, { status: 200 });
 			} catch (error) {
 				log.api.error("Failed to update knowledge item:", error);
