@@ -795,6 +795,19 @@ export type PersonaRoadmapSubmittedEvent = z.infer<
 >;
 
 // =============================================================================
+// Connection Events
+// =============================================================================
+
+export const PongPayloadSchema = z.object({});
+export type PongPayload = z.infer<typeof PongPayloadSchema>;
+
+export const PongEventSchema = z.object({
+	type: z.literal("pong"),
+	payload: PongPayloadSchema,
+});
+export type PongEvent = z.infer<typeof PongEventSchema>;
+
+// =============================================================================
 // WebSocket Event Union
 // =============================================================================
 
@@ -855,6 +868,8 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	RoadmapDeletedEventSchema,
 	// Persona roadmap events
 	PersonaRoadmapSubmittedEventSchema,
+	// Connection events
+	PongEventSchema,
 ]);
 
 export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
