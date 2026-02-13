@@ -8,6 +8,7 @@
 		"dev": "bun --hot src/backend/index.ts",
 		"start": "NODE_ENV=production bun src/backend/index.ts",
 		"build": "bun run build.ts",
+		"build:all": "bun run build-all.ts",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"typecheck": "tsc --noEmit",
