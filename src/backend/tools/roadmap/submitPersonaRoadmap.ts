@@ -114,24 +114,29 @@ This is a terminal tool — your session ends after submission.`,
 					roadmapData,
 				);
 
-				// Fetch the persona record to get the persona name for the broadcast event
-				const personaRecord = await getPersonaRoadmap(db, personaRoadmapId);
-				const persona = personaRecord?.persona ?? "unknown";
+				// Broadcast persona completion — non-critical, must not block synthesis
+				try {
+					const personaRecord = await getPersonaRoadmap(db, personaRoadmapId);
+					const persona = personaRecord?.persona ?? "unknown";
 
-				// Broadcast persona completion event (include roadmapData so the UI updates immediately)
-				broadcast(
-					createPersonaRoadmapSubmittedEvent({
-						sessionId: context.sessionId,
-						roadmapId,
-						persona,
-						personaRoadmapId,
-						roadmapData,
-					}),
-				);
+					broadcast(
+						createPersonaRoadmapSubmittedEvent({
+							sessionId: context.sessionId,
+							roadmapId,
+							persona,
+							personaRoadmapId,
+							roadmapData,
+						}),
+					);
 
-				log.tools.info(
-					`Persona roadmap submitted: ${persona} for roadmap ${roadmapId} (allCompleted=${allCompleted})`,
-				);
+					log.tools.info(
+						`Persona roadmap submitted: ${persona} for roadmap ${roadmapId} (allCompleted=${allCompleted})`,
+					);
+				} catch (broadcastError) {
+					log.tools.warn(
+						`Failed to broadcast persona completion for ${personaRoadmapId}: ${broadcastError instanceof Error ? broadcastError.message : "unknown error"}`,
+					);
+				}
 
 				if (allCompleted) {
 					log.tools.info(

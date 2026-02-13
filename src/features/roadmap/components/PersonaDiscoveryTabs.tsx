@@ -331,10 +331,10 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 					/>
 				) : allPersonasTerminal && hasFailedPersonas ? (
 					<div className="flex flex-col items-center justify-center py-16 text-center px-4 gap-3">
-						<XCircle className="size-8 text-red-500" />
+						<Loader2 className="size-8 text-muted-foreground animate-spin" />
 						<p className="text-muted-foreground text-sm">
-							One or more persona agents failed. Synthesis cannot proceed with
-							incomplete results. Please try generating the roadmap again.
+							Some persona agents encountered issues. Synthesis is starting with
+							the available results…
 						</p>
 					</div>
 				) : (

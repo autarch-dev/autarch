@@ -425,6 +425,11 @@ export function startSynthesisSession(
 				log.tools.error(
 					`Cannot start synthesis for roadmap ${roadmapId}: no personas completed successfully`,
 				);
+				await db
+					.updateTable("roadmaps")
+					.set({ status: "error" })
+					.where("id", "=", roadmapId)
+					.execute();
 				return;
 			}
 
@@ -449,17 +454,39 @@ export function startSynthesisSession(
 				conversationRepo,
 			});
 
-			runner.run(message).catch((err) => {
+			runner.run(message).catch(async (err) => {
 				const errorMsg = err instanceof Error ? err.message : "unknown error";
 				log.tools.error(
 					`Synthesis session failed for roadmap ${roadmapId}: ${errorMsg}`,
 				);
+				try {
+					await db
+						.updateTable("roadmaps")
+						.set({ status: "error" })
+						.where("id", "=", roadmapId)
+						.execute();
+				} catch {
+					log.tools.error(
+						`Failed to update roadmap ${roadmapId} status to error`,
+					);
+				}
 			});
 		})
-		.catch((err) => {
+		.catch(async (err) => {
 			const errorMsg = err instanceof Error ? err.message : "unknown error";
 			log.tools.error(
 				`Failed to start synthesis session for roadmap ${roadmapId}: ${errorMsg}`,
 			);
+			try {
+				await db
+					.updateTable("roadmaps")
+					.set({ status: "error" })
+					.where("id", "=", roadmapId)
+					.execute();
+			} catch {
+				log.tools.error(
+					`Failed to update roadmap ${roadmapId} status to error`,
+				);
+			}
 		});
 }

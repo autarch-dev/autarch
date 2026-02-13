@@ -19,7 +19,7 @@ export interface PersonaRoadmapData {
 	vision: string;
 	milestones: Array<{
 		title: string;
-		description: string;
+		description?: string;
 		initiatives: Array<{ title: string }>;
 	}>;
 }

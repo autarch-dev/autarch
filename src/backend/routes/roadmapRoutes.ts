@@ -20,21 +20,8 @@ import {
 	RoadmapDependencyNodeTypeSchema,
 	RoadmapStatusSchema,
 } from "@/shared/schemas/roadmap";
-import { ModelScenario } from "@/shared/schemas/settings";
 import { AgentRunner, getSessionManager } from "../agents/runner";
-
-const AgentRoleSchema = z.union([
-	ModelScenario,
-	z.enum([
-		"preflight",
-		"review_sub",
-		"visionary",
-		"iterative",
-		"tech_lead",
-		"pathfinder",
-		"synthesis",
-	]),
-]);
+import { AgentRoleSchema } from "../agents/types";
 
 import { getProjectDb } from "../db/project";
 import { findRepoRoot } from "../git";
