@@ -6,7 +6,7 @@
  * tabbed layout. Displays search results when a search query is active.
  */
 
-import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertCircle, BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect } from "react";
 import { useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,7 @@ export function KnowledgePage() {
 	const search = useSearch();
 
 	const isLoading = items.loading && items.data === null;
+	const isError = !items.loading && items.data === null && items.error !== null;
 	const hasData = items.data !== null;
 
 	// "No items exist at all" — distinguished from "no results matching filters"
@@ -114,6 +115,21 @@ export function KnowledgePage() {
 						<p className="text-muted-foreground text-center py-8">
 							Loading knowledge items...
 						</p>
+					) : isError ? (
+						<div className="px-4 py-8 text-center">
+							<div className="size-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+								<AlertCircle className="size-6 text-destructive" />
+							</div>
+							<h4 className="font-medium mb-1">
+								Failed to load knowledge items
+							</h4>
+							<p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
+								{items.error}
+							</p>
+							<Button variant="outline" size="sm" onClick={() => fetchItems()}>
+								Retry
+							</Button>
+						</div>
 					) : isEmptyKnowledgeBase ? (
 						<div className="px-4 py-8 text-center">
 							<div className="size-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">

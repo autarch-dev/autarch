@@ -83,22 +83,20 @@ async function createKnowledgeEmbeddingsTable(
 
 /**
  * Add the archived column to knowledge_items table.
- * Uses try/catch for idempotency — ignores if column already exists.
+ * Checks PRAGMA table_info for idempotency, consistent with the
+ * IF NOT EXISTS pattern used elsewhere.
  */
 async function addArchivedColumn(db: Kysely<KnowledgeDatabase>): Promise<void> {
-	try {
-		await sql`ALTER TABLE knowledge_items ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`.execute(
-			db,
-		);
-	} catch (error: unknown) {
-		const message = error instanceof Error ? error.message : String(error);
-		if (
-			message.includes("duplicate column") ||
-			message.includes("already exists")
-		) {
-			// Column already exists — safe to ignore
-			return;
-		}
-		throw error;
+	const { rows } = await sql<{
+		name: string;
+	}>`PRAGMA table_info(knowledge_items)`.execute(db);
+
+	const hasArchived = rows.some((row) => row.name === "archived");
+	if (hasArchived) {
+		return;
 	}
+
+	await sql`ALTER TABLE knowledge_items ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`.execute(
+		db,
+	);
 }

@@ -249,9 +249,7 @@ export const knowledgeRoutes = {
 				if (data.endDate !== undefined) {
 					filters.endDate = data.endDate;
 				}
-				if (data.archived !== undefined) {
-					filters.archived = data.archived;
-				}
+				filters.archived = data.archived === true;
 
 				const results = await searchKnowledge(data.query, filters, projectRoot);
 				return Response.json({ results } satisfies KnowledgeSearchResponse);

@@ -67,7 +67,6 @@ interface KnowledgeStore {
 	fetchItems: () => Promise<void>;
 	searchItems: () => Promise<void>;
 	fetchItem: (id: string) => Promise<void>;
-	fetchAll: () => void;
 
 	// Actions - Mutations
 	updateItem: (id: string, data: UpdateKnowledgeItem) => Promise<void>;
@@ -86,12 +85,6 @@ function initialSection<T>(): DataSection<T> {
 // =============================================================================
 // Store
 // =============================================================================
-
-/**
- * Global fetch counter — incremented by fetchAll() so that in-flight requests
- * from a previous fetchAll() discard their results when a newer one starts.
- */
-let _fetchId = 0;
 
 export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 	// ---------------------------------------------------------------------------
@@ -120,28 +113,15 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 	},
 
 	// ---------------------------------------------------------------------------
-	// Actions - Fetch All
-	// ---------------------------------------------------------------------------
-
-	fetchAll: () => {
-		++_fetchId;
-		const { fetchItems } = get();
-		fetchItems();
-	},
-
-	// ---------------------------------------------------------------------------
 	// Actions - Fetching
 	// ---------------------------------------------------------------------------
 
 	fetchItems: async () => {
-		const id = _fetchId;
 		set((s) => ({ items: { ...s.items, loading: true, error: null } }));
 		try {
 			const data = await fetchKnowledgeItems(get().filters);
-			if (_fetchId !== id) return;
 			set({ items: { data, loading: false, error: null } });
 		} catch (error) {
-			if (_fetchId !== id) return;
 			set({
 				items: {
 					data: null,
@@ -153,7 +133,6 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 	},
 
 	searchItems: async () => {
-		const id = _fetchId;
 		const { searchQuery, filters } = get();
 		if (!searchQuery.trim()) return;
 
@@ -162,10 +141,8 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 		}));
 		try {
 			const data = await searchKnowledge(searchQuery, filters);
-			if (_fetchId !== id) return;
 			set({ searchResults: { data, loading: false, error: null } });
 		} catch (error) {
-			if (_fetchId !== id) return;
 			set({
 				searchResults: {
 					data: null,
@@ -224,6 +201,7 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 					error: error instanceof Error ? error.message : "Unknown error",
 				},
 			});
+			throw error;
 		}
 	},
 
@@ -238,6 +216,7 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 					error: error instanceof Error ? error.message : "Unknown error",
 				},
 			});
+			throw error;
 		}
 	},
 }));

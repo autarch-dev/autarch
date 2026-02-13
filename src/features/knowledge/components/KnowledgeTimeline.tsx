@@ -4,6 +4,10 @@
  * Read-only timeline view that groups knowledge items by workflowId and
  * sorts them chronologically. Designed for quick scanning — no edit/delete
  * actions are exposed.
+ *
+ * NOTE: This view displays the same paginated slice of data shown in the
+ * browse tab. Use the browse tab's pagination controls to load different
+ * pages.
  */
 
 import { useMemo } from "react";
@@ -69,8 +73,17 @@ export function KnowledgeTimeline() {
 		);
 	}
 
+	const total = items.data?.total ?? 0;
+	const showingPartial = total > allItems.length;
+
 	return (
 		<div className="space-y-6">
+			{showingPartial && (
+				<p className="text-xs text-muted-foreground text-center">
+					Showing {allItems.length} of {total} items. Use the Browse tab to
+					paginate through all items.
+				</p>
+			)}
 			{groups.map((group, groupIndex) => (
 				<div key={group.workflowId}>
 					{groupIndex > 0 && <Separator className="mb-6" />}

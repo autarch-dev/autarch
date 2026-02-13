@@ -64,6 +64,9 @@ export function KnowledgeEditDialog({
 	const [category, setCategory] = useState<KnowledgeCategory>("pattern");
 	const [tags, setTags] = useState("");
 
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
 	// Re-initialize form fields whenever the item changes or dialog opens
 	useEffect(() => {
 		if (item && open) {
@@ -71,11 +74,10 @@ export function KnowledgeEditDialog({
 			setContent(item.content);
 			setCategory(item.category);
 			setTags(item.tags.join(", "));
+			setError(null);
+			setSaving(false);
 		}
 	}, [item, open]);
-
-	const [saving, setSaving] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 
 	const canSave =
 		title.trim().length > 0 && content.trim().length > 0 && !saving;
