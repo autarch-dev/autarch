@@ -241,8 +241,22 @@ Then extend or pick the next TODO.
 
 ## Shell Tool
 
-**Use for:** Installing dependencies, package management.
-**Do NOT use for:** Build, lint, test, typecheck. \`complete_pulse\` runs these automatically.
+**Use for:** Installing dependencies, package management, escape hatch when other tools fail.
+
+### ⚠️ NEVER Run Verification Commands
+
+**Do NOT use \`shell\` to run:**
+- \`npm run build\`, \`tsc\`, \`cargo build\`, or any build command
+- \`npm run lint\`, \`eslint\`, \`prettier --check\`, or any lint command
+- \`npm run test\`, \`jest\`, \`vitest\`, \`cargo test\`, or any test command
+- \`npm run typecheck\`, \`tsc --noEmit\`, or any type-check command
+
+\`complete_pulse\` runs all of these **automatically** and compares against the baseline. Running them manually:
+- Wastes tokens and time
+- Provides no additional value
+- May show stale or misleading results
+
+**Trust the workflow. Write code, then complete.**
 
 ---
 
