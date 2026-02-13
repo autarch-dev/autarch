@@ -2,17 +2,16 @@
  * KnowledgePage - Main knowledge management page
  *
  * Reads URL query params on mount to initialize filters, then fetches
- * knowledge items. Composes FilterBar, item cards, edit dialog, and
- * timeline into a tabbed layout.
+ * knowledge items. Composes FilterBar, item cards, and timeline into a
+ * tabbed layout. Displays search results when a search query is active.
  */
 
-import { BookOpen } from "lucide-react";
-import { useEffect, useState } from "react";
+import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect } from "react";
 import { useSearch } from "wouter";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { KnowledgeItem } from "@/shared/schemas/knowledge";
 import { useKnowledgeStore } from "../store/knowledgeStore";
-import { KnowledgeEditDialog } from "./KnowledgeEditDialog";
 import { KnowledgeFilterBar } from "./KnowledgeFilterBar";
 import { KnowledgeItemCard } from "./KnowledgeItemCard";
 import { KnowledgeTimeline } from "./KnowledgeTimeline";
@@ -44,6 +43,8 @@ function parseFiltersFromSearch(search: string) {
 	return filters;
 }
 
+const DEFAULT_PAGE_SIZE = 20;
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -52,29 +53,51 @@ export function KnowledgePage() {
 	const setFilters = useKnowledgeStore((s) => s.setFilters);
 	const fetchItems = useKnowledgeStore((s) => s.fetchItems);
 	const items = useKnowledgeStore((s) => s.items);
+	const searchQuery = useKnowledgeStore((s) => s.searchQuery);
+	const searchResults = useKnowledgeStore((s) => s.searchResults);
+	const filters = useKnowledgeStore((s) => s.filters);
 	const search = useSearch();
 
-	// Edit dialog state managed at page level
-	const [selectedItemForEdit, _setSelectedItemForEdit] =
-		useState<KnowledgeItem | null>(null);
-	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-
 	const isLoading = items.loading && items.data === null;
-	const isEmpty =
-		!items.loading && items.data !== null && items.data.items.length === 0;
+	const hasData = items.data !== null;
+
+	// "No items exist at all" — distinguished from "no results matching filters"
+	const isEmptyKnowledgeBase =
+		!items.loading && hasData && items.data?.total === 0 && !searchQuery;
+
+	const isSearchActive = searchQuery.length > 0;
+
+	// Pagination
+	const currentOffset = filters.offset ?? 0;
+	const pageSize = filters.limit ?? DEFAULT_PAGE_SIZE;
+	const totalItems = items.data?.total ?? 0;
+	const currentPage = Math.floor(currentOffset / pageSize) + 1;
+	const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+	const hasPreviousPage = currentOffset > 0;
+	const hasNextPage = currentOffset + pageSize < totalItems;
+
+	// Errors
+	const itemsError = items.error;
+	const searchError = searchResults.error;
 
 	useEffect(() => {
-		const filters = parseFiltersFromSearch(search);
+		const urlFilters = parseFiltersFromSearch(search);
 		setFilters({
 			category: undefined,
 			workflowId: undefined,
 			startDate: undefined,
 			endDate: undefined,
 			archived: undefined,
-			...filters,
+			...urlFilters,
 		});
 		fetchItems();
 	}, [search, setFilters, fetchItems]);
+
+	function goToPage(page: number) {
+		const newOffset = (page - 1) * pageSize;
+		setFilters({ offset: newOffset });
+		fetchItems();
+	}
 
 	return (
 		<div className="flex flex-col gap-6 p-6 overflow-auto h-full">
@@ -91,7 +114,7 @@ export function KnowledgePage() {
 						<p className="text-muted-foreground text-center py-8">
 							Loading knowledge items...
 						</p>
-					) : isEmpty ? (
+					) : isEmptyKnowledgeBase ? (
 						<div className="px-4 py-8 text-center">
 							<div className="size-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
 								<BookOpen className="size-6 text-muted-foreground" />
@@ -103,28 +126,82 @@ export function KnowledgePage() {
 								automatically.
 							</p>
 						</div>
-					) : (
+					) : hasData ? (
 						<>
 							<KnowledgeFilterBar />
-							<div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-								{items.data?.items.map((item) => (
-									<KnowledgeItemCard key={item.id} item={item} />
-								))}
-							</div>
+
+							{itemsError && (
+								<p className="text-destructive text-sm">{itemsError}</p>
+							)}
+							{searchError && (
+								<p className="text-destructive text-sm">{searchError}</p>
+							)}
+
+							{isSearchActive ? (
+								// Search results mode
+								searchResults.loading ? (
+									<p className="text-muted-foreground text-center py-8">
+										Searching...
+									</p>
+								) : searchResults.data?.results.length === 0 ? (
+									<p className="text-muted-foreground text-center py-8">
+										No results found for &ldquo;{searchQuery}&rdquo;
+									</p>
+								) : (
+									<div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+										{searchResults.data?.results.map((item) => (
+											<KnowledgeItemCard key={item.id} item={item} />
+										))}
+									</div>
+								)
+							) : // Browse mode
+							items.data?.items.length === 0 ? (
+								<p className="text-muted-foreground text-center py-8">
+									No items match the current filters
+								</p>
+							) : (
+								<>
+									<div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+										{items.data?.items.map((item) => (
+											<KnowledgeItemCard key={item.id} item={item} />
+										))}
+									</div>
+
+									{totalPages > 1 && (
+										<div className="flex items-center justify-center gap-2 pt-4">
+											<Button
+												variant="outline"
+												size="sm"
+												disabled={!hasPreviousPage}
+												onClick={() => goToPage(currentPage - 1)}
+											>
+												<ChevronLeft className="size-4" />
+												Previous
+											</Button>
+											<span className="text-sm text-muted-foreground px-2">
+												Page {currentPage} of {totalPages}
+											</span>
+											<Button
+												variant="outline"
+												size="sm"
+												disabled={!hasNextPage}
+												onClick={() => goToPage(currentPage + 1)}
+											>
+												Next
+												<ChevronRight className="size-4" />
+											</Button>
+										</div>
+									)}
+								</>
+							)}
 						</>
-					)}
+					) : null}
 				</TabsContent>
 
 				<TabsContent value="timeline">
 					<KnowledgeTimeline />
 				</TabsContent>
 			</Tabs>
-
-			<KnowledgeEditDialog
-				item={selectedItemForEdit}
-				open={isEditDialogOpen}
-				onOpenChange={setIsEditDialogOpen}
-			/>
 		</div>
 	);
 }

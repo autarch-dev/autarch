@@ -11,40 +11,10 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type {
-	KnowledgeCategory,
-	KnowledgeItem,
-} from "@/shared/schemas/knowledge";
+import type { KnowledgeItem } from "@/shared/schemas/knowledge";
 import { useKnowledgeStore } from "../store/knowledgeStore";
+import { categoryVariant, truncate } from "../utils/format";
 import { KnowledgeEditDialog } from "./KnowledgeEditDialog";
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-/** Map category to Badge variant */
-function categoryVariant(
-	category: KnowledgeCategory,
-): "default" | "secondary" | "outline" | "destructive" {
-	switch (category) {
-		case "pattern":
-			return "default";
-		case "gotcha":
-			return "secondary";
-		case "tool-usage":
-			return "outline";
-		case "process-improvement":
-			return "destructive";
-		default:
-			return "default";
-	}
-}
-
-/** Truncate text to approximately 150 characters */
-function truncate(text: string, maxLength = 150): string {
-	if (text.length <= maxLength) return text;
-	return `${text.slice(0, maxLength).trimEnd()}…`;
-}
 
 // =============================================================================
 // Component

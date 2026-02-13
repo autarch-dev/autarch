@@ -51,7 +51,7 @@ interface KnowledgeStore {
 	// Data sections
 	items: DataSection<{ items: KnowledgeItem[]; total: number }>;
 	searchResults: DataSection<{
-		results: (KnowledgeItem & { score: number })[];
+		results: (KnowledgeItem & { similarity: number })[];
 	}>;
 	selectedItem: DataSection<KnowledgeItem>;
 
@@ -209,6 +209,7 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
 					error: error instanceof Error ? error.message : "Unknown error",
 				},
 			});
+			throw error;
 		}
 	},
 

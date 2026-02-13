@@ -16,8 +16,11 @@ import {
 import {
 	ArchiveKnowledgeItemSchema,
 	KnowledgeCategorySchema,
+	type KnowledgeItem,
 	KnowledgeListFiltersSchema,
+	type KnowledgeListResponse,
 	KnowledgeSearchFiltersSchema,
+	type KnowledgeSearchResponse,
 	UpdateKnowledgeItemSchema,
 } from "@/shared/schemas/knowledge";
 import { log } from "../logger";
@@ -146,7 +149,7 @@ export const knowledgeRoutes = {
 					repo.search(filters),
 					repo.count(filters),
 				]);
-				return Response.json({ items, total });
+				return Response.json({ items, total } satisfies KnowledgeListResponse);
 			} catch (error) {
 				log.api.error("Failed to list knowledge items:", error);
 				return Response.json(
@@ -176,7 +179,9 @@ export const knowledgeRoutes = {
 				const id = await repo.create(parsed.data);
 				const item = await repo.getById(id);
 
-				return Response.json(item, { status: 201 });
+				return Response.json(item satisfies KnowledgeItem | null, {
+					status: 201,
+				});
 			} catch (error) {
 				log.api.error("Failed to create knowledge item:", error);
 				return Response.json(
@@ -198,6 +203,7 @@ export const knowledgeRoutes = {
 				for (const key of [
 					"query",
 					"category",
+					"workflowId",
 					"tags",
 					"startDate",
 					"endDate",
@@ -231,6 +237,9 @@ export const knowledgeRoutes = {
 				if (data.category !== undefined) {
 					filters.category = data.category;
 				}
+				if (data.workflowId !== undefined) {
+					filters.workflowId = data.workflowId;
+				}
 				if (data.tags !== undefined) {
 					filters.tags = data.tags.split(",").map((t) => t.trim());
 				}
@@ -245,7 +254,7 @@ export const knowledgeRoutes = {
 				}
 
 				const results = await searchKnowledge(data.query, filters, projectRoot);
-				return Response.json({ results });
+				return Response.json({ results } satisfies KnowledgeSearchResponse);
 			} catch (error) {
 				log.api.error("Failed to search knowledge:", error);
 				return Response.json(
@@ -276,7 +285,7 @@ export const knowledgeRoutes = {
 						{ status: 404 },
 					);
 				}
-				return Response.json(item);
+				return Response.json(item satisfies KnowledgeItem);
 			} catch (error) {
 				log.api.error("Failed to get knowledge item:", error);
 				return Response.json(
@@ -346,7 +355,9 @@ export const knowledgeRoutes = {
 						{ status: 404 },
 					);
 				}
-				return Response.json(updatedItem, { status: 200 });
+				return Response.json(updatedItem satisfies KnowledgeItem, {
+					status: 200,
+				});
 			} catch (error) {
 				log.api.error("Failed to update knowledge item:", error);
 				return Response.json(
@@ -391,7 +402,7 @@ export const knowledgeRoutes = {
 						{ status: 404 },
 					);
 				}
-				return Response.json(updatedItem);
+				return Response.json(updatedItem satisfies KnowledgeItem);
 			} catch (error) {
 				log.api.error("Failed to archive knowledge item:", error);
 				return Response.json(

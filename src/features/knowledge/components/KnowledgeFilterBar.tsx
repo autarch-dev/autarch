@@ -6,7 +6,7 @@
  * a debounced fetch (searchItems when search query is non-empty, fetchItems otherwise).
  */
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,12 @@ export function KnowledgeFilterBar() {
 
 	/** Debounced fetch — calls searchItems when a search query is present, fetchItems otherwise */
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (timerRef.current) clearTimeout(timerRef.current);
+		};
+	}, []);
 	const debouncedFetch = useCallback(() => {
 		if (timerRef.current) clearTimeout(timerRef.current);
 		timerRef.current = setTimeout(() => {

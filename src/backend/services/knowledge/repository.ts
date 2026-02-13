@@ -220,6 +220,7 @@ export class KnowledgeRepository {
 			.selectFrom("knowledge_items")
 			.selectAll()
 			.where("workflow_id", "=", workflowId)
+			.where("archived", "=", 0)
 			.orderBy("created_at", "desc")
 			.execute();
 

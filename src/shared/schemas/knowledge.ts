@@ -28,7 +28,6 @@ export const KnowledgeItemSchema = z.object({
 	tags: z.array(z.string()),
 	archived: z.boolean(),
 	createdAt: z.number(),
-	updatedAt: z.number(),
 });
 export type KnowledgeItem = z.infer<typeof KnowledgeItemSchema>;
 
@@ -105,7 +104,7 @@ export const KnowledgeListResponseSchema = z.object({
 export type KnowledgeListResponse = z.infer<typeof KnowledgeListResponseSchema>;
 
 export const KnowledgeSearchResponseSchema = z.object({
-	results: z.array(KnowledgeItemSchema.extend({ score: z.number() })),
+	results: z.array(KnowledgeItemSchema.extend({ similarity: z.number() })),
 });
 export type KnowledgeSearchResponse = z.infer<
 	typeof KnowledgeSearchResponseSchema

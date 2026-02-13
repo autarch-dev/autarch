@@ -74,9 +74,13 @@ export function KnowledgeEditDialog({
 		}
 	}, [item, open]);
 
-	const canSave = title.trim().length > 0 && content.trim().length > 0;
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
-	const handleSave = () => {
+	const canSave =
+		title.trim().length > 0 && content.trim().length > 0 && !saving;
+
+	const handleSave = async () => {
 		if (!item || !canSave) return;
 
 		const parsedTags = tags
@@ -84,14 +88,22 @@ export function KnowledgeEditDialog({
 			.map((t) => t.trim())
 			.filter((t) => t.length > 0);
 
-		updateItem(item.id, {
-			title: title.trim(),
-			content: content.trim(),
-			category,
-			tags: parsedTags,
-		});
+		setSaving(true);
+		setError(null);
 
-		onOpenChange(false);
+		try {
+			await updateItem(item.id, {
+				title: title.trim(),
+				content: content.trim(),
+				category,
+				tags: parsedTags,
+			});
+			onOpenChange(false);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to save changes");
+		} finally {
+			setSaving(false);
+		}
 	};
 
 	return (
@@ -160,12 +172,14 @@ export function KnowledgeEditDialog({
 					</div>
 				</div>
 
+				{error && <p className="text-destructive text-sm">{error}</p>}
+
 				<DialogFooter>
 					<Button variant="outline" onClick={() => onOpenChange(false)}>
 						Cancel
 					</Button>
 					<Button onClick={handleSave} disabled={!canSave}>
-						Save
+						{saving ? "Saving…" : "Save"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
