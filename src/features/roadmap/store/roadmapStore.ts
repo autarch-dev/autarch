@@ -727,16 +727,19 @@ export const useRoadmapStore = create<RoadmapState>((set, get) => ({
 					conversations.delete(existingSessionId);
 				}
 
-				const existing = conversations.get(history.sessionId);
-				conversations.set(history.sessionId, {
-					sessionId: history.sessionId,
-					sessionStatus: history.sessionStatus,
-					messages: history.messages ?? [],
-					isLoading: false,
-					roadmapId,
-					// Preserve streamingMessage if it exists (race with WebSocket events)
-					streamingMessage: existing?.streamingMessage,
-				});
+
+				if (history.sessionId) {
+					const existing = conversations.get(history.sessionId);
+					conversations.set(history.sessionId, {
+						sessionId: history.sessionId,
+						sessionStatus: history.sessionStatus,
+						messages: history.messages ?? [],
+						isLoading: false,
+						roadmapId,
+						// Preserve streamingMessage if it exists (race with WebSocket events)
+						streamingMessage: existing?.streamingMessage,
+					});
+				}
 
 				// Update roadmap in list with latest data if provided
 				const roadmaps = history.roadmap

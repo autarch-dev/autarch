@@ -182,7 +182,6 @@ export function PlanningConversation({
 
 	return (
 		<div className="flex flex-col h-full">
-			<ScrollArea className="flex-1 min-h-0">
 				<div className="py-2">
 					{isLoading && messages.length === 0 ? (
 						<div className="flex items-center justify-center py-8">
@@ -215,14 +214,6 @@ export function PlanningConversation({
 
 					<div ref={messagesEndRef} />
 				</div>
-			</ScrollArea>
-
-			{/* Message input - hidden when session is completed or input is disabled/questions-only */}
-			{!isSessionCompleted && inputMode === "full" && (
-				<div className="shrink-0 p-4 border-t bg-background">
-					<PlanningMessageInput onSend={onSendMessage} disabled={isStreaming} />
-				</div>
-			)}
 		</div>
 	);
 }

@@ -11,6 +11,7 @@
 import { AlertCircle, CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
 import { z } from "zod";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ChannelMessage } from "@/shared/schemas/channel";
 import {
@@ -271,81 +272,83 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 					</TabsTrigger>
 				</TabsList>
 			</div>
+			<ScrollArea className="flex-1 min-h-0 flex flex-col">
+				{PERSONA_TABS.map((persona) => {
+					const session = personaSessionMap.get(persona.value);
+					const conversation = session?.sessionId
+						? conversations.get(session.sessionId)
+						: undefined;
+					const isCompleted = session?.status === "completed";
 
-			{PERSONA_TABS.map((persona) => {
-				const session = personaSessionMap.get(persona.value);
-				const conversation = session?.sessionId
-					? conversations.get(session.sessionId)
-					: undefined;
-				const isCompleted = session?.status === "completed";
+					// Input mode: questions-only while running, disabled after completion or failure
+					const inputMode =
+						isCompleted || session?.status === "failed"
+							? "disabled"
+							: "questions-only";
 
-				// Input mode: questions-only while running, disabled after completion or failure
-				const inputMode =
-					isCompleted || session?.status === "failed"
-						? "disabled"
-						: "questions-only";
+					return (
+						<TabsContent
+							key={persona.value}
+							value={persona.value}
+							className="flex-1 min-h-0 flex flex-col"
+						>
+							<PlanningConversation
+								roadmapId={roadmapId}
+								conversation={conversation ?? EMPTY_CONVERSATION}
+								onSendMessage={(content) => {
+									if (session?.sessionId) {
+										handleSendMessage(session.sessionId, content);
+									}
+								}}
+								inputMode={inputMode}
+							/>
+							{isCompleted && isValidRoadmapData(session?.roadmapData) && (
+								<div className="shrink-0 border-t">
+									<PersonaRoadmapPreview
+										persona={persona.label}
+										roadmapData={session.roadmapData}
+									/>
+								</div>
+							)}
+						</TabsContent>
+					);
+				})}
 
-				return (
-					<TabsContent
-						key={persona.value}
-						value={persona.value}
-						className="flex-1 min-h-0 flex flex-col"
-					>
+				<TabsContent value="synthesis" className="flex-1 min-h-0 flex flex-col">
+					{synthesisSessionId && synthesisConversation ? (
 						<PlanningConversation
 							roadmapId={roadmapId}
-							conversation={conversation ?? EMPTY_CONVERSATION}
+							conversation={synthesisConversation}
 							onSendMessage={(content) => {
-								if (session?.sessionId) {
-									handleSendMessage(session.sessionId, content);
+								if (synthesisSessionId) {
+									handleSendMessage(synthesisSessionId, content);
 								}
 							}}
-							inputMode={inputMode}
-						/>
-						{isCompleted && isValidRoadmapData(session?.roadmapData) && (
-							<div className="shrink-0 border-t">
-								<PersonaRoadmapPreview
-									persona={persona.label}
-									roadmapData={session.roadmapData}
-								/>
-							</div>
-						)}
-					</TabsContent>
-				);
-			})}
-
-			<TabsContent value="synthesis" className="flex-1 min-h-0 flex flex-col">
-				{synthesisSessionId && synthesisConversation ? (
-					<PlanningConversation
-						roadmapId={roadmapId}
-						conversation={synthesisConversation}
-						onSendMessage={(content) => {
-							if (synthesisSessionId) {
-								handleSendMessage(synthesisSessionId, content);
+							inputMode={
+								synthesisConversation.sessionStatus === "completed"
+									? "disabled"
+									: "full"
 							}
-						}}
-						inputMode={
-							synthesisConversation.sessionStatus === "completed"
-								? "disabled"
-								: "full"
-						}
-					/>
-				) : allPersonasTerminal && hasFailedPersonas ? (
-					<div className="flex flex-col items-center justify-center py-16 text-center px-4 gap-3">
-						<Loader2 className="size-8 text-muted-foreground animate-spin" />
-						<p className="text-muted-foreground text-sm">
-							Some persona agents encountered issues. Synthesis is starting with
-							the available results…
-						</p>
-					</div>
-				) : (
-					<div className="flex flex-col items-center justify-center py-16 text-center px-4">
-						<p className="text-muted-foreground text-sm">
-							The synthesis agent will start once all personas have submitted
-							their roadmaps.
-						</p>
-					</div>
-				)}
-			</TabsContent>
+						/>
+					) : allPersonasTerminal && hasFailedPersonas ? (
+						<div className="flex flex-col items-center justify-center py-16 text-center px-4 gap-3">
+							<Loader2 className="size-8 text-muted-foreground animate-spin" />
+							<p className="text-muted-foreground text-sm">
+								Some persona agents encountered issues. Synthesis is starting
+								with the available results…
+							</p>
+						</div>
+					) : (
+						<div className="flex flex-col items-center justify-center py-16 text-center px-4">
+							<p className="text-muted-foreground text-sm">
+								The synthesis agent will start once all personas have submitted
+								their roadmaps.
+							</p>
+						</div>
+					)}
+				</TabsContent>
+				<div className="pb-32" />
+			</ScrollArea>
 		</Tabs>
 	);
 }
