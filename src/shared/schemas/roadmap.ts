@@ -9,6 +9,7 @@ export const RoadmapStatusSchema = z.enum([
 	"active",
 	"completed",
 	"archived",
+	"error",
 ]);
 export type RoadmapStatus = z.infer<typeof RoadmapStatusSchema>;
 

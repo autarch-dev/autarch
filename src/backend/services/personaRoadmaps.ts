@@ -84,18 +84,32 @@ function toPersonaRoadmapRow(row: PersonaRoadmapsTable): PersonaRoadmapRow {
 }
 
 /**
- * Format completed persona roadmaps into a structured message for the synthesis agent.
+ * Format persona roadmaps into a structured message for the synthesis agent.
+ * Completed personas get their full roadmap rendered; failed personas get a placeholder.
  */
 function formatSynthesisMessage(rows: PersonaRoadmapsTable[]): string {
 	const sections: string[] = [];
+	const completedCount = rows.filter((r) => r.status === "completed").length;
 
 	sections.push(
-		"You are the Synthesis agent. Below are 4 independent roadmap proposals from different persona agents. " +
+		`You are the Synthesis agent. Below are ${completedCount} independent roadmap proposals from different persona agents. ` +
 			"Your job is to analyze these proposals, identify common themes and conflicts, and work with the user " +
 			"to produce a single unified roadmap.\n",
 	);
 
 	for (const row of rows) {
+		const personaLabel = row.persona.replaceAll("_", " ").toUpperCase();
+		sections.push(`--- ${personaLabel} PERSONA ---`);
+
+		if (row.status !== "completed") {
+			const titleCase = row.persona
+				.replaceAll("_", " ")
+				.replace(/\b\w/g, (c) => c.toUpperCase());
+			sections.push(`(${titleCase} failed to produce a roadmap.)`);
+			sections.push("");
+			continue;
+		}
+
 		let data: Record<string, unknown> = {};
 		if (row.roadmap_data) {
 			try {
@@ -104,9 +118,6 @@ function formatSynthesisMessage(rows: PersonaRoadmapsTable[]): string {
 				data = { raw: row.roadmap_data };
 			}
 		}
-
-		const personaLabel = row.persona.replaceAll("_", " ").toUpperCase();
-		sections.push(`--- ${personaLabel} PERSONA ---`);
 
 		if (data.vision) {
 			sections.push(`Vision: ${String(data.vision)}`);
@@ -400,12 +411,12 @@ export async function failPersonaAndCheckDone(
 }
 
 /**
- * Start a synthesis session after all 4 persona roadmaps have completed.
+ * Start a synthesis session after all persona roadmaps have reached a terminal state.
  *
- * Retrieves all completed persona roadmaps, formats them into a structured
- * user message, creates a new synthesis session, and fires off the agent
- * run in the background. Follows the resumeCoordinatorSession pattern
- * from subtasks.ts but adapted for synthesis.
+ * Retrieves all persona roadmaps (completed and failed), formats them into a
+ * structured user message with placeholders for failed personas, creates a new
+ * synthesis session, and fires off the agent run in the background.
+ * If all personas failed, the roadmap is marked as 'error' and no synthesis is started.
  */
 export function startSynthesisSession(
 	projectRoot: string,
@@ -417,11 +428,12 @@ export function startSynthesisSession(
 	db.selectFrom("persona_roadmaps")
 		.selectAll()
 		.where("roadmap_id", "=", roadmapId)
-		.where("status", "=", "completed")
 		.orderBy("persona", "asc")
 		.execute()
 		.then(async (rows) => {
-			if (rows.length === 0) {
+			const completedRows = rows.filter((r) => r.status === "completed");
+
+			if (completedRows.length === 0) {
 				log.tools.error(
 					`Cannot start synthesis for roadmap ${roadmapId}: no personas completed successfully`,
 				);
@@ -433,9 +445,9 @@ export function startSynthesisSession(
 				return;
 			}
 
-			if (rows.length < PERSONAS.length) {
+			if (completedRows.length < PERSONAS.length) {
 				log.tools.warn(
-					`Starting synthesis for roadmap ${roadmapId} with partial results: ${rows.length}/${PERSONAS.length} personas completed`,
+					`Starting synthesis for roadmap ${roadmapId} with partial results: ${completedRows.length}/${PERSONAS.length} personas completed`,
 				);
 			}
 

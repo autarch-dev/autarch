@@ -6,7 +6,9 @@ export async function migrate(db: Kysely<ProjectDatabase>): Promise<void> {
 		.createTable("persona_roadmaps")
 		.ifNotExists()
 		.addColumn("id", "text", (col) => col.primaryKey())
-		.addColumn("roadmap_id", "text", (col) => col.notNull())
+		.addColumn("roadmap_id", "text", (col) =>
+			col.notNull().references("roadmaps.id"),
+		)
 		.addColumn("persona", "text", (col) => col.notNull())
 		.addColumn("session_id", "text")
 		.addColumn("roadmap_data", "text")

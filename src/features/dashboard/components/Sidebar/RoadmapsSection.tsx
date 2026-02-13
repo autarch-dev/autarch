@@ -19,6 +19,7 @@ const roadmapStatusColors = {
 	active: "text-blue-500",
 	completed: "text-green-500",
 	archived: "text-gray-400",
+	error: "text-red-500",
 } as const;
 
 interface RoadmapsSectionProps {

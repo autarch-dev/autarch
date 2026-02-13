@@ -1189,7 +1189,15 @@ function handleSessionCompleted(
 				streamingMessage: undefined,
 			});
 		}
-		return { conversations };
+
+		// Also update persona session status if applicable
+		const personaSessions = new Map(state.personaSessions);
+		const ps = personaSessions.get(sessionId);
+		if (ps) {
+			personaSessions.set(sessionId, { ...ps, status: "completed" });
+		}
+
+		return { conversations, personaSessions };
 	});
 }
 
@@ -1688,13 +1696,13 @@ function handlePersonaRoadmapSubmitted(
 	set((state) => {
 		const personaSessions = new Map(state.personaSessions);
 		const ps = personaSessions.get(payload.sessionId);
-		if (ps) {
-			personaSessions.set(payload.sessionId, {
-				...ps,
-				status: "completed",
-				roadmapData: payload.roadmapData,
-			});
-		}
+		personaSessions.set(payload.sessionId, {
+			persona: ps?.persona ?? payload.persona,
+			sessionId: payload.sessionId,
+			roadmapId: ps?.roadmapId ?? payload.roadmapId,
+			status: "completed",
+			roadmapData: payload.roadmapData,
+		});
 
 		// Check if all 4 personas are completed — scoped to the specific roadmapId
 		const completedPersonas = new Set<string>();

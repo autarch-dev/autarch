@@ -85,6 +85,11 @@ const statusConfig: Record<
 		color: "text-gray-700 dark:text-gray-400",
 		bg: "bg-gray-100 dark:bg-gray-950",
 	},
+	error: {
+		label: "Error",
+		color: "text-red-700 dark:text-red-400",
+		bg: "bg-red-100 dark:bg-red-950",
+	},
 };
 
 // =============================================================================

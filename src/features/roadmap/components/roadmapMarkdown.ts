@@ -24,6 +24,7 @@ const ROADMAP_STATUS_LABELS: Record<RoadmapStatus, string> = {
 	active: "Active",
 	completed: "Completed",
 	archived: "Archived",
+	error: "Error",
 };
 
 const INITIATIVE_STATUS_LABELS: Record<InitiativeStatus, string> = {
