@@ -1070,6 +1070,7 @@ export class AgentRunner {
 		await this.completeTurn(turn.id, {
 			tokenCount: totalInputTokens + totalOutputTokens,
 			promptTokens: totalInputTokens,
+			cost: totalCost,
 			completionTokens: totalOutputTokens,
 			modelId,
 		});
