@@ -1,22 +1,87 @@
 /**
  * KnowledgeTimeline
  *
- * Read-only timeline view that groups knowledge items by workflowId and
- * sorts them chronologically. Designed for quick scanning — no edit/delete
- * actions are exposed.
+ * Visual timeline view that groups knowledge items by workflowId with a
+ * vertical line connecting workflow groups. Each item is marked with a
+ * colored dot based on its category.
  *
  * NOTE: This view displays the same paginated slice of data shown in the
- * browse tab. Use the browse tab's pagination controls to load different
+ * browse view. Use the browse view's pagination controls to load different
  * pages.
  */
 
-import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import type { KnowledgeItem } from "@/shared/schemas/knowledge";
 import { useKnowledgeStore } from "../store/knowledgeStore";
-import { categoryVariant, truncate } from "../utils/format";
+import { CATEGORY_CONFIG, timeAgo } from "../utils/format";
+
+// =============================================================================
+// Sub-component for expandable timeline items
+// =============================================================================
+
+function TimelineItemContent({ item }: { item: KnowledgeItem }) {
+	const [expanded, setExpanded] = useState(false);
+	const cfg = CATEGORY_CONFIG[item.category];
+	const isLongContent = item.content.length > 150;
+
+	return (
+		<div className="rounded-lg border bg-card p-3.5 transition-colors hover:border-foreground/10">
+			{/* Header row */}
+			<div className="flex items-center gap-2 mb-1.5">
+				<span
+					className={cn(
+						"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+						cfg.pill,
+					)}
+				>
+					{cfg.label}
+				</span>
+				<span className="text-xs text-muted-foreground">
+					{timeAgo(item.createdAt)}
+				</span>
+			</div>
+
+			{/* Title */}
+			<h4 className="text-sm font-medium leading-snug">{item.title}</h4>
+
+			{/* Content — expandable */}
+			<div>
+				<p
+					className={cn(
+						"text-xs text-muted-foreground mt-1 leading-relaxed",
+						expanded ? "whitespace-pre-wrap" : "line-clamp-2",
+					)}
+				>
+					{item.content}
+				</p>
+				{isLongContent && (
+					<button
+						type="button"
+						onClick={() => setExpanded(!expanded)}
+						className="text-xs text-muted-foreground/70 hover:text-foreground mt-1 transition-colors"
+					>
+						{expanded ? "Show less" : "Show more"}
+					</button>
+				)}
+			</div>
+
+			{/* Tags */}
+			{item.tags.length > 0 && (
+				<div className="flex items-center gap-1.5 mt-2 flex-wrap">
+					{item.tags.map((tag) => (
+						<span
+							key={tag}
+							className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+						>
+							{tag}
+						</span>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
 
 // =============================================================================
 // Helpers
@@ -77,50 +142,88 @@ export function KnowledgeTimeline() {
 	const showingPartial = total > allItems.length;
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-2">
 			{showingPartial && (
-				<p className="text-xs text-muted-foreground text-center">
-					Showing {allItems.length} of {total} items. Use the Browse tab to
-					paginate through all items.
+				<p className="text-xs text-muted-foreground text-center mb-6">
+					Showing {allItems.length} of {total} items. Use pagination in Browse
+					view to load more.
 				</p>
 			)}
-			{groups.map((group, groupIndex) => (
-				<div key={group.workflowId}>
-					{groupIndex > 0 && <Separator className="mb-6" />}
 
-					{/* Workflow section header */}
-					<h3 className="mb-3 border-l-4 border-primary pl-3 text-lg font-semibold">
-						{group.workflowId}
-					</h3>
+			{/* Timeline container */}
+			<div className="relative ml-3">
+				{/* Vertical line */}
+				<div className="absolute left-[9px] top-3 bottom-3 w-px bg-border" />
 
-					{/* Items in this workflow */}
-					<div className="space-y-2">
-						{group.items.map((item) => (
-							<Card key={item.id}>
-								<CardHeader className="pb-2">
-									<div className="flex items-center justify-between gap-2">
-										<CardTitle className="text-sm">{item.title}</CardTitle>
-										<Badge
-											variant={categoryVariant(item.category)}
-											className="shrink-0 text-xs"
-										>
-											{item.category}
-										</Badge>
-									</div>
-								</CardHeader>
-								<CardContent className="pt-0">
-									<p className="text-sm text-muted-foreground">
-										{truncate(item.content)}
+				{groups.map((group, groupIndex) => {
+					const lastItem = group.items[group.items.length - 1];
+					const groupDate = lastItem
+						? new Date(lastItem.createdAt)
+						: new Date();
+
+					return (
+						<div
+							key={group.workflowId}
+							className={cn(groupIndex > 0 && "mt-10")}
+						>
+							{/* Workflow group header */}
+							<div className="relative flex items-center gap-3 pb-4">
+								{/* Large circle marker */}
+								<div className="relative z-10 flex size-5 items-center justify-center rounded-full border-2 border-border bg-background">
+									<div className="size-2 rounded-full bg-foreground" />
+								</div>
+
+								<div className="min-w-0">
+									<h3
+										className="text-sm font-medium truncate"
+										title={group.workflowId}
+									>
+										{group.workflowId}
+									</h3>
+									<p className="text-xs text-muted-foreground">
+										{groupDate.toLocaleDateString(undefined, {
+											month: "short",
+											day: "numeric",
+											year: "numeric",
+										})}{" "}
+										· {group.items.length}{" "}
+										{group.items.length === 1 ? "item" : "items"}
 									</p>
-									<div className="mt-1 text-xs text-muted-foreground">
-										{new Date(item.createdAt).toLocaleString()}
-									</div>
-								</CardContent>
-							</Card>
-						))}
-					</div>
-				</div>
-			))}
+								</div>
+							</div>
+
+							{/* Items in this workflow */}
+							<div className="space-y-0">
+								{group.items.map((item, itemIndex) => {
+									const cfg = CATEGORY_CONFIG[item.category];
+									const isLast =
+										itemIndex === group.items.length - 1;
+
+									return (
+										<div
+											key={item.id}
+											className={cn(
+												"relative pl-10",
+												!isLast && "pb-5",
+											)}
+										>
+											{/* Colored dot */}
+											<div
+												className={cn(
+													"absolute left-[5px] top-1.5 z-10 size-[10px] rounded-full ring-2 ring-background",
+													cfg.dot,
+												)}
+											/>
+
+											<TimelineItemContent item={item} />
+										</div>
+									);
+								})}
+							</div>
+						</div>
+					);
+				})}
+			</div>
 		</div>
 	);
 }

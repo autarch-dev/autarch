@@ -83,6 +83,7 @@ interface ExtractionData {
 		id: string;
 		title: string;
 		description: string;
+		constraints?: string[];
 	}[];
 }
 
@@ -143,6 +144,7 @@ async function collectExtractionData(
 		id: card.id,
 		title: card.title,
 		description: card.description,
+		constraints: card.constraints,
 	}));
 
 	return { sessionNotes, researchCards, reviewCards, scopeCards };
@@ -152,21 +154,33 @@ async function collectExtractionData(
 // LLM Extraction
 // =============================================================================
 
-const EXTRACTION_SYSTEM_PROMPT = `You are a knowledge extraction specialist. Your task is to analyze completed workflow data and extract fine-grained, actionable knowledge items.
+const EXTRACTION_SYSTEM_PROMPT = `You are a knowledge extraction specialist. Your task is to analyze completed workflow data and extract ONLY knowledge that would be useful to a developer working on a future task in this codebase.
 
-Focus on extracting:
-1. **Patterns**: Reusable code patterns, architectural decisions, naming conventions, or structural approaches that proved effective.
-2. **Gotchas**: Pitfalls, edge cases, or issues encountered that others should avoid. Include the problem AND the solution/workaround.
-3. **Tool Usage**: Tips for using specific tools, libraries, or frameworks effectively. Include concrete examples.
-4. **Process Improvements**: Insights about the development process, workflow optimizations, or methodology learnings.
+Apply this filter to every potential item: "If the specific task that produced this knowledge were already forgotten, would this item still be worth reading?" If not, discard it.
 
-Guidelines:
-- Be specific and actionable - include file paths, code snippets, or concrete examples where available
-- Each item should be self-contained and useful in isolation
-- Prefer multiple small, focused items over large, general ones
-- Skip trivial or obvious information
-- Tags should be lowercase, single words or hyphenated (e.g., "typescript", "error-handling", "api-design")
-- If the data contains no notable insights, return an empty items array`;
+DO extract:
+1. **Patterns**: Reusable code patterns, architectural approaches, naming conventions, or structural techniques observed in the codebase. Must include a concrete example.
+2. **Gotchas**: Non-obvious pitfalls where the cause wasn't immediately apparent. Include the symptom, root cause, AND fix. Must pass this test: "If the fix were applied today, would this item still be worth reading tomorrow?" If yes, it's durable knowledge about the architecture. If no, it's a defect report — skip it.
+3. **Tool Usage**: Discovered behaviors, flags, configurations, or integration techniques for specific tools/libraries/frameworks that are easy to get wrong.
+4. **Process Insights**: Workflow or methodology discoveries — not that a process was followed, but that something was learned about the process.
+
+DO NOT extract:
+- Implementation plans or step-by-step instructions from research cards
+- Descriptions of what code currently exists or how it's structured
+- Recommendations that were written to guide this workflow's execution
+- What the task/scope/goal was
+- That a feature was implemented or a bug was fixed
+- Bugs at specific file/line locations with straightforward fixes
+- Missing parameter passing, inconsistent filter logic, UI state cleanup issues — these are code review findings, not knowledge
+- Anything someone with experience in this codebase would already know
+
+For research findings: the Summary, Dependencies, and Recommendations sections are implementation planning artifacts. Skip them. Only examine the Patterns section for extractable knowledge.
+
+Each item must be self-contained, specific, and actionable in isolation. Include file paths, code snippets, or concrete examples where available.
+
+Tags: lowercase, single words or hyphenated (e.g., "typescript", "error-handling", "api-design").
+
+If nothing passes the filters, return an empty items array. An empty result is preferable to low-quality extractions.`;
 
 /**
  * Build the extraction prompt from collected data.
@@ -174,16 +188,46 @@ Guidelines:
 function buildExtractionPrompt(data: ExtractionData): string {
 	const parts: string[] = [];
 
-	// Add scope context
-	if (data.scopeCards.length > 0) {
-		parts.push("## Workflow Context");
-		for (const scope of data.scopeCards) {
-			parts.push(`**${scope.title}**: ${scope.description}`);
+	// Research cards — only send patterns
+	if (data.researchCards.length > 0) {
+		const allPatterns = data.researchCards.flatMap(
+			(card) => card.patterns ?? []
+		);
+		if (allPatterns.length > 0) {
+			parts.push("## Codebase Patterns Observed");
+			parts.push(
+				"Evaluate each for durability beyond the immediate task:"
+			);
+			for (const pattern of allPatterns) {
+				parts.push(
+					`- [${pattern.category}] ${pattern.description}\n  Example: ${pattern.example}`
+				);
+			}
+			parts.push("");
 		}
-		parts.push("");
 	}
 
-	// Add session notes (highest priority source)
+	// Review cards — filter to medium/high severity
+	if (data.reviewCards.length > 0) {
+		const actionableComments = data.reviewCards
+			.flatMap((card) => card.comments)
+			.filter((c) => c.severity === "high" || c.severity === "medium");
+		if (actionableComments.length > 0) {
+			parts.push("## Issues Encountered During Review");
+			parts.push(
+				"Extract only non-obvious architectural issues, not point-in-time defects:"
+			);
+			for (const comment of actionableComments) {
+				const category = comment.category
+					? `(${comment.category})`
+					: "";
+				parts.push(`- ${category} ${comment.description}`);
+			}
+			parts.push("");
+		}
+	}
+
+	// Add session notes
 	if (data.sessionNotes.length > 0) {
 		parts.push("## Session Notes");
 		parts.push(
@@ -195,42 +239,22 @@ function buildExtractionPrompt(data: ExtractionData): string {
 		parts.push("");
 	}
 
-	// Add research patterns
-	if (data.researchCards.length > 0) {
-		parts.push("## Research Findings");
-		for (const card of data.researchCards) {
-			parts.push(`**Summary**: ${card.summary}`);
-			if (card.patterns && card.patterns.length > 0) {
-				parts.push("**Patterns identified**:");
-				for (const pattern of card.patterns) {
-					parts.push(
-						`- [${pattern.category}] ${pattern.description}\n  Example: ${pattern.example}`,
-					);
+	// Scope cards — last, labeled as background
+	if (data.scopeCards.length > 0 && parts.length > 0) {
+		parts.push("---");
+		parts.push(
+			"## Background (for context only — do not extract knowledge about the goals themselves)"
+		);
+		for (const scope of data.scopeCards) {
+			parts.push(`**${scope.title}**: ${scope.description}`);
+			if (scope.constraints && scope.constraints.length > 0) {
+				parts.push("Architectural constraints:");
+				for (const constraint of scope.constraints) {
+					parts.push(`- ${constraint}`);
 				}
 			}
-			if (card.recommendations.length > 0) {
-				parts.push("**Recommendations**:");
-				for (const rec of card.recommendations) {
-					parts.push(`- ${rec}`);
-				}
-			}
-			parts.push("");
 		}
-	}
-
-	// Add review comments (gotchas source)
-	if (data.reviewCards.length > 0) {
-		const allComments = data.reviewCards.flatMap((card) => card.comments);
-		if (allComments.length > 0) {
-			parts.push("## Review Comments");
-			parts.push("Issues and observations from code review:");
-			for (const comment of allComments) {
-				const severity = comment.severity ? `[${comment.severity}]` : "";
-				const category = comment.category ? `(${comment.category})` : "";
-				parts.push(`- ${severity}${category} ${comment.description}`);
-			}
-			parts.push("");
-		}
+		parts.push("");
 	}
 
 	if (parts.length === 0) {

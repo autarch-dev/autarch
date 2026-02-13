@@ -1,19 +1,18 @@
 /**
  * KnowledgeItemCard
  *
- * Displays a single knowledge item as a card with title, content preview,
- * category badge, tag badges, workflow link, timestamp, and action buttons
- * (edit, archive/unarchive, delete).
+ * Displays a single knowledge item as a card with a colored left border
+ * accent based on its category. Actions (edit, archive, delete) are
+ * revealed on hover.
  */
 
 import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { KnowledgeItem } from "@/shared/schemas/knowledge";
 import { useKnowledgeStore } from "../store/knowledgeStore";
-import { categoryVariant, truncate } from "../utils/format";
+import { CATEGORY_CONFIG, timeAgo } from "../utils/format";
 import { KnowledgeEditDialog } from "./KnowledgeEditDialog";
 
 // =============================================================================
@@ -26,8 +25,13 @@ interface KnowledgeItemCardProps {
 
 export function KnowledgeItemCard({ item }: KnowledgeItemCardProps) {
 	const [editOpen, setEditOpen] = useState(false);
+	const [expanded, setExpanded] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const { archiveItem, deleteItem } = useKnowledgeStore();
+
+	const isLongContent = item.content.length > 200;
+
+	const cfg = CATEGORY_CONFIG[item.category];
 
 	const handleArchive = async () => {
 		setError(null);
@@ -54,77 +58,122 @@ export function KnowledgeItemCard({ item }: KnowledgeItemCardProps) {
 
 	return (
 		<>
-			<Card>
-				<CardHeader>
-					<div className="flex items-start justify-between gap-2">
-						<div className="min-w-0 flex-1">
-							<CardTitle className="text-base">{item.title}</CardTitle>
-						</div>
-						<div className="flex shrink-0 items-center gap-1">
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								onClick={() => setEditOpen(true)}
-								title="Edit"
-							>
-								<Pencil className="size-4" />
-							</Button>
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								onClick={handleArchive}
-								title={item.archived ? "Unarchive" : "Archive"}
-							>
-								{item.archived ? (
-									<ArchiveRestore className="size-4" />
-								) : (
-									<Archive className="size-4" />
-								)}
-							</Button>
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								onClick={handleDelete}
-								title="Delete"
-							>
-								<Trash2 className="size-4" />
-							</Button>
-						</div>
-					</div>
-				</CardHeader>
+			<div
+				className={cn(
+					"group relative rounded-xl border border-l-4 bg-card text-card-foreground shadow-sm transition-colors hover:border-foreground/10",
+					cfg.border,
+					item.archived && "opacity-60",
+				)}
+			>
+				{/* Action buttons — visible on hover */}
+				<div className="absolute top-3 right-3 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+					<button
+						type="button"
+						onClick={() => setEditOpen(true)}
+						title="Edit"
+						className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+					>
+						<Pencil className="size-3.5" />
+					</button>
+					<button
+						type="button"
+						onClick={handleArchive}
+						title={item.archived ? "Unarchive" : "Archive"}
+						className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+					>
+						{item.archived ? (
+							<ArchiveRestore className="size-3.5" />
+						) : (
+							<Archive className="size-3.5" />
+						)}
+					</button>
+					<button
+						type="button"
+						onClick={handleDelete}
+						title="Delete"
+						className="rounded-md p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+					>
+						<Trash2 className="size-3.5" />
+					</button>
+				</div>
 
-				<CardContent className="space-y-3">
-					{/* Content preview */}
-					<p className="text-sm text-muted-foreground">
-						{truncate(item.content)}
-					</p>
-
-					{/* Category + tags */}
-					<div className="flex flex-wrap items-center gap-1.5">
-						<Badge variant={categoryVariant(item.category)}>
-							{item.category}
-						</Badge>
-						{item.tags.map((tag) => (
-							<Badge key={tag} variant="outline" className="text-xs">
-								{tag}
+				<div className="p-4 space-y-3">
+					{/* Category + timestamp */}
+					<div className="flex items-center gap-2 text-xs">
+						<span
+							className={cn(
+								"inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium",
+								cfg.pill,
+							)}
+						>
+							<span className={cn("size-1.5 rounded-full", cfg.dot)} />
+							{cfg.label}
+						</span>
+						<span className="text-muted-foreground">
+							{timeAgo(item.createdAt)}
+						</span>
+						{item.archived && (
+							<Badge variant="outline" className="text-xs py-0 px-1.5">
+								Archived
 							</Badge>
-						))}
+						)}
 					</div>
 
-					{/* Workflow link + timestamp */}
-					<div className="flex items-center justify-between text-xs text-muted-foreground">
+					{/* Title */}
+					<h3 className="font-medium text-sm leading-snug pr-20">
+						{item.title}
+					</h3>
+
+					{/* Content — click to expand/collapse */}
+					<div>
+						<p
+							className={cn(
+								"text-sm text-muted-foreground leading-relaxed",
+								expanded
+									? "whitespace-pre-wrap"
+									: "line-clamp-3",
+							)}
+						>
+							{item.content}
+						</p>
+						{isLongContent && (
+							<button
+								type="button"
+								onClick={() => setExpanded(!expanded)}
+								className="text-xs text-muted-foreground/70 hover:text-foreground mt-1 transition-colors"
+							>
+								{expanded ? "Show less" : "Show more"}
+							</button>
+						)}
+					</div>
+
+					{/* Tags + metadata */}
+					<div className="flex items-center gap-2 flex-wrap pt-0.5">
+						{item.tags.map((tag) => (
+							<span
+								key={tag}
+								className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+							>
+								{tag}
+							</span>
+						))}
+						{item.tags.length > 0 && item.workflowId && (
+							<span className="text-border">·</span>
+						)}
 						{item.workflowId && (
-							<span className="truncate" title={item.workflowId}>
-								Workflow: {item.workflowId}
+							<span
+								className="text-xs text-muted-foreground truncate max-w-[180px]"
+								title={item.workflowId}
+							>
+								{item.workflowId}
 							</span>
 						)}
-						<span className="shrink-0">
-							{new Date(item.createdAt).toLocaleDateString()}
-						</span>
 					</div>
-					{error && <p className="text-destructive text-sm">{error}</p>}
-				</CardContent>
-			</Card>
+
+					{/* Error */}
+					{error && <p className="text-destructive text-xs">{error}</p>}
+				</div>
+			</div>
 
 			<KnowledgeEditDialog
 				item={item}
