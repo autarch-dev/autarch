@@ -6,13 +6,14 @@
  * fine-grained insights with full provenance traceability.
  */
 
-import type { Kysely } from "kysely";
+import type { Kysely, SelectQueryBuilder } from "kysely";
 import type {
 	InsertableKnowledgeEmbedding,
 	InsertableKnowledgeItem,
 	KnowledgeCategory,
 	KnowledgeDatabase,
 	KnowledgeItemsTable,
+	UpdateableKnowledgeItem,
 } from "@/backend/db/knowledge/types";
 import { ids } from "@/backend/utils";
 
@@ -60,6 +61,8 @@ export interface KnowledgeSearchFilters {
 	startDate?: number;
 	endDate?: number;
 	tags?: string[];
+	offset?: number;
+	limit?: number;
 }
 
 // =============================================================================
@@ -212,12 +215,13 @@ export class KnowledgeRepository {
 	}
 
 	/**
-	 * Search knowledge items with optional filters.
-	 * Returns items ordered by created_at desc.
+	 * Apply shared filter conditions to a knowledge_items query.
+	 * Used by both search() and count() to keep filter logic in sync.
 	 */
-	async search(filters: KnowledgeSearchFilters): Promise<KnowledgeItem[]> {
-		let query = this.db.selectFrom("knowledge_items").selectAll();
-
+	private applyFilters<O>(
+		query: SelectQueryBuilder<KnowledgeDatabase, "knowledge_items", O>,
+		filters: Omit<KnowledgeSearchFilters, "offset" | "limit">,
+	): SelectQueryBuilder<KnowledgeDatabase, "knowledge_items", O> {
 		if (filters.category !== undefined) {
 			query = query.where("category", "=", filters.category);
 		}
@@ -244,8 +248,109 @@ export class KnowledgeRepository {
 			}
 		}
 
-		const rows = await query.orderBy("created_at", "desc").execute();
+		return query;
+	}
+
+	/**
+	 * Search knowledge items with optional filters.
+	 * Returns items ordered by created_at desc.
+	 */
+	async search(filters: KnowledgeSearchFilters): Promise<KnowledgeItem[]> {
+		const baseQuery = this.db.selectFrom("knowledge_items").selectAll();
+		let orderedQuery = this.applyFilters(baseQuery, filters).orderBy(
+			"created_at",
+			"desc",
+		);
+
+		if (filters.limit !== undefined) {
+			orderedQuery = orderedQuery.limit(filters.limit);
+		}
+
+		if (filters.offset !== undefined) {
+			orderedQuery = orderedQuery.offset(filters.offset);
+		}
+
+		const rows = await orderedQuery.execute();
 
 		return rows.map(toKnowledgeItem);
+	}
+
+	/**
+	 * Count knowledge items matching optional filters.
+	 * Uses the shared applyFilters() helper to stay in sync with search().
+	 */
+	async count(
+		filters: Omit<KnowledgeSearchFilters, "offset" | "limit">,
+	): Promise<number> {
+		const baseQuery = this.db
+			.selectFrom("knowledge_items")
+			.select(this.db.fn.countAll<number>().as("count"));
+
+		const query = this.applyFilters(baseQuery, filters);
+		const result = await query.executeTakeFirstOrThrow();
+		return Number(result.count);
+	}
+
+	/**
+	 * Update a knowledge item by ID.
+	 * Returns the updated item, or null if not found.
+	 */
+	async update(
+		id: string,
+		data: {
+			title?: string;
+			content?: string;
+			category?: KnowledgeCategory;
+			tags?: string[];
+		},
+	): Promise<KnowledgeItem | null> {
+		const updateObj: UpdateableKnowledgeItem = {};
+
+		if (data.title !== undefined) {
+			updateObj.title = data.title;
+		}
+		if (data.content !== undefined) {
+			updateObj.content = data.content;
+		}
+		if (data.category !== undefined) {
+			updateObj.category = data.category;
+		}
+		if (data.tags !== undefined) {
+			updateObj.tags_json = JSON.stringify(data.tags);
+		}
+
+		if (Object.keys(updateObj).length === 0) {
+			return this.getById(id);
+		}
+
+		await this.db
+			.updateTable("knowledge_items")
+			.set(updateObj)
+			.where("id", "=", id)
+			.execute();
+
+		return this.getById(id);
+	}
+
+	/**
+	 * Delete a knowledge item and its embedding by ID.
+	 * Returns true if the item was deleted, false if it didn't exist.
+	 */
+	async delete(id: string): Promise<boolean> {
+		return this.db.transaction().execute(async (trx) => {
+			// Delete embedding first (foreign key reference)
+			await trx
+				.deleteFrom("knowledge_embeddings")
+				.where("id", "=", id)
+				.execute();
+
+			// Delete the knowledge item
+			const result = await trx
+				.deleteFrom("knowledge_items")
+				.where("id", "=", id)
+				.executeTakeFirst();
+
+			return BigInt(result.numDeletedRows) > 0n;
+		});
 	}
 }
