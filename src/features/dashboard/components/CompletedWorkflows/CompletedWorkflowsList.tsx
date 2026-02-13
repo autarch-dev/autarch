@@ -68,6 +68,66 @@ export function CompletedWorkflowsList({
 				</div>
 			</header>
 
+			{/* Summary stats bar — only when loaded with data */}
+			{!isLoading && enrichedWorkflows.length > 0 && (
+				<div className="px-6 pt-4 pb-0">
+					<Card>
+						<CardContent className="py-4">
+							<div className="grid grid-cols-4 gap-4 text-center text-sm">
+								<div>
+									<div className="text-2xl font-semibold">
+										{enrichedWorkflows.length}
+									</div>
+									<div className="text-muted-foreground">Completed</div>
+								</div>
+								<div>
+									<div className="text-2xl font-semibold">
+										{(() => {
+											const costs = enrichedWorkflows
+												.map((ew) => ew.totalCost)
+												.filter((c): c is number => c != null);
+											return costs.length > 0
+												? `$${costs.reduce((sum, c) => sum + c, 0).toFixed(2)}`
+												: "—";
+										})()}
+									</div>
+									<div className="text-muted-foreground">Total Cost</div>
+								</div>
+								<div>
+									<div className="text-2xl font-semibold">
+										{formatDuration(
+											enrichedWorkflows.reduce(
+												(sum, ew) => sum + ew.duration,
+												0,
+											) / enrichedWorkflows.length,
+										)}
+									</div>
+									<div className="text-muted-foreground">Avg Duration</div>
+								</div>
+								<div>
+									<div className="text-2xl font-semibold">
+										{(() => {
+											const diffs = enrichedWorkflows
+												.map((ew) => ew.diffStats)
+												.filter((d): d is NonNullable<typeof d> => d != null);
+											return diffs.length > 0
+												? diffs
+														.reduce(
+															(sum, d) => sum + d.additions + d.deletions,
+															0,
+														)
+														.toLocaleString()
+												: "—";
+										})()}
+									</div>
+									<div className="text-muted-foreground">Lines Changed</div>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+			)}
+
 			{/* Content */}
 			<div className="flex-1 p-6 space-y-8">
 				{/* Loading skeletons */}
