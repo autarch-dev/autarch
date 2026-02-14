@@ -38,11 +38,13 @@ function reduceIntoRole(
 	targetRole: string,
 	shouldAggregate: (entry: CostByRole[number]) => boolean,
 ) {
-	const targetEntry = entries.find((e) => e.agentRole === targetRole) ?? {
-		agentRole: targetRole,
-		totalCost: 0,
-		promptTokens: 0,
-		completionTokens: 0,
+	const targetEntry = {
+		...(entries.find((e) => e.agentRole === targetRole) ?? {
+			agentRole: targetRole,
+			totalCost: 0,
+			promptTokens: 0,
+			completionTokens: 0,
+		}),
 	};
 
 	for (const entry of entries) {
