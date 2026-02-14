@@ -1,5 +1,7 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
+import { log } from "@/backend/logger";
+import { embed } from "@/backend/services/embedding/provider";
 import type { KnowledgeDatabase } from "./types";
 
 /**
@@ -11,6 +13,7 @@ export async function migrateKnowledgeDb(
 	await createKnowledgeItemsTable(db);
 	await createKnowledgeEmbeddingsTable(db);
 	await addArchivedColumn(db);
+	await backfillMissingEmbeddings(db);
 }
 
 /**
@@ -79,6 +82,69 @@ async function createKnowledgeEmbeddingsTable(
 			(cb) => cb.onDelete("cascade"),
 		)
 		.execute();
+}
+
+/**
+ * Backfill embeddings for knowledge items that were stored without one.
+ * This covers items created by the fallback path in extraction.ts and
+ * any items created before embedding-on-create was added.
+ * Idempotent: the LEFT JOIN query only finds items missing embeddings.
+ */
+async function backfillMissingEmbeddings(
+	db: Kysely<KnowledgeDatabase>,
+): Promise<void> {
+	try {
+		const orphans = await db
+			.selectFrom("knowledge_items as ki")
+			.leftJoin("knowledge_embeddings as ke", "ki.id", "ke.id")
+			.where("ke.id", "is", null)
+			.select(["ki.id", "ki.title", "ki.content"])
+			.execute();
+
+		if (orphans.length === 0) {
+			log.knowledge.debug("No orphaned knowledge items found");
+			return;
+		}
+
+		log.knowledge.info(
+			`Found ${orphans.length} knowledge items without embeddings, generating...`,
+		);
+
+		let backfilledCount = 0;
+
+		for (const orphan of orphans) {
+			try {
+				const embeddingText = `${orphan.title}\n\n${orphan.content}`;
+				const result = await embed(embeddingText);
+				const buffer = Buffer.from(result.buffer);
+
+				await db
+					.insertInto("knowledge_embeddings")
+					.values({
+						id: orphan.id,
+						embedding: new Uint8Array(buffer),
+						created_at: Date.now(),
+					})
+					.execute();
+
+				backfilledCount++;
+			} catch (error) {
+				log.knowledge.warn(
+					`Failed to backfill embedding for knowledge item ${orphan.id}:`,
+					error,
+				);
+			}
+		}
+
+		log.knowledge.info(
+			`Successfully backfilled embeddings for ${backfilledCount} knowledge items`,
+		);
+	} catch (error) {
+		log.knowledge.warn(
+			"Embedding backfill skipped — embedding service may be unavailable:",
+			error,
+		);
+	}
 }
 
 /**

@@ -16,7 +16,7 @@ import { log } from "@/backend/logger";
 import { ArtifactRepository } from "@/backend/repositories/ArtifactRepository";
 import { ConversationRepository } from "@/backend/repositories/ConversationRepository";
 import { SessionRepository } from "@/backend/repositories/SessionRepository";
-import { embedBatch } from "@/backend/services/embedding/provider";
+import { embed, embedBatch } from "@/backend/services/embedding/provider";
 import { broadcast } from "@/backend/ws";
 import {
 	createKnowledgeExtractionCompletedEvent,
@@ -351,12 +351,23 @@ export async function extractKnowledge(
 				const embeddingResults = await embedBatch(embeddingTexts);
 				embeddings = embeddingResults;
 			} catch (error) {
-				// Batch embedding failed - log warning and store all items without embeddings
+				// Batch embedding failed - retry each item individually
 				log.knowledge.warn(
-					"Embedding batch generation failed, storing items without embeddings:",
+					"Embedding batch generation failed, retrying individually:",
 					error,
 				);
-				embeddings = items.map(() => null);
+				for (const text of embeddingTexts) {
+					try {
+						const result = await embed(text);
+						embeddings.push(result);
+					} catch (itemError) {
+						log.knowledge.warn(
+							"Individual embedding generation failed, skipping item:",
+							itemError,
+						);
+						embeddings.push(null);
+					}
+				}
 			}
 		}
 
@@ -385,11 +396,11 @@ export async function extractKnowledge(
 					const embeddingBuffer = Buffer.from(embedding.buffer);
 					await knowledgeRepo.createWithEmbedding(itemData, embeddingBuffer);
 				} else {
-					// Embedding generation failed for this item - store without embedding
+					// Embedding generation failed even on individual retry — skip item
 					log.knowledge.warn(
-						`Storing knowledge item without embedding: id=${i}, title="${item.title}"`,
+						`Skipping knowledge item without embedding: title="${item.title}"`,
 					);
-					await knowledgeRepo.create(itemData);
+					continue;
 				}
 				storedCount++;
 			} catch (error) {

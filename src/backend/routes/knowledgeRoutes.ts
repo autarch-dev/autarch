@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { getKnowledgeDb } from "@/backend/db/knowledge";
 import type { KnowledgeCategory } from "@/backend/db/knowledge/types";
+import { embed } from "@/backend/services/embedding/provider";
 import { KnowledgeRepository } from "@/backend/services/knowledge/repository";
 import {
 	type SearchFilters,
@@ -176,7 +177,10 @@ export const knowledgeRoutes = {
 				}
 
 				const repo = await getKnowledgeRepo();
-				const id = await repo.create(parsed.data);
+				const embeddingText = `${parsed.data.title}\n\n${parsed.data.content}`;
+				const embeddingResult = await embed(embeddingText);
+				const embeddingBuffer = Buffer.from(embeddingResult.buffer);
+				const id = await repo.createWithEmbedding(parsed.data, embeddingBuffer);
 				const item = await repo.getById(id);
 
 				return Response.json(item satisfies KnowledgeItem | null, {
@@ -346,13 +350,51 @@ export const knowledgeRoutes = {
 				}
 
 				const repo = await getKnowledgeRepo();
-				const updatedItem = await repo.update(params.id, parsed.data);
+				const existingItem = await repo.getById(params.id);
+				if (!existingItem) {
+					return Response.json(
+						{ error: "Knowledge item not found" },
+						{ status: 404 },
+					);
+				}
+
+				const semanticFieldChanged =
+					parsed.data.title !== undefined || parsed.data.content !== undefined;
+
+				let updatedItem: KnowledgeItem | null;
+
+				if (semanticFieldChanged) {
+					// Compute embedding before any DB writes so a failure here
+					// leaves the database unchanged.
+					const newTitle =
+						parsed.data.title !== undefined
+							? parsed.data.title
+							: existingItem.title;
+					const newContent =
+						parsed.data.content !== undefined
+							? parsed.data.content
+							: existingItem.content;
+					const embeddingText = `${newTitle}\n\n${newContent}`;
+					const embeddingResult = await embed(embeddingText);
+					const embeddingBuffer = Buffer.from(embeddingResult.buffer);
+
+					// Update item and embedding in a single transaction
+					updatedItem = await repo.updateWithEmbedding(
+						params.id,
+						parsed.data,
+						embeddingBuffer,
+					);
+				} else {
+					updatedItem = await repo.update(params.id, parsed.data);
+				}
+
 				if (!updatedItem) {
 					return Response.json(
 						{ error: "Knowledge item not found" },
 						{ status: 404 },
 					);
 				}
+
 				return Response.json(updatedItem satisfies KnowledgeItem, {
 					status: 200,
 				});
