@@ -10,7 +10,8 @@
  * pages.
  */
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useWorkflowsStore } from "@/features/dashboard/store/workflowsStore";
 import { cn } from "@/lib/utils";
 import type { KnowledgeItem } from "@/shared/schemas/knowledge";
 import { useKnowledgeStore } from "../store/knowledgeStore";
@@ -126,7 +127,13 @@ function groupByWorkflow(
 
 export function KnowledgeTimeline() {
 	const { items } = useKnowledgeStore();
+	const getWorkflow = useWorkflowsStore((s) => s.getWorkflow);
 	const allItems = items.data?.items ?? [];
+
+	const resolveWorkflowTitle = useCallback(
+		(workflowId: string) => getWorkflow(workflowId)?.title ?? workflowId,
+		[getWorkflow],
+	);
 
 	const groups = useMemo(() => groupByWorkflow(allItems), [allItems]);
 
@@ -178,7 +185,7 @@ export function KnowledgeTimeline() {
 										className="text-sm font-medium truncate"
 										title={group.workflowId}
 									>
-										{group.workflowId}
+										{resolveWorkflowTitle(group.workflowId)}
 									</h3>
 									<p className="text-xs text-muted-foreground">
 										{groupDate.toLocaleDateString(undefined, {
