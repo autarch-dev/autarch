@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { getKnowledgeDb } from "@/backend/db/knowledge";
 import type { KnowledgeCategory } from "@/backend/db/knowledge/types";
+import { embed } from "@/backend/services/embedding/provider";
 import { KnowledgeRepository } from "@/backend/services/knowledge/repository";
 import {
 	type SearchFilters,
@@ -176,7 +177,10 @@ export const knowledgeRoutes = {
 				}
 
 				const repo = await getKnowledgeRepo();
-				const id = await repo.create(parsed.data);
+				const embeddingText = `${parsed.data.title}\n\n${parsed.data.content}`;
+				const embeddingResult = await embed(embeddingText);
+				const embeddingBuffer = Buffer.from(embeddingResult.buffer);
+				const id = await repo.createWithEmbedding(parsed.data, embeddingBuffer);
 				const item = await repo.getById(id);
 
 				return Response.json(item satisfies KnowledgeItem | null, {
