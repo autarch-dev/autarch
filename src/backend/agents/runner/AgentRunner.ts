@@ -325,16 +325,25 @@ export class AgentRunner {
 
 		try {
 			// streamLLMResponse handles turn completion with token usage data
-			const { totalInputTokens, totalOutputTokens, totalCost } =
-				await this.streamLLMResponse(
-					assistantTurn,
-					agentConfig,
-					options,
-					conversationHistory,
-				);
+			const {
+				totalInputTokens,
+				totalOutputTokens,
+				totalCacheWriteTokens,
+				totalCacheReadTokens,
+				totalUncachedPromptTokens,
+				totalCost,
+			} = await this.streamLLMResponse(
+				assistantTurn,
+				agentConfig,
+				options,
+				conversationHistory,
+			);
 			log.agent.success(`Agent turn ${assistantTurn.id} completed`, {
 				totalInputTokens,
 				totalOutputTokens,
+				totalCacheWriteTokens,
+				totalCacheReadTokens,
+				totalUncachedPromptTokens,
 				totalCost,
 			});
 
