@@ -74,8 +74,8 @@ export const CostTokenUsageSchema = z.array(
 	z.object({
 		modelId: z.string(),
 		uncachedPromptTokens: z.number(),
-		cacheReadTokens: z.number().nullable(),
-		cacheWriteTokens: z.number().nullable(),
+		cacheReadTokens: z.number(),
+		cacheWriteTokens: z.number(),
 		completionTokens: z.number(),
 	}),
 );
