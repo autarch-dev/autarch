@@ -109,3 +109,8 @@ export const KnowledgeSearchResponseSchema = z.object({
 export type KnowledgeSearchResponse = z.infer<
 	typeof KnowledgeSearchResponseSchema
 >;
+
+export const KnowledgeTagsResponseSchema = z.object({
+	tags: z.array(z.string()),
+});
+export type KnowledgeTagsResponse = z.infer<typeof KnowledgeTagsResponseSchema>;

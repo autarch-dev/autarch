@@ -6,9 +6,20 @@
  * the parent KnowledgePage.
  */
 
-import { X } from "lucide-react";
+import { Tag, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { fetchKnowledgeTags } from "../api/knowledgeApi";
 import { useKnowledgeStore } from "../store/knowledgeStore";
 
 // =============================================================================
@@ -33,6 +44,22 @@ export function KnowledgeFilterBar({
 	const filters = useKnowledgeStore((s) => s.filters);
 	const setFilters = useKnowledgeStore((s) => s.setFilters);
 
+	const [availableTags, setAvailableTags] = useState<string[]>([]);
+	const [searchText, setSearchText] = useState("");
+	const [popoverOpen, setPopoverOpen] = useState(false);
+
+	const selectedTags = filters.tags?.split(",").filter(Boolean) ?? [];
+
+	useEffect(() => {
+		fetchKnowledgeTags()
+			.then(setAvailableTags)
+			.catch(() => setAvailableTags([]));
+	}, []);
+
+	const filteredTags = availableTags.filter((t) =>
+		t.toLowerCase().includes(searchText.toLowerCase()),
+	);
+
 	function handleWorkflowIdChange(e: React.ChangeEvent<HTMLInputElement>) {
 		setFilters({ workflowId: e.target.value || undefined, offset: 0 });
 		debouncedFetch();
@@ -52,6 +79,17 @@ export function KnowledgeFilterBar({
 
 	function handleArchivedChange(checked: boolean | "indeterminate") {
 		setFilters({ archived: checked === true ? true : undefined, offset: 0 });
+		debouncedFetch();
+	}
+
+	function handleTagToggle(tag: string) {
+		const newTags = selectedTags.includes(tag)
+			? selectedTags.filter((t) => t !== tag)
+			: [...selectedTags, tag];
+		setFilters({
+			tags: newTags.length > 0 ? newTags.join(",") : undefined,
+			offset: 0,
+		});
 		debouncedFetch();
 	}
 
@@ -112,6 +150,53 @@ export function KnowledgeFilterBar({
 					Archived
 				</Label>
 			</div>
+
+			{/* Tags */}
+			<Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+				<PopoverTrigger asChild>
+					<Button variant="outline" size="sm" className="h-8 text-xs">
+						<Tag className="size-3.5 mr-1.5" />
+						Tags
+						{selectedTags.length > 0 && (
+							<Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
+								{selectedTags.length}
+							</Badge>
+						)}
+					</Button>
+				</PopoverTrigger>
+				<PopoverContent className="w-64 p-3" align="start">
+					<Input
+						placeholder="Search tags..."
+						value={searchText}
+						onChange={(e) => setSearchText(e.target.value)}
+						className="mb-2 h-8 text-sm"
+					/>
+					<ScrollArea className="max-h-48">
+						{filteredTags.length > 0 ? (
+							filteredTags.map((tag) => (
+								<div key={tag} className="flex items-center gap-2 py-1">
+									<Checkbox
+										id={`tag-${tag}`}
+										checked={selectedTags.includes(tag)}
+										onCheckedChange={() => handleTagToggle(tag)}
+										className="size-3.5"
+									/>
+									<Label
+										htmlFor={`tag-${tag}`}
+										className="text-sm cursor-pointer"
+									>
+										{tag}
+									</Label>
+								</div>
+							))
+						) : (
+							<p className="text-xs text-muted-foreground py-2 text-center">
+								No tags found
+							</p>
+						)}
+					</ScrollArea>
+				</PopoverContent>
+			</Popover>
 
 			{/* Clear all */}
 			{hasActiveFilters && (
