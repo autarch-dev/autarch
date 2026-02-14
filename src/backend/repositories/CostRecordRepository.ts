@@ -26,6 +26,9 @@ export interface InsertCostRecordData {
 	agentRole: string;
 	promptTokens: number;
 	completionTokens: number;
+	cacheWriteTokens?: number;
+	cacheReadTokens?: number;
+	uncachedPromptTokens?: number;
 	costUsd: number;
 	createdAt: number;
 }
@@ -60,6 +63,9 @@ export class CostRecordRepository implements Repository {
 				agent_role: record.agentRole,
 				prompt_tokens: record.promptTokens,
 				completion_tokens: record.completionTokens,
+				cache_write_tokens: record.cacheWriteTokens ?? null,
+				cache_read_tokens: record.cacheReadTokens ?? null,
+				uncached_prompt_tokens: record.uncachedPromptTokens ?? null,
 				cost_usd: record.costUsd,
 				created_at: record.createdAt,
 			})

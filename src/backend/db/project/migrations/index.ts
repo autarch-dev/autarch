@@ -46,6 +46,7 @@ import { migrate as migrate0039WorkflowErrors } from "./0039-workflow-errors";
 import { migrate as migrate0040CorrectCost } from "./0040-correct-cost";
 import { migrate as migrate0040PersonaRoadmaps } from "./0040-persona-roadmaps";
 import { migrate as migrate0041RoadmapPerspective } from "./0041-roadmap-perspective";
+import { migrate as migrate0042CacheTokens } from "./0042-cache-tokens";
 
 /**
  * Run all migrations for the project database.
@@ -120,4 +121,7 @@ export async function migrateProjectDb(
 
 	// Roadmap perspective column (0041)
 	await migrate0041RoadmapPerspective(db);
+
+	// Cache tokens columns (0042)
+	await migrate0042CacheTokens(db);
 }

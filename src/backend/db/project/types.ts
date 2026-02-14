@@ -588,6 +588,9 @@ export interface CostRecordsTable {
 	agent_role: string;
 	prompt_tokens: number;
 	completion_tokens: number;
+	cache_write_tokens: number | null;
+	cache_read_tokens: number | null;
+	uncached_prompt_tokens: number | null;
 	cost_usd: number;
 	created_at: number;
 }

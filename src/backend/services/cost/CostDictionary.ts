@@ -3,51 +3,137 @@ import type { ModelNameSchema } from "@/shared/schemas";
 
 type ModelName = z.infer<typeof ModelNameSchema>;
 
+export type CostParams = {
+	promptTokenCost: number;
+	completionTokenCost: number;
+	cacheReadCost?: number;
+	cacheWriteCost?: number;
+};
+
+export type TieredCostParams = CostParams & {
+	minimumTokens?: number;
+	maximumTokens?: number;
+};
+
+export type ModelTiers = {
+	pricingTiers: TieredCostParams[];
+};
+
+export type ModelCostParams = {
+	modelName: ModelName;
+} & (CostParams | ModelTiers);
+
 export const COST_DICTIONARY = [
 	{
 		modelName: "claude-opus-4-6",
-		promptTokenCost: 5,
-		completionTokenCost: 25,
+		pricingTiers: [
+			{ 
+				maximumTokens: 200_000,
+				promptTokenCost: 5,
+				completionTokenCost: 25,
+				cacheWriteCost: 6.25,
+				cacheReadCost: 0.5,
+			},
+			{
+				minimumTokens: 200_001,
+				promptTokenCost: 10,
+				completionTokenCost: 37.5,
+				cacheWriteCost: 12.5,
+				cacheReadCost: 1.0,
+			}
+		],
 	},
 	{
 		modelName: "claude-opus-4-5",
-		promptTokenCost: 5,
-		completionTokenCost: 25,
+		pricingTiers: [
+			{ 
+				maximumTokens: 200_000,
+				promptTokenCost: 5,
+				completionTokenCost: 25,
+				cacheWriteCost: 6.25,
+				cacheReadCost: 0.5,
+			},
+			{
+				minimumTokens: 200_001,
+				promptTokenCost: 10,
+				completionTokenCost: 37.5,
+				cacheWriteCost: 12.5,
+				cacheReadCost: 1.0,
+			}
+		],
 	},
 	{
 		modelName: "claude-opus-4-1",
 		promptTokenCost: 15,
 		completionTokenCost: 75,
+		cacheWriteCost: 18.75,
+		cacheReadCost: 1.5,
 	},
 	{
 		modelName: "claude-opus-4-0",
 		promptTokenCost: 15,
 		completionTokenCost: 75,
+		cacheWriteCost: 18.75,
+		cacheReadCost: 1.5,
 	},
 	{
 		modelName: "claude-sonnet-4-5",
-		promptTokenCost: 3,
-		completionTokenCost: 15,
+		pricingTiers: [
+			{ 
+				maximumTokens: 200_000,
+				promptTokenCost: 3,
+				completionTokenCost: 15,
+				cacheWriteCost: 3.75,
+				cacheReadCost: 0.3,
+			},
+			{
+				minimumTokens: 200_001,
+				promptTokenCost: 6,
+				completionTokenCost: 22.5,
+				cacheWriteCost: 7.5,
+				cacheReadCost: 0.6,
+			}
+		],
 	},
 	{
 		modelName: "claude-sonnet-4-0",
-		promptTokenCost: 3,
-		completionTokenCost: 15,
+		pricingTiers: [
+			{ 
+				maximumTokens: 200_000,
+				promptTokenCost: 3,
+				completionTokenCost: 15,
+				cacheWriteCost: 3.75,
+				cacheReadCost: 0.3,
+			},
+			{
+				minimumTokens: 200_001,
+				promptTokenCost: 6,
+				completionTokenCost: 22.5,
+				cacheWriteCost: 7.5,
+				cacheReadCost: 0.6,
+			}
+		],
 	},
 	{
 		modelName: "claude-3-7-sonnet-latest",
 		promptTokenCost: 3,
 		completionTokenCost: 15,
+		cacheWriteCost: 3.75,
+		cacheReadCost: 0.3,
 	},
 	{
 		modelName: "claude-3-5-haiku-latest",
 		promptTokenCost: 0.8,
 		completionTokenCost: 4,
+		cacheWriteCost: 1.0,
+		cacheReadCost: 0.08,
 	},
 	{
 		modelName: "claude-haiku-4-5",
 		promptTokenCost: 1,
 		completionTokenCost: 5,
+		cacheWriteCost: 1.25,
+		cacheReadCost: 0.1,
 	},
 	{ modelName: "gpt-5.2", promptTokenCost: 1.75, completionTokenCost: 14.0 },
 	{ modelName: "gpt-5.1", promptTokenCost: 1.25, completionTokenCost: 10.0 },
@@ -155,11 +241,7 @@ export const COST_DICTIONARY = [
 	},
 	{ modelName: "grok-3-mini", promptTokenCost: 0.3, completionTokenCost: 0.5 },
 	{ modelName: "grok-3", promptTokenCost: 3.0, completionTokenCost: 15.0 },
-] as const satisfies {
-	modelName: ModelName;
-	promptTokenCost: number;
-	completionTokenCost: number;
-}[];
+] as const satisfies ModelCostParams[];
 
 type MissingModels = Exclude<
 	ModelName,

@@ -872,6 +872,9 @@ export class AgentRunner {
 		totalInputTokens: number;
 		totalOutputTokens: number;
 		totalCost: number;
+		totalCacheWriteTokens: number;
+		totalCacheReadTokens: number;
+		totalUncachedPromptTokens: number;
 	}> {
 		// Get the model for this agent's scenario
 		const { model, modelId } = await getModelForScenario(agentConfig.role);
@@ -937,10 +940,20 @@ export class AgentRunner {
 		// Start streaming with AI SDK
 		const result = streamText({
 			model,
-			system: agentConfig.systemPrompt({
-				hasWebCodeSearch: hasExaKey,
-				submitToolName,
-			}),
+			system: {
+				content: agentConfig.systemPrompt({
+					hasWebCodeSearch: hasExaKey,
+					submitToolName,
+				}),
+				role: "system",
+				providerOptions: {
+					anthropic: {
+						cacheControl: {
+							type: "ephemeral",
+						},
+					},
+				},
+			},
 			messages: conversationHistory,
 			tools,
 			stopWhen: stepCountIs(MAX_TOOL_STEPS),
@@ -980,7 +993,9 @@ export class AgentRunner {
 			// Note: maxTokens and temperature are passed via providerOptions or model config
 		});
 
-		let totalInputTokens = 0;
+		let totalCacheWriteTokens = 0;
+		let totalCacheReadTokens = 0;
+		let totalUncachedPromptTokens = 0;
 		let totalOutputTokens = 0;
 		let totalCost = 0;
 
@@ -1116,16 +1131,35 @@ export class AgentRunner {
 					// A step completed (may include tool calls)
 					// We can track token usage here if needed
 					log.tools.debug("Streaming step completed", part.usage);
-					const stepInputTokens = part.usage.inputTokens ?? 0;
+					const stepUncachedPromptTokens =
+						part.usage.inputTokenDetails.noCacheTokens ?? 0;
 					const stepOutputTokens = part.usage.outputTokens ?? 0;
-					totalInputTokens += stepInputTokens;
+					const stepCacheWriteTokens =
+						part.usage.inputTokenDetails.cacheWriteTokens ?? 0;
+					const stepCacheReadTokens =
+						part.usage.inputTokenDetails.cacheReadTokens ?? 0;
+
+					let inputTokensForCostCalculation = stepUncachedPromptTokens;
+
+					// Workaround for when the AI SDK doesn't provide token usage data
+					if (stepUncachedPromptTokens === 0 && stepCacheReadTokens === 0 && stepCacheWriteTokens === 0) {
+						inputTokensForCostCalculation = part.usage.inputTokens ?? 0;
+						totalUncachedPromptTokens += inputTokensForCostCalculation;
+					} else {
+						totalUncachedPromptTokens += stepUncachedPromptTokens;
+					}
+
 					totalOutputTokens += stepOutputTokens;
+					totalCacheWriteTokens += stepCacheWriteTokens;
+					totalCacheReadTokens += stepCacheReadTokens;
 
 					// Calculate cost per-step so long-context thresholds apply correctly
 					totalCost += getCostCalculator().calculate(
 						modelId,
-						stepInputTokens,
+						inputTokensForCostCalculation,
 						stepOutputTokens,
+						stepCacheWriteTokens,
+						stepCacheReadTokens,
 					);
 					break;
 				}
@@ -1167,11 +1201,18 @@ export class AgentRunner {
 		}
 
 		// Complete the turn with token usage data
+		const totalInputTokens = totalUncachedPromptTokens + totalCacheReadTokens + totalCacheWriteTokens;
+
 		await this.completeTurn(turn.id, {
 			tokenCount: totalInputTokens + totalOutputTokens,
 			promptTokens: totalInputTokens,
 			cost: totalCost,
 			completionTokens: totalOutputTokens,
+			uncachedPromptTokens: totalUncachedPromptTokens,
+			cacheWriteTokens:
+				totalCacheWriteTokens === 0 ? undefined : totalCacheWriteTokens,
+			cacheReadTokens:
+				totalCacheReadTokens === 0 ? undefined : totalCacheReadTokens,
 			modelId,
 		});
 
@@ -1179,6 +1220,9 @@ export class AgentRunner {
 			totalInputTokens,
 			totalOutputTokens,
 			totalCost,
+			totalCacheWriteTokens,
+			totalCacheReadTokens,
+			totalUncachedPromptTokens,
 		};
 	}
 
@@ -1337,6 +1381,9 @@ export class AgentRunner {
 			tokenCount?: number;
 			promptTokens?: number;
 			completionTokens?: number;
+			cacheWriteTokens?: number;
+			cacheReadTokens?: number;
+			uncachedPromptTokens?: number;
 			modelId?: string;
 			cost?: number;
 		},
@@ -1363,6 +1410,9 @@ export class AgentRunner {
 					agentRole: this.session.agentRole,
 					promptTokens: usage.promptTokens,
 					completionTokens: usage.completionTokens,
+					cacheWriteTokens: usage.cacheWriteTokens,
+					cacheReadTokens: usage.cacheReadTokens,
+					uncachedPromptTokens: usage.uncachedPromptTokens,
 					costUsd: usage.cost,
 					createdAt: Date.now(),
 				});
