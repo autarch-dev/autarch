@@ -198,6 +198,31 @@ export class KnowledgeRepository {
 	}
 
 	/**
+	 * Insert or update an embedding for a knowledge item.
+	 * Inserts a new row if no embedding exists (orphan items), or updates
+	 * the existing embedding when content has changed and needs regeneration.
+	 *
+	 * @param id - The knowledge item ID
+	 * @param embedding - The embedding vector as a Buffer
+	 * @returns Resolves when the upsert is complete
+	 */
+	async upsertEmbedding(id: string, embedding: Buffer): Promise<void> {
+		await this.db
+			.insertInto("knowledge_embeddings")
+			.values({
+				id,
+				embedding: new Uint8Array(embedding),
+				created_at: Date.now(),
+			})
+			.onConflict((oc) =>
+				oc.column("id").doUpdateSet({
+					embedding: new Uint8Array(embedding),
+				}),
+			)
+			.execute();
+	}
+
+	/**
 	 * Get a knowledge item by ID.
 	 * Returns null if not found.
 	 */
