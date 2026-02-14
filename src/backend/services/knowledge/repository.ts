@@ -7,6 +7,7 @@
  */
 
 import type { Kysely, SelectQueryBuilder } from "kysely";
+import { sql } from "kysely";
 import type {
 	InsertableKnowledgeEmbedding,
 	InsertableKnowledgeItem,
@@ -398,6 +399,21 @@ export class KnowledgeRepository {
 		});
 
 		return this.getById(id);
+	}
+
+	/**
+	 * Get all distinct tags from non-archived knowledge items.
+	 * Extracts individual tag values from the tags_json column using json_each().
+	 */
+	async getDistinctTags(): Promise<string[]> {
+		const result = await sql<{ value: string }>`
+			SELECT DISTINCT je.value
+			FROM knowledge_items, json_each(tags_json) AS je
+			WHERE archived = 0
+			ORDER BY je.value
+		`.execute(this.db);
+
+		return result.rows.map((row) => row.value);
 	}
 
 	/**

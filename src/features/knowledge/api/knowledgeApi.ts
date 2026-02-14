@@ -10,6 +10,7 @@ import {
 	KnowledgeItemSchema,
 	KnowledgeListResponseSchema,
 	KnowledgeSearchResponseSchema,
+	KnowledgeTagsResponseSchema,
 } from "@/shared/schemas/knowledge";
 
 // =============================================================================
@@ -139,4 +140,17 @@ export async function deleteKnowledgeItem(id: string): Promise<void> {
 	if (!response.ok) {
 		throw new Error(`Failed to delete knowledge item: ${response.statusText}`);
 	}
+}
+
+/**
+ * Fetch all distinct tags from non-archived knowledge items.
+ */
+export async function fetchKnowledgeTags(): Promise<string[]> {
+	const response = await fetch("/api/knowledge/tags");
+	if (!response.ok) {
+		throw new Error(`Failed to fetch knowledge tags: ${response.statusText}`);
+	}
+	const data = await response.json();
+	const parsed = KnowledgeTagsResponseSchema.parse(data);
+	return parsed.tags;
 }

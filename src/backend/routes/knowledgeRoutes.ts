@@ -269,6 +269,22 @@ export const knowledgeRoutes = {
 		},
 	},
 
+	"/api/knowledge/tags": {
+		async GET() {
+			try {
+				const repo = await getKnowledgeRepo();
+				const tags = await repo.getDistinctTags();
+				return Response.json({ tags });
+			} catch (error) {
+				log.api.error("Failed to fetch knowledge tags:", error);
+				return Response.json(
+					{ error: "Failed to fetch tags" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
 	"/api/knowledge/:id": {
 		async GET(req: Request) {
 			const params = parseParams(req, IdParamSchema);
