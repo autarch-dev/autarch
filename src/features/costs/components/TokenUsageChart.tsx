@@ -20,11 +20,13 @@ import { useCostStore } from "../store/costStore";
 import { shortModelName } from "../utils/formatModelName";
 
 function condenseFormatNumber(value: number): string {
-	if (value >= 1000000) {
-		return `${value / 1000000}M`;
+	const absValue = Math.abs(value);
+
+	if (absValue >= 1000000) {
+		return `${(value / 1000000).toFixed(1)}M`;
 	}
-	if (value >= 1000) {
-		return `${value / 1000}K`;
+	if (absValue >= 1000) {
+		return `${(value / 1000).toFixed(1)}K`;
 	}
 	return value.toLocaleString();
 }
