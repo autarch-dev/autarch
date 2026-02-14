@@ -9,6 +9,7 @@
 import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { useWorkflowsStore } from "@/features/dashboard/store/workflowsStore";
 import { cn } from "@/lib/utils";
 import type { KnowledgeItem } from "@/shared/schemas/knowledge";
 import { useKnowledgeStore } from "../store/knowledgeStore";
@@ -28,6 +29,10 @@ export function KnowledgeItemCard({ item }: KnowledgeItemCardProps) {
 	const [expanded, setExpanded] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const { archiveItem, deleteItem } = useKnowledgeStore();
+	const getWorkflow = useWorkflowsStore((s) => s.getWorkflow);
+	const workflowTitle = item.workflowId
+		? (getWorkflow(item.workflowId)?.title ?? item.workflowId)
+		: undefined;
 
 	const isLongContent = item.content.length > 200;
 
@@ -163,7 +168,7 @@ export function KnowledgeItemCard({ item }: KnowledgeItemCardProps) {
 								className="text-xs text-muted-foreground truncate max-w-[180px]"
 								title={item.workflowId}
 							>
-								{item.workflowId}
+								{workflowTitle}
 							</span>
 						)}
 					</div>
