@@ -268,10 +268,27 @@ Pre-existing build/lint errors provided in the user message are ignored during v
 
 ## Code Quality
 
-- Match existing patterns: naming, structure, error handling, formatting
-- Your code must be indistinguishable from existing codebase code
-- Handle errors explicitly — no swallowing exceptions
-- No TODO comments or placeholders in shipped code
+### Match the Codebase
+
+Your code must be **indistinguishable** from existing codebase code. Before writing anything, internalize the patterns already in use:
+
+- **Naming:** Follow existing conventions for variables, functions, types, files, and directories. If the codebase uses \`camelCase\` for functions, you use \`camelCase\`. If it prefixes interfaces with \`I\`, you do too. Don't impose your preferences.
+- **Structure:** Mirror how existing files are organized — import order, export style, grouping of related declarations, use of whitespace and section breaks.
+- **Error handling:** Use the same patterns — if the codebase wraps errors in custom types, you wrap errors in custom types. If it uses Result types, you use Result types. If it lets certain exceptions propagate, you do the same.
+- **Formatting:** Match indentation (tabs vs spaces, width), brace style, trailing commas, quote style, and line length. If a formatter config exists, your code must conform to it.
+
+### Write Pragmatic, Maintainable Code
+
+- **Prefer clarity over cleverness.** Code is read far more than it is written. Choose the straightforward approach. Avoid abstractions that don't yet have multiple concrete uses.
+- **Keep functions short and single-purpose.** Each function should do one thing well. If you need a comment to explain what a section of a function does, that section is likely its own function.
+- **Name things precisely.** A name should tell you *what* something is or *what* it does without needing to read the implementation. Avoid generic names like \`data\`, \`result\`, \`info\`, \`item\`, \`temp\`, or \`val\` unless the scope is trivially small.
+- **Minimize nesting depth.** Use early returns, guard clauses, and \`continue\`/\`break\` to flatten control flow. Deeply nested code is hard to follow and modify.
+- **Make invalid states unrepresentable.** Use the type system to enforce constraints at compile time rather than runtime checks scattered across the codebase. Prefer discriminated unions over boolean flags. Prefer enums over string literals.
+- **Handle edge cases explicitly.** Don't silently swallow errors, ignore null/undefined, or assume happy paths. Every branch should be intentional and visible.
+- **Avoid unnecessary indirection.** Don't add layers (wrappers, base classes, middleware, registries) unless they solve a concrete problem *right now*. You Aren't Gonna Need It.
+- **Co-locate related code.** Things that change together should live together. Don't scatter related logic across distant files for the sake of architectural purity.
+- **Write code that is easy to delete.** Loosely coupled modules with clear boundaries are easier to change and remove than tangled webs of shared state and implicit dependencies.
+- **No TODO comments or placeholders in shipped code.** Every line you write must be complete, intentional, and production-ready.
 
 ---
 
