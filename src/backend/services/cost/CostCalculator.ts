@@ -76,17 +76,18 @@ export class CostCalculator {
 		cacheWriteTokens: number | undefined,
 		cacheReadTokens: number | undefined,
 	): number {
-		const totalInputTokens = uncachedPromptTokens +
-			(cacheReadTokens ?? 0) +
-			(cacheWriteTokens ?? 0);
+		const totalInputTokens =
+			uncachedPromptTokens + (cacheReadTokens ?? 0) + (cacheWriteTokens ?? 0);
 
 		for (const tier of tiers) {
-			const doesMeetMinimum = typeof tier.minimumTokens === 'number'
-				? totalInputTokens >= tier.minimumTokens
-				: true;
-			const doesMeetMaximum = typeof tier.maximumTokens === 'number'
-				? totalInputTokens <= tier.maximumTokens
-				: true;
+			const doesMeetMinimum =
+				typeof tier.minimumTokens === "number"
+					? totalInputTokens >= tier.minimumTokens
+					: true;
+			const doesMeetMaximum =
+				typeof tier.maximumTokens === "number"
+					? totalInputTokens <= tier.maximumTokens
+					: true;
 
 			if (doesMeetMinimum && doesMeetMaximum) {
 				return this.calculateSimpleCost(
@@ -130,8 +131,10 @@ export class CostCalculator {
 		return (
 			(uncachedPromptTokens / 1_000_000) * cost.promptTokenCost +
 			(completionTokens / 1_000_000) * cost.completionTokenCost +
-			((cacheWriteTokens ?? 0) / 1_000_000) * (cost.cacheWriteCost ?? cost.promptTokenCost) +
-			((cacheReadTokens ?? 0) / 1_000_000) * (cost.cacheReadCost ?? cost.promptTokenCost)
+			((cacheWriteTokens ?? 0) / 1_000_000) *
+				(cost.cacheWriteCost ?? cost.promptTokenCost) +
+			((cacheReadTokens ?? 0) / 1_000_000) *
+				(cost.cacheReadCost ?? cost.promptTokenCost)
 		);
 	}
 }

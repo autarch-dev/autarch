@@ -53,14 +53,17 @@ function reduceIntoRole(
 		}
 	}
 
-	return entries.reduce<CostByRole>((acc, e) => {
-		if (shouldAggregate(e) || e.agentRole === targetRole) {
-			return acc;
-		}
+	return entries.reduce<CostByRole>(
+		(acc, e) => {
+			if (shouldAggregate(e) || e.agentRole === targetRole) {
+				return acc;
+			}
 
-		acc.push(e);
-		return acc;
-	}, [targetEntry]);
+			acc.push(e);
+			return acc;
+		},
+		[targetEntry],
+	);
 }
 
 export function RoleBreakdownChart() {
@@ -101,7 +104,14 @@ export function RoleBreakdownChart() {
 				) : (
 					<ResponsiveContainer width="100%" height={300}>
 						<PieChart>
-							<Tooltip formatter={(value) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(value))} />
+							<Tooltip
+								formatter={(value) =>
+									new Intl.NumberFormat("en-US", {
+										style: "currency",
+										currency: "USD",
+									}).format(Number(value))
+								}
+							/>
 							<Legend />
 							<Pie
 								data={chartData}
@@ -110,7 +120,12 @@ export function RoleBreakdownChart() {
 								cx="50%"
 								cy="50%"
 								outerRadius={100}
-								label={({ value }) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(value))}
+								label={({ value }) =>
+									new Intl.NumberFormat("en-US", {
+										style: "currency",
+										currency: "USD",
+									}).format(Number(value))
+								}
 							>
 								{chartData.map((entry, index) => (
 									<Cell key={entry.name} fill={COLORS[index % COLORS.length]} />

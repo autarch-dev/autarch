@@ -1142,7 +1142,11 @@ export class AgentRunner {
 					let inputTokensForCostCalculation = stepUncachedPromptTokens;
 
 					// Workaround for when the AI SDK doesn't provide token usage data
-					if (stepUncachedPromptTokens === 0 && stepCacheReadTokens === 0 && stepCacheWriteTokens === 0) {
+					if (
+						stepUncachedPromptTokens === 0 &&
+						stepCacheReadTokens === 0 &&
+						stepCacheWriteTokens === 0
+					) {
 						inputTokensForCostCalculation = part.usage.inputTokens ?? 0;
 						totalUncachedPromptTokens += inputTokensForCostCalculation;
 					} else {
@@ -1201,7 +1205,8 @@ export class AgentRunner {
 		}
 
 		// Complete the turn with token usage data
-		const totalInputTokens = totalUncachedPromptTokens + totalCacheReadTokens + totalCacheWriteTokens;
+		const totalInputTokens =
+			totalUncachedPromptTokens + totalCacheReadTokens + totalCacheWriteTokens;
 
 		await this.completeTurn(turn.id, {
 			tokenCount: totalInputTokens + totalOutputTokens,

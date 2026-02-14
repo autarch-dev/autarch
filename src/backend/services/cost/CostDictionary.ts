@@ -27,7 +27,7 @@ export const COST_DICTIONARY = [
 	{
 		modelName: "claude-opus-4-6",
 		pricingTiers: [
-			{ 
+			{
 				maximumTokens: 200_000,
 				promptTokenCost: 5,
 				completionTokenCost: 25,
@@ -40,13 +40,13 @@ export const COST_DICTIONARY = [
 				completionTokenCost: 37.5,
 				cacheWriteCost: 12.5,
 				cacheReadCost: 1.0,
-			}
+			},
 		],
 	},
 	{
 		modelName: "claude-opus-4-5",
 		pricingTiers: [
-			{ 
+			{
 				maximumTokens: 200_000,
 				promptTokenCost: 5,
 				completionTokenCost: 25,
@@ -59,7 +59,7 @@ export const COST_DICTIONARY = [
 				completionTokenCost: 37.5,
 				cacheWriteCost: 12.5,
 				cacheReadCost: 1.0,
-			}
+			},
 		],
 	},
 	{
@@ -79,7 +79,7 @@ export const COST_DICTIONARY = [
 	{
 		modelName: "claude-sonnet-4-5",
 		pricingTiers: [
-			{ 
+			{
 				maximumTokens: 200_000,
 				promptTokenCost: 3,
 				completionTokenCost: 15,
@@ -92,13 +92,13 @@ export const COST_DICTIONARY = [
 				completionTokenCost: 22.5,
 				cacheWriteCost: 7.5,
 				cacheReadCost: 0.6,
-			}
+			},
 		],
 	},
 	{
 		modelName: "claude-sonnet-4-0",
 		pricingTiers: [
-			{ 
+			{
 				maximumTokens: 200_000,
 				promptTokenCost: 3,
 				completionTokenCost: 15,
@@ -111,7 +111,7 @@ export const COST_DICTIONARY = [
 				completionTokenCost: 22.5,
 				cacheWriteCost: 7.5,
 				cacheReadCost: 0.6,
-			}
+			},
 		],
 	},
 	{
