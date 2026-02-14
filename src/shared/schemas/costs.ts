@@ -73,7 +73,9 @@ export type CostTrend = z.infer<typeof CostTrendSchema>;
 export const CostTokenUsageSchema = z.array(
 	z.object({
 		modelId: z.string(),
-		promptTokens: z.number(),
+		uncachedPromptTokens: z.number(),
+		cacheReadTokens: z.number().nullable(),
+		cacheWriteTokens: z.number().nullable(),
 		completionTokens: z.number(),
 	}),
 );
@@ -139,4 +141,5 @@ export const AGENT_ROLE_DISPLAY_LABELS: Record<string, string> = {
 	...ROLE_DISPLAY_LABELS,
 	preflight: "Preflight",
 	review_sub: "Review Sub",
+	roadmap_planning: "Roadmap Planning",
 };

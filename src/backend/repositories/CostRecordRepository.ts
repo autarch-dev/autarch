@@ -338,12 +338,14 @@ export class CostRecordRepository implements Repository {
 
 	/**
 	 * Get token usage breakdown grouped by model.
-	 * Returns per-model prompt and completion token totals.
+	 * Returns per-model uncached prompt, cache read, cache write, and completion token totals.
 	 */
 	async getTokenUsage(filters?: CostRecordFilters): Promise<
 		Array<{
 			modelId: string;
-			promptTokens: number;
+			uncachedPromptTokens: number;
+			cacheReadTokens: number;
+			cacheWriteTokens: number;
 			completionTokens: number;
 		}>
 	> {
@@ -352,6 +354,9 @@ export class CostRecordRepository implements Repository {
 			.select((eb) => [
 				"model_id",
 				eb.fn.sum<number>("prompt_tokens").as("prompt_tokens"),
+				eb.fn.sum<number>("uncached_prompt_tokens").as("uncached_prompt_tokens"),
+				eb.fn.sum<number>("cache_read_tokens").as("cache_read_tokens"),
+				eb.fn.sum<number>("cache_write_tokens").as("cache_write_tokens"),
 				eb.fn.sum<number>("completion_tokens").as("completion_tokens"),
 			])
 			.groupBy("model_id");
@@ -362,7 +367,9 @@ export class CostRecordRepository implements Repository {
 
 		return rows.map((row) => ({
 			modelId: row.model_id,
-			promptTokens: row.prompt_tokens ?? 0,
+			uncachedPromptTokens: row.uncached_prompt_tokens ?? row.prompt_tokens ?? 0,
+			cacheReadTokens: row.cache_read_tokens ?? 0,
+			cacheWriteTokens: row.cache_write_tokens ?? 0,
 			completionTokens: row.completion_tokens ?? 0,
 		}));
 	}

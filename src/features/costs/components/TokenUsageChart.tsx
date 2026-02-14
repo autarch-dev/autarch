@@ -24,7 +24,9 @@ export function TokenUsageChart() {
 
 	const chartData = (data ?? []).map((entry) => ({
 		name: shortModelName(entry.modelId),
-		promptTokens: entry.promptTokens,
+		uncachedPromptTokens: entry.uncachedPromptTokens,
+		cacheReadTokens: entry.cacheReadTokens,
+		cacheWriteTokens: entry.cacheWriteTokens,
 		completionTokens: entry.completionTokens,
 	}));
 
@@ -48,7 +50,9 @@ export function TokenUsageChart() {
 							<YAxis />
 							<Tooltip formatter={(value) => Number(value).toLocaleString()} />
 							<Legend />
-							<Bar dataKey="promptTokens" name="Prompt Tokens" fill="#6366f1" />
+							<Bar dataKey="uncachedPromptTokens" name="Uncached Prompt Tokens" fill="#6366f1" />
+							{chartData.some((entry) => entry.cacheReadTokens) && <Bar dataKey="cacheReadTokens" name="Cache Read Tokens" fill="#8b5cf6" />}
+							{chartData.some((entry) => entry.cacheWriteTokens) && <Bar dataKey="cacheWriteTokens" name="Cache Write Tokens" fill="#ec4899" />}
 							<Bar
 								dataKey="completionTokens"
 								name="Completion Tokens"

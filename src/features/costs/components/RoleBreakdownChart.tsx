@@ -16,7 +16,10 @@ import {
 	Tooltip,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AGENT_ROLE_DISPLAY_LABELS } from "@/shared/schemas/costs";
+import {
+	AGENT_ROLE_DISPLAY_LABELS,
+	type CostByRole,
+} from "@/shared/schemas/costs";
 import { useCostStore } from "../store/costStore";
 
 const COLORS = [
@@ -30,33 +33,55 @@ const COLORS = [
 	"#f97316",
 ];
 
+function reduceIntoRole(
+	entries: CostByRole,
+	targetRole: string,
+	shouldAggregate: (entry: CostByRole[number]) => boolean,
+) {
+	let totalCost = 0;
+	let promptTokens = 0;
+	let completionTokens = 0;
+
+	for (const entry of entries) {
+		if (shouldAggregate(entry)) {
+			totalCost += entry.totalCost;
+			promptTokens += entry.promptTokens;
+			completionTokens += entry.completionTokens;
+		}
+	}
+
+	return entries.reduce<CostByRole>((acc, e) => {
+		if (e.agentRole === targetRole) {
+			acc.push({
+				agentRole: targetRole,
+				totalCost: totalCost + e.totalCost,
+				promptTokens: promptTokens + e.promptTokens,
+				completionTokens: completionTokens + e.completionTokens,
+			});
+		} else if (!shouldAggregate(e)) {
+			acc.push(e);
+		}
+
+		return acc;
+	}, []);
+}
+
 export function RoleBreakdownChart() {
 	const { data, loading, error } = useCostStore((s) => s.byRole);
 
 	const aggregated = useMemo(() => {
-		const entries = data ?? [];
-		const reviewSubs = entries.filter((e) => e.agentRole === "review_sub");
-		if (reviewSubs.length === 0) return entries;
-
-		const others = entries.filter((e) => e.agentRole !== "review_sub");
-		const reviewEntry = others.find((e) => e.agentRole === "review");
-
-		const merged = {
-			agentRole: "review" as const,
-			totalCost: reviewEntry?.totalCost ?? 0,
-			promptTokens: reviewEntry?.promptTokens ?? 0,
-			completionTokens: reviewEntry?.completionTokens ?? 0,
-		};
-		for (const sub of reviewSubs) {
-			merged.totalCost += sub.totalCost;
-			merged.promptTokens += sub.promptTokens;
-			merged.completionTokens += sub.completionTokens;
-		}
-
-		if (reviewEntry) {
-			return others.map((e) => (e.agentRole === "review" ? merged : e));
-		}
-		return [...others, merged];
+		return reduceIntoRole(
+			reduceIntoRole(data ?? [], "review", (e) => e.agentRole === "review_sub"),
+			"roadmap",
+			(e) =>
+				[
+					"visionary",
+					"iterative",
+					"pathfinder",
+					"tech_lead",
+					"synthesis",
+				].includes(e.agentRole),
+		);
 	}, [data]);
 
 	const chartData = aggregated.map((entry) => ({
