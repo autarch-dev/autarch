@@ -38,32 +38,29 @@ function reduceIntoRole(
 	targetRole: string,
 	shouldAggregate: (entry: CostByRole[number]) => boolean,
 ) {
-	let totalCost = 0;
-	let promptTokens = 0;
-	let completionTokens = 0;
+	const targetEntry = entries.find((e) => e.agentRole === targetRole) ?? {
+		agentRole: targetRole,
+		totalCost: 0,
+		promptTokens: 0,
+		completionTokens: 0,
+	};
 
 	for (const entry of entries) {
 		if (shouldAggregate(entry)) {
-			totalCost += entry.totalCost;
-			promptTokens += entry.promptTokens;
-			completionTokens += entry.completionTokens;
+			targetEntry.totalCost += entry.totalCost;
+			targetEntry.promptTokens += entry.promptTokens;
+			targetEntry.completionTokens += entry.completionTokens;
 		}
 	}
 
 	return entries.reduce<CostByRole>((acc, e) => {
-		if (e.agentRole === targetRole) {
-			acc.push({
-				agentRole: targetRole,
-				totalCost: totalCost + e.totalCost,
-				promptTokens: promptTokens + e.promptTokens,
-				completionTokens: completionTokens + e.completionTokens,
-			});
-		} else if (!shouldAggregate(e)) {
-			acc.push(e);
+		if (shouldAggregate(e) || e.agentRole === targetRole) {
+			return acc;
 		}
 
+		acc.push(e);
 		return acc;
-	}, []);
+	}, [targetEntry]);
 }
 
 export function RoleBreakdownChart() {
@@ -72,7 +69,7 @@ export function RoleBreakdownChart() {
 	const aggregated = useMemo(() => {
 		return reduceIntoRole(
 			reduceIntoRole(data ?? [], "review", (e) => e.agentRole === "review_sub"),
-			"roadmap",
+			"roadmap_planning",
 			(e) =>
 				[
 					"visionary",
