@@ -12,7 +12,7 @@ import {
 	type ToolDefinition,
 	type ToolResult,
 } from "../types";
-import { getDiagnosticsThreadPool } from "./diagnostics";
+import { getDiagnostics } from "./diagnostics";
 import {
 	buildContextOutput,
 	calculateReplacementPositions,
@@ -200,7 +200,7 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 
 			// Check for type errors if it's a TypeScript file
 			let diagnosticOutput = "";
-			const diagnostics = await getDiagnosticsThreadPool.run(context, fullPath);
+			const diagnostics = await getDiagnostics(context, fullPath);
 			if (diagnostics) {
 				diagnosticOutput = `\n\n⚠️ Type errors:\n${diagnostics}`;
 			}

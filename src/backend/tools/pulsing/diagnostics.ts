@@ -1,42 +1,41 @@
-import { ThreadPool } from "bun-threads";
+import { Project } from "ts-morph";
+import { log } from "@/backend/logger";
+import { getTsconfigPath } from "@/backend/services/project";
 import type { ToolContext } from "../types";
 
-export const getDiagnosticsThreadPool = new ThreadPool(
-	async (context: ToolContext, fullPath: string) => {
-		const { Project } = await import("ts-morph");
-		const { log } = await import("@/backend/logger");
-		const { getTsconfigPath } = await import("@/backend/services/project");
+export const getDiagnostics = async (
+	context: ToolContext,
+	fullPath: string,
+) => {
+	if (!/\.tsx?$/.test(fullPath)) {
+		log.tools.info(`getDiagnostics: ${fullPath} is not a TypeScript file`);
+		return null;
+	}
 
-		if (!/\.tsx?$/.test(fullPath)) {
-			log.tools.info(`getDiagnostics: ${fullPath} is not a TypeScript file`);
-			return null;
-		}
-
-		const tsconfigPath = await getTsconfigPath(
-			context.worktreePath ?? context.projectRoot,
-		);
-		if (!tsconfigPath) {
-			log.tools.info(
-				`getDiagnostics: no tsconfig.json found for project ${context.worktreePath ?? context.projectRoot}`,
-			);
-			return null;
-		}
-
-		const project = new Project({
-			tsConfigFilePath: tsconfigPath,
-		});
-
-		project.resolveSourceFileDependencies();
-		const diagnostics = project.getPreEmitDiagnostics();
-
+	const tsconfigPath = await getTsconfigPath(
+		context.worktreePath ?? context.projectRoot,
+	);
+	if (!tsconfigPath) {
 		log.tools.info(
-			`getDiagnostics: ${fullPath} has ${diagnostics.length} type error(s)`,
+			`getDiagnostics: no tsconfig.json found for project ${context.worktreePath ?? context.projectRoot}`,
 		);
+		return null;
+	}
 
-		if (diagnostics.length === 0) {
-			return "✅ No type errors found";
-		}
+	const project = new Project({
+		tsConfigFilePath: tsconfigPath,
+	});
 
-		return project.formatDiagnosticsWithColorAndContext(diagnostics);
-	},
-);
+	project.resolveSourceFileDependencies();
+	const diagnostics = project.getPreEmitDiagnostics();
+
+	log.tools.info(
+		`getDiagnostics: ${fullPath} has ${diagnostics.length} type error(s)`,
+	);
+
+	if (diagnostics.length === 0) {
+		return "✅ No type errors found";
+	}
+
+	return project.formatDiagnosticsWithColorAndContext(diagnostics);
+};
