@@ -350,22 +350,49 @@ export const knowledgeRoutes = {
 				}
 
 				const repo = await getKnowledgeRepo();
-				const updatedItem = await repo.update(params.id, parsed.data);
-				if (!updatedItem) {
+				const existingItem = await repo.getById(params.id);
+				if (!existingItem) {
 					return Response.json(
 						{ error: "Knowledge item not found" },
 						{ status: 404 },
 					);
 				}
 
-				if (
-					parsed.data.title !== undefined ||
-					parsed.data.content !== undefined
-				) {
-					const embeddingText = `${updatedItem.title}\n\n${updatedItem.content}`;
+				const semanticFieldChanged =
+					parsed.data.title !== undefined || parsed.data.content !== undefined;
+
+				let updatedItem: KnowledgeItem | null;
+
+				if (semanticFieldChanged) {
+					// Compute embedding before any DB writes so a failure here
+					// leaves the database unchanged.
+					const newTitle =
+						parsed.data.title !== undefined
+							? parsed.data.title
+							: existingItem.title;
+					const newContent =
+						parsed.data.content !== undefined
+							? parsed.data.content
+							: existingItem.content;
+					const embeddingText = `${newTitle}\n\n${newContent}`;
 					const embeddingResult = await embed(embeddingText);
 					const embeddingBuffer = Buffer.from(embeddingResult.buffer);
-					await repo.upsertEmbedding(params.id, embeddingBuffer);
+
+					// Update item and embedding in a single transaction
+					updatedItem = await repo.updateWithEmbedding(
+						params.id,
+						parsed.data,
+						embeddingBuffer,
+					);
+				} else {
+					updatedItem = await repo.update(params.id, parsed.data);
+				}
+
+				if (!updatedItem) {
+					return Response.json(
+						{ error: "Knowledge item not found" },
+						{ status: 404 },
+					);
 				}
 
 				return Response.json(updatedItem satisfies KnowledgeItem, {

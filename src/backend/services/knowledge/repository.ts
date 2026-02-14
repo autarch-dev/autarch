@@ -217,6 +217,7 @@ export class KnowledgeRepository {
 			.onConflict((oc) =>
 				oc.column("id").doUpdateSet({
 					embedding: new Uint8Array(embedding),
+					created_at: Date.now(),
 				}),
 			)
 			.execute();
@@ -378,6 +379,71 @@ export class KnowledgeRepository {
 			.set(updateObj)
 			.where("id", "=", id)
 			.execute();
+
+		return this.getById(id);
+	}
+
+	/**
+	 * Update a knowledge item and regenerate its embedding in a single transaction.
+	 * Ensures the item text and embedding are always consistent — both succeed or
+	 * both fail. The embedding buffer should be pre-computed before calling this
+	 * method to keep the transaction short.
+	 *
+	 * Returns the updated item, or null if not found.
+	 */
+	async updateWithEmbedding(
+		id: string,
+		data: {
+			title?: string;
+			content?: string;
+			category?: KnowledgeCategory;
+			tags?: string[];
+			archived?: boolean;
+		},
+		embedding: Buffer,
+	): Promise<KnowledgeItem | null> {
+		const updateObj: UpdateableKnowledgeItem = {};
+
+		if (data.title !== undefined) {
+			updateObj.title = data.title;
+		}
+		if (data.content !== undefined) {
+			updateObj.content = data.content;
+		}
+		if (data.category !== undefined) {
+			updateObj.category = data.category;
+		}
+		if (data.tags !== undefined) {
+			updateObj.tags_json = JSON.stringify(data.tags);
+		}
+		if (data.archived !== undefined) {
+			updateObj.archived = data.archived ? 1 : 0;
+		}
+
+		await this.db.transaction().execute(async (trx) => {
+			if (Object.keys(updateObj).length > 0) {
+				await trx
+					.updateTable("knowledge_items")
+					.set(updateObj)
+					.where("id", "=", id)
+					.execute();
+			}
+
+			await trx
+				.insertInto("knowledge_embeddings")
+				.values({
+					id,
+					embedding: new Uint8Array(embedding),
+					created_at: Date.now(),
+				})
+				.onConflict((oc) =>
+					oc.column("id").doUpdateSet({
+						embedding: new Uint8Array(embedding),
+						created_at: Date.now(),
+					}),
+				)
+				.execute();
+		});
 
 		return this.getById(id);
 	}
