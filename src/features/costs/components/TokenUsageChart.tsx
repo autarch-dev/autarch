@@ -19,6 +19,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCostStore } from "../store/costStore";
 import { shortModelName } from "../utils/formatModelName";
 
+function condenseFormatNumber(value: number): string {
+	if (value >= 1000000) {
+		return `${(value / 1000000)}M`;
+	}
+	if (value >= 1000) {
+		return `${(value / 1000)}K`;
+	}
+	return value.toLocaleString();
+}
+
 export function TokenUsageChart() {
 	const { data, loading, error } = useCostStore((s) => s.tokens);
 
@@ -47,14 +57,15 @@ export function TokenUsageChart() {
 						<BarChart data={chartData}>
 							<CartesianGrid strokeDasharray="3 3" />
 							<XAxis dataKey="name" />
-							<YAxis />
+							<YAxis tickFormatter={(value) => condenseFormatNumber(Number(value))} />
 							<Tooltip formatter={(value) => Number(value).toLocaleString()} />
 							<Legend />
-							<Bar dataKey="uncachedPromptTokens" name="Uncached Prompt Tokens" fill="#6366f1" />
-							{chartData.some((entry) => entry.cacheReadTokens) && <Bar dataKey="cacheReadTokens" name="Cache Read Tokens" fill="#8b5cf6" />}
-							{chartData.some((entry) => entry.cacheWriteTokens) && <Bar dataKey="cacheWriteTokens" name="Cache Write Tokens" fill="#ec4899" />}
+							<Bar dataKey="uncachedPromptTokens" stackId="tokens" name="Uncached Prompt Tokens" fill="#6366f1" />
+							{chartData.some((entry) => entry.cacheReadTokens) && <Bar dataKey="cacheReadTokens" stackId="tokens" name="Cache Read Tokens" fill="#8b5cf6" />}
+							{chartData.some((entry) => entry.cacheWriteTokens) && <Bar dataKey="cacheWriteTokens" stackId="tokens" name="Cache Write Tokens" fill="#ec4899" />}
 							<Bar
 								dataKey="completionTokens"
+								stackId="tokens"
 								name="Completion Tokens"
 								fill="#f59e0b"
 							/>

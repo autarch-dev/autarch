@@ -16,7 +16,7 @@ import { useCostStore } from "../store/costStore";
 
 /** Format a number as a dollar amount with 2 decimal places */
 function formatDollars(amount: number): string {
-	return `$${amount.toFixed(2)}`;
+	return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
 }
 
 /** Format a large number with comma separators */

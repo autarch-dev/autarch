@@ -104,7 +104,7 @@ export function RoleBreakdownChart() {
 				) : (
 					<ResponsiveContainer width="100%" height={300}>
 						<PieChart>
-							<Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
+							<Tooltip formatter={(value) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(value))} />
 							<Legend />
 							<Pie
 								data={chartData}
@@ -113,7 +113,7 @@ export function RoleBreakdownChart() {
 								cx="50%"
 								cy="50%"
 								outerRadius={100}
-								label={({ value }) => `$${Number(value).toFixed(2)}`}
+								label={({ value }) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(value))}
 							>
 								{chartData.map((entry, index) => (
 									<Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
