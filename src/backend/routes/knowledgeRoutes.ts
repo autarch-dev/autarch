@@ -357,6 +357,17 @@ export const knowledgeRoutes = {
 						{ status: 404 },
 					);
 				}
+
+				if (
+					parsed.data.title !== undefined ||
+					parsed.data.content !== undefined
+				) {
+					const embeddingText = `${updatedItem.title}\n\n${updatedItem.content}`;
+					const embeddingResult = await embed(embeddingText);
+					const embeddingBuffer = Buffer.from(embeddingResult.buffer);
+					await repo.upsertEmbedding(params.id, embeddingBuffer);
+				}
+
 				return Response.json(updatedItem satisfies KnowledgeItem, {
 					status: 200,
 				});
