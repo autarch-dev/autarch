@@ -51,6 +51,9 @@ function parseFiltersFromSearch(search: string) {
 	const archived = params.get("archived");
 	if (archived) filters.archived = archived === "true";
 
+	const tags = params.get("tags");
+	if (tags) filters.tags = tags;
+
 	return filters;
 }
 
@@ -89,7 +92,8 @@ export function KnowledgePage() {
 		filters.workflowId != null ||
 		filters.startDate != null ||
 		filters.endDate != null ||
-		filters.archived != null;
+		filters.archived != null ||
+		filters.tags != null;
 	const isEmptyKnowledgeBase =
 		!items.loading &&
 		hasData &&
@@ -168,6 +172,7 @@ export function KnowledgePage() {
 			startDate: undefined,
 			endDate: undefined,
 			archived: undefined,
+			tags: undefined,
 			offset: 0,
 		});
 		setSearchQuery("");
