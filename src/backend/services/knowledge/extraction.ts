@@ -51,7 +51,7 @@ const KnowledgeItemSchema = z.object({
 	tags: z
 		.array(z.string())
 		.describe(
-			"Relevant tags for filtering (e.g., typescript, testing, database, api, error-handling)",
+			"Relevant namespaced tags for filtering. Use three namespaces: feature:* (e.g., feature:auth, feature:search), pattern:* (e.g., pattern:error-handling, pattern:caching), stack:* (e.g., stack:postgres, stack:typescript)",
 		),
 });
 
@@ -178,7 +178,7 @@ For research findings: the Summary, Dependencies, and Recommendations sections a
 
 Each item must be self-contained, specific, and actionable in isolation. Include file paths, code snippets, or concrete examples where available.
 
-Tags: lowercase, single words or hyphenated (e.g., "typescript", "error-handling", "api-design").
+Tags: use exactly three namespaces — feature:*, pattern:*, and stack:*. The value portion must be lowercase and hyphenated. Examples: feature:auth, feature:search, pattern:error-handling, pattern:caching, stack:postgres, stack:typescript.
 
 If nothing passes the filters, return an empty items array. An empty result is preferable to low-quality extractions.`;
 
