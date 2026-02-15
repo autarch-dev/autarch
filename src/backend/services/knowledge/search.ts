@@ -10,6 +10,7 @@ import { getKnowledgeDb } from "@/backend/db/knowledge";
 import type { KnowledgeCategory } from "@/backend/db/knowledge/types";
 import { log } from "@/backend/logger";
 import { embed } from "@/backend/services/embedding/provider";
+import { KNOWLEDGE_CONFIG } from "./config";
 import { type KnowledgeItem, KnowledgeRepository } from "./repository";
 
 // =============================================================================
@@ -44,7 +45,7 @@ export interface KnowledgeSearchResult extends KnowledgeItem {
 const DEFAULT_LIMIT = 20;
 
 /** Minimum similarity threshold to filter noise */
-const SIMILARITY_THRESHOLD = 0.5;
+const SIMILARITY_THRESHOLD = KNOWLEDGE_CONFIG.SEARCH_SIMILARITY_THRESHOLD;
 
 // =============================================================================
 // Vector Similarity

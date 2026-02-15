@@ -3525,5 +3525,200 @@ describe("Utility Methods", () => {
 				expect.any(String),
 			);
 		});
+
+		test("excludes items below injection similarity threshold", async () => {
+			const mockResults = [
+				{
+					id: "k-high",
+					workflowId: "wf-source",
+					title: "High relevance item",
+					content: "high relevance content",
+					category: "pattern" as const,
+					tags: [],
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					similarity: 0.9,
+				},
+				{
+					id: "k-medium",
+					workflowId: "wf-source",
+					title: "Medium relevance item",
+					content: "medium relevance content",
+					category: "pattern" as const,
+					tags: [],
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					similarity: 0.65,
+				},
+				{
+					id: "k-low",
+					workflowId: "wf-source",
+					title: "Low relevance item",
+					content: "low relevance content",
+					category: "pattern" as const,
+					tags: [],
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					similarity: 0.4,
+				},
+			];
+			mockSearchKnowledge.mockResolvedValue(mockResults as never);
+
+			const workflow = createMockWorkflow({
+				status: "scoping",
+				awaitingApproval: true,
+				pendingArtifactType: "scope_card",
+				currentSessionId: "old-session",
+			});
+			mockWorkflowRepo.getById.mockResolvedValue(workflow);
+
+			const scopeCard = createMockScopeCard({
+				recommendedPath: "full",
+			});
+			mockArtifactRepo.getLatestScopeCard.mockResolvedValue(scopeCard);
+
+			const newSession = createMockActiveSession({
+				id: "research-session",
+				agentRole: "research",
+			});
+			mockSessionManager.startSession.mockResolvedValue(newSession);
+
+			await orchestrator.approveArtifact("wf-1", { path: "full" });
+
+			expect(mockAgentRunnerRun).toHaveBeenCalled();
+			const message = (
+				mockAgentRunnerRun.mock.calls[0] as unknown as [string]
+			)[0];
+			expect(message).toContain("High relevance item");
+			expect(message).toContain("high relevance content");
+			expect(message).not.toContain("Medium relevance item");
+			expect(message).not.toContain("Low relevance item");
+		});
+
+		test("enforces token budget by prioritizing highest similarity items", async () => {
+			// Each content ~5000 chars ≈ 1250 tokens (chars/4 heuristic).
+			// With a 3000-token budget, only the top two items should fit.
+			const largeContent = "A".repeat(5000);
+			const mockResults = [
+				{
+					id: "k-top",
+					workflowId: "wf-source",
+					title: "Top priority item",
+					content: largeContent,
+					category: "pattern" as const,
+					tags: [],
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					similarity: 0.95,
+				},
+				{
+					id: "k-second",
+					workflowId: "wf-source",
+					title: "Second priority item",
+					content: largeContent,
+					category: "pattern" as const,
+					tags: [],
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					similarity: 0.85,
+				},
+				{
+					id: "k-third",
+					workflowId: "wf-source",
+					title: "Third priority item",
+					content: largeContent,
+					category: "pattern" as const,
+					tags: [],
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					similarity: 0.75,
+				},
+			];
+			mockSearchKnowledge.mockResolvedValue(mockResults as never);
+
+			const workflow = createMockWorkflow({
+				status: "scoping",
+				awaitingApproval: true,
+				pendingArtifactType: "scope_card",
+				currentSessionId: "old-session",
+			});
+			mockWorkflowRepo.getById.mockResolvedValue(workflow);
+
+			const scopeCard = createMockScopeCard({
+				recommendedPath: "full",
+			});
+			mockArtifactRepo.getLatestScopeCard.mockResolvedValue(scopeCard);
+
+			const newSession = createMockActiveSession({
+				id: "research-session",
+				agentRole: "research",
+			});
+			mockSessionManager.startSession.mockResolvedValue(newSession);
+
+			await orchestrator.approveArtifact("wf-1", { path: "full" });
+
+			expect(mockAgentRunnerRun).toHaveBeenCalled();
+			const message = (
+				mockAgentRunnerRun.mock.calls[0] as unknown as [string]
+			)[0];
+			expect(message).toContain("Top priority item");
+			expect(message).toContain("Second priority item");
+			expect(message).not.toContain("Third priority item");
+		});
+
+		test("injects nothing when all items are below injection threshold", async () => {
+			const mockResults = [
+				{
+					id: "k-below1",
+					workflowId: "wf-source",
+					title: "Below threshold item one",
+					content: "content one",
+					category: "pattern" as const,
+					tags: [],
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					similarity: 0.6,
+				},
+				{
+					id: "k-below2",
+					workflowId: "wf-source",
+					title: "Below threshold item two",
+					content: "content two",
+					category: "pattern" as const,
+					tags: [],
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					similarity: 0.5,
+				},
+			];
+			mockSearchKnowledge.mockResolvedValue(mockResults as never);
+
+			const workflow = createMockWorkflow({
+				status: "scoping",
+				awaitingApproval: true,
+				pendingArtifactType: "scope_card",
+				currentSessionId: "old-session",
+			});
+			mockWorkflowRepo.getById.mockResolvedValue(workflow);
+
+			const scopeCard = createMockScopeCard({
+				recommendedPath: "full",
+			});
+			mockArtifactRepo.getLatestScopeCard.mockResolvedValue(scopeCard);
+
+			const newSession = createMockActiveSession({
+				id: "research-session",
+				agentRole: "research",
+			});
+			mockSessionManager.startSession.mockResolvedValue(newSession);
+
+			await orchestrator.approveArtifact("wf-1", { path: "full" });
+
+			expect(mockAgentRunnerRun).toHaveBeenCalled();
+			const message = (
+				mockAgentRunnerRun.mock.calls[0] as unknown as [string]
+			)[0];
+			expect(message).not.toContain("## Relevant Knowledge");
+		});
 	});
 });

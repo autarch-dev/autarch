@@ -31,11 +31,13 @@ import {
 	type PulseRepository,
 	type WorkflowRepository,
 } from "@/backend/repositories";
+import { estimateTokens } from "@/backend/services/embedding";
 import {
 	extractKnowledge,
 	type KnowledgeSearchResult,
 	searchKnowledge,
 } from "@/backend/services/knowledge";
+import { KNOWLEDGE_CONFIG } from "@/backend/services/knowledge/config";
 import { PulseOrchestrator } from "@/backend/services/pulsing";
 import { shellApprovalService } from "@/backend/services/shell-approval";
 import { ids } from "@/backend/utils";
@@ -1491,16 +1493,37 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 				}
 			}
 
-			if (unique.length === 0) {
+			const filtered = unique.filter(
+				(item) =>
+					item.similarity >= KNOWLEDGE_CONFIG.INJECTION_SIMILARITY_THRESHOLD,
+			);
+
+			if (filtered.length === 0) {
 				return "";
 			}
 
-			let section = "\n\n## Relevant Knowledge\n\n";
-			for (const item of unique) {
-				section += `### ${item.title}\n${item.content}\n*Category: ${item.category} | Source: workflow ${item.workflowId}*\n\n`;
+			filtered.sort((a, b) => b.similarity - a.similarity);
+
+			let sections = "";
+			let cumulativeTokens = 0;
+			for (const item of filtered) {
+				const formatted = `### ${item.title}\n${item.content}\n*Category: ${item.category} | Source: workflow ${item.workflowId}*\n\n`;
+				const itemTokens = estimateTokens(formatted);
+				if (
+					cumulativeTokens + itemTokens >
+					KNOWLEDGE_CONFIG.CONTEXT_BUDGET_TOKENS
+				) {
+					break;
+				}
+				sections += formatted;
+				cumulativeTokens += itemTokens;
 			}
 
-			return section;
+			if (sections.length === 0) {
+				return "";
+			}
+
+			return `\n\n## Relevant Knowledge\n\n${sections}`;
 		} catch (err) {
 			log.workflow.warn("Failed to search knowledge store", { err });
 			return "";
