@@ -2087,7 +2087,7 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 			throw new Error(`No scope card found for workflow ${workflowId}`);
 		}
 
-		const initialMessage = `## Research Phase (Restarted)
+		let initialMessage = `## Research Phase (Restarted)
 
 The workflow has been rewound to restart research from the approved scope.
 
@@ -2109,6 +2109,11 @@ ${scopeCard.constraints?.length ? `**Constraints:**\n${scopeCard.constraints.map
 
 Investigate the codebase to understand how to implement this scope.
 When ready, submit your research findings using the \`submit_research\` tool.`;
+
+		initialMessage += await this.buildKnowledgeSection(scopeCard, [
+			"pattern",
+			"process-improvement",
+		]);
 
 		const runner = new AgentRunner(session, {
 			projectRoot,
@@ -2234,6 +2239,11 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 
 Create a detailed execution plan that breaks the implementation into discrete pulses.
 When ready, submit your plan using the \`submit_plan\` tool.`;
+
+		initialMessage += await this.buildKnowledgeSection(scopeCard, [
+			"gotcha",
+			"process-improvement",
+		]);
 
 		const runner = new AgentRunner(session, {
 			projectRoot,
@@ -2438,7 +2448,7 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 			throw new Error(`No scope card found for workflow ${workflowId}`);
 		}
 
-		const initialMessage = `## Scope for Review (Restarted)
+		let initialMessage = `## Scope for Review (Restarted)
 
 The review has been restarted. Previous comments have been cleared.
 
@@ -2452,6 +2462,11 @@ Please review the changes made for this scope. Use the available tools to:
 1. Get the diff of all changes using \`get_diff\`
 2. Add comments at the line, file, or review level as needed
 3. Complete your review with a recommendation (approve, deny, or manual_review)`;
+
+		initialMessage += await this.buildKnowledgeSection(scopeCard, [
+			"gotcha",
+			"pattern",
+		]);
 
 		// Get the worktree path for the review agent
 		const worktreePath = getWorktreePath(projectRoot, workflowId);
