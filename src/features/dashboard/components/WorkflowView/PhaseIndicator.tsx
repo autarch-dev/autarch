@@ -1,4 +1,5 @@
 import { CheckCircle2, SkipForward } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	Tooltip,
 	TooltipContent,
@@ -22,56 +23,66 @@ export function PhaseIndicator({
 	onStageClick,
 }: PhaseIndicatorProps) {
 	const currentIndex = workflowPhases.indexOf(currentStatus);
+	const activeStage = viewedStage ?? currentStatus;
 
 	return (
-		<div className="flex items-center overflow-x-auto px-1 py-2">
-			{workflowPhases.map((phase, idx) => {
-				const config = statusConfig[phase];
-				const Icon = config.icon;
-				const isSkipped = skippedStages?.includes(phase.toLowerCase()) ?? false;
-				const isComplete = idx < currentIndex && !isSkipped;
-				const isCurrent = phase === currentStatus;
-				const isPending = idx > currentIndex && !isSkipped;
-				const isEnabled = idx <= currentIndex && !isSkipped;
-				const isViewed = phase === viewedStage;
+		<Tabs
+			value={activeStage}
+			onValueChange={(value) => onStageClick?.(value as WorkflowStatus)}
+			className="w-full"
+		>
+			<div className="w-full pb-1">
+				<TabsList className="h-auto w-full gap-1 rounded-none bg-transparent p-0">
+					{workflowPhases.map((phase, idx) => {
+						const config = statusConfig[phase];
+						const Icon = config.icon;
+						const isSkipped =
+							skippedStages?.includes(phase.toLowerCase()) ?? false;
+						const isComplete = idx < currentIndex && !isSkipped;
+						const isCurrent = phase === currentStatus;
+						const isEnabled = idx <= currentIndex && !isSkipped;
+						const isSelected = phase === activeStage;
 
-				return (
-					<div key={phase} className="flex items-center">
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<button
-									type="button"
-									disabled={!isEnabled}
-									className={cn(
-										"flex items-center gap-2 px-6 py-2 text-xs font-medium transition-colors border-y-2 border-transparent",
-										isSkipped && "opacity-50 italic",
-										isCurrent && config.bg,
-										isCurrent && config.color,
-										isCurrent && "font-bold",
-										isComplete && "bg-green-700/20 text-green-500",
-										isPending && "bg-muted-foreground/20 text-muted-foreground",
-										isEnabled ? "cursor-pointer" : "cursor-not-allowed",
-										isViewed && "border-b-current",
-									)}
-									onClick={() => onStageClick?.(phase)}
-								>
-									{isSkipped ? (
-										<SkipForward className="size-3.5" />
-									) : isComplete ? (
-										<CheckCircle2 className="size-3.5" />
-									) : (
-										<Icon className="size-3.5" />
-									)}
-									<span className="hidden sm:inline">{config.label}</span>
-								</button>
-							</TooltipTrigger>
-							<TooltipContent>
-								{isSkipped ? `${config.label} (Skipped)` : config.label}
-							</TooltipContent>
-						</Tooltip>
-					</div>
-				);
-			})}
-		</div>
+						return (
+							<div key={phase}>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<TabsTrigger
+											value={phase}
+											disabled={!isEnabled}
+											className={cn(
+												"h-8 flex-1 justify-center gap-2 rounded-md border px-3 text-xs",
+												"border-transparent bg-transparent shadow-none",
+												"data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none",
+												isSkipped && "italic",
+												isComplete && "text-green-600 dark:text-green-400",
+												isCurrent && cn(config.color, "font-semibold"),
+												isSelected &&
+													"border-border bg-background text-foreground shadow-sm data-[state=active]:border-border data-[state=active]:bg-background",
+												isCurrent &&
+													isSelected &&
+													"border-current/25 bg-current/10 data-[state=active]:bg-current/10",
+											)}
+										>
+											{isSkipped ? (
+												<SkipForward className="size-3.5" />
+											) : isComplete ? (
+												<CheckCircle2 className="size-3.5" />
+											) : (
+												<Icon className="size-3.5" />
+											)}
+											<span>{config.label}</span>
+										</TabsTrigger>
+									</TooltipTrigger>
+									<TooltipContent>
+										{isSkipped ? `${config.label} (Skipped)` : config.label}
+									</TooltipContent>
+								</Tooltip>
+							</div>
+						);
+					})}
+				</TabsList>
+			</div>
+		</Tabs>
 	);
 }

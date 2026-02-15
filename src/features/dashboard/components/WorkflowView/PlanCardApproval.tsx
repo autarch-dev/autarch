@@ -150,7 +150,7 @@ export function PlanCardApproval({
 
 	return (
 		<>
-			<Card className={cn("mx-4 my-4", STATUS_STYLES[plan.status])}>
+			<Card className={cn("my-3", STATUS_STYLES[plan.status])}>
 				<CardHeader className={cn("pb-3", !isExpanded && "pb-0 -mb-2")}>
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">

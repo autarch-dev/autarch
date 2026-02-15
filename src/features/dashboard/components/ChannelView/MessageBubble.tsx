@@ -46,11 +46,13 @@ type InterleavedItem =
 interface StreamingMessageBubbleProps {
 	variant: "streaming";
 	message: StreamingMessage;
+	compact?: boolean;
 }
 
 interface CompletedMessageBubbleProps {
 	variant: "completed";
 	message: ChannelMessage;
+	compact?: boolean;
 }
 
 export type MessageBubbleProps =
@@ -164,6 +166,7 @@ export const MessageBubble = memo(function MessageBubble(
 	props: MessageBubbleProps,
 ) {
 	const isStreaming = props.variant === "streaming";
+	const compact = props.compact ?? false;
 
 	// Normalize data from both message types
 	const role = props.message.role;
@@ -238,49 +241,74 @@ export const MessageBubble = memo(function MessageBubble(
 	return (
 		<div
 			className={cn(
-				"flex gap-3 py-3 px-4 transition-colors",
+				"flex gap-3 transition-colors",
+				compact ? "px-0 py-2" : "px-4 py-3",
 				isStreaming ? "bg-muted/20" : "hover:bg-muted/30",
 			)}
 		>
-			<Avatar className="size-9 shrink-0 mt-0.5">
-				<AvatarFallback
-					className={cn(
-						"text-xs font-medium",
-						isAI
-							? "bg-primary/20 text-primary"
-							: "bg-muted text-muted-foreground",
-					)}
-				>
-					{isAI ? "A" : "U"}
-				</AvatarFallback>
-			</Avatar>
+			{!compact && (
+				<Avatar className="size-9 shrink-0 mt-0.5">
+					<AvatarFallback
+						className={cn(
+							"text-xs font-medium",
+							isAI
+								? "bg-primary/20 text-primary"
+								: "bg-muted text-muted-foreground",
+						)}
+					>
+						{isAI ? "A" : "U"}
+					</AvatarFallback>
+				</Avatar>
+			)}
 			<div className="flex-1 min-w-0">
 				{/* Header */}
-				<div className="flex items-baseline gap-2 mb-1">
-					<span className={cn("font-semibold text-sm", isAI && "text-primary")}>
-						{isAI ? "Autarch" : "You"}
-					</span>
-					{isAI && (
-						<Badge
-							variant="secondary"
-							className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary"
-						>
-							AI
-						</Badge>
-					)}
-					{isStreaming ? (
-						<span className="text-xs text-muted-foreground flex items-center gap-1">
-							<Loader2 className="size-3 animate-spin" />
-							Thinking...
+				{compact ? (
+					<div className="mb-1 flex items-center gap-2">
+						<span className="text-xs font-medium text-foreground/80">
+							{isAI ? "Autarch" : "You"}
 						</span>
-					) : (
-						timestamp && (
-							<span className="text-xs text-muted-foreground">
-								{formatTime(new Date(timestamp))}
+						{isStreaming ? (
+							<span className="text-xs text-muted-foreground flex items-center gap-1">
+								<Loader2 className="size-3 animate-spin" />
+								Thinking...
 							</span>
-						)
-					)}
-				</div>
+						) : (
+							timestamp && (
+								<span className="ml-auto text-xs text-muted-foreground">
+									{formatTime(new Date(timestamp))}
+								</span>
+							)
+						)}
+					</div>
+				) : (
+					<div className="flex items-baseline gap-2 mb-1">
+						<span
+							className={cn("font-semibold text-sm", isAI && "text-primary")}
+						>
+							{isAI ? "Autarch" : "You"}
+						</span>
+						{isAI && (
+							<Badge
+								variant="secondary"
+								className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary"
+							>
+								AI
+							</Badge>
+						)}
+						{isStreaming ? (
+							<span className="text-xs text-muted-foreground flex items-center gap-1">
+								<Loader2 className="size-3 animate-spin" />
+								Thinking...
+							</span>
+						) : (
+							timestamp && (
+								<span className="text-xs text-muted-foreground">
+									{formatTime(new Date(timestamp))}
+								</span>
+							)
+						)}
+					</div>
+				)}
 
 				{/* Content: streaming shows interleaved tools, completed collapses them */}
 				{isStreaming ? (
@@ -394,4 +422,20 @@ export const ChannelMessageBubble = memo(function ChannelMessageBubble({
 	message: ChannelMessage;
 }) {
 	return <MessageBubble variant="completed" message={message} />;
+});
+
+export const WorkflowMessageBubble = memo(function WorkflowMessageBubble({
+	message,
+}: {
+	message: ChannelMessage;
+}) {
+	return <MessageBubble variant="completed" message={message} compact />;
+});
+
+export const WorkflowStreamingBubble = memo(function WorkflowStreamingBubble({
+	message,
+}: {
+	message: StreamingMessage;
+}) {
+	return <MessageBubble variant="streaming" message={message} compact />;
 });

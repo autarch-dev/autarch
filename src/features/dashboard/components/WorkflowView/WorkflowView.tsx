@@ -173,22 +173,24 @@ export const WorkflowView = memo(function WorkflowView({
 				/>
 
 				{workflow.status !== viewedStage && (
-					<div className="mx-4 mt-2 px-4 py-2 rounded-lg border bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 flex items-center justify-between">
-						<span className="text-sm">
-							Workflow moved to {statusConfig[workflow.status].label}
-						</span>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => setViewedStage(workflow.status)}
-						>
-							View Current Stage
-						</Button>
+					<div className="border-b bg-background">
+						<div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-6 py-2">
+							<span className="text-sm text-muted-foreground">
+								Currently in {statusConfig[workflow.status].label}
+							</span>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setViewedStage(workflow.status)}
+							>
+								View Current Stage
+							</Button>
+						</div>
 					</div>
 				)}
 
 				<ScrollArea className="flex-1 min-h-0">
-					<div className="py-2">
+					<div className="mx-auto w-full max-w-5xl px-6 py-6">
 						{isLoading && !hasAnyContent ? (
 							<div className="flex items-center justify-center py-8">
 								<span className="text-muted-foreground text-sm">

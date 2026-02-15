@@ -33,8 +33,8 @@ import type {
 } from "@/shared/schemas/workflow";
 import type { StreamingMessage } from "../../store/workflowsStore";
 import {
-	ChannelMessageBubble,
-	StreamingMessageBubble,
+	WorkflowMessageBubble,
+	WorkflowStreamingBubble,
 } from "../ChannelView/MessageBubble";
 import type { StageViewProps } from "./types";
 
@@ -199,10 +199,10 @@ function PreflightCollapsibleItem({
 						</p>
 					)}
 					{preflightMessages.map((message) => (
-						<ChannelMessageBubble key={message.id} message={message} />
+						<WorkflowMessageBubble key={message.id} message={message} />
 					))}
 					{isStreamingPreflight && (
-						<StreamingMessageBubble message={streamingMessage} />
+						<WorkflowStreamingBubble message={streamingMessage} />
 					)}
 					{preflightMessages.length === 0 &&
 						!isStreamingPreflight &&
@@ -361,10 +361,10 @@ function PulseCollapsibleItem({
 						<p className="text-sm text-muted-foreground">{pulseDescription}</p>
 					)}
 					{pulseMessages.map((message) => (
-						<ChannelMessageBubble key={message.id} message={message} />
+						<WorkflowMessageBubble key={message.id} message={message} />
 					))}
 					{isStreamingThisPulse && (
-						<StreamingMessageBubble message={streamingMessage} />
+						<WorkflowStreamingBubble message={streamingMessage} />
 					)}
 					{pulseMessages.length === 0 &&
 						!isStreamingThisPulse &&
@@ -415,8 +415,39 @@ export function ExecutionStageView({
 		return map;
 	}, [plans]);
 
+	const completedCount = pulses.filter((p) => p.status === "succeeded").length;
+	const unresolvedCount = pulses.filter((p) => p.hasUnresolvedIssues).length;
+	const runningPulse = pulses.find((p) => p.status === "running") ?? null;
+	const progressPct =
+		pulses.length > 0 ? Math.round((completedCount / pulses.length) * 100) : 0;
+
 	return (
-		<div className="flex flex-col gap-3 p-4">
+		<div className="flex flex-col gap-3">
+			<div className="rounded-xl border bg-card p-4">
+				<div className="mb-3 flex items-center justify-between">
+					<div>
+						<p className="text-sm font-medium">Execution Progress</p>
+						<p className="text-xs text-muted-foreground">
+							{completedCount} of {pulses.length} pulses completed
+							{runningPulse && ` · Running: ${runningPulse.description}`}
+						</p>
+					</div>
+					<div className="text-right">
+						<p className="text-lg font-semibold tabular-nums">{progressPct}%</p>
+						{unresolvedCount > 0 && (
+							<p className="text-xs text-amber-600 dark:text-amber-400">
+								{unresolvedCount} unresolved
+							</p>
+						)}
+					</div>
+				</div>
+				<div className="h-2 overflow-hidden rounded-full bg-muted">
+					<div
+						className="h-full bg-primary transition-all duration-500"
+						style={{ width: `${progressPct}%` }}
+					/>
+				</div>
+			</div>
 			{/* Preflight Setup - only render if it exists (quick path workflows skip this) */}
 			{preflightSetup && (
 				<PreflightCollapsibleItem

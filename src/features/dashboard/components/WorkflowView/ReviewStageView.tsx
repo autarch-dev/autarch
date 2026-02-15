@@ -26,8 +26,8 @@ import { cn } from "@/lib/utils";
 import type { Plan, ReviewCard } from "@/shared/schemas/workflow";
 import { type Subtask, useSubtasks } from "../../store/workflowsStore";
 import {
-	ChannelMessageBubble,
-	StreamingMessageBubble,
+	WorkflowMessageBubble,
+	WorkflowStreamingBubble,
 } from "../ChannelView/MessageBubble";
 import { PlanCardApproval } from "./PlanCardApproval";
 import ReviewCardApproval from "./ReviewCardApproval";
@@ -302,7 +302,7 @@ function SubtaskStatusSection({ subtasks }: { subtasks: Subtask[] }) {
 	const totalCount = subtasks.length;
 
 	return (
-		<div className="mx-4 mb-2">
+		<div className="mb-2">
 			<Collapsible defaultOpen>
 				<CollapsibleTrigger asChild>
 					<button
@@ -354,18 +354,36 @@ export function ReviewStageView({
 		[messages],
 	);
 
-	// Build artifactsByTurn map grouping review card artifacts by their turnId
-	const artifactsByTurn = useMemo(() => {
-		const map = new Map<string, ReviewCard>();
+	const reviewRounds = useMemo(() => {
+		const sortedReviews = [...reviewCards].sort(
+			(a, b) => a.createdAt - b.createdAt,
+		);
+		let cursor = 0;
 
-		for (const reviewCard of reviewCards) {
-			if (reviewCard.turnId) {
-				map.set(reviewCard.turnId, reviewCard);
-			}
-		}
+		return sortedReviews.map((reviewCard) => {
+			const turnIdx = reviewCard.turnId
+				? stageMessages.findIndex((m) => m.turnId === reviewCard.turnId)
+				: -1;
+			const endExclusive =
+				turnIdx >= cursor
+					? Math.min(turnIdx + 1, stageMessages.length)
+					: cursor;
+			const roundMessages = stageMessages.slice(cursor, endExclusive);
+			cursor = endExclusive;
 
-		return map;
-	}, [reviewCards]);
+			return { reviewCard, messages: roundMessages, endExclusive };
+		});
+	}, [reviewCards, stageMessages]);
+
+	const currentRound =
+		reviewRounds.length > 0 ? reviewRounds[reviewRounds.length - 1] : null;
+	const historyRounds =
+		reviewRounds.length > 1
+			? reviewRounds.slice(0, reviewRounds.length - 1)
+			: [];
+	const postReviewMessages = currentRound
+		? stageMessages.slice(currentRound.endExclusive)
+		: stageMessages;
 
 	// Get approved plan for PreviousStageContext
 	const approvedPlan = useMemo(() => {
@@ -400,10 +418,10 @@ export function ReviewStageView({
 	};
 
 	return (
-		<>
+		<div className="space-y-3">
 			{/* PreviousStageContext: Show approved plan if exists */}
 			{approvedPlan && (
-				<div className="mx-4 mb-2">
+				<div>
 					<PlanCardApproval
 						key={`prev-${approvedPlan.id}`}
 						plan={approvedPlan}
@@ -414,24 +432,71 @@ export function ReviewStageView({
 			{/* Subtask status section: show between PreviousStageContext and messages */}
 			{subtasks.length > 0 && <SubtaskStatusSection subtasks={subtasks} />}
 
-			{/* Messages with interleaved artifacts */}
-			{stageMessages.map((message) => {
-				const reviewCard = artifactsByTurn.get(message.turnId);
-				return (
-					<div key={message.id}>
-						<ChannelMessageBubble message={message} />
-						{reviewCard && renderReviewCard(reviewCard)}
+			{/* Historical rounds are hidden behind a compact collapsible */}
+			{historyRounds.length > 0 && (
+				<Collapsible>
+					<CollapsibleTrigger asChild>
+						<button
+							type="button"
+							className="flex w-full items-center justify-between rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-accent/30 transition-colors"
+						>
+							<span className="text-sm font-medium">
+								Review History ({historyRounds.length} rounds)
+							</span>
+							<ChevronRight className="h-4 w-4 text-muted-foreground" />
+						</button>
+					</CollapsibleTrigger>
+					<CollapsibleContent className="space-y-3 pt-2">
+						{historyRounds.map((round, idx) => (
+							<Collapsible key={round.reviewCard.id}>
+								<CollapsibleTrigger asChild>
+									<button
+										type="button"
+										className="flex w-full items-center justify-between rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+									>
+										<span className="text-sm">
+											Round {idx + 1} · {round.reviewCard.status} ·{" "}
+											{round.reviewCard.comments.length} comments
+										</span>
+										<ChevronDown className="h-4 w-4 text-muted-foreground" />
+									</button>
+								</CollapsibleTrigger>
+								<CollapsibleContent className="space-y-2 pt-2">
+									{round.messages.map((message) => (
+										<WorkflowMessageBubble key={message.id} message={message} />
+									))}
+									{renderReviewCard(round.reviewCard)}
+								</CollapsibleContent>
+							</Collapsible>
+						))}
+					</CollapsibleContent>
+				</Collapsible>
+			)}
+
+			{/* Current round */}
+			{currentRound ? (
+				<div className="space-y-2">
+					<div className="rounded-lg border bg-background px-3 py-2">
+						<p className="text-sm font-medium">Current Review Round</p>
 					</div>
-				);
-			})}
+					{currentRound.messages.map((message) => (
+						<WorkflowMessageBubble key={message.id} message={message} />
+					))}
+					{renderReviewCard(currentRound.reviewCard)}
+				</div>
+			) : (
+				postReviewMessages.map((message) => (
+					<WorkflowMessageBubble key={message.id} message={message} />
+				))
+			)}
 
 			{/* Streaming message (only if it belongs to this stage) */}
 			{streamingMessage && streamingMessage.agentRole === "review" && (
-				<StreamingMessageBubble message={streamingMessage} />
+				<WorkflowStreamingBubble message={streamingMessage} />
 			)}
 
 			{/* Auto-scroll anchor */}
 			<div ref={messagesEndRef} />
-		</>
+		</div>
 	);
 }

@@ -23,6 +23,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,11 +32,16 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useWorkflowsStore } from "@/features/dashboard/store/workflowsStore";
 import { cn } from "@/lib/utils";
 import type { MergeStrategy, ReviewCard } from "@/shared/schemas/workflow";
 import { Markdown } from "../../Markdown";
 import { reviewCardToMarkdown } from "../artifactMarkdown";
-import { DiffViewerModal } from "../DiffViewer";
+import {
+	type AddCommentPayload,
+	DiffViewer,
+	DiffViewerModal,
+} from "../DiffViewer";
 import { CommentSection, groupCommentsByType } from "./CommentSection";
 import {
 	ApproveDialog,
@@ -115,6 +121,9 @@ export default function ReviewCardApproval({
 	onRewind,
 	onRequestFixes,
 }: ReviewCardApprovalProps) {
+	const createReviewComment = useWorkflowsStore(
+		(state) => state.createReviewComment,
+	);
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(reviewCard.status === "pending");
 	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
@@ -288,9 +297,18 @@ export default function ReviewCardApproval({
 		}
 	};
 
+	const handleInlineAddComment = async (payload: AddCommentPayload) => {
+		await createReviewComment(reviewCard.workflowId, {
+			type: payload.type,
+			filePath: payload.filePath,
+			startLine: payload.startLine,
+			description: payload.description,
+		});
+	};
+
 	return (
 		<>
-			<Card className={cn("mx-4 my-4", STATUS_STYLES[reviewCard.status])}>
+			<Card className={cn("my-3", STATUS_STYLES[reviewCard.status])}>
 				<CardHeader className={cn("pb-3", !isExpanded && "pb-0 -mb-2")}>
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2">
@@ -420,6 +438,34 @@ export default function ReviewCardApproval({
 						{reviewCard.summary && (
 							<div className="bg-muted/30 rounded-lg p-3 border">
 								<Markdown className="text-sm">{reviewCard.summary}</Markdown>
+							</div>
+						)}
+
+						{/* Docked Diff Viewer */}
+						{diff && diff.trim() !== "" && (
+							<div className="rounded-lg border overflow-hidden">
+								<div className="flex items-center justify-between border-b bg-muted/30 px-3 py-2">
+									<span className="text-sm font-medium">Code Changes</span>
+									<DiffViewerModal
+										diff={diff}
+										comments={reviewCard.comments}
+										workflowId={reviewCard.workflowId}
+										trigger={
+											<Button variant="ghost" size="sm">
+												<GitCompareArrows className="size-4 mr-1" />
+												Expand
+											</Button>
+										}
+									/>
+								</div>
+								<ErrorBoundary featureName="Inline Diff Viewer">
+									<DiffViewer
+										diff={diff}
+										comments={reviewCard.comments}
+										onAddComment={handleInlineAddComment}
+										className="h-[420px]"
+									/>
+								</ErrorBoundary>
 							</div>
 						)}
 

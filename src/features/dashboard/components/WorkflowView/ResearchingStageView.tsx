@@ -9,8 +9,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ResearchCard, ScopeCard } from "@/shared/schemas/workflow";
 import {
-	ChannelMessageBubble,
-	StreamingMessageBubble,
+	WorkflowMessageBubble,
+	WorkflowStreamingBubble,
 } from "../ChannelView/MessageBubble";
 import { ResearchCardApproval } from "./ResearchCardApproval";
 import { ScopeCardApproval } from "./ScopeCardApproval";
@@ -83,10 +83,10 @@ export function ResearchingStageView({
 	};
 
 	return (
-		<>
+		<div className="space-y-3">
 			{/* PreviousStageContext: Show approved scope card if exists */}
 			{approvedScopeCard && (
-				<div className="mx-4 mb-2">
+				<div>
 					<ScopeCardApproval
 						key={`prev-${approvedScopeCard.id}`}
 						scopeCard={approvedScopeCard}
@@ -99,7 +99,7 @@ export function ResearchingStageView({
 				const researchCard = artifactsByTurn.get(message.turnId);
 				return (
 					<div key={message.id}>
-						<ChannelMessageBubble message={message} />
+						<WorkflowMessageBubble message={message} />
 						{researchCard && renderResearchCard(researchCard)}
 					</div>
 				);
@@ -107,11 +107,11 @@ export function ResearchingStageView({
 
 			{/* Streaming message (only if it belongs to this stage) */}
 			{streamingMessage && streamingMessage.agentRole === "research" && (
-				<StreamingMessageBubble message={streamingMessage} />
+				<WorkflowStreamingBubble message={streamingMessage} />
 			)}
 
 			{/* Auto-scroll anchor */}
 			<div ref={messagesEndRef} />
-		</>
+		</div>
 	);
 }

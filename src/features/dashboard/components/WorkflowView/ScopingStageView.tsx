@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/card";
 import type { ScopeCard } from "@/shared/schemas/workflow";
 import {
-	ChannelMessageBubble,
-	StreamingMessageBubble,
+	WorkflowMessageBubble,
+	WorkflowStreamingBubble,
 } from "../ChannelView/MessageBubble";
 import { ScopeCardApproval } from "./ScopeCardApproval";
 import type { StageViewProps } from "./types";
@@ -79,9 +79,9 @@ export function ScopingStageView({
 	};
 
 	return (
-		<>
+		<div className="space-y-3">
 			{/* PreviousStageContext: For scoping stage, show workflow context card */}
-			<Card className="mx-4 mb-2">
+			<Card>
 				<CardHeader>
 					<CardTitle>{workflow.title}</CardTitle>
 					{workflow.description && (
@@ -95,7 +95,7 @@ export function ScopingStageView({
 				const scopeCard = artifactsByTurn.get(message.turnId);
 				return (
 					<div key={message.id}>
-						<ChannelMessageBubble message={message} />
+						<WorkflowMessageBubble message={message} />
 						{scopeCard && renderScopeCard(scopeCard)}
 					</div>
 				);
@@ -103,11 +103,11 @@ export function ScopingStageView({
 
 			{/* Streaming message (only if it belongs to this stage) */}
 			{streamingMessage && streamingMessage.agentRole === "scoping" && (
-				<StreamingMessageBubble message={streamingMessage} />
+				<WorkflowStreamingBubble message={streamingMessage} />
 			)}
 
 			{/* Auto-scroll anchor */}
 			<div ref={messagesEndRef} />
-		</>
+		</div>
 	);
 }
