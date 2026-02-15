@@ -10,6 +10,7 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
+import type { KnowledgeCategory } from "@/backend/db/knowledge/types";
 import {
 	checkoutInWorktree,
 	cleanupWorkflow,
@@ -30,7 +31,11 @@ import {
 	type PulseRepository,
 	type WorkflowRepository,
 } from "@/backend/repositories";
-import { extractKnowledge } from "@/backend/services/knowledge";
+import {
+	extractKnowledge,
+	type KnowledgeSearchResult,
+	searchKnowledge,
+} from "@/backend/services/knowledge";
 import { PulseOrchestrator } from "@/backend/services/pulsing";
 import { shellApprovalService } from "@/backend/services/shell-approval";
 import { ids } from "@/backend/utils";
@@ -47,6 +52,7 @@ import {
 import type {
 	MergeStrategy,
 	RewindTarget,
+	ScopeCard,
 	WorkflowStatus,
 } from "@/shared/schemas/workflow";
 import {
@@ -1446,6 +1452,60 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 	// ===========================================================================
 	// Helpers
 	// ===========================================================================
+
+	/**
+	 * Search the knowledge store for items relevant to the given scope card,
+	 * filtered by category. Returns a formatted markdown section or empty string.
+	 */
+	private async buildKnowledgeSection(
+		scopeCard: ScopeCard,
+		categories: KnowledgeCategory[],
+	): Promise<string> {
+		try {
+			let query = `${scopeCard.title} ${scopeCard.description} ${scopeCard.inScope.join(" ")}`;
+			if (query.length > 2000) {
+				query = query.slice(0, 2000);
+			}
+
+			const projectRoot = getProjectRoot();
+
+			const results = await Promise.allSettled(
+				categories.map((cat) =>
+					searchKnowledge(query, { category: cat }, projectRoot),
+				),
+			);
+
+			const merged: KnowledgeSearchResult[] = [];
+			for (const result of results) {
+				if (result.status === "fulfilled") {
+					merged.push(...result.value);
+				}
+			}
+
+			const seen = new Set<string>();
+			const unique: KnowledgeSearchResult[] = [];
+			for (const item of merged) {
+				if (!seen.has(item.id)) {
+					seen.add(item.id);
+					unique.push(item);
+				}
+			}
+
+			if (unique.length === 0) {
+				return "";
+			}
+
+			let section = "\n\n## Relevant Knowledge\n\n";
+			for (const item of unique) {
+				section += `### ${item.title}\n${item.content}\n*Category: ${item.category} | Source: workflow ${item.workflowId}*\n\n`;
+			}
+
+			return section;
+		} catch (err) {
+			log.workflow.warn("Failed to search knowledge store", { err });
+			return "";
+		}
+	}
 
 	/**
 	 * Build the initial message for a new stage's agent based on the approved artifact
