@@ -10,6 +10,7 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
+import type { KnowledgeCategory } from "@/backend/db/knowledge/types";
 import {
 	checkoutInWorktree,
 	cleanupWorkflow,
@@ -30,7 +31,11 @@ import {
 	type PulseRepository,
 	type WorkflowRepository,
 } from "@/backend/repositories";
-import { extractKnowledge } from "@/backend/services/knowledge";
+import {
+	extractKnowledge,
+	type KnowledgeSearchResult,
+	searchKnowledge,
+} from "@/backend/services/knowledge";
 import { PulseOrchestrator } from "@/backend/services/pulsing";
 import { shellApprovalService } from "@/backend/services/shell-approval";
 import { ids } from "@/backend/utils";
@@ -47,6 +52,7 @@ import {
 import type {
 	MergeStrategy,
 	RewindTarget,
+	ScopeCard,
 	WorkflowStatus,
 } from "@/shared/schemas/workflow";
 import {
@@ -1448,6 +1454,60 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 	// ===========================================================================
 
 	/**
+	 * Search the knowledge store for items relevant to the given scope card,
+	 * filtered by category. Returns a formatted markdown section or empty string.
+	 */
+	private async buildKnowledgeSection(
+		scopeCard: ScopeCard,
+		categories: KnowledgeCategory[],
+	): Promise<string> {
+		try {
+			let query = `${scopeCard.title} ${scopeCard.description} ${scopeCard.inScope.join(" ")}`;
+			if (query.length > 2000) {
+				query = query.slice(0, 2000);
+			}
+
+			const projectRoot = getProjectRoot();
+
+			const results = await Promise.allSettled(
+				categories.map((cat) =>
+					searchKnowledge(query, { category: cat }, projectRoot),
+				),
+			);
+
+			const merged: KnowledgeSearchResult[] = [];
+			for (const result of results) {
+				if (result.status === "fulfilled") {
+					merged.push(...result.value);
+				}
+			}
+
+			const seen = new Set<string>();
+			const unique: KnowledgeSearchResult[] = [];
+			for (const item of merged) {
+				if (!seen.has(item.id)) {
+					seen.add(item.id);
+					unique.push(item);
+				}
+			}
+
+			if (unique.length === 0) {
+				return "";
+			}
+
+			let section = "\n\n## Relevant Knowledge\n\n";
+			for (const item of unique) {
+				section += `### ${item.title}\n${item.content}\n*Category: ${item.category} | Source: workflow ${item.workflowId}*\n\n`;
+			}
+
+			return section;
+		} catch (err) {
+			log.workflow.warn("Failed to search knowledge store", { err });
+			return "";
+		}
+	}
+
+	/**
 	 * Build the initial message for a new stage's agent based on the approved artifact
 	 */
 	private async buildInitialMessage(
@@ -1492,6 +1552,11 @@ ${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
 
 			message +=
 				"\n\nPlease analyze the codebase to understand the relevant architecture, patterns, and integration points needed to implement this scope.";
+
+			message += await this.buildKnowledgeSection(scopeCard, [
+				"pattern",
+				"process-improvement",
+			]);
 
 			return message;
 		}
@@ -1567,6 +1632,11 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 
 			message +=
 				"\n\nPlease create a detailed implementation plan based on this scope and research. Break the work into discrete pulses ordered by dependencies.";
+
+			message += await this.buildKnowledgeSection(scopeCard, [
+				"gotcha",
+				"process-improvement",
+			]);
 
 			return message;
 		}
@@ -1659,7 +1729,7 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 				return null;
 			}
 
-			const message = `## Scope for Review
+			let message = `## Scope for Review
 
 ### ${scopeCard.title}
 
@@ -1671,6 +1741,11 @@ Please review the changes made for this scope. Use the available tools to:
 1. Get the diff of all changes using \`get_diff\`
 2. Add comments at the line, file, or review level as needed
 3. Complete your review with a recommendation (approve, deny, or manual_review)`;
+
+			message += await this.buildKnowledgeSection(scopeCard, [
+				"gotcha",
+				"pattern",
+			]);
 
 			return message;
 		}
@@ -1757,6 +1832,13 @@ ${plan.approachSummary}`;
 ---
 
 ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse has already been completed and only complete the remaining work." : "Execute this pulse."} When complete, call \`complete_pulse\` with a commit message. If you need more time, use \`request_extension\`.`;
+
+		if (scopeCard) {
+			message += await this.buildKnowledgeSection(scopeCard, [
+				"pattern",
+				"tool-usage",
+			]);
+		}
 
 		return message;
 	}
@@ -2005,7 +2087,7 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 			throw new Error(`No scope card found for workflow ${workflowId}`);
 		}
 
-		const initialMessage = `## Research Phase (Restarted)
+		let initialMessage = `## Research Phase (Restarted)
 
 The workflow has been rewound to restart research from the approved scope.
 
@@ -2027,6 +2109,11 @@ ${scopeCard.constraints?.length ? `**Constraints:**\n${scopeCard.constraints.map
 
 Investigate the codebase to understand how to implement this scope.
 When ready, submit your research findings using the \`submit_research\` tool.`;
+
+		initialMessage += await this.buildKnowledgeSection(scopeCard, [
+			"pattern",
+			"process-improvement",
+		]);
 
 		const runner = new AgentRunner(session, {
 			projectRoot,
@@ -2152,6 +2239,11 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 
 Create a detailed execution plan that breaks the implementation into discrete pulses.
 When ready, submit your plan using the \`submit_plan\` tool.`;
+
+		initialMessage += await this.buildKnowledgeSection(scopeCard, [
+			"gotcha",
+			"process-improvement",
+		]);
 
 		const runner = new AgentRunner(session, {
 			projectRoot,
@@ -2356,7 +2448,7 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 			throw new Error(`No scope card found for workflow ${workflowId}`);
 		}
 
-		const initialMessage = `## Scope for Review (Restarted)
+		let initialMessage = `## Scope for Review (Restarted)
 
 The review has been restarted. Previous comments have been cleared.
 
@@ -2370,6 +2462,11 @@ Please review the changes made for this scope. Use the available tools to:
 1. Get the diff of all changes using \`get_diff\`
 2. Add comments at the line, file, or review level as needed
 3. Complete your review with a recommendation (approve, deny, or manual_review)`;
+
+		initialMessage += await this.buildKnowledgeSection(scopeCard, [
+			"gotcha",
+			"pattern",
+		]);
 
 		// Get the worktree path for the review agent
 		const worktreePath = getWorktreePath(projectRoot, workflowId);

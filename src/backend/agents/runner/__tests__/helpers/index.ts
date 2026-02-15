@@ -41,6 +41,7 @@ export {
 	mockLog,
 	mockMergeWorkflowBranch,
 	mockPulseRepo,
+	mockSearchKnowledge,
 	mockShellApprovalService,
 	mockWorkflowRepo,
 	setupMockModules,

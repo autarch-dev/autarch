@@ -93,6 +93,7 @@ export const mockGetRepositories = mock(() => ({
 // =============================================================================
 
 export const mockExtractKnowledge = mock(() => Promise.resolve(undefined));
+export const mockSearchKnowledge = mock(() => Promise.resolve([]));
 
 // =============================================================================
 // Shell approval mock
@@ -198,6 +199,7 @@ export function setupMockModules() {
 
 	mock.module("@/backend/services/knowledge", () => ({
 		extractKnowledge: mockExtractKnowledge,
+		searchKnowledge: mockSearchKnowledge,
 	}));
 
 	mock.module("@/backend/services/pulsing", () => ({

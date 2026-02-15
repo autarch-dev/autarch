@@ -6,7 +6,7 @@
  * and STAGE_TRANSITIONS constant validation.
  */
 
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 // =============================================================================
 // Mock setup — MUST happen before importing WorkflowOrchestrator
@@ -39,6 +39,7 @@ import {
 	mockMergeWorkflowBranch,
 	mockPulseOrchestratorInstance,
 	mockPulseRepo,
+	mockSearchKnowledge,
 	mockShellApprovalService,
 	mockWorkflowRepo,
 	resetMockAgentRunner,
@@ -3304,6 +3305,225 @@ describe("Utility Methods", () => {
 			await expect(
 				orchestrator.rewindToStage("wf-missing", "researching"),
 			).rejects.toThrow("Workflow not found: wf-missing");
+		});
+	});
+
+	// =========================================================================
+	// Knowledge Injection
+	// =========================================================================
+
+	describe("knowledge injection", () => {
+		function buildMockKnowledgeResults() {
+			return [
+				{
+					id: "k-1",
+					workflowId: "wf-source",
+					title: "Test Pattern",
+					content: "pattern content",
+					category: "pattern" as const,
+					tags: [],
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					similarity: 0.9,
+				},
+			];
+		}
+
+		afterEach(() => {
+			mockSearchKnowledge.mockReset();
+			mockSearchKnowledge.mockResolvedValue([]);
+		});
+
+		test("includes knowledge section in scoping→researching message when results exist", async () => {
+			mockSearchKnowledge.mockResolvedValue(
+				buildMockKnowledgeResults() as never,
+			);
+
+			const workflow = createMockWorkflow({
+				status: "scoping",
+				awaitingApproval: true,
+				pendingArtifactType: "scope_card",
+				currentSessionId: "old-session",
+			});
+			mockWorkflowRepo.getById.mockResolvedValue(workflow);
+
+			const scopeCard = createMockScopeCard({
+				recommendedPath: "full",
+			});
+			mockArtifactRepo.getLatestScopeCard.mockResolvedValue(scopeCard);
+
+			const newSession = createMockActiveSession({
+				id: "research-session",
+				agentRole: "research",
+			});
+			mockSessionManager.startSession.mockResolvedValue(newSession);
+
+			await orchestrator.approveArtifact("wf-1", { path: "full" });
+
+			expect(mockAgentRunnerRun).toHaveBeenCalled();
+			const message = (
+				mockAgentRunnerRun.mock.calls[0] as unknown as [string]
+			)[0];
+			expect(message).toContain("## Relevant Knowledge");
+			expect(message).toContain("Test Pattern");
+			expect(message).toContain("pattern content");
+			expect(message).toContain(
+				"*Category: pattern | Source: workflow wf-source*",
+			);
+
+			// Should search for both categories
+			expect(mockSearchKnowledge).toHaveBeenCalledWith(
+				expect.any(String),
+				expect.objectContaining({ category: "pattern" }),
+				expect.any(String),
+			);
+			expect(mockSearchKnowledge).toHaveBeenCalledWith(
+				expect.any(String),
+				expect.objectContaining({ category: "process-improvement" }),
+				expect.any(String),
+			);
+		});
+
+		test("omits knowledge section when searchKnowledge returns empty arrays", async () => {
+			mockSearchKnowledge.mockResolvedValue([]);
+
+			const workflow = createMockWorkflow({
+				status: "scoping",
+				awaitingApproval: true,
+				pendingArtifactType: "scope_card",
+				currentSessionId: "old-session",
+			});
+			mockWorkflowRepo.getById.mockResolvedValue(workflow);
+
+			const scopeCard = createMockScopeCard({
+				recommendedPath: "full",
+			});
+			mockArtifactRepo.getLatestScopeCard.mockResolvedValue(scopeCard);
+
+			const newSession = createMockActiveSession({
+				id: "research-session",
+				agentRole: "research",
+			});
+			mockSessionManager.startSession.mockResolvedValue(newSession);
+
+			await orchestrator.approveArtifact("wf-1", { path: "full" });
+
+			expect(mockAgentRunnerRun).toHaveBeenCalled();
+			const message = (
+				mockAgentRunnerRun.mock.calls[0] as unknown as [string]
+			)[0];
+			expect(message).not.toContain("## Relevant Knowledge");
+		});
+
+		test("omits knowledge section when searchKnowledge throws", async () => {
+			mockSearchKnowledge.mockRejectedValue(new Error("embedding failed"));
+
+			const workflow = createMockWorkflow({
+				status: "scoping",
+				awaitingApproval: true,
+				pendingArtifactType: "scope_card",
+				currentSessionId: "old-session",
+			});
+			mockWorkflowRepo.getById.mockResolvedValue(workflow);
+
+			const scopeCard = createMockScopeCard({
+				recommendedPath: "full",
+			});
+			mockArtifactRepo.getLatestScopeCard.mockResolvedValue(scopeCard);
+
+			const newSession = createMockActiveSession({
+				id: "research-session",
+				agentRole: "research",
+			});
+			mockSessionManager.startSession.mockResolvedValue(newSession);
+
+			// Should not throw — graceful degradation
+			await orchestrator.approveArtifact("wf-1", { path: "full" });
+
+			expect(mockAgentRunnerRun).toHaveBeenCalled();
+			const message = (
+				mockAgentRunnerRun.mock.calls[0] as unknown as [string]
+			)[0];
+			expect(message).not.toContain("## Relevant Knowledge");
+		});
+
+		test("passes correct categories for researching→planning transition", async () => {
+			mockSearchKnowledge.mockResolvedValue([]);
+
+			const workflow = createMockWorkflow({
+				status: "researching",
+				awaitingApproval: true,
+				pendingArtifactType: "research",
+				currentSessionId: "old-session",
+			});
+			mockWorkflowRepo.getById.mockResolvedValue(workflow);
+
+			const scopeCard = createMockScopeCard();
+			mockArtifactRepo.getLatestScopeCard.mockResolvedValue(scopeCard);
+
+			const researchCard = createMockResearchCard();
+			mockArtifactRepo.getLatestResearchCard.mockResolvedValue(researchCard);
+
+			const newSession = createMockActiveSession({
+				id: "plan-session",
+				agentRole: "planning",
+			});
+			mockSessionManager.startSession.mockResolvedValue(newSession);
+
+			await orchestrator.approveArtifact("wf-1");
+
+			expect(mockSearchKnowledge).toHaveBeenCalledWith(
+				expect.any(String),
+				expect.objectContaining({ category: "gotcha" }),
+				expect.any(String),
+			);
+			expect(mockSearchKnowledge).toHaveBeenCalledWith(
+				expect.any(String),
+				expect.objectContaining({ category: "process-improvement" }),
+				expect.any(String),
+			);
+		});
+
+		test("passes correct categories for buildPulseInitialMessage", async () => {
+			mockSearchKnowledge.mockResolvedValue([]);
+
+			const workflow = createMockWorkflow({
+				status: "in_progress",
+				currentSessionId: "session-1",
+			});
+			mockWorkflowRepo.getById.mockResolvedValue(workflow);
+
+			const firstPulse = createMockPulse({ id: "pulse-1" });
+			mockPulseOrchestratorInstance.startNextPulse.mockResolvedValue(
+				firstPulse,
+			);
+
+			const newSession = createMockActiveSession({
+				id: "new-session-1",
+				agentRole: "execution",
+			});
+			mockSessionManager.startSession.mockResolvedValue(newSession);
+
+			// buildPulseInitialMessage needs a scope card for knowledge injection
+			const scopeCard = createMockScopeCard();
+			mockArtifactRepo.getLatestScopeCard.mockResolvedValue(scopeCard);
+			mockArtifactRepo.getLatestResearchCard.mockResolvedValue(null as never);
+			mockArtifactRepo.getLatestPlan.mockResolvedValue(null as never);
+
+			await orchestrator.handleTurnCompletion("test-workflow-id", [
+				"complete_preflight",
+			]);
+
+			expect(mockSearchKnowledge).toHaveBeenCalledWith(
+				expect.any(String),
+				expect.objectContaining({ category: "pattern" }),
+				expect.any(String),
+			);
+			expect(mockSearchKnowledge).toHaveBeenCalledWith(
+				expect.any(String),
+				expect.objectContaining({ category: "tool-usage" }),
+				expect.any(String),
+			);
 		});
 	});
 });
