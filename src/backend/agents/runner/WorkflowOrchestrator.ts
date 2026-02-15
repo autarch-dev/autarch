@@ -1553,6 +1553,11 @@ ${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
 			message +=
 				"\n\nPlease analyze the codebase to understand the relevant architecture, patterns, and integration points needed to implement this scope.";
 
+			message += await this.buildKnowledgeSection(scopeCard, [
+				"pattern",
+				"process-improvement",
+			]);
+
 			return message;
 		}
 
@@ -1627,6 +1632,11 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 
 			message +=
 				"\n\nPlease create a detailed implementation plan based on this scope and research. Break the work into discrete pulses ordered by dependencies.";
+
+			message += await this.buildKnowledgeSection(scopeCard, [
+				"gotcha",
+				"process-improvement",
+			]);
 
 			return message;
 		}
@@ -1719,7 +1729,7 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 				return null;
 			}
 
-			const message = `## Scope for Review
+			let message = `## Scope for Review
 
 ### ${scopeCard.title}
 
@@ -1731,6 +1741,11 @@ Please review the changes made for this scope. Use the available tools to:
 1. Get the diff of all changes using \`get_diff\`
 2. Add comments at the line, file, or review level as needed
 3. Complete your review with a recommendation (approve, deny, or manual_review)`;
+
+			message += await this.buildKnowledgeSection(scopeCard, [
+				"gotcha",
+				"pattern",
+			]);
 
 			return message;
 		}
@@ -1817,6 +1832,13 @@ ${plan.approachSummary}`;
 ---
 
 ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse has already been completed and only complete the remaining work." : "Execute this pulse."} When complete, call \`complete_pulse\` with a commit message. If you need more time, use \`request_extension\`.`;
+
+		if (scopeCard) {
+			message += await this.buildKnowledgeSection(scopeCard, [
+				"pattern",
+				"tool-usage",
+			]);
+		}
 
 		return message;
 	}
