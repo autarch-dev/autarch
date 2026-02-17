@@ -141,4 +141,22 @@ export interface RunOptions {
 	onToolCompleted?: (toolCall: ToolCall) => void;
 	/** Hide this turn from the UI (e.g., for transition messages with approved artifacts) */
 	hidden?: boolean;
+
+	/** Optional override for the role used for attribution (defaults to the session agent role) */
+	agentRole?: _AgentRole;
+	/** Workflow identifier for observability/attribution */
+	workflowId?: string;
+	/** Stage identifier within the workflow (e.g., "plan", "execute") */
+	workflowStage?: string;
+	/** Knowledge injection metadata (only present when knowledge was appended to agent context) */
+	knowledgeInjection?: {
+		text: string;
+		queryText: string;
+		tokenBudget: number;
+		truncated: boolean;
+		items: Array<{
+			knowledgeItemId: string;
+			similarity: number;
+		}>;
+	};
 }
