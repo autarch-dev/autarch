@@ -14,6 +14,7 @@ import {
 	type RegisteredTool,
 	registerTool,
 	reviewTools,
+	searchKnowledgeTool,
 	todoTools,
 } from "../tools";
 import {
@@ -52,6 +53,7 @@ const SCOPING_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...todoTools,
 	...typescriptTools,
+	registerTool(searchKnowledgeTool),
 	registerTool(submitScopeTool),
 	registerTool(askQuestionsTool),
 	registerTool(requestExtensionTool),
@@ -62,6 +64,7 @@ const RESEARCH_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...todoTools,
 	...typescriptTools,
+	registerTool(searchKnowledgeTool),
 	registerTool(submitResearchTool),
 	registerTool(requestExtensionTool),
 	registerTool(askQuestionsTool),
@@ -72,6 +75,7 @@ const PLANNING_TOOLS: RegisteredTool[] = [
 	...baseTools,
 	...todoTools,
 	...typescriptTools,
+	registerTool(searchKnowledgeTool),
 	registerTool(submitPlanTool),
 	registerTool(requestExtensionTool),
 ];
@@ -89,6 +93,7 @@ const EXECUTION_TOOLS: RegisteredTool[] = [
 	...todoTools,
 	...pulsingTools,
 	...typescriptTools,
+	registerTool(searchKnowledgeTool),
 	registerTool(completePulseTool),
 	registerTool(requestExtensionTool),
 ];

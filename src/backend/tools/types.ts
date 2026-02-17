@@ -150,6 +150,11 @@ export type ReviewToolName =
 export type TodoToolName = "add_todo" | "check_todo";
 
 /**
+ * Knowledge tools (agent-accessible knowledge base)
+ */
+export type KnowledgeToolName = "search_knowledge";
+
+/**
  * Block-based structured output tools (stage completion)
  */
 export type BlockToolName =
@@ -170,7 +175,8 @@ export type ToolName =
 	| PreflightToolName
 	| ReviewToolName
 	| BlockToolName
-	| TodoToolName;
+	| TodoToolName
+	| KnowledgeToolName;
 
 // =============================================================================
 // Common Parameters
