@@ -46,6 +46,13 @@ export {
 	submitScopeInputSchema,
 	submitScopeTool,
 } from "./blocks";
+// Knowledge tools (agent-accessible knowledge base)
+export {
+	knowledgeTools,
+	type SearchKnowledgeInput,
+	searchKnowledgeInputSchema,
+	searchKnowledgeTool,
+} from "./knowledge";
 // Preflight tools (environment setup)
 export {
 	preflightTools,
@@ -112,6 +119,7 @@ export {
 
 import { baseTools, todoTools } from "./base";
 import { blockTools } from "./blocks";
+import { knowledgeTools } from "./knowledge";
 import { preflightTools } from "./preflight";
 import { pulsingTools } from "./pulsing";
 import { reviewTools } from "./review";
@@ -133,6 +141,7 @@ for (const tool of [
 	...blockTools,
 	...typescriptTools,
 	...todoTools,
+	...knowledgeTools,
 ]) {
 	toolRegistry[tool.name] = tool;
 }
