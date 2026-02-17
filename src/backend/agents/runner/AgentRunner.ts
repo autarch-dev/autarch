@@ -18,7 +18,7 @@ import type {
 	ToolResultPart,
 	UserModelMessage,
 } from "@ai-sdk/provider-utils";
-import { stepCountIs, streamText } from "ai";
+import { hasToolCall, stepCountIs, streamText } from "ai";
 import { getProjectDb } from "@/backend/db/project";
 import {
 	convertToAISDKTools,
@@ -31,6 +31,7 @@ import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import { getCostCalculator } from "@/backend/services/cost";
 import { isExaKeyConfigured } from "@/backend/services/globalSettings";
+import { requestExtensionTool } from "@/backend/tools";
 import type { ToolContext } from "@/backend/tools/types";
 import { ids } from "@/backend/utils/ids";
 import { broadcast } from "@/backend/ws";
@@ -965,7 +966,10 @@ export class AgentRunner {
 			},
 			messages: conversationHistory,
 			tools,
-			stopWhen: stepCountIs(MAX_TOOL_STEPS),
+			stopWhen: [
+				stepCountIs(MAX_TOOL_STEPS),
+				hasToolCall(requestExtensionTool.name),
+			],
 			abortSignal: signal,
 			experimental_repairToolCall: async (options) => {
 				log.agent.warn(
