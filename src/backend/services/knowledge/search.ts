@@ -109,7 +109,7 @@ export async function searchKnowledge(
 
 	// If query is empty, use structured-only search
 	if (!query.trim()) {
-		log.knowledge.debug("Performing structured-only search (no query)");
+		log.knowledge.info("Performing structured-only search (no query)");
 		const items = await knowledgeRepo.search({
 			category: filters.category,
 			workflowId: filters.workflowId,
@@ -127,7 +127,7 @@ export async function searchKnowledge(
 	}
 
 	// Semantic search with query
-	log.knowledge.debug(`Performing semantic search for: "${query}"`);
+	log.knowledge.info(`Performing semantic search for: "${query}"`);
 
 	// Generate query embedding
 	const queryEmbedding = await embed(query);
@@ -158,7 +158,7 @@ export async function searchKnowledge(
 	// Sort by similarity descending
 	similarities.sort((a, b) => b.similarity - a.similarity);
 
-	log.knowledge.debug(
+	log.knowledge.info(
 		`Found ${similarities.length} items above similarity threshold ${SIMILARITY_THRESHOLD}`,
 	);
 
@@ -231,6 +231,8 @@ export async function searchKnowledge(
 
 	// Sort by similarity (should already be sorted, but ensure after filtering)
 	results.sort((a, b) => b.similarity - a.similarity);
+
+	log.knowledge.info(`Returning ${results.length} results`);
 
 	// Return top N results
 	return results.slice(0, limit);
