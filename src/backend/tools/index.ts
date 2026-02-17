@@ -49,6 +49,7 @@ export {
 // Knowledge tools (agent-accessible knowledge base)
 export {
 	knowledgeTools,
+	type SearchKnowledgeInput,
 	searchKnowledgeInputSchema,
 	searchKnowledgeTool,
 } from "./knowledge";
