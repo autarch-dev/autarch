@@ -16,6 +16,6 @@ export { ScopingStageView } from "./ScopingStageView";
 export { ShellApprovalCard, ShellApprovalDialog } from "./ShellApprovalCard";
 export { ShellApprovalDialogContainer } from "./ShellApprovalDialogContainer";
 export type { StageViewProps } from "./types";
-export { WorkflowView } from "./WorkflowView";
 export { WorkflowReviewDiffPage } from "./WorkflowReviewDiffPage";
+export { WorkflowView } from "./WorkflowView";
 export { WorkflowViewContainer } from "./WorkflowViewContainer";

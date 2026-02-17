@@ -23,6 +23,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +34,6 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { MergeStrategy, ReviewCard } from "@/shared/schemas/workflow";
-import { useLocation } from "wouter";
 import { Markdown } from "../../Markdown";
 import { reviewCardToMarkdown } from "../artifactMarkdown";
 import { CommentSection, groupCommentsByType } from "./CommentSection";

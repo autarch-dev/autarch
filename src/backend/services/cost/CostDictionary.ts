@@ -135,11 +135,36 @@ export const COST_DICTIONARY = [
 		cacheWriteCost: 1.25,
 		cacheReadCost: 0.1,
 	},
-	{ modelName: "gpt-5.2", promptTokenCost: 1.75, cacheReadCost: 0.175, completionTokenCost: 14.0 },
-	{ modelName: "gpt-5.1", promptTokenCost: 1.25, cacheReadCost: 0.125, completionTokenCost: 10.0 },
-	{ modelName: "gpt-5", promptTokenCost: 1.25, cacheReadCost: 0.125, completionTokenCost: 10.0 },
-	{ modelName: "gpt-5-mini", promptTokenCost: 0.25, cacheReadCost: 0.025, completionTokenCost: 2.0 },
-	{ modelName: "gpt-5-nano", promptTokenCost: 0.05, cacheReadCost: 0.005, completionTokenCost: 0.4 },
+	{
+		modelName: "gpt-5.2",
+		promptTokenCost: 1.75,
+		cacheReadCost: 0.175,
+		completionTokenCost: 14.0,
+	},
+	{
+		modelName: "gpt-5.1",
+		promptTokenCost: 1.25,
+		cacheReadCost: 0.125,
+		completionTokenCost: 10.0,
+	},
+	{
+		modelName: "gpt-5",
+		promptTokenCost: 1.25,
+		cacheReadCost: 0.125,
+		completionTokenCost: 10.0,
+	},
+	{
+		modelName: "gpt-5-mini",
+		promptTokenCost: 0.25,
+		cacheReadCost: 0.025,
+		completionTokenCost: 2.0,
+	},
+	{
+		modelName: "gpt-5-nano",
+		promptTokenCost: 0.05,
+		cacheReadCost: 0.005,
+		completionTokenCost: 0.4,
+	},
 
 	{
 		modelName: "gpt-5.2-chat-latest",
@@ -180,11 +205,36 @@ export const COST_DICTIONARY = [
 	},
 	{ modelName: "gpt-5-pro", promptTokenCost: 15.0, completionTokenCost: 120.0 },
 
-	{ modelName: "gpt-4.1", promptTokenCost: 2.0, cacheReadCost: 0.5, completionTokenCost: 8.0 },
-	{ modelName: "gpt-4.1-mini", promptTokenCost: 0.4, cacheReadCost: 0.1, completionTokenCost: 1.6 },
-	{ modelName: "gpt-4.1-nano", promptTokenCost: 0.1, cacheReadCost: 0.025, completionTokenCost: 0.4 },
-	{ modelName: "gpt-4o", promptTokenCost: 2.5, cacheReadCost: 1.25, completionTokenCost: 10.0 },
-	{ modelName: "gpt-4o-mini", promptTokenCost: 0.15, cacheReadCost: 0.075, completionTokenCost: 0.6 },
+	{
+		modelName: "gpt-4.1",
+		promptTokenCost: 2.0,
+		cacheReadCost: 0.5,
+		completionTokenCost: 8.0,
+	},
+	{
+		modelName: "gpt-4.1-mini",
+		promptTokenCost: 0.4,
+		cacheReadCost: 0.1,
+		completionTokenCost: 1.6,
+	},
+	{
+		modelName: "gpt-4.1-nano",
+		promptTokenCost: 0.1,
+		cacheReadCost: 0.025,
+		completionTokenCost: 0.4,
+	},
+	{
+		modelName: "gpt-4o",
+		promptTokenCost: 2.5,
+		cacheReadCost: 1.25,
+		completionTokenCost: 10.0,
+	},
+	{
+		modelName: "gpt-4o-mini",
+		promptTokenCost: 0.15,
+		cacheReadCost: 0.075,
+		completionTokenCost: 0.6,
+	},
 
 	{
 		modelName: "gpt-5.1-codex-mini",

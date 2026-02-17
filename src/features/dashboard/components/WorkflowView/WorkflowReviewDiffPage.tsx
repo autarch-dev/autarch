@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { useWorkflowsStore } from "../../store/workflowsStore";
-import { DiffViewer, type AddCommentPayload } from "./DiffViewer";
+import { type AddCommentPayload, DiffViewer } from "./DiffViewer";
 
 interface WorkflowReviewDiffPageProps {
 	workflowId: string;
@@ -140,4 +140,3 @@ export function WorkflowReviewDiffPage({
 		</div>
 	);
 }
-
