@@ -14,7 +14,6 @@ import {
 	type RegisteredTool,
 	registerTool,
 	reviewTools,
-	searchKnowledgeTool,
 	todoTools,
 } from "../tools";
 import {
@@ -27,6 +26,7 @@ import {
 	submitRoadmapTool,
 	submitScopeTool,
 } from "../tools/blocks";
+import { searchKnowledgeTool } from "../tools/knowledge";
 import {
 	getDiffTool,
 	getScopeCardTool,
