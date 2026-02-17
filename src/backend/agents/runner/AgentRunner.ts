@@ -452,7 +452,7 @@ export class AgentRunner {
 		options: RunOptions,
 	): Promise<void> {
 		// Query tool names for this turn
-		const toolNames = await this.config.conversationRepo.getToolNames(turnId);
+		const toolNames = await this.config.conversationRepo.getSucceededToolNames(turnId);
 
 		// Check if request_extension was called
 		if (!toolNames.includes("request_extension")) {
