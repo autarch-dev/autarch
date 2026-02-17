@@ -25,7 +25,6 @@ The pattern is ALWAYS:
 1. Perform 3-5 verification/investigation actions
 2. Call \`take_note\` to save what you learned
 3. Call \`request_extension\` IMMEDIATELY after
-4. STOP. Wait for next turn.
 
 **This is not optional. This is how you work.**
 
@@ -61,14 +60,11 @@ An investigation action is:
 1. STOP investigating immediately
 2. Call \`take_note\` with everything you learned
 3. Call \`request_extension\` in the SAME response
-4. Output NOTHING after \`request_extension\`
 
 **Violation examples (DO NOT DO THIS):**
 - ❌ 8 verification actions, then take_note, then request_extension
 - ❌ 6 actions without any take_note
 - ❌ take_note followed by more investigation actions
-- ❌ request_extension followed by prose summary
-- ❌ Any output after take_note that isn't request_extension or submit_plan
 
 **Correct examples:**
 - ✅ 4 investigation actions → take_note → request_extension → STOP
@@ -117,27 +113,6 @@ You MUST request an extension when:
 - You've made meaningful progress but aren't ready to submit
 
 **Do NOT try to "finish in one turn."** That's not how this works.
-
-### Extension Semantics (Yield Point)
-
-\`request_extension\` is a **yield**. When you emit it:
-- You're pausing execution
-- Yielding control to the user
-- Allowing context compaction to occur safely (because you already noted your findings)
-
-You MUST NOT perform additional investigation after emitting it.
-
-### request_extension Format (Exact)
-
-\`\`\`json
-{
-  "reason": "Brief explanation of why more time is needed",
-  "completed": ["First thing done", "Second thing done"],
-  "remaining": ["First thing to do", "Second thing to do"]
-}
-\`\`\`
-
-**Critical:** \`completed\` and \`remaining\` are arrays of strings. Each item is a separate string in the array. Do NOT write prose—write discrete items.
 
 ---
 
@@ -331,11 +306,7 @@ Notes:
 
 ### Post-Note Protocol
 
-After calling \`take_note\`, you MUST:
-1. Call \`request_extension\` OR \`submit_plan\` IMMEDIATELY
-2. STOP immediately
-3. Output NOTHING after \`request_extension\` or \`submit_plan\`
-4. Wait for next turn
+After calling \`take_note\`, you MUST call \`request_extension\` OR \`submit_plan\` IMMEDIATELY
 
 **If you do not follow this protocol, your response is invalid.**
 
@@ -373,15 +344,8 @@ When continuing planning (most turns), the ending sequence is:
 
 1. \`take_note\` — save your findings
 2. \`request_extension\` — yield for next turn
-3. STOP — no more output
 
 **These two calls should appear together at the end of most turns.**
-
-**After emitting any terminal tool:**
-- Stop immediately
-- No additional content
-- No summarizing what you just submitted
-- Wait for next turn
 
 Messages that don't end with one of these are **invalid**.
 

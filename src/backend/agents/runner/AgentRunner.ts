@@ -31,7 +31,17 @@ import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import { getCostCalculator } from "@/backend/services/cost";
 import { isExaKeyConfigured } from "@/backend/services/globalSettings";
-import { requestExtensionTool } from "@/backend/tools";
+import {
+	askQuestionsTool,
+	requestExtensionTool,
+	submitPlanTool,
+} from "@/backend/tools";
+import {
+	submitResearchTool,
+	submitRoadmapTool,
+	submitScopeTool,
+} from "@/backend/tools/blocks";
+import { submitPersonaRoadmapTool } from "@/backend/tools/roadmap/submitPersonaRoadmap";
 import type { ToolContext } from "@/backend/tools/types";
 import { ids } from "@/backend/utils/ids";
 import { broadcast } from "@/backend/ws";
@@ -969,6 +979,13 @@ export class AgentRunner {
 			stopWhen: [
 				stepCountIs(MAX_TOOL_STEPS),
 				hasToolCall(requestExtensionTool.name),
+				hasToolCall(askQuestionsTool.name),
+				hasToolCall(submitRoadmapTool.name),
+				hasToolCall(submitPersonaRoadmapTool.name),
+				hasToolCall(askQuestionsTool.name),
+				hasToolCall(submitScopeTool.name),
+				hasToolCall(submitResearchTool.name),
+				hasToolCall(submitPlanTool.name),
 			],
 			abortSignal: signal,
 			experimental_repairToolCall: async (options) => {
