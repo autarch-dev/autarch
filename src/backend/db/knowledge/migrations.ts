@@ -14,6 +14,59 @@ export async function migrateKnowledgeDb(
 	await createKnowledgeEmbeddingsTable(db);
 	await addArchivedColumn(db);
 	await backfillMissingEmbeddings(db);
+	await createKnowledgeInjectionEventsTable(db);
+}
+
+/**
+ * Create the knowledge_injection_events table for per-turn usage history.
+ * Privacy-safe metadata only.
+ */
+async function createKnowledgeInjectionEventsTable(
+	db: Kysely<KnowledgeDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("knowledge_injection_events")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("knowledge_item_id", "text", (col) => col.notNull())
+		.addColumn("workflow_id", "text", (col) => col.notNull())
+		.addColumn("session_id", "text", (col) => col.notNull())
+		.addColumn("turn_id", "text", (col) => col.notNull())
+		.addColumn("agent_role", "text", (col) => col.notNull())
+		.addColumn("workflow_stage", "text", (col) => col.notNull())
+		.addColumn("similarity", "real", (col) => col.notNull())
+		.addColumn("query_text", "text", (col) => col.notNull())
+		.addColumn("token_budget", "integer", (col) => col.notNull())
+		.addColumn("truncated", "integer", (col) => col.notNull())
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.addForeignKeyConstraint(
+			"fk_knowledge_injection_events_item",
+			["knowledge_item_id"],
+			"knowledge_items",
+			["id"],
+			(cb) => cb.onDelete("cascade"),
+		)
+		.execute();
+
+	await db.schema
+		.createIndex("idx_knowledge_injection_events_item")
+		.ifNotExists()
+		.on("knowledge_injection_events")
+		.column("knowledge_item_id")
+		.execute();
+
+	await db.schema
+		.createIndex("idx_knowledge_injection_events_turn")
+		.ifNotExists()
+		.on("knowledge_injection_events")
+		.columns([
+			"workflow_id",
+			"session_id",
+			"turn_id",
+			"agent_role",
+			"workflow_stage",
+		])
+		.execute();
 }
 
 /**

@@ -9,6 +9,7 @@
 export interface KnowledgeDatabase {
 	knowledge_items: KnowledgeItemsTable;
 	knowledge_embeddings: KnowledgeEmbeddingsTable;
+	knowledge_injection_events: KnowledgeInjectionEventsTable;
 }
 
 // =============================================================================
@@ -57,6 +58,29 @@ export interface KnowledgeEmbeddingsTable {
 }
 
 // =============================================================================
+// Knowledge Injection Events
+// =============================================================================
+
+/**
+ * Stores per-turn knowledge injection usage history for observability and attribution.
+ * Privacy-safe metadata only.
+ */
+export interface KnowledgeInjectionEventsTable {
+	id: string; // Primary key
+	knowledge_item_id: string; // Foreign key to knowledge_items.id
+	workflow_id: string;
+	session_id: string;
+	turn_id: string;
+	agent_role: string;
+	workflow_stage: string;
+	similarity: number;
+	query_text: string;
+	token_budget: number;
+	truncated: number; // 0 = no, 1 = yes
+	created_at: number; // Unix timestamp
+}
+
+// =============================================================================
 // Insertable Types (for creating new records)
 // =============================================================================
 
@@ -80,6 +104,21 @@ export interface InsertableKnowledgeEmbedding {
 	created_at: number;
 }
 
+export interface InsertableKnowledgeInjectionEvent {
+	id: string;
+	knowledge_item_id: string;
+	workflow_id: string;
+	session_id: string;
+	turn_id: string;
+	agent_role: string;
+	workflow_stage: string;
+	similarity: number;
+	query_text: string;
+	token_budget: number;
+	truncated: number;
+	created_at: number;
+}
+
 // =============================================================================
 // Updateable Types (for updating existing records)
 // =============================================================================
@@ -94,4 +133,11 @@ export interface UpdateableKnowledgeItem {
 
 export interface UpdateableKnowledgeEmbedding {
 	embedding?: Uint8Array;
+}
+
+export interface UpdateableKnowledgeInjectionEvent {
+	similarity?: number;
+	query_text?: string;
+	token_budget?: number;
+	truncated?: number;
 }
