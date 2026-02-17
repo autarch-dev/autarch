@@ -23,7 +23,6 @@ import {
 	XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,16 +31,11 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useWorkflowsStore } from "@/features/dashboard/store/workflowsStore";
 import { cn } from "@/lib/utils";
 import type { MergeStrategy, ReviewCard } from "@/shared/schemas/workflow";
+import { useLocation } from "wouter";
 import { Markdown } from "../../Markdown";
 import { reviewCardToMarkdown } from "../artifactMarkdown";
-import {
-	type AddCommentPayload,
-	DiffViewer,
-	DiffViewerModal,
-} from "../DiffViewer";
 import { CommentSection, groupCommentsByType } from "./CommentSection";
 import {
 	ApproveDialog,
@@ -121,9 +115,7 @@ export default function ReviewCardApproval({
 	onRewind,
 	onRequestFixes,
 }: ReviewCardApprovalProps) {
-	const createReviewComment = useWorkflowsStore(
-		(state) => state.createReviewComment,
-	);
+	const [, setLocation] = useLocation();
 	// Non-pending cards start collapsed
 	const [isExpanded, setIsExpanded] = useState(reviewCard.status === "pending");
 	const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
@@ -178,27 +170,6 @@ export default function ReviewCardApproval({
 	}, []);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [copied, setCopied] = useState(false);
-	const [diff, setDiff] = useState<string | null>(null);
-	const [isDiffLoading, setIsDiffLoading] = useState(false);
-
-	// Fetch diff when component mounts or expands
-	useEffect(() => {
-		if (isExpanded && diff === null && !isDiffLoading) {
-			setIsDiffLoading(true);
-			fetch(`/api/workflows/${reviewCard.workflowId}/diff`)
-				.then((res) => res.json())
-				.then((data) => {
-					setDiff(data.diff ?? "");
-				})
-				.catch((err) => {
-					console.error("Failed to fetch diff:", err);
-					setDiff("");
-				})
-				.finally(() => {
-					setIsDiffLoading(false);
-				});
-		}
-	}, [isExpanded, reviewCard.workflowId, diff, isDiffLoading]);
 
 	const isPending = reviewCard.status === "pending";
 	const canApprove = isPending && onApprove && onDeny;
@@ -297,15 +268,6 @@ export default function ReviewCardApproval({
 		}
 	};
 
-	const handleInlineAddComment = async (payload: AddCommentPayload) => {
-		await createReviewComment(reviewCard.workflowId, {
-			type: payload.type,
-			filePath: payload.filePath,
-			startLine: payload.startLine,
-			description: payload.description,
-		});
-	};
-
 	return (
 		<>
 			<Card className={cn("my-3", STATUS_STYLES[reviewCard.status])}>
@@ -361,29 +323,23 @@ export default function ReviewCardApproval({
 									{copied ? "Copied!" : "Copy as Markdown"}
 								</TooltipContent>
 							</Tooltip>
-							{diff && diff.trim() !== "" && (
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<span>
-											<DiffViewerModal
-												diff={diff}
-												comments={reviewCard.comments}
-												workflowId={reviewCard.workflowId}
-												trigger={
-													<Button
-														variant="ghost"
-														size="icon-sm"
-														className="text-muted-foreground hover:text-foreground"
-													>
-														<GitCompareArrows className="size-4" />
-													</Button>
-												}
-											/>
-										</span>
-									</TooltipTrigger>
-									<TooltipContent>View Diff</TooltipContent>
-								</Tooltip>
-							)}
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										className="text-muted-foreground hover:text-foreground"
+										onClick={() =>
+											setLocation(
+												`/workflow/${reviewCard.workflowId}/review/${reviewCard.id}/diff`,
+											)
+										}
+									>
+										<GitCompareArrows className="size-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Open full diff workspace</TooltipContent>
+							</Tooltip>
 							{canRewind && (
 								<Tooltip>
 									<TooltipTrigger asChild>
@@ -441,33 +397,12 @@ export default function ReviewCardApproval({
 							</div>
 						)}
 
-						{/* Docked Diff Viewer */}
-						{diff && diff.trim() !== "" && (
-							<div className="rounded-lg border overflow-hidden">
-								<div className="flex items-center justify-between border-b bg-muted/30 px-3 py-2">
-									<span className="text-sm font-medium">Code Changes</span>
-									<DiffViewerModal
-										diff={diff}
-										comments={reviewCard.comments}
-										workflowId={reviewCard.workflowId}
-										trigger={
-											<Button variant="ghost" size="sm">
-												<GitCompareArrows className="size-4 mr-1" />
-												Expand
-											</Button>
-										}
-									/>
-								</div>
-								<ErrorBoundary featureName="Inline Diff Viewer">
-									<DiffViewer
-										diff={diff}
-										comments={reviewCard.comments}
-										onAddComment={handleInlineAddComment}
-										className="h-[420px]"
-									/>
-								</ErrorBoundary>
-							</div>
-						)}
+						<div className="rounded-lg border bg-muted/20 px-3 py-2">
+							<p className="text-sm text-muted-foreground">
+								Open the dedicated diff workspace to review one file at a time
+								and leave inline comments without UI lag.
+							</p>
+						</div>
 
 						{/* Comments grouped by type */}
 						{totalComments > 0 ? (

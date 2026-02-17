@@ -125,6 +125,8 @@ interface DiffViewerProps {
 	onAddComment?: (payload: AddCommentPayload) => void;
 	/** Optional className for the root element */
 	className?: string;
+	/** Render only selected file in main content for performance */
+	singleFileMode?: boolean;
 }
 
 // =============================================================================
@@ -868,10 +870,12 @@ const SideBySideDiffLine = memo(function SideBySideDiffLine({
 	pair,
 	language,
 	onLineClick,
+	hideLeftColumn = false,
 }: {
 	pair: SideBySidePair;
 	language: string;
 	onLineClick?: (lineNumber: number) => void;
+	hideLeftColumn?: boolean;
 }) {
 	const { left, right } = pair;
 
@@ -932,6 +936,49 @@ const SideBySideDiffLine = memo(function SideBySideDiffLine({
 				tabIndex: 0,
 			}
 		: {};
+
+	if (hideLeftColumn) {
+		return (
+			<div className="grid grid-cols-1 gap-0">
+				<div
+					className={cn(
+						"flex items-stretch group",
+						right?.type === "add" && "bg-green-500/10 dark:bg-green-500/15",
+						isContext && "bg-transparent",
+						!right && "bg-muted/30",
+						isRightClickable && "cursor-pointer hover:bg-muted/30",
+					)}
+					{...rightInteractiveProps}
+				>
+					{/* Line number */}
+					<span className="text-muted-foreground text-xs w-12 text-right px-2 py-0.5 shrink-0 border-r border-border/50">
+						{right?.newLineNumber ?? ""}
+					</span>
+					{/* Add comment indicator */}
+					<span className="w-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+						{isRightClickable && (
+							<MessageSquarePlus className="size-3 text-violet-500" />
+						)}
+					</span>
+					{/* Code content */}
+					<code className="min-w-0 flex-1 font-mono text-sm px-2 whitespace-pre overflow-x-auto">
+						{right ? (
+							rightHtml ? (
+								<span
+									// biome-ignore lint/security/noDangerouslySetInnerHtml: shiki/word-diff output
+									dangerouslySetInnerHTML={{ __html: rightHtml }}
+								/>
+							) : (
+								<span>{right.content}</span>
+							)
+						) : (
+							<span>&nbsp;</span>
+						)}
+					</code>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="grid grid-cols-2 gap-0">
@@ -1020,6 +1067,7 @@ function DiffHunkView({
 	language,
 	commentsByLine,
 	newFileLineNumbers,
+	hideLeftColumn,
 	onLineClick,
 	activeCommentLine,
 	onCommentSubmit,
@@ -1031,6 +1079,8 @@ function DiffHunkView({
 	commentsByLine: Map<number, ReviewComment[]>;
 	/** Set of all line numbers that exist in the new file (additions + context) */
 	newFileLineNumbers: Set<number>;
+	/** For net-new files, render only the new (right) side */
+	hideLeftColumn: boolean;
 	/** Callback when a line is clicked */
 	onLineClick?: (lineNumber: number) => void;
 	/** Currently active line for comment form */
@@ -1080,6 +1130,7 @@ function DiffHunkView({
 							<SideBySideDiffLine
 								pair={pair}
 								language={language}
+								hideLeftColumn={hideLeftColumn}
 								onLineClick={onLineClick}
 							/>
 							{showCommentForm && onCommentSubmit && onCommentCancel && (
@@ -1302,6 +1353,7 @@ function DiffFileContent({
 							language={language}
 							commentsByLine={commentsByLine}
 							newFileLineNumbers={newFileLineNumbers}
+							hideLeftColumn={file.status === "added"}
 							onLineClick={onAddComment ? handleLineClick : undefined}
 							activeCommentLine={
 								commentForm.isOpen ? commentForm.lineNumber : null
@@ -1399,6 +1451,7 @@ export function DiffViewer({
 	comments,
 	onAddComment,
 	className,
+	singleFileMode = false,
 }: DiffViewerProps) {
 	const files = useMemo(() => parseUnifiedDiff(diff), [diff]);
 	const extensions = useMemo(() => getUniqueExtensions(files), [files]);
@@ -1429,6 +1482,21 @@ export function DiffViewer({
 		);
 	}, [files]);
 
+	useEffect(() => {
+		if (filteredFiles.length === 0) {
+			setSelectedFile(null);
+			return;
+		}
+		if (!selectedFile) {
+			setSelectedFile(filteredFiles[0] ?? null);
+			return;
+		}
+		const stillExists = filteredFiles.some((f) => f.path === selectedFile.path);
+		if (!stillExists) {
+			setSelectedFile(filteredFiles[0] ?? null);
+		}
+	}, [filteredFiles, selectedFile]);
+
 	if (files.length === 0) {
 		return (
 			<div className={cn("text-center text-muted-foreground py-8", className)}>
@@ -1437,12 +1505,11 @@ export function DiffViewer({
 		);
 	}
 
-	const scrollToFile = (file: DiffFile) => {
-		const element = document.getElementById(
-			`diff-file-${file.path.replace(/[^a-zA-Z0-9]/g, "-")}`,
-		);
-		element?.scrollIntoView({ behavior: "smooth" });
-	};
+	const displayFiles = singleFileMode
+		? selectedFile
+			? [selectedFile]
+			: []
+		: filteredFiles;
 
 	return (
 		<div className={cn("flex h-full", className)}>
@@ -1492,7 +1559,6 @@ export function DiffViewer({
 							selectedFile={selectedFile}
 							onSelect={(file) => {
 								setSelectedFile(file);
-								scrollToFile(file);
 							}}
 						/>
 					</div>
@@ -1502,7 +1568,7 @@ export function DiffViewer({
 			{/* Diff content */}
 			<ScrollArea className="flex-1">
 				<div className="p-4">
-					{filteredFiles.map((file) => (
+					{displayFiles.map((file) => (
 						<div
 							key={file.path}
 							id={`diff-file-${file.path.replace(/[^a-zA-Z0-9]/g, "-")}`}

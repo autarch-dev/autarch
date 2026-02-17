@@ -19,6 +19,7 @@ import { AppSidebar } from "./components/Sidebar";
 import {
 	CredentialPromptDialogContainer,
 	ShellApprovalDialogContainer,
+	WorkflowReviewDiffPage,
 	WorkflowViewContainer,
 } from "./components/WorkflowView";
 import { useDiscussionsStore, useWorkflowsStore } from "./store";
@@ -84,6 +85,19 @@ export function Dashboard() {
 							{(params) => (
 								<ErrorBoundary key={params.id} featureName="Channel">
 									<ChannelViewContainer channelId={params.id} />
+								</ErrorBoundary>
+							)}
+						</Route>
+						<Route path="/workflow/:id/review/:reviewId/diff">
+							{(params) => (
+								<ErrorBoundary
+									key={`${params.id}-${params.reviewId}`}
+									featureName="Workflow Diff"
+								>
+									<WorkflowReviewDiffPage
+										workflowId={params.id}
+										reviewId={params.reviewId}
+									/>
 								</ErrorBoundary>
 							)}
 						</Route>
