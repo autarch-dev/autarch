@@ -59,7 +59,7 @@ import { getWorkflowOrchestrator } from "./WorkflowOrchestrator";
 // =============================================================================
 
 /** Maximum number of tool execution steps before stopping */
-const MAX_TOOL_STEPS = 15;
+const MAX_TOOL_STEPS = 25;
 
 /** Maximum number of nudges per user message */
 const MAX_NUDGES = 12;
