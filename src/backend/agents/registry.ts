@@ -46,7 +46,11 @@ import type { AgentConfig, AgentRole } from "./types";
 const BASIC_TOOLS: RegisteredTool[] = [];
 
 /** Discussion agent: base tools (read-only) */
-const DISCUSSION_TOOLS: RegisteredTool[] = [...baseTools, ...typescriptTools];
+const DISCUSSION_TOOLS: RegisteredTool[] = [
+	...baseTools,
+	...typescriptTools,
+	registerTool(searchKnowledgeTool),
+];
 
 /** Scoping agent: base tools + submit_scope + ask_questions */
 const SCOPING_TOOLS: RegisteredTool[] = [
