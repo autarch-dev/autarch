@@ -145,9 +145,9 @@ export interface RunOptions {
 	/** Optional override for the role used for attribution (defaults to the session agent role) */
 	agentRole?: _AgentRole;
 	/** Workflow identifier for observability/attribution */
-	workflowId?: string;
+	workflowId?: string | null;
 	/** Stage identifier within the workflow (e.g., "plan", "execute") */
-	workflowStage?: string;
+	workflowStage?: string | null;
 	/** Knowledge injection metadata (only present when knowledge was appended to agent context) */
 	knowledgeInjection?: {
 		text: string;

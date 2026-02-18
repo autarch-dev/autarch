@@ -107,11 +107,11 @@ export interface InsertableKnowledgeEmbedding {
 export interface InsertableKnowledgeInjectionEvent {
 	id: string;
 	knowledge_item_id: string;
-	workflow_id: string;
-	session_id: string;
-	turn_id: string;
-	agent_role: string;
-	workflow_stage: string;
+	workflow_id: string | null;
+	session_id: string | null;
+	turn_id: string | null;
+	agent_role: string | null;
+	workflow_stage: string | null;
 	similarity: number;
 	query_text: string;
 	token_budget: number;

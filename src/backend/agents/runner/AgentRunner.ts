@@ -305,14 +305,14 @@ export class AgentRunner {
 		await this.completeTurn(userTurn.id);
 
 		const injection = options.knowledgeInjection;
-		if (options.workflowId && options.workflowStage && injection) {
+		if (injection) {
 			try {
 				await knowledgeRepo.insertKnowledgeInjectionEvents({
 					sessionId: this.session.id,
 					turnId: userTurn.id,
 					agentRole: options.agentRole ?? this.session.agentRole,
-					workflowId: options.workflowId,
-					workflowStage: options.workflowStage,
+					workflowId: options.workflowId ?? null,
+					workflowStage: options.workflowStage ?? null,
 					queryText: injection.queryText,
 					tokenBudget: injection.tokenBudget,
 					truncated: injection.truncated,

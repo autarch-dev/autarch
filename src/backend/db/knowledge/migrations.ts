@@ -55,17 +55,35 @@ async function createKnowledgeInjectionEventsTable(
 		.column("knowledge_item_id")
 		.execute();
 
+	// NOTE: Turn keys are nullable because some injection events may occur
+	// without full workflow/session attribution. Avoid relying on a single
+	// composite equality index that can miss NULL semantics.
+	await db.schema
+		.createIndex("idx_knowledge_injection_events_session")
+		.ifNotExists()
+		.on("knowledge_injection_events")
+		.column("session_id")
+		.execute();
+
+	await db.schema
+		.createIndex("idx_knowledge_injection_events_workflow")
+		.ifNotExists()
+		.on("knowledge_injection_events")
+		.column("workflow_id")
+		.execute();
+
 	await db.schema
 		.createIndex("idx_knowledge_injection_events_turn")
 		.ifNotExists()
 		.on("knowledge_injection_events")
-		.columns([
-			"workflow_id",
-			"session_id",
-			"turn_id",
-			"agent_role",
-			"workflow_stage",
-		])
+		.columns(["session_id", "turn_id"])
+		.execute();
+
+	await db.schema
+		.createIndex("idx_knowledge_injection_events_created")
+		.ifNotExists()
+		.on("knowledge_injection_events")
+		.column("created_at")
 		.execute();
 }
 
