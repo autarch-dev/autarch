@@ -42,13 +42,15 @@ export type OnboardingStatusResponse = z.infer<
 
 /**
  * Response schema for GET /api/settings/api-keys
- * Returns boolean flags indicating which providers are configured (never exposes actual keys)
+ * Returns boolean flags indicating which providers are configured (never exposes actual keys).
+ * `customProviders` maps custom provider IDs to their configured status.
  */
 export const ApiKeysResponseSchema = z.object({
 	openai: z.boolean(),
 	anthropic: z.boolean(),
 	google: z.boolean(),
 	xai: z.boolean(),
+	customProviders: z.record(z.string(), z.boolean()).optional(),
 });
 export type ApiKeysResponse = z.infer<typeof ApiKeysResponseSchema>;
 

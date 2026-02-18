@@ -11,10 +11,13 @@ import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
+	SelectLabel,
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { useCustomProviders } from "@/features/settings/hooks/useCustomProviders";
 import {
 	type AIProvider,
 	ALL_MODELS,
@@ -38,23 +41,56 @@ export function ModelPrefsStep() {
 		loadApiKeysStatus,
 		isLoading,
 	} = useOnboarding();
+	const { providers, modelsByProvider, loadProviders } = useCustomProviders();
 
 	const [localPrefs, setLocalPrefs] = useState<ModelPreferences>({});
 	const [hasInitializedDefaults, setHasInitializedDefaults] = useState(false);
 
 	useEffect(() => {
 		loadModelPreferences();
-		// Ensure API keys status is loaded (may already be cached from previous step)
+		loadProviders();
 		if (!apiKeysStatus) {
 			loadApiKeysStatus();
 		}
-	}, [loadModelPreferences, loadApiKeysStatus, apiKeysStatus]);
+	}, [loadModelPreferences, loadApiKeysStatus, loadProviders, apiKeysStatus]);
 
-	// Filter models to only show those from providers with configured API keys
-	const availableModels = useMemo(() => {
+	// Filter built-in models to only show those from providers with configured API keys
+	const builtInModels = useMemo(() => {
 		if (!apiKeysStatus) return [];
 		return ALL_MODELS.filter((model) => apiKeysStatus[model.provider]);
 	}, [apiKeysStatus]);
+
+	// Custom model options from configured providers
+	const customModelOptions = useMemo(() => {
+		if (!apiKeysStatus?.customProviders) return [];
+		const options: { value: string; label: string; providerLabel: string }[] =
+			[];
+		for (const provider of providers) {
+			if (!apiKeysStatus.customProviders[provider.id]) continue;
+			const models = modelsByProvider[provider.id] ?? [];
+			for (const model of models) {
+				options.push({
+					value: model.id,
+					label: model.label,
+					providerLabel: provider.label,
+				});
+			}
+		}
+		return options;
+	}, [apiKeysStatus, providers, modelsByProvider]);
+
+	const availableModels = useMemo(
+		() => [
+			...builtInModels.map((m) => ({ value: m.value, label: m.label })),
+			...customModelOptions.map((m) => ({
+				value: m.value,
+				label: `${m.label} (${m.providerLabel})`,
+			})),
+		],
+		[builtInModels, customModelOptions],
+	);
+
+	const hasCustomModels = customModelOptions.length > 0;
 
 	// Get the first available provider (in priority order)
 	const firstAvailableProvider = useMemo((): AIProvider | null => {
@@ -141,12 +177,53 @@ export function ModelPrefsStep() {
 							<SelectTrigger id={scenario}>
 								<SelectValue placeholder="Select a model" />
 							</SelectTrigger>
-							<SelectContent>
-								{availableModels.map((model) => (
-									<SelectItem key={model.value} value={model.value}>
-										{model.label}
-									</SelectItem>
-								))}
+							<SelectContent className="max-h-[300px]">
+								{hasCustomModels ? (
+									<>
+										<SelectGroup>
+											<SelectLabel className="text-xs text-muted-foreground">
+												Built-in
+											</SelectLabel>
+											{builtInModels.map((model) => (
+												<SelectItem key={model.value} value={model.value}>
+													{model.label}
+												</SelectItem>
+											))}
+										</SelectGroup>
+										{(() => {
+											const byProvider = new Map<
+												string,
+												typeof customModelOptions
+											>();
+											for (const opt of customModelOptions) {
+												const existing =
+													byProvider.get(opt.providerLabel) ?? [];
+												existing.push(opt);
+												byProvider.set(opt.providerLabel, existing);
+											}
+											return Array.from(byProvider.entries()).map(
+												([providerLabel, models]) => (
+													<SelectGroup key={providerLabel}>
+														<SelectLabel className="text-xs text-muted-foreground">
+															{providerLabel}
+														</SelectLabel>
+														{models.map((model) => (
+															<SelectItem key={model.value} value={model.value}>
+																{model.label}
+															</SelectItem>
+														))}
+													</SelectGroup>
+												),
+											);
+										})()}
+									</>
+								) : (
+									availableModels.map((model) => (
+										<SelectItem key={model.value} value={model.value}>
+											{model.label}
+										</SelectItem>
+									))
+								)}
 							</SelectContent>
 						</Select>
 					</div>

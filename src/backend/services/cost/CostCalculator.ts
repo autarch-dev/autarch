@@ -4,10 +4,14 @@
  * Note: Pricing can be complex (e.g., tiered rates based on context size,
  * different rates for >200k input tokens). Implementation should handle
  * provider-specific pricing logic internally.
+ *
+ * Supports both built-in models (static COST_DICTIONARY) and custom
+ * provider models (costs queried from the database, then cached).
  */
 
 import { log } from "@/backend/logger";
 import { ModelNameSchema } from "@/shared/schemas";
+import { getCustomModel } from "../customProviders";
 import {
 	COST_DICTIONARY,
 	type CostParams,
@@ -18,39 +22,54 @@ import {
  * Calculate cost for a model invocation.
  */
 export class CostCalculator {
+	private customCostCache = new Map<string, CostParams | null>();
+
 	/**
 	 * Calculate cost in USD for a single turn.
-	 * Returns 0 for unknown models or misconfigured pricing models.
+	 * Checks the static dictionary for built-in models first,
+	 * then falls back to custom model cost data from the database.
 	 *
-	 * @param modelId - The model identifier (e.g., "claude-sonnet-4-5")
-	 * @param uncachedPromptTokens - Number of uncached input tokens
-	 * @param completionTokens - Number of output tokens
-	 * @param cacheWriteTokens - Number of cache write tokens
-	 * @param cacheReadTokens - Number of cache read tokens
-	 * @returns Cost in USD
+	 * Returns 0 for unknown models or misconfigured pricing models.
 	 */
-	calculate(
+	async calculate(
 		modelId: string,
 		uncachedPromptTokens: number,
 		completionTokens: number,
 		cacheWriteTokens: number | undefined,
 		cacheReadTokens: number | undefined,
-	): number {
+	): Promise<number> {
+		// Try built-in models first (fast, synchronous path)
 		const model = ModelNameSchema.safeParse(modelId);
-
-		if (!model.success) {
-			return 0; // Unknown model
+		if (model.success) {
+			const cost = COST_DICTIONARY.find((m) => m.modelName === model.data);
+			if (cost) {
+				if ("pricingTiers" in cost) {
+					return this.calculateTieredCost(
+						modelId,
+						cost.pricingTiers,
+						uncachedPromptTokens,
+						completionTokens,
+						cacheWriteTokens,
+						cacheReadTokens,
+					);
+				}
+				return this.calculateSimpleCost(
+					modelId,
+					cost,
+					uncachedPromptTokens,
+					completionTokens,
+					cacheWriteTokens,
+					cacheReadTokens,
+				);
+			}
 		}
 
-		const cost = COST_DICTIONARY.find((m) => m.modelName === model.data);
-		if (!cost) {
-			return 0; // Unknown model
-		}
-
-		if ("pricingTiers" in cost) {
-			return this.calculateTieredCost(
+		// Fall back to custom model cost data
+		const customCost = await this.getCustomModelCost(modelId);
+		if (customCost) {
+			return this.calculateSimpleCost(
 				modelId,
-				cost.pricingTiers,
+				customCost,
 				uncachedPromptTokens,
 				completionTokens,
 				cacheWriteTokens,
@@ -58,14 +77,39 @@ export class CostCalculator {
 			);
 		}
 
-		return this.calculateSimpleCost(
-			modelId,
-			cost,
-			uncachedPromptTokens,
-			completionTokens,
-			cacheWriteTokens,
-			cacheReadTokens,
-		);
+		return 0;
+	}
+
+	private async getCustomModelCost(
+		modelId: string,
+	): Promise<CostParams | null> {
+		if (this.customCostCache.has(modelId)) {
+			return this.customCostCache.get(modelId) ?? null;
+		}
+
+		const customModel = await getCustomModel(modelId);
+		if (!customModel) {
+			this.customCostCache.set(modelId, null);
+			return null;
+		}
+
+		const cost: CostParams = {
+			promptTokenCost: customModel.promptTokenCost,
+			completionTokenCost: customModel.completionTokenCost,
+			cacheReadCost: customModel.cacheReadCost,
+			cacheWriteCost: customModel.cacheWriteCost,
+		};
+		this.customCostCache.set(modelId, cost);
+		return cost;
+	}
+
+	/** Invalidate the cache when custom model costs are updated. */
+	invalidateCustomCostCache(modelId?: string): void {
+		if (modelId) {
+			this.customCostCache.delete(modelId);
+		} else {
+			this.customCostCache.clear();
+		}
 	}
 
 	private calculateTieredCost(

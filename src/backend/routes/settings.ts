@@ -8,6 +8,7 @@ import {
 import { execGit } from "../git/git-executor";
 import { resolveGitIdentityEnv } from "../git/identity";
 import { getProjectRoot } from "../projectRoot";
+import { getCustomProviderKeysStatus } from "../services/customProviders";
 import {
 	clearApiKey,
 	clearExaApiKey,
@@ -70,8 +71,11 @@ export const settingsRoutes = {
 
 	"/api/settings/api-keys": {
 		async GET() {
-			const status = await getApiKeysStatus();
-			return Response.json(status);
+			const [status, customProviders] = await Promise.all([
+				getApiKeysStatus(),
+				getCustomProviderKeysStatus(),
+			]);
+			return Response.json({ ...status, customProviders });
 		},
 
 		async PUT(req: Request) {

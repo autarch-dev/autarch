@@ -1,6 +1,7 @@
 export * from "./analytics";
 export * from "./channel";
 export * from "./costs";
+export * from "./custom-providers";
 export * from "./embedding";
 export * from "./events";
 export * from "./git-identity";

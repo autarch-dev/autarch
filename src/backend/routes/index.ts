@@ -8,6 +8,7 @@ export { analyticsRoutes } from "./analyticsRoutes";
 export { channelRoutes } from "./channelRoutes";
 export { costRoutes } from "./costRoutes";
 export { credentialPromptRoutes } from "./credentialPromptRoutes";
+export { customProviderRoutes } from "./customProviders";
 export { knowledgeRoutes } from "./knowledgeRoutes";
 export { questionRoutes } from "./questionRoutes";
 export { roadmapRoutes } from "./roadmapRoutes";

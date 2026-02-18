@@ -64,4 +64,9 @@ export async function closeGlobalDb(): Promise<void> {
 	}
 }
 
-export type { GlobalDatabase, SettingsTable } from "./types";
+export type {
+	CustomModelsTable,
+	CustomProvidersTable,
+	GlobalDatabase,
+	SettingsTable,
+} from "./types";

@@ -7,8 +7,10 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCustomProviders } from "../hooks/useCustomProviders";
 import { useSettings } from "../hooks/useSettings";
 import { ApiProviderKeysSection } from "./ApiProviderKeysSection";
+import { CustomProvidersSection } from "./CustomProvidersSection";
 import { GitIdentitySection } from "./GitIdentitySection";
 import { HooksSection } from "./HooksSection";
 import { IntegrationsSection } from "./IntegrationsSection";
@@ -29,6 +31,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 		loadPersistentApprovals,
 		loadGitIdentity,
 	} = useSettings();
+	const { loadProviders } = useCustomProviders();
 
 	// Load all data when panel opens
 	useEffect(() => {
@@ -39,6 +42,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 			loadHooksConfig();
 			loadPersistentApprovals();
 			loadGitIdentity();
+			loadProviders();
 		}
 	}, [
 		open,
@@ -48,6 +52,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 		loadHooksConfig,
 		loadPersistentApprovals,
 		loadGitIdentity,
+		loadProviders,
 	]);
 
 	return (
@@ -77,6 +82,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 					<ScrollArea className="flex-1 min-h-0 px-8">
 						<TabsContent value="keys" className="mt-6 space-y-6">
 							<ApiProviderKeysSection />
+							<CustomProvidersSection />
 							<IntegrationsSection />
 						</TabsContent>
 

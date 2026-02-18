@@ -1189,7 +1189,7 @@ export class AgentRunner {
 					totalCacheReadTokens += stepCacheReadTokens;
 
 					// Calculate cost per-step so long-context thresholds apply correctly
-					totalCost += getCostCalculator().calculate(
+					totalCost += await getCostCalculator().calculate(
 						modelId,
 						inputTokensForCostCalculation,
 						stepOutputTokens,
