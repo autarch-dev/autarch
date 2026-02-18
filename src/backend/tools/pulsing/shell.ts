@@ -172,7 +172,7 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 
 		log.tools.info(`shell: ${input.command} (cwd: ${cwd})`);
 
-			try {
+		try {
 			// Create abort controller for timeout
 			const controller = new AbortController();
 			const timeoutId = setTimeout(() => controller.abort(), timeout);
