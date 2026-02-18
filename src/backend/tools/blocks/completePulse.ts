@@ -8,6 +8,7 @@ import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import { CompletionValidator } from "@/backend/services/pulsing/CompletionValidator";
 import { OutputComparisonService } from "@/backend/services/pulsing/OutputComparison";
+import { collectPartialOutput, dumpTimeoutLog } from "../base/timeoutLog";
 import { getShellArgs } from "../pulsing/shell";
 import type { ToolDefinition, ToolResult } from "../types";
 
@@ -132,58 +133,75 @@ orchestration for human review.`,
 						`Running verification command for ${pulse.id}: ${command} (source: ${source})`,
 					);
 
+				try {
+					// Create abort controller for timeout
+					const controller = new AbortController();
+					const timeoutId = setTimeout(
+						() => controller.abort(),
+						VERIFICATION_TIMEOUT,
+					);
+
+					// Spawn the process
+					const proc = Bun.spawn(getShellArgs(command), {
+						cwd: worktreePath,
+						stdin: "ignore",
+						stdout: "pipe",
+						stderr: "pipe",
+						env: process.env,
+					});
+
+					// Hoist output promises so partial output is accessible on timeout
+					const stdoutPromise = new Response(proc.stdout).text();
+					const stderrPromise = new Response(proc.stderr).text();
+					const exitPromise = proc.exited;
+
+					let timedOut = false;
+					const timeoutPromise = new Promise<never>((_, reject) => {
+						controller.signal.addEventListener("abort", () => {
+							timedOut = true;
+							proc.kill();
+							reject(
+								new Error(
+									`Verification command timed out after 300 seconds: ${command}`,
+								),
+							);
+						});
+					});
+
+					let stdout: string;
+					let stderr: string;
+					let exitCode: number;
+
 					try {
-						// Create abort controller for timeout
-						const controller = new AbortController();
-						const timeoutId = setTimeout(
-							() => controller.abort(),
-							VERIFICATION_TIMEOUT,
-						);
+						const [stdoutText, stderrText, code] = await Promise.race([
+							Promise.all([stdoutPromise, stderrPromise, exitPromise]),
+							timeoutPromise.then(() => {
+								throw new Error("timeout");
+							}),
+						]);
 
-						// Spawn the process
-						const proc = Bun.spawn(getShellArgs(command), {
-							cwd: worktreePath,
-							stdin: "ignore",
-							stdout: "pipe",
-							stderr: "pipe",
-							env: process.env,
-						});
-
-						// Wait for process with timeout
-						const exitPromise = proc.exited;
-						const timeoutPromise = new Promise<never>((_, reject) => {
-							controller.signal.addEventListener("abort", () => {
-								proc.kill();
-								reject(
-									new Error(
-										`Verification command timed out after 300 seconds: ${command}`,
-									),
-								);
+						stdout = stdoutText;
+						stderr = stderrText;
+						exitCode = code;
+					} catch (raceError) {
+						if (timedOut) {
+							const partial = await collectPartialOutput(
+								stdoutPromise,
+								stderrPromise,
+							);
+							await dumpTimeoutLog({
+								projectRoot: context.projectRoot,
+								label: "verification",
+								command,
+								timeoutSeconds: VERIFICATION_TIMEOUT / 1000,
+								stdout: partial.stdout,
+								stderr: partial.stderr,
 							});
-						});
-
-						let stdout: string;
-						let stderr: string;
-						let exitCode: number;
-
-						try {
-							const [stdoutText, stderrText, code] = await Promise.race([
-								Promise.all([
-									new Response(proc.stdout).text(),
-									new Response(proc.stderr).text(),
-									exitPromise,
-								]),
-								timeoutPromise.then(() => {
-									throw new Error("timeout");
-								}),
-							]);
-
-							stdout = stdoutText;
-							stderr = stderrText;
-							exitCode = code;
-						} finally {
-							clearTimeout(timeoutId);
 						}
+						throw raceError;
+					} finally {
+						clearTimeout(timeoutId);
+					}
 
 						// Retrieve baseline for this command
 						const baseline = await pulses.getCommandBaseline(

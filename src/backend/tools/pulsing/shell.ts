@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { log } from "@/backend/logger";
 import { shellApprovalService } from "@/backend/services/shell-approval";
+import { collectPartialOutput, dumpTimeoutLog } from "../base/timeoutLog";
 import { getEffectiveRoot } from "../base/utils";
 import {
 	REASON_DESCRIPTION,
@@ -171,7 +172,7 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 
 		log.tools.info(`shell: ${input.command} (cwd: ${cwd})`);
 
-		try {
+			try {
 			// Create abort controller for timeout
 			const controller = new AbortController();
 			const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -185,10 +186,15 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 				env: process.env,
 			});
 
-			// Wait for process with timeout
+			// Hoist output promises so partial output is accessible on timeout
+			const stdoutPromise = new Response(proc.stdout).text();
+			const stderrPromise = new Response(proc.stderr).text();
 			const exitPromise = proc.exited;
+
+			let timedOut = false;
 			const timeoutPromise = new Promise<never>((_, reject) => {
 				controller.signal.addEventListener("abort", () => {
+					timedOut = true;
 					proc.kill();
 					reject(
 						new Error(
@@ -205,11 +211,7 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 			try {
 				// Race between completion and timeout
 				const [stdoutText, stderrText, code] = await Promise.race([
-					Promise.all([
-						new Response(proc.stdout).text(),
-						new Response(proc.stderr).text(),
-						exitPromise,
-					]),
+					Promise.all([stdoutPromise, stderrPromise, exitPromise]),
 					timeoutPromise.then(() => {
 						throw new Error("timeout");
 					}),
@@ -218,6 +220,22 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 				exitCode = code;
 				stdout = stdoutText;
 				stderr = stderrText;
+			} catch (raceError) {
+				if (timedOut) {
+					const partial = await collectPartialOutput(
+						stdoutPromise,
+						stderrPromise,
+					);
+					await dumpTimeoutLog({
+						projectRoot: context.projectRoot,
+						label: "shell",
+						command: input.command,
+						timeoutSeconds: input.timeoutSeconds ?? 60,
+						stdout: partial.stdout,
+						stderr: partial.stderr,
+					});
+				}
+				throw raceError;
 			} finally {
 				clearTimeout(timeoutId);
 			}
