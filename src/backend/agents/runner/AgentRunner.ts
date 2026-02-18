@@ -19,6 +19,7 @@ import type {
 	UserModelMessage,
 } from "@ai-sdk/provider-utils";
 import { hasToolCall, stepCountIs, streamText } from "ai";
+import { getKnowledgeDb } from "@/backend/db/knowledge";
 import { getProjectDb } from "@/backend/db/project";
 import {
 	convertToAISDKTools,
@@ -31,6 +32,7 @@ import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import { getCostCalculator } from "@/backend/services/cost";
 import { isExaKeyConfigured } from "@/backend/services/globalSettings";
+import { KnowledgeRepository } from "@/backend/services/knowledge/repository";
 import {
 	askQuestionsTool,
 	requestExtensionTool,
@@ -275,6 +277,9 @@ export class AgentRunner {
 			`User message: ${userMessage.slice(0, 100)}${userMessage.length > 100 ? "..." : ""}`,
 		);
 
+		const knowledgeDb = await getKnowledgeDb(this.config.projectRoot);
+		const knowledgeRepo = new KnowledgeRepository(knowledgeDb);
+
 		// Load existing conversation history for this session
 		const {
 			messages: conversationHistory,
@@ -298,6 +303,31 @@ export class AgentRunner {
 		);
 		await this.saveMessage(userTurn.id, 0, userMessage);
 		await this.completeTurn(userTurn.id);
+
+		const injection = options.knowledgeInjection;
+		if (injection?.items.length) {
+			try {
+				await knowledgeRepo.insertKnowledgeInjectionEvents({
+					sessionId: this.session.id,
+					turnId: userTurn.id,
+					agentRole: options.agentRole ?? this.session.agentRole,
+					workflowId: options.workflowId ?? null,
+					workflowStage: options.workflowStage ?? null,
+					queryText: injection.queryText,
+					tokenBudget: injection.tokenBudget,
+					truncated: injection.truncated,
+					items: injection.items.map((item) => ({
+						knowledgeItemId: item.knowledgeItemId,
+						similarity: item.similarity,
+					})),
+				});
+			} catch (error) {
+				log.agent.warn(
+					`Failed to persist knowledge injection events for session ${this.session.id}, turn ${userTurn.id}`,
+					error,
+				);
+			}
+		}
 
 		// Build user message with optional context prefix
 		// Tool summaries and notes are injected into the user message to avoid

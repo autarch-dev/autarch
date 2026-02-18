@@ -89,7 +89,20 @@ export const mockGetRepositories = mock(() => ({
 }));
 
 // =============================================================================
-// Knowledge mock
+// Knowledge DB + repository mocks (for AgentRunner injection persistence)
+// =============================================================================
+
+export const mockGetKnowledgeDb = mock(() => Promise.resolve({}));
+
+export const mockInsertKnowledgeInjectionEvents = mock(() => Promise.resolve());
+
+export class MockKnowledgeRepositoryClass {
+	insertKnowledgeInjectionEvents = mockInsertKnowledgeInjectionEvents;
+	constructor(_db: unknown) {}
+}
+
+// =============================================================================
+// Knowledge service mock
 // =============================================================================
 
 export const mockExtractKnowledge = mock(() => Promise.resolve(undefined));
@@ -200,6 +213,14 @@ export function setupMockModules() {
 	mock.module("@/backend/services/knowledge", () => ({
 		extractKnowledge: mockExtractKnowledge,
 		searchKnowledge: mockSearchKnowledge,
+	}));
+
+	mock.module("@/backend/db/knowledge", () => ({
+		getKnowledgeDb: mockGetKnowledgeDb,
+	}));
+
+	mock.module("@/backend/services/knowledge/repository", () => ({
+		KnowledgeRepository: MockKnowledgeRepositoryClass,
 	}));
 
 	mock.module("@/backend/services/pulsing", () => ({

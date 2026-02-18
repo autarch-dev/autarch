@@ -69,6 +69,43 @@ export interface KnowledgeSearchFilters {
 	limit?: number;
 }
 
+/**
+ * Domain model for a knowledge injection event.
+ * Privacy-safe fields only.
+ */
+export interface KnowledgeInjectionEvent {
+	id: string;
+	knowledgeItemId: string;
+	sessionId: string | null;
+	turnId: string | null;
+	agentRole: string | null;
+	workflowId: string | null;
+	workflowStage: string | null;
+	similarity: number;
+	queryText: string;
+	tokenBudget: number;
+	truncated: boolean;
+	createdAt: number;
+}
+
+/**
+ * Data required to create one or more knowledge injection events.
+ */
+export interface CreateKnowledgeInjectionEventData {
+	sessionId: string | null;
+	turnId: string | null;
+	agentRole: string | null;
+	workflowId: string | null;
+	workflowStage: string | null;
+	queryText: string;
+	tokenBudget: number;
+	truncated: boolean;
+	items: Array<{
+		knowledgeItemId: string;
+		similarity: number;
+	}>;
+}
+
 // =============================================================================
 // Domain Mapping Functions
 // =============================================================================
@@ -436,5 +473,129 @@ export class KnowledgeRepository {
 
 			return BigInt(result.numDeletedRows) > 0n;
 		});
+	}
+
+	/**
+	 * Insert multiple knowledge injection events in a single call.
+	 *
+	 * Accepts shared metadata plus an item list (each with knowledgeItemId + similarity).
+	 * No-op if the items list is empty.
+	 */
+	async insertKnowledgeInjectionEvents(
+		data: CreateKnowledgeInjectionEventData,
+	): Promise<void> {
+		if (data.items.length === 0) {
+			return;
+		}
+
+		const now = Date.now();
+
+		await this.db
+			.insertInto("knowledge_injection_events")
+			.values(
+				data.items.map((item) => ({
+					id: ids.knowledge(),
+					knowledge_item_id: item.knowledgeItemId,
+					session_id: data.sessionId,
+					turn_id: data.turnId,
+					agent_role: data.agentRole,
+					workflow_id: data.workflowId,
+					workflow_stage: data.workflowStage,
+					similarity: item.similarity,
+					query_text: data.queryText,
+					token_budget: data.tokenBudget,
+					truncated: data.truncated ? 1 : 0,
+					created_at: now,
+				})),
+			)
+			.execute();
+	}
+
+	/**
+	 * List injection events for a given knowledge item.
+	 * Ordered by created_at desc.
+	 */
+	async listKnowledgeInjectionEventsByKnowledgeItemId(
+		knowledgeItemId: string,
+	): Promise<KnowledgeInjectionEvent[]> {
+		const rows = await this.db
+			.selectFrom("knowledge_injection_events")
+			.select([
+				"id",
+				"knowledge_item_id",
+				"session_id",
+				"turn_id",
+				"agent_role",
+				"workflow_id",
+				"workflow_stage",
+				"similarity",
+				"query_text",
+				"token_budget",
+				"truncated",
+				"created_at",
+			])
+			.where("knowledge_item_id", "=", knowledgeItemId)
+			.orderBy("created_at", "desc")
+			.execute();
+
+		return rows.map((row) => ({
+			id: row.id,
+			knowledgeItemId: row.knowledge_item_id,
+			sessionId: row.session_id,
+			turnId: row.turn_id,
+			agentRole: row.agent_role,
+			workflowId: row.workflow_id,
+			workflowStage: row.workflow_stage,
+			similarity: row.similarity,
+			queryText: row.query_text,
+			tokenBudget: row.token_budget,
+			truncated: row.truncated === 1,
+			createdAt: row.created_at,
+		}));
+	}
+
+	/**
+	 * List the knowledge items injected for a particular turn key.
+	 *
+	 * Key is the composite (workflowId, sessionId, turnId, agentRole, workflowStage).
+	 * Returns privacy-safe fields only.
+	 */
+	async listInjectedKnowledgeItemsForTurnKey(params: {
+		workflowId: string;
+		sessionId: string;
+		turnId: string;
+		agentRole: string;
+		workflowStage: string;
+	}): Promise<Array<{ knowledgeItemId: string; similarity: number }>> {
+		// SQLite does not support DISTINCT ON. To return a single (latest) record per
+		// knowledge_item_id, we join against a subquery selecting MAX(created_at)
+		// per knowledge_item_id for the given composite turn key.
+		const result = await sql<{ knowledge_item_id: string; similarity: number }>`
+			SELECT kie.knowledge_item_id, kie.similarity
+			FROM knowledge_injection_events AS kie
+			JOIN (
+				SELECT knowledge_item_id, MAX(created_at) AS max_created_at
+				FROM knowledge_injection_events
+				WHERE workflow_id = ${params.workflowId}
+					AND session_id = ${params.sessionId}
+					AND turn_id = ${params.turnId}
+					AND agent_role = ${params.agentRole}
+					AND workflow_stage = ${params.workflowStage}
+				GROUP BY knowledge_item_id
+			) AS latest
+				ON latest.knowledge_item_id = kie.knowledge_item_id
+				AND latest.max_created_at = kie.created_at
+			WHERE kie.workflow_id = ${params.workflowId}
+				AND kie.session_id = ${params.sessionId}
+				AND kie.turn_id = ${params.turnId}
+				AND kie.agent_role = ${params.agentRole}
+				AND kie.workflow_stage = ${params.workflowStage}
+			ORDER BY kie.created_at DESC
+		`.execute(this.db);
+
+		return result.rows.map((row) => ({
+			knowledgeItemId: row.knowledge_item_id,
+			similarity: row.similarity,
+		}));
 	}
 }

@@ -14,6 +14,77 @@ export async function migrateKnowledgeDb(
 	await createKnowledgeEmbeddingsTable(db);
 	await addArchivedColumn(db);
 	await backfillMissingEmbeddings(db);
+	await createKnowledgeInjectionEventsTable(db);
+}
+
+/**
+ * Create the knowledge_injection_events table for per-turn usage history.
+ * Privacy-safe metadata only.
+ */
+async function createKnowledgeInjectionEventsTable(
+	db: Kysely<KnowledgeDatabase>,
+): Promise<void> {
+	await db.schema
+		.createTable("knowledge_injection_events")
+		.ifNotExists()
+		.addColumn("id", "text", (col) => col.primaryKey())
+		.addColumn("knowledge_item_id", "text", (col) => col.notNull())
+		.addColumn("workflow_id", "text")
+		.addColumn("session_id", "text")
+		.addColumn("turn_id", "text")
+		.addColumn("agent_role", "text")
+		.addColumn("workflow_stage", "text")
+		.addColumn("similarity", "real", (col) => col.notNull())
+		.addColumn("query_text", "text", (col) => col.notNull())
+		.addColumn("token_budget", "integer", (col) => col.notNull())
+		.addColumn("truncated", "integer", (col) => col.notNull())
+		.addColumn("created_at", "integer", (col) => col.notNull())
+		.addForeignKeyConstraint(
+			"fk_knowledge_injection_events_item",
+			["knowledge_item_id"],
+			"knowledge_items",
+			["id"],
+			(cb) => cb.onDelete("cascade"),
+		)
+		.execute();
+
+	await db.schema
+		.createIndex("idx_knowledge_injection_events_item")
+		.ifNotExists()
+		.on("knowledge_injection_events")
+		.column("knowledge_item_id")
+		.execute();
+
+	// NOTE: Turn keys are nullable because some injection events may occur
+	// without full workflow/session attribution. Avoid relying on a single
+	// composite equality index that can miss NULL semantics.
+	await db.schema
+		.createIndex("idx_knowledge_injection_events_session")
+		.ifNotExists()
+		.on("knowledge_injection_events")
+		.column("session_id")
+		.execute();
+
+	await db.schema
+		.createIndex("idx_knowledge_injection_events_workflow")
+		.ifNotExists()
+		.on("knowledge_injection_events")
+		.column("workflow_id")
+		.execute();
+
+	await db.schema
+		.createIndex("idx_knowledge_injection_events_turn")
+		.ifNotExists()
+		.on("knowledge_injection_events")
+		.columns(["session_id", "turn_id"])
+		.execute();
+
+	await db.schema
+		.createIndex("idx_knowledge_injection_events_created")
+		.ifNotExists()
+		.on("knowledge_injection_events")
+		.column("created_at")
+		.execute();
 }
 
 /**

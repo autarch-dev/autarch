@@ -1011,13 +1011,13 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 		void this.recordStageTransition(workflowId, previousStage, newStage);
 
 		// Start the new agent with an appropriate initial message
-		const initialMessage = await this.buildInitialMessage(
+		const initial = await this.buildInitialMessage(
 			workflowId,
 			previousStage,
 			newStage,
 		);
 
-		if (initialMessage) {
+		if (initial) {
 			const projectRoot = getProjectRoot();
 
 			// For execution stage, include worktree path
@@ -1038,16 +1038,24 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 
 			// Run in background (non-blocking)
 			// Mark as hidden so the transition message (with approved artifact) isn't shown in UI
-			runner.run(initialMessage, { hidden: true }).catch((error) => {
-				log.workflow.error(
-					`Agent run failed for ${agentRole} in workflow ${workflowId}:`,
-					error,
-				);
-				this.errorWorkflow(
+			runner
+				.run(initial.message, {
+					hidden: true,
 					workflowId,
-					error instanceof Error ? error.message : "Unknown error",
-				);
-			});
+					workflowStage: newStage,
+					agentRole,
+					knowledgeInjection: initial.knowledgeInjection,
+				})
+				.catch((error) => {
+					log.workflow.error(
+						`Agent run failed for ${agentRole} in workflow ${workflowId}:`,
+						error,
+					);
+					this.errorWorkflow(
+						workflowId,
+						error instanceof Error ? error.message : "Unknown error",
+					);
+				});
 		}
 
 		return {
@@ -1457,23 +1465,34 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 
 	/**
 	 * Search the knowledge store for items relevant to the given scope card,
-	 * filtered by category. Returns a formatted markdown section or empty string.
+	 * filtered by category.
+	 *
+	 * Returns the formatted markdown section (in `text`) plus structured metadata
+	 * for persistence/observability.
 	 */
 	private async buildKnowledgeSection(
 		scopeCard: ScopeCard,
 		categories: KnowledgeCategory[],
-	): Promise<string> {
+	): Promise<{
+		text: string;
+		queryText: string;
+		tokenBudget: number;
+		truncated: boolean;
+		items: Array<{ knowledgeItemId: string; similarity: number }>;
+	}> {
 		try {
-			let query = `${scopeCard.title} ${scopeCard.description} ${scopeCard.inScope.join(" ")}`;
-			if (query.length > 2000) {
-				query = query.slice(0, 2000);
+			let queryText = `${scopeCard.title} ${scopeCard.description} ${scopeCard.inScope.join(" ")}`;
+			if (queryText.length > 2000) {
+				queryText = queryText.slice(0, 2000);
 			}
+
+			const tokenBudget = KNOWLEDGE_CONFIG.CONTEXT_BUDGET_TOKENS;
 
 			const projectRoot = getProjectRoot();
 
 			const results = await Promise.allSettled(
 				categories.map((cat) =>
-					searchKnowledge(query, { category: cat }, projectRoot),
+					searchKnowledge(queryText, { category: cat }, projectRoot),
 				),
 			);
 
@@ -1499,34 +1518,61 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 			);
 
 			if (filtered.length === 0) {
-				return "";
+				return {
+					text: "",
+					queryText,
+					tokenBudget,
+					truncated: false,
+					items: [],
+				};
 			}
 
 			filtered.sort((a, b) => b.similarity - a.similarity);
 
 			let sections = "";
 			let cumulativeTokens = 0;
+			let truncated = false;
+			const items: Array<{ knowledgeItemId: string; similarity: number }> = [];
 			for (const item of filtered) {
 				const formatted = `### ${item.title}\n${item.content}\n*Category: ${item.category} | Source: workflow ${item.workflowId}*\n\n`;
 				const itemTokens = estimateTokens(formatted);
-				if (
-					cumulativeTokens + itemTokens >
-					KNOWLEDGE_CONFIG.CONTEXT_BUDGET_TOKENS
-				) {
+				if (cumulativeTokens + itemTokens > tokenBudget) {
+					truncated = true;
 					break;
 				}
 				sections += formatted;
 				cumulativeTokens += itemTokens;
+				items.push({ knowledgeItemId: item.id, similarity: item.similarity });
 			}
 
 			if (sections.length === 0) {
-				return "";
+				return {
+					text: "",
+					queryText,
+					tokenBudget,
+					truncated,
+					items: [],
+				};
 			}
 
-			return `\n\n## Relevant Knowledge\n\n${sections}`;
+			const text = `\n\n## Relevant Knowledge\n\n${sections}`;
+
+			return {
+				text,
+				queryText,
+				tokenBudget,
+				truncated,
+				items,
+			};
 		} catch (err) {
 			log.workflow.warn("Failed to search knowledge store", { err });
-			return "";
+			return {
+				text: "",
+				queryText: "",
+				tokenBudget: KNOWLEDGE_CONFIG.CONTEXT_BUDGET_TOKENS,
+				truncated: false,
+				items: [],
+			};
 		}
 	}
 
@@ -1537,7 +1583,16 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 		workflowId: string,
 		previousStage: WorkflowStatus,
 		newStage: WorkflowStatus,
-	): Promise<string | null> {
+	): Promise<{
+		message: string;
+		knowledgeInjection?: {
+			text: string;
+			queryText: string;
+			tokenBudget: number;
+			truncated: boolean;
+			items: Array<{ knowledgeItemId: string; similarity: number }>;
+		};
+	} | null> {
 		// Scoping -> Research: send the approved scope card
 		if (previousStage === "scoping" && newStage === "researching") {
 			const scopeCard = await this.artifactRepo.getLatestScopeCard(workflowId);
@@ -1576,12 +1631,17 @@ ${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
 			message +=
 				"\n\nPlease analyze the codebase to understand the relevant architecture, patterns, and integration points needed to implement this scope.";
 
-			message += await this.buildKnowledgeSection(scopeCard, [
+			const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
 				"pattern",
 				"process-improvement",
 			]);
+			message += knowledgeInjection.text;
 
-			return message;
+			return {
+				message,
+				knowledgeInjection:
+					knowledgeInjection.items.length > 0 ? knowledgeInjection : undefined,
+			};
 		}
 
 		// Research -> Planning: send BOTH scope card AND research findings
@@ -1656,12 +1716,13 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 			message +=
 				"\n\nPlease create a detailed implementation plan based on this scope and research. Break the work into discrete pulses ordered by dependencies.";
 
-			message += await this.buildKnowledgeSection(scopeCard, [
+			const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
 				"gotcha",
 				"process-improvement",
 			]);
+			message += knowledgeInjection.text;
 
-			return message;
+			return { message, knowledgeInjection };
 		}
 
 		// Planning -> in_progress: initialize pulsing and start preflight agent
@@ -1738,7 +1799,7 @@ ${plan.pulses.map((p) => `- ${p.id}: ${p.title}`).join("\n")}
 
 Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
 
-			return message;
+			return { message };
 		}
 
 		// in_progress -> review: send ONLY scope title and description
@@ -1765,12 +1826,13 @@ Please review the changes made for this scope. Use the available tools to:
 2. Add comments at the line, file, or review level as needed
 3. Complete your review with a recommendation (approve, deny, or manual_review)`;
 
-			message += await this.buildKnowledgeSection(scopeCard, [
+			const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
 				"gotcha",
 				"pattern",
 			]);
+			message += knowledgeInjection.text;
 
-			return message;
+			return { message, knowledgeInjection };
 		}
 
 		// For other transitions, return null (no automatic message)
@@ -1857,10 +1919,11 @@ ${plan.approachSummary}`;
 ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse has already been completed and only complete the remaining work." : "Execute this pulse."} When complete, call \`complete_pulse\` with a commit message. If you need more time, use \`request_extension\`.`;
 
 		if (scopeCard) {
-			message += await this.buildKnowledgeSection(scopeCard, [
+			const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
 				"pattern",
 				"tool-usage",
 			]);
+			message += knowledgeInjection.text;
 		}
 
 		return message;
@@ -2133,10 +2196,11 @@ ${scopeCard.constraints?.length ? `**Constraints:**\n${scopeCard.constraints.map
 Investigate the codebase to understand how to implement this scope.
 When ready, submit your research findings using the \`submit_research\` tool.`;
 
-		initialMessage += await this.buildKnowledgeSection(scopeCard, [
+		const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
 			"pattern",
 			"process-improvement",
 		]);
+		initialMessage += knowledgeInjection.text;
 
 		const runner = new AgentRunner(session, {
 			projectRoot,
@@ -2155,16 +2219,24 @@ When ready, submit your research findings using the \`submit_research\` tool.`;
 		);
 		void this.recordStageTransition(workflowId, "scoping", "researching");
 
-		runner.run(initialMessage, { hidden: true }).catch((error) => {
-			log.workflow.error(
-				`Research agent failed after rewind for workflow ${workflowId}:`,
-				error,
-			);
-			this.errorWorkflow(
+		runner
+			.run(initialMessage, {
+				hidden: true,
 				workflowId,
-				error instanceof Error ? error.message : "Unknown error",
-			);
-		});
+				workflowStage: "researching",
+				agentRole: "research",
+				knowledgeInjection,
+			})
+			.catch((error) => {
+				log.workflow.error(
+					`Research agent failed after rewind for workflow ${workflowId}:`,
+					error,
+				);
+				this.errorWorkflow(
+					workflowId,
+					error instanceof Error ? error.message : "Unknown error",
+				);
+			});
 	}
 
 	/**
@@ -2263,10 +2335,11 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 Create a detailed execution plan that breaks the implementation into discrete pulses.
 When ready, submit your plan using the \`submit_plan\` tool.`;
 
-		initialMessage += await this.buildKnowledgeSection(scopeCard, [
+		const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
 			"gotcha",
 			"process-improvement",
 		]);
+		initialMessage += knowledgeInjection.text;
 
 		const runner = new AgentRunner(session, {
 			projectRoot,
@@ -2285,16 +2358,24 @@ When ready, submit your plan using the \`submit_plan\` tool.`;
 		);
 		void this.recordStageTransition(workflowId, "researching", "planning");
 
-		runner.run(initialMessage, { hidden: true }).catch((error) => {
-			log.workflow.error(
-				`Planning agent failed after rewind for workflow ${workflowId}:`,
-				error,
-			);
-			this.errorWorkflow(
+		runner
+			.run(initialMessage, {
+				hidden: true,
 				workflowId,
-				error instanceof Error ? error.message : "Unknown error",
-			);
-		});
+				workflowStage: "planning",
+				agentRole: "planning",
+				knowledgeInjection,
+			})
+			.catch((error) => {
+				log.workflow.error(
+					`Planning agent failed after rewind for workflow ${workflowId}:`,
+					error,
+				);
+				this.errorWorkflow(
+					workflowId,
+					error instanceof Error ? error.message : "Unknown error",
+				);
+			});
 	}
 
 	/**
@@ -2408,16 +2489,23 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 		);
 
 		// Run in background (non-blocking)
-		runner.run(initialMessage, { hidden: true }).catch((error) => {
-			log.workflow.error(
-				`Preflight agent failed after rewind for workflow ${workflowId}:`,
-				error,
-			);
-			this.errorWorkflow(
+		runner
+			.run(initialMessage, {
+				hidden: true,
 				workflowId,
-				error instanceof Error ? error.message : "Unknown error",
-			);
-		});
+				workflowStage: "preflight",
+				agentRole: "preflight",
+			})
+			.catch((error) => {
+				log.workflow.error(
+					`Preflight agent failed after rewind for workflow ${workflowId}:`,
+					error,
+				);
+				this.errorWorkflow(
+					workflowId,
+					error instanceof Error ? error.message : "Unknown error",
+				);
+			});
 	}
 
 	/**
@@ -2486,10 +2574,11 @@ Please review the changes made for this scope. Use the available tools to:
 2. Add comments at the line, file, or review level as needed
 3. Complete your review with a recommendation (approve, deny, or manual_review)`;
 
-		initialMessage += await this.buildKnowledgeSection(scopeCard, [
+		const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
 			"gotcha",
 			"pattern",
 		]);
+		initialMessage += knowledgeInjection.text;
 
 		// Get the worktree path for the review agent
 		const worktreePath = getWorktreePath(projectRoot, workflowId);
@@ -2514,16 +2603,24 @@ Please review the changes made for this scope. Use the available tools to:
 		void this.recordStageTransition(workflowId, "review", "review", "rewind");
 
 		// Run in background (non-blocking)
-		runner.run(initialMessage, { hidden: true }).catch((error) => {
-			log.workflow.error(
-				`Review agent failed after rewind for workflow ${workflowId}:`,
-				error,
-			);
-			this.errorWorkflow(
+		runner
+			.run(initialMessage, {
+				hidden: true,
 				workflowId,
-				error instanceof Error ? error.message : "Unknown error",
-			);
-		});
+				workflowStage: "review",
+				agentRole: "review",
+				knowledgeInjection,
+			})
+			.catch((error) => {
+				log.workflow.error(
+					`Review agent failed after rewind for workflow ${workflowId}:`,
+					error,
+				);
+				this.errorWorkflow(
+					workflowId,
+					error instanceof Error ? error.message : "Unknown error",
+				);
+			});
 	}
 }
 
