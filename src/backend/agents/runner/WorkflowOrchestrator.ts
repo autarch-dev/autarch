@@ -1637,7 +1637,11 @@ ${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
 			]);
 			message += knowledgeInjection.text;
 
-			return { message, knowledgeInjection };
+			return {
+				message,
+				knowledgeInjection:
+					knowledgeInjection.items.length > 0 ? knowledgeInjection : undefined,
+			};
 		}
 
 		// Research -> Planning: send BOTH scope card AND research findings

@@ -305,7 +305,7 @@ export class AgentRunner {
 		await this.completeTurn(userTurn.id);
 
 		const injection = options.knowledgeInjection;
-		if (injection) {
+		if (injection?.items.length) {
 			try {
 				await knowledgeRepo.insertKnowledgeInjectionEvents({
 					sessionId: this.session.id,

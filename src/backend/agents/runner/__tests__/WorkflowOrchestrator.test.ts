@@ -2068,13 +2068,7 @@ describe("Agent Spawning", () => {
 				agentRole: "research",
 				workflowId: "wf-1",
 				workflowStage: "researching",
-				knowledgeInjection: {
-					items: [],
-					queryText: expect.any(String),
-					text: "",
-					tokenBudget: 3000,
-					truncated: false,
-				},
+				knowledgeInjection: undefined,
 			});
 		});
 
