@@ -120,12 +120,14 @@ describe("KnowledgeRepository injection events", () => {
 		}
 	});
 
-	test("listInjectedKnowledgeItemsForTurnKey returns injected items for composite key", async () => {
+	test("listInjectedKnowledgeItemsForTurnKey executes on SQLite and returns latest per knowledgeItemId", async () => {
 		const { db, repo, destroy } = await createRepo();
 		try {
 			const itemIdA = await createKnowledgeItem(db);
 			const itemIdB = await createKnowledgeItem(db);
 
+			// Insert two events for item A on the same composite key; the query should
+			// return only the latest record for each knowledgeItemId.
 			await repo.insertKnowledgeInjectionEvents({
 				sessionId: "sess_2",
 				turnId: "turn_3",
@@ -141,6 +143,22 @@ describe("KnowledgeRepository injection events", () => {
 				],
 			});
 
+			// Ensure created_at differs between the two injection-event batches so
+			// MAX(created_at) selects a single deterministic "latest" row.
+			await new Promise((resolve) => setTimeout(resolve, 20));
+
+			await repo.insertKnowledgeInjectionEvents({
+				sessionId: "sess_2",
+				turnId: "turn_3",
+				agentRole: "execution",
+				workflowId: "wf_2",
+				workflowStage: "stage_b",
+				queryText: "q",
+				tokenBudget: 500,
+				truncated: false,
+				items: [{ knowledgeItemId: itemIdA, similarity: 0.99 }],
+			});
+
 			// Different key should not be returned
 			await repo.insertKnowledgeInjectionEvents({
 				sessionId: "sess_2",
@@ -151,7 +169,7 @@ describe("KnowledgeRepository injection events", () => {
 				queryText: "q2",
 				tokenBudget: 500,
 				truncated: false,
-				items: [{ knowledgeItemId: itemIdA, similarity: 0.99 }],
+				items: [{ knowledgeItemId: itemIdA, similarity: 0.5 }],
 			});
 
 			const injected = await repo.listInjectedKnowledgeItemsForTurnKey({
@@ -163,8 +181,11 @@ describe("KnowledgeRepository injection events", () => {
 			});
 
 			expect(injected).toHaveLength(2);
-			const idsReturned = injected.map((it) => it.knowledgeItemId).sort();
-			expect(idsReturned).toEqual([itemIdA, itemIdB].sort());
+			const byId = new Map(
+				injected.map((it) => [it.knowledgeItemId, it.similarity] as const),
+			);
+			expect(Array.from(byId.keys()).sort()).toEqual([itemIdA, itemIdB].sort());
+			expect(byId.get(itemIdA)).toBe(0.99);
 		} finally {
 			await destroy();
 		}

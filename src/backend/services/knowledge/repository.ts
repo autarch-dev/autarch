@@ -567,18 +567,33 @@ export class KnowledgeRepository {
 		agentRole: string;
 		workflowStage: string;
 	}): Promise<Array<{ knowledgeItemId: string; similarity: number }>> {
-		const rows = await this.db
-			.selectFrom("knowledge_injection_events")
-			.select(["knowledge_item_id", "similarity"])
-			.where("workflow_id", "=", params.workflowId)
-			.where("session_id", "=", params.sessionId)
-			.where("turn_id", "=", params.turnId)
-			.where("agent_role", "=", params.agentRole)
-			.where("workflow_stage", "=", params.workflowStage)
-			.orderBy("created_at", "desc")
-			.execute();
+		// SQLite does not support DISTINCT ON. To return a single (latest) record per
+		// knowledge_item_id, we join against a subquery selecting MAX(created_at)
+		// per knowledge_item_id for the given composite turn key.
+		const result = await sql<{ knowledge_item_id: string; similarity: number }>`
+			SELECT kie.knowledge_item_id, kie.similarity
+			FROM knowledge_injection_events AS kie
+			JOIN (
+				SELECT knowledge_item_id, MAX(created_at) AS max_created_at
+				FROM knowledge_injection_events
+				WHERE workflow_id = ${params.workflowId}
+					AND session_id = ${params.sessionId}
+					AND turn_id = ${params.turnId}
+					AND agent_role = ${params.agentRole}
+					AND workflow_stage = ${params.workflowStage}
+				GROUP BY knowledge_item_id
+			) AS latest
+				ON latest.knowledge_item_id = kie.knowledge_item_id
+				AND latest.max_created_at = kie.created_at
+			WHERE kie.workflow_id = ${params.workflowId}
+				AND kie.session_id = ${params.sessionId}
+				AND kie.turn_id = ${params.turnId}
+				AND kie.agent_role = ${params.agentRole}
+				AND kie.workflow_stage = ${params.workflowStage}
+			ORDER BY kie.created_at DESC
+		`.execute(this.db);
 
-		return rows.map((row) => ({
+		return result.rows.map((row) => ({
 			knowledgeItemId: row.knowledge_item_id,
 			similarity: row.similarity,
 		}));
