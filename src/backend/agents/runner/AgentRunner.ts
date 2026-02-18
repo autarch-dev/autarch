@@ -310,7 +310,7 @@ export class AgentRunner {
 				await knowledgeRepo.insertKnowledgeInjectionEvents({
 					sessionId: this.session.id,
 					turnId: userTurn.id,
-					agentRole: this.session.agentRole,
+					agentRole: options.agentRole ?? this.session.agentRole,
 					workflowId: options.workflowId,
 					workflowStage: options.workflowStage,
 					queryText: injection.queryText,

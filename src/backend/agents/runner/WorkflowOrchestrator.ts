@@ -1011,13 +1011,13 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 		void this.recordStageTransition(workflowId, previousStage, newStage);
 
 		// Start the new agent with an appropriate initial message
-		const initialMessage = await this.buildInitialMessage(
+		const initial = await this.buildInitialMessage(
 			workflowId,
 			previousStage,
 			newStage,
 		);
 
-		if (initialMessage) {
+		if (initial) {
 			const projectRoot = getProjectRoot();
 
 			// For execution stage, include worktree path
@@ -1038,16 +1038,24 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 
 			// Run in background (non-blocking)
 			// Mark as hidden so the transition message (with approved artifact) isn't shown in UI
-			runner.run(initialMessage, { hidden: true }).catch((error) => {
-				log.workflow.error(
-					`Agent run failed for ${agentRole} in workflow ${workflowId}:`,
-					error,
-				);
-				this.errorWorkflow(
+			runner
+				.run(initial.message, {
+					hidden: true,
 					workflowId,
-					error instanceof Error ? error.message : "Unknown error",
-				);
-			});
+					workflowStage: newStage,
+					agentRole,
+					knowledgeInjection: initial.knowledgeInjection,
+				})
+				.catch((error) => {
+					log.workflow.error(
+						`Agent run failed for ${agentRole} in workflow ${workflowId}:`,
+						error,
+					);
+					this.errorWorkflow(
+						workflowId,
+						error instanceof Error ? error.message : "Unknown error",
+					);
+				});
 		}
 
 		return {
@@ -1575,7 +1583,16 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 		workflowId: string,
 		previousStage: WorkflowStatus,
 		newStage: WorkflowStatus,
-	): Promise<string | null> {
+	): Promise<{
+		message: string;
+		knowledgeInjection?: {
+			text: string;
+			queryText: string;
+			tokenBudget: number;
+			truncated: boolean;
+			items: Array<{ knowledgeItemId: string; similarity: number }>;
+		};
+	} | null> {
 		// Scoping -> Research: send the approved scope card
 		if (previousStage === "scoping" && newStage === "researching") {
 			const scopeCard = await this.artifactRepo.getLatestScopeCard(workflowId);
@@ -1620,7 +1637,7 @@ ${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
 			]);
 			message += knowledgeInjection.text;
 
-			return message;
+			return { message, knowledgeInjection };
 		}
 
 		// Research -> Planning: send BOTH scope card AND research findings
@@ -1695,15 +1712,13 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 			message +=
 				"\n\nPlease create a detailed implementation plan based on this scope and research. Break the work into discrete pulses ordered by dependencies.";
 
-			{
-				const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
-					"gotcha",
-					"process-improvement",
-				]);
-				message += knowledgeInjection.text;
-			}
+			const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
+				"gotcha",
+				"process-improvement",
+			]);
+			message += knowledgeInjection.text;
 
-			return message;
+			return { message, knowledgeInjection };
 		}
 
 		// Planning -> in_progress: initialize pulsing and start preflight agent
@@ -1780,7 +1795,7 @@ ${plan.pulses.map((p) => `- ${p.id}: ${p.title}`).join("\n")}
 
 Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
 
-			return message;
+			return { message };
 		}
 
 		// in_progress -> review: send ONLY scope title and description
@@ -1807,15 +1822,13 @@ Please review the changes made for this scope. Use the available tools to:
 2. Add comments at the line, file, or review level as needed
 3. Complete your review with a recommendation (approve, deny, or manual_review)`;
 
-			{
-				const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
-					"gotcha",
-					"pattern",
-				]);
-				message += knowledgeInjection.text;
-			}
+			const knowledgeInjection = await this.buildKnowledgeSection(scopeCard, [
+				"gotcha",
+				"pattern",
+			]);
+			message += knowledgeInjection.text;
 
-			return message;
+			return { message, knowledgeInjection };
 		}
 
 		// For other transitions, return null (no automatic message)

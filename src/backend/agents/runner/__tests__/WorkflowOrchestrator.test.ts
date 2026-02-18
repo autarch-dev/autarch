@@ -2063,7 +2063,19 @@ describe("Agent Spawning", () => {
 			];
 			const [message, options] = callArgs;
 			expect(typeof message).toBe("string");
-			expect(options).toEqual({ hidden: true });
+			expect(options).toMatchObject({
+				hidden: true,
+				agentRole: "research",
+				workflowId: "wf-1",
+				workflowStage: "researching",
+				knowledgeInjection: {
+					items: [],
+					queryText: expect.any(String),
+					text: "",
+					tokenBudget: 3000,
+					truncated: false,
+				},
+			});
 		});
 
 		test("workflowRepo.setCurrentSession called with new session id after startSession", async () => {

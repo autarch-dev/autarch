@@ -76,11 +76,11 @@ export interface KnowledgeSearchFilters {
 export interface KnowledgeInjectionEvent {
 	id: string;
 	knowledgeItemId: string;
-	sessionId: string;
-	turnId: string;
-	agentRole: string;
-	workflowId: string;
-	workflowStage: string;
+	sessionId: string | null;
+	turnId: string | null;
+	agentRole: string | null;
+	workflowId: string | null;
+	workflowStage: string | null;
 	similarity: number;
 	queryText: string;
 	tokenBudget: number;
@@ -92,11 +92,11 @@ export interface KnowledgeInjectionEvent {
  * Data required to create one or more knowledge injection events.
  */
 export interface CreateKnowledgeInjectionEventData {
-	sessionId: string;
-	turnId: string;
-	agentRole: string;
-	workflowId: string;
-	workflowStage: string;
+	sessionId: string | null;
+	turnId: string | null;
+	agentRole: string | null;
+	workflowId: string | null;
+	workflowStage: string | null;
 	queryText: string;
 	tokenBudget: number;
 	truncated: boolean;
