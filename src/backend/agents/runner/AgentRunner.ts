@@ -1096,13 +1096,13 @@ export class AgentRunner {
 					// Extended thinking / reasoning (Claude models)
 					thoughtBuffer += part.text;
 
-					broadcast(
-						createTurnThoughtDeltaEvent({
-							sessionId: this.session.id,
-							turnId: turn.id,
-							delta: part.text,
-						}),
-					);
+					// broadcast(
+					// 	createTurnThoughtDeltaEvent({
+					// 		sessionId: this.session.id,
+					// 		turnId: turn.id,
+					// 		delta: part.text,
+					// 	}),
+					// );
 
 					options.onThoughtDelta?.(part.text);
 					break;
