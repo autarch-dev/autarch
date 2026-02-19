@@ -14,7 +14,6 @@ import type { KnowledgeCategory } from "@/backend/db/knowledge/types";
 import {
 	checkoutInWorktree,
 	cleanupWorkflow,
-	findRepoRoot,
 	getCurrentBranch,
 	getDiff,
 	getWorktreePath,
@@ -2031,7 +2030,7 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 			await new Promise((resolve) => setTimeout(resolve, 500));
 		}
 
-		const projectRoot = findRepoRoot(process.cwd());
+		const projectRoot = getProjectRoot();
 		const worktreePath =
 			runningPulse.worktreePath ?? getWorktreePath(projectRoot, workflowId);
 

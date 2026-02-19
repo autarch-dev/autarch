@@ -26,8 +26,8 @@ import { AgentRunner, getSessionManager } from "../agents/runner";
 import { AgentRoleSchema } from "../agents/types";
 
 import { getProjectDb } from "../db/project";
-import { findRepoRoot } from "../git";
 import { log } from "../logger";
+import { getProjectRoot } from "../projectRoot";
 import { getRepositories } from "../repositories";
 import {
 	createPersonaRoadmaps,
@@ -241,7 +241,7 @@ async function startPersonaSessions(
 	perspective: string,
 	initialPrompt?: string,
 ): Promise<void> {
-	const projectRoot = findRepoRoot(process.cwd());
+	const projectRoot = getProjectRoot();
 	const db = await getProjectDb(projectRoot);
 	const sessionManager = getSessionManager();
 	const repos = getRepositories();
@@ -1048,7 +1048,7 @@ export const roadmapRoutes = {
 				return Response.json({ error: "Invalid roadmap ID" }, { status: 400 });
 			}
 			try {
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				const db = await getProjectDb(projectRoot);
 				const repos = getRepositories();
 
@@ -1113,7 +1113,7 @@ export const roadmapRoutes = {
 				return Response.json({ error: "Invalid roadmap ID" }, { status: 400 });
 			}
 			try {
-				const projectRoot = findRepoRoot(process.cwd());
+				const projectRoot = getProjectRoot();
 				const db = await getProjectDb(projectRoot);
 				const repos = getRepositories();
 
