@@ -2,17 +2,20 @@ import {
 	ArrowRight,
 	CheckCircle2,
 	Circle,
+	DollarSign,
 	Hash,
 	Loader2,
 	MapIcon,
 	Plus,
 	Zap,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { fetchCostSummary } from "@/features/costs/api/costApi";
+import { presetToDateRange } from "@/features/costs/utils/presetUtils";
 import {
 	CreateRoadmapDialog,
 	type RoadmapPerspective,
@@ -56,6 +59,14 @@ function timeAgo(timestamp: number): string {
 	return `${days}d ago`;
 }
 
+function formatCurrency(value: number): string {
+	return new Intl.NumberFormat("en-US", {
+		style: "currency",
+		currency: "USD",
+		minimumFractionDigits: 2,
+	}).format(value);
+}
+
 const roadmapStatusColors: Record<string, string> = {
 	draft: "text-muted-foreground",
 	active: "text-blue-500",
@@ -74,7 +85,7 @@ function StatCard({
 	icon: Icon,
 }: {
 	label: string;
-	value: number;
+	value: number | string;
 	icon: React.ComponentType<{ className?: string }>;
 }) {
 	return (
@@ -111,6 +122,28 @@ export function HomePage() {
 	const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false);
 	const [channelDialogOpen, setChannelDialogOpen] = useState(false);
 	const [roadmapDialogOpen, setRoadmapDialogOpen] = useState(false);
+
+	// Today's spend
+	const [todaySpend, setTodaySpend] = useState<number | null>(null);
+	const [todaySpendLoading, setTodaySpendLoading] = useState(true);
+	const [_todaySpendError, setTodaySpendError] = useState<string | null>(null);
+
+	// Fetch today's spend on mount
+	useEffect(() => {
+		async function fetchTodaySpend() {
+			try {
+				const data = await fetchCostSummary(presetToDateRange("today"));
+				setTodaySpend(data.totalCost);
+			} catch (err) {
+				setTodaySpendError(
+					err instanceof Error ? err.message : "Failed to load today's spend",
+				);
+			} finally {
+				setTodaySpendLoading(false);
+			}
+		}
+		fetchTodaySpend();
+	}, []);
 
 	// Derived data
 	const activeWorkflows = useMemo(
@@ -204,6 +237,11 @@ export function HomePage() {
 						label="Channels"
 						value={sortedChannels.length}
 						icon={Hash}
+					/>
+					<StatCard
+						label="Today's Spend"
+						value={todaySpendLoading ? "..." : formatCurrency(todaySpend ?? 0)}
+						icon={DollarSign}
 					/>
 				</div>
 
