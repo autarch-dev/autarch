@@ -113,7 +113,42 @@ export const workflowRoutes = {
 			try {
 				const repos = getRepositories();
 				const workflows = await repos.workflows.list({ orderBy: "updated" });
-				return Response.json(workflows);
+
+				// Batch-query all subtask IDs grouped by workflow ID
+				const db = await getProjectDb(getProjectRoot());
+				const allSubtasks = await db
+					.selectFrom("subtasks")
+					.select(["id", "workflow_id"])
+					.execute();
+
+				// Group subtask IDs by workflow ID
+				const subtasksByWorkflow: Record<string, string[]> = {};
+				for (const subtask of allSubtasks) {
+					const wfId = subtask.workflow_id;
+					if (wfId && !subtasksByWorkflow[wfId]) {
+						subtasksByWorkflow[wfId] = [];
+					}
+					if (wfId) {
+						subtasksByWorkflow[wfId]?.push(subtask.id);
+					}
+				}
+
+				// Compute totalCost for each workflow
+				const workflowsWithCost = await Promise.all(
+					workflows.map(async (workflow) => {
+						const subtaskIds = subtasksByWorkflow[workflow.id] ?? [];
+						const totalCostValue = await repos.costRecords.getTotalWorkflowCost(
+							workflow.id,
+							subtaskIds,
+						);
+						return {
+							...workflow,
+							totalCost: totalCostValue === 0 ? null : totalCostValue,
+						};
+					}),
+				);
+
+				return Response.json(workflowsWithCost);
 			} catch (error) {
 				log.api.error("Failed to list workflows:", error);
 				return Response.json(

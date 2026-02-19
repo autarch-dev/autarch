@@ -307,6 +307,12 @@ export function HomePage() {
 													Action needed
 												</Badge>
 											)}
+											<span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+												<DollarSign className="size-3" />
+												{workflow.totalCost != null
+													? `$${workflow.totalCost.toFixed(2)}`
+													: "—"}
+											</span>
 											<span
 												className={cn(
 													"inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0",
