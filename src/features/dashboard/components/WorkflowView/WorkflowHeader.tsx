@@ -204,7 +204,7 @@ export function WorkflowHeader({
 															))}
 														</div>
 													)}
-													{costByModel && costByRole && (
+													{costByModel && costByModel.length > 0 && (
 														<div className="border-t pt-2">
 															<p className="mb-1 text-xs font-medium text-muted-foreground">
 																Token Totals
@@ -215,11 +215,7 @@ export function WorkflowHeader({
 																	{costByModel.reduce(
 																		(sum, m) => sum + m.promptTokens,
 																		0,
-																	) +
-																		costByRole.reduce(
-																			(sum, r) => sum + r.promptTokens,
-																			0,
-																		)}
+																	)}
 																</span>
 															</div>
 															<div className="flex justify-between text-sm">
@@ -228,11 +224,7 @@ export function WorkflowHeader({
 																	{costByModel.reduce(
 																		(sum, m) => sum + m.completionTokens,
 																		0,
-																	) +
-																		costByRole.reduce(
-																			(sum, r) => sum + r.completionTokens,
-																			0,
-																		)}
+																	)}
 																</span>
 															</div>
 														</div>
