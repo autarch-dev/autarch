@@ -276,6 +276,8 @@ export const WorkflowSchema = z.object({
 	skippedStages: z.array(z.string()).optional(),
 	createdAt: z.number(),
 	updatedAt: z.number(),
+	/** Total cost (USD) from cost_records. Null if not yet computed or no cost records exist. */
+	totalCost: z.number().nullable().optional(),
 });
 export type Workflow = z.infer<typeof WorkflowSchema>;
 
