@@ -565,7 +565,7 @@ describe("ConversationRepository", () => {
 			});
 			const toolCallId1 = Math.random().toString(36).substring(2, 15);
 			const toolCallId2 = Math.random().toString(36).substring(2, 15);
-			
+
 			await repos.conversations.recordToolStart({
 				turnId: turn.id,
 				toolIndex: 0,

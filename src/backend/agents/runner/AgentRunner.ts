@@ -52,7 +52,6 @@ import {
 	createTurnMessageDeltaEvent,
 	createTurnSegmentCompleteEvent,
 	createTurnStartedEvent,
-	createTurnThoughtDeltaEvent,
 	createTurnToolCompletedEvent,
 	createTurnToolStartedEvent,
 } from "@/shared/schemas/events";

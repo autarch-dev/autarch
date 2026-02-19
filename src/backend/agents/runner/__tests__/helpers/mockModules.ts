@@ -98,6 +98,7 @@ export const mockInsertKnowledgeInjectionEvents = mock(() => Promise.resolve());
 
 export class MockKnowledgeRepositoryClass {
 	insertKnowledgeInjectionEvents = mockInsertKnowledgeInjectionEvents;
+	// biome-ignore lint/complexity/noUselessConstructor: Test mock
 	constructor(_db: unknown) {}
 }
 

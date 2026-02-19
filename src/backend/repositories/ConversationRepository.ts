@@ -517,7 +517,7 @@ export class ConversationRepository implements Repository {
 	/**
 	 * Record the start of a tool call.
 	 * Input is validated before serialization.
-	 * 
+	 *
 	 * @param data.originalToolCallId - The ID of the tool call from the AI SDK.
 	 */
 	async recordToolStart(data: ToolStartData): Promise<string> {
