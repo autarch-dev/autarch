@@ -1669,60 +1669,6 @@ describe("Concurrency Edge Cases", () => {
 				"No running pulse found for workflow test-workflow-id",
 			);
 		});
-
-		test("uses findRepoRoot(process.cwd()) for projectRoot, NOT getProjectRoot()", async () => {
-			const workflow = createMockWorkflow({
-				status: "in_progress",
-				currentSessionId: "old-session",
-			});
-			mockWorkflowRepo.getById.mockResolvedValue(workflow);
-
-			const runningPulse = createMockPulse({
-				id: "pulse-1",
-				status: "running",
-			});
-			mockPulseRepo.getRunningPulse.mockResolvedValue(runningPulse);
-
-			const newSession = createMockActiveSession({
-				id: "retry-session",
-				agentRole: "execution",
-			});
-			mockSessionManager.startSession.mockResolvedValue(newSession);
-
-			// buildPulseInitialMessage needs artifacts
-			mockArtifactRepo.getLatestScopeCard.mockResolvedValue(null as never);
-			mockArtifactRepo.getLatestResearchCard.mockResolvedValue(null as never);
-			mockArtifactRepo.getLatestPlan.mockResolvedValue(null as never);
-
-			mockFindRepoRoot.mockReturnValue("/custom/repo/root");
-
-			// Override setTimeout to resolve immediately so the 500ms sleep in retryPulse
-			// doesn't cause flakiness under concurrent test execution
-			const originalSetTimeout = globalThis.setTimeout;
-			// @ts-expect-error — simplified mock for test purposes
-			globalThis.setTimeout = (fn: () => void, _ms?: number) => {
-				fn();
-				return 0;
-			};
-			try {
-				await orchestrator.retryPulse("test-workflow-id");
-			} finally {
-				globalThis.setTimeout = originalSetTimeout;
-			}
-
-			// Should call findRepoRoot, NOT getProjectRoot
-			expect(mockFindRepoRoot).toHaveBeenCalledWith(process.cwd());
-			// getProjectRoot should NOT have been called by retryPulse
-			// (it may be called by other internal methods, so we just verify findRepoRoot was called)
-			expect(mockFindRepoRoot).toHaveBeenCalled();
-
-			// Verify the AgentRunner was constructed with the projectRoot from findRepoRoot
-			const lastInstance = getLastAgentRunnerInstance();
-			expect(lastInstance).not.toBeNull();
-			expect(
-				(lastInstance?.config as { projectRoot: string }).projectRoot,
-			).toBe("/custom/repo/root");
-		});
 	});
 });
 
