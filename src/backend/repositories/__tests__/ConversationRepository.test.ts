@@ -459,8 +459,9 @@ describe("ConversationRepository", () => {
 				role: "assistant",
 			});
 
+			const toolCallId = Math.random().toString(36).substring(2, 15);
 			const toolId = await repos.conversations.recordToolStart({
-				id: ids.thought(),
+				originalToolCallId: toolCallId,
 				turnId: turn.id,
 				toolIndex: 0,
 				toolName: "read_file",
@@ -473,6 +474,7 @@ describe("ConversationRepository", () => {
 			const tools = await repos.conversations.getTools(turn.id);
 			expect(tools).toHaveLength(1);
 			expect(tools[0]?.id).toBe(toolId);
+			expect(tools[0]?.original_tool_id).toBe(toolCallId);
 			expect(tools[0]?.tool_name).toBe("read_file");
 			expect(tools[0]?.status).toBe("running");
 			expect(tools[0]?.reason).toBe("Reading source file");
@@ -488,11 +490,13 @@ describe("ConversationRepository", () => {
 				turnIndex: 0,
 				role: "assistant",
 			});
+			const toolCallId = Math.random().toString(36).substring(2, 15);
 
 			const toolId = await repos.conversations.recordToolStart({
 				turnId: turn.id,
 				toolIndex: 0,
 				toolName: "read_file",
+				originalToolCallId: toolCallId,
 				reason: null,
 				input: { path: "test.ts" },
 			});
@@ -505,6 +509,7 @@ describe("ConversationRepository", () => {
 
 			const tools = await repos.conversations.getTools(turn.id);
 			expect(tools).toHaveLength(1);
+			expect(tools[0]?.original_tool_id).toBe(toolCallId);
 			expect(tools[0]?.status).toBe("completed");
 			expect(tools[0]?.completed_at).not.toBeNull();
 			expect(tools[0]?.output_json).not.toBeNull();
@@ -519,11 +524,14 @@ describe("ConversationRepository", () => {
 				turnIndex: 0,
 				role: "assistant",
 			});
+			const toolCallId1 = Math.random().toString(36).substring(2, 15);
+			const toolCallId2 = Math.random().toString(36).substring(2, 15);
 
 			await repos.conversations.recordToolStart({
 				turnId: turn.id,
 				toolIndex: 0,
 				toolName: "read_file",
+				originalToolCallId: toolCallId1,
 				reason: null,
 				input: { path: "a.ts" },
 			});
@@ -531,6 +539,7 @@ describe("ConversationRepository", () => {
 				turnId: turn.id,
 				toolIndex: 1,
 				toolName: "write_file",
+				originalToolCallId: toolCallId2,
 				reason: null,
 				input: { path: "b.ts", content: "hello" },
 			});
@@ -539,8 +548,10 @@ describe("ConversationRepository", () => {
 			expect(tools).toHaveLength(2);
 			expect(tools[0]?.tool_index).toBe(0);
 			expect(tools[0]?.tool_name).toBe("read_file");
+			expect(tools[0]?.original_tool_id).toBe(toolCallId1);
 			expect(tools[1]?.tool_index).toBe(1);
 			expect(tools[1]?.tool_name).toBe("write_file");
+			expect(tools[1]?.original_tool_id).toBe(toolCallId2);
 		});
 	});
 
@@ -552,11 +563,14 @@ describe("ConversationRepository", () => {
 				turnIndex: 0,
 				role: "assistant",
 			});
-
+			const toolCallId1 = Math.random().toString(36).substring(2, 15);
+			const toolCallId2 = Math.random().toString(36).substring(2, 15);
+			
 			await repos.conversations.recordToolStart({
 				turnId: turn.id,
 				toolIndex: 0,
 				toolName: "semantic_search",
+				originalToolCallId: toolCallId1,
 				reason: null,
 				input: { query: "test" },
 			});
@@ -564,6 +578,7 @@ describe("ConversationRepository", () => {
 				turnId: turn.id,
 				toolIndex: 1,
 				toolName: "grep",
+				originalToolCallId: toolCallId2,
 				reason: null,
 				input: { pattern: "foo" },
 			});
@@ -585,10 +600,12 @@ describe("ConversationRepository", () => {
 			});
 
 			// Tool 1: succeeded
+			const toolCallId1 = Math.random().toString(36).substring(2, 15);
 			const tool1Id = await repos.conversations.recordToolStart({
 				turnId: turn.id,
 				toolIndex: 0,
 				toolName: "read_file",
+				originalToolCallId: toolCallId1,
 				reason: null,
 				input: { path: "a.ts" },
 			});
@@ -599,10 +616,12 @@ describe("ConversationRepository", () => {
 			);
 
 			// Tool 2: succeeded
+			const toolCallId2 = Math.random().toString(36).substring(2, 15);
 			const tool2Id = await repos.conversations.recordToolStart({
 				turnId: turn.id,
 				toolIndex: 1,
 				toolName: "write_file",
+				originalToolCallId: toolCallId2,
 				reason: null,
 				input: { path: "b.ts", content: "data" },
 			});
@@ -613,10 +632,12 @@ describe("ConversationRepository", () => {
 			);
 
 			// Tool 3: failed
+			const toolCallId3 = Math.random().toString(36).substring(2, 15);
 			const tool3Id = await repos.conversations.recordToolStart({
 				turnId: turn.id,
 				toolIndex: 2,
 				toolName: "shell",
+				originalToolCallId: toolCallId3,
 				reason: null,
 				input: { command: "exit 1" },
 			});

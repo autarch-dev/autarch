@@ -47,6 +47,7 @@ import { migrate as migrate0040CorrectCost } from "./0040-correct-cost";
 import { migrate as migrate0040PersonaRoadmaps } from "./0040-persona-roadmaps";
 import { migrate as migrate0041RoadmapPerspective } from "./0041-roadmap-perspective";
 import { migrate as migrate0042CacheTokens } from "./0042-cache-tokens";
+import { migrate as migrate0043OriginalToolCallId } from "./0043-original-tool-call-id";
 
 /**
  * Run all migrations for the project database.
@@ -124,4 +125,7 @@ export async function migrateProjectDb(
 
 	// Cache tokens columns (0042)
 	await migrate0042CacheTokens(db);
+
+	// Original tool call id column (0043)
+	await migrate0043OriginalToolCallId(db);
 }

@@ -98,6 +98,7 @@ export interface StreamingMessage {
 		/** Index for interleaving - tool appears after segment with this index */
 		index: number;
 		name: string;
+		originalToolCallId: string;
 		input: unknown;
 		output?: unknown;
 		status: "running" | "completed" | "error";
@@ -1610,6 +1611,7 @@ function handleToolStarted(
 							id: payload.toolId,
 							index: payload.index,
 							name: payload.name,
+							originalToolCallId: payload.originalToolCallId,
 							input: payload.input,
 							status: "running" as const,
 						},

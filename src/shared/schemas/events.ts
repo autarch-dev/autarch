@@ -336,6 +336,7 @@ export const TurnToolStartedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	toolId: z.string(),
+	originalToolCallId: z.string(),
 	/** Index for interleaving - tool appears after segment with this index */
 	index: z.number(),
 	name: z.string(),
@@ -600,7 +601,7 @@ export const ShellApprovalNeededPayloadSchema = z.object({
 	workflowId: z.string(),
 	sessionId: z.string(),
 	turnId: z.string(),
-	toolId: z.string(),
+	toolCallId: z.string(),
 	command: z.string(),
 	reason: z.string(),
 	agentRole: z.string().optional(),

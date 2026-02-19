@@ -125,22 +125,21 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 		// Check for approval if we have workflow context
 		const { workflowId, sessionId, turnId, toolCallId, agentRole } = context;
 
-		if (workflowId && sessionId && turnId) {
+		if (workflowId && sessionId && turnId && toolCallId) {
 			// Check if command is remembered (auto-approved)
 			if (
 				!shellApprovalService.isCommandRemembered(workflowId, input.command)
 			) {
 				// Request approval and wait for user decision
 				try {
-					const effectiveToolId = toolCallId ?? crypto.randomUUID();
 					log.tools.info(
-						`Shell requesting approval with toolCallId: ${toolCallId}, effectiveToolId: ${effectiveToolId}`,
+						`Shell requesting approval with toolCallId: ${toolCallId}`,
 					);
 					const approvalResult = await shellApprovalService.requestApproval({
 						workflowId,
 						sessionId,
 						turnId,
-						toolId: effectiveToolId,
+						toolCallId,
 						command: input.command,
 						reason: input.reason,
 						projectRoot: context.projectRoot,

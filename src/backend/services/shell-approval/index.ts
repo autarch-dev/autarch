@@ -38,7 +38,7 @@ export interface PendingApproval {
 	workflowId: string;
 	sessionId: string;
 	turnId: string;
-	toolId: string;
+	toolCallId: string;
 	command: string;
 	reason: string;
 	agentRole?: string;
@@ -53,7 +53,7 @@ export interface RequestApprovalParams {
 	workflowId: string;
 	sessionId: string;
 	turnId: string;
-	toolId: string;
+	toolCallId: string;
 	command: string;
 	reason: string;
 	projectRoot: string;
@@ -122,7 +122,7 @@ export async function requestApproval(
 		`Shell approval requested: ${params.command} (approvalId: ${approvalId})`,
 	);
 	log.agent.info(
-		`Shell approval context: workflowId=${params.workflowId}, sessionId=${params.sessionId}, turnId=${params.turnId}, toolId=${params.toolId}`,
+		`Shell approval context: workflowId=${params.workflowId}, sessionId=${params.sessionId}, turnId=${params.turnId}, toolCallId=${params.toolCallId}`,
 	);
 
 	return new Promise<ApprovalResult>((resolve, reject) => {
@@ -131,7 +131,7 @@ export async function requestApproval(
 			workflowId: params.workflowId,
 			sessionId: params.sessionId,
 			turnId: params.turnId,
-			toolId: params.toolId,
+			toolCallId: params.toolCallId,
 			command: params.command,
 			reason: params.reason,
 			agentRole: params.agentRole,
@@ -145,7 +145,7 @@ export async function requestApproval(
 			workflowId: params.workflowId,
 			sessionId: params.sessionId,
 			turnId: params.turnId,
-			toolId: params.toolId,
+			toolCallId: params.toolCallId,
 			command: params.command,
 			reason: params.reason,
 			agentRole: params.agentRole,

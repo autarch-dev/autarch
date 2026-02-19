@@ -406,6 +406,7 @@ export interface TurnToolsTable {
 	turn_id: string;
 	tool_index: number;
 	tool_name: string;
+	original_tool_id: string | null;
 	reason: string | null; // The reason parameter from tool call
 	input_json: string;
 	output_json: string | null;

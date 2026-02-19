@@ -603,6 +603,7 @@ export class AgentRunner {
 		const allTools: Array<{
 			id: string;
 			turnId: string;
+			originalToolCallId: string;
 			toolIndex: number;
 			toolName: string;
 			reason: string | null;
@@ -618,6 +619,7 @@ export class AgentRunner {
 					allTools.push({
 						id: tool.id,
 						turnId: turn.id,
+						originalToolCallId: tool.original_tool_id ?? tool.id,
 						toolIndex: tool.tool_index,
 						toolName: tool.tool_name,
 						reason: tool.reason,
@@ -669,7 +671,7 @@ export class AgentRunner {
 				);
 				for (const tool of turnTools) {
 					log.agent.debug(
-						`  - ${tool.toolName} (id=${tool.id.slice(0, 20)}..., index=${tool.toolIndex}, hasOutput=${tool.outputJson !== null})`,
+						`  - ${tool.toolName} (id=${tool.id}, index=${tool.toolIndex}, hasOutput=${tool.outputJson !== null})`,
 					);
 				}
 
@@ -692,7 +694,7 @@ export class AgentRunner {
 
 					assistantParts.push({
 						type: "tool-call",
-						toolCallId: tool.id,
+						toolCallId: tool.originalToolCallId,
 						toolName: tool.toolName,
 						input: toolInput,
 					} satisfies ToolCallPart);
@@ -700,7 +702,7 @@ export class AgentRunner {
 					// Collect tool result for separate message
 					toolResultParts.push({
 						type: "tool-result",
-						toolCallId: tool.id,
+						toolCallId: tool.originalToolCallId,
 						toolName: tool.toolName,
 						output: {
 							type: typeof toolOutput === "object" ? "json" : "text",
@@ -1033,7 +1035,7 @@ export class AgentRunner {
 
 				const targetFile = path.join(
 					targetFolder,
-					`${options.toolCall.toolCallId}_input.txt`,
+					`${turn.id}_${options.toolCall.toolCallId}_input.txt`,
 				);
 				await fs.writeFile(targetFile, options.toolCall.input);
 
@@ -1133,19 +1135,18 @@ export class AgentRunner {
 
 					// Tool call started - get ID from the event
 					// The tool-call type has toolCallId from BaseToolCall
-					const toolCallId = part.toolCallId;
 					log.tools.info(`Tool call: ${part.toolName}`);
 					// Use currentSegmentIndex as tool_index - this means the tool
 					// appears AFTER segment N (for proper interleaving)
 					const toolCall = await this.recordToolStart(
 						turn.id,
 						currentSegmentIndex,
-						toolCallId,
+						part.toolCallId,
 						part.toolName,
 						part.input,
 					);
 
-					activeToolCalls.set(toolCallId, toolCall);
+					activeToolCalls.set(toolCall.originalToolCallId, toolCall);
 					options.onToolStarted?.(toolCall);
 					break;
 				}
@@ -1154,8 +1155,9 @@ export class AgentRunner {
 					// Tool execution completed (function ran without throwing)
 					// Check the result's success field for application-level success
 					const toolCall = activeToolCalls.get(part.toolCallId);
+
 					if (toolCall) {
-						const success = toolResultMap.get(part.toolCallId);
+						const success = toolResultMap.get(toolCall.originalToolCallId);
 
 						if (success) {
 							log.tools.success(`Tool completed: ${toolCall.toolName}`);
@@ -1170,12 +1172,14 @@ export class AgentRunner {
 						await this.recordToolComplete(toolCall, part.output, !!success);
 						options.onToolCompleted?.(toolCall);
 					}
+
 					break;
 				}
 
 				case "tool-error": {
 					// Tool execution failed
 					const toolCall = activeToolCalls.get(part.toolCallId);
+
 					if (toolCall) {
 						log.tools.error(`Tool failed: ${toolCall.toolName}`, part.error);
 						await this.recordToolComplete(
@@ -1185,6 +1189,7 @@ export class AgentRunner {
 						);
 						options.onToolCompleted?.(toolCall);
 					}
+
 					break;
 				}
 
@@ -1555,8 +1560,8 @@ export class AgentRunner {
 				: null;
 
 		// Use repository with explicit ID from AI SDK
-		await this.config.conversationRepo.recordToolStart({
-			id: toolCallId,
+		const id = await this.config.conversationRepo.recordToolStart({
+			originalToolCallId: toolCallId,
 			turnId,
 			toolIndex,
 			toolName,
@@ -1565,7 +1570,8 @@ export class AgentRunner {
 		});
 
 		const toolCall: ToolCall = {
-			id: toolCallId,
+			id,
+			originalToolCallId: toolCallId,
 			turnId,
 			toolIndex,
 			toolName,
@@ -1580,9 +1586,10 @@ export class AgentRunner {
 			createTurnToolStartedEvent({
 				sessionId: this.session.id,
 				turnId,
-				toolId: toolCallId,
+				toolId: toolCall.id,
 				index: toolIndex,
 				name: toolName,
+				originalToolCallId: toolCall.originalToolCallId,
 				input,
 			}),
 		);

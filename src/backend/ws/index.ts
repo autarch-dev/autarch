@@ -29,7 +29,7 @@ export function handleOpen(ws: ServerWebSocket<unknown>): void {
 			workflowId: pending.workflowId,
 			sessionId: pending.sessionId,
 			turnId: pending.turnId,
-			toolId: pending.toolId,
+			toolCallId: pending.toolCallId,
 			command: pending.command,
 			reason: pending.reason,
 			agentRole: pending.agentRole,

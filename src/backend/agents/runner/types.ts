@@ -90,6 +90,7 @@ export interface Turn {
  */
 export interface ToolCall {
 	id: string;
+	originalToolCallId: string;
 	turnId: string;
 	toolIndex: number;
 	toolName: string;

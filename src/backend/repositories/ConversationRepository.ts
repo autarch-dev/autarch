@@ -76,8 +76,7 @@ export interface TurnWithDetails {
 }
 
 export interface ToolStartData {
-	/** Optional explicit ID (from AI SDK's toolCallId). If not provided, uses toolName. */
-	id?: string;
+	originalToolCallId: string;
 	turnId: string;
 	toolIndex: number;
 	toolName: string;
@@ -287,6 +286,7 @@ export class ConversationRepository implements Repository {
 		id: string;
 		index: number;
 		name: string;
+		originalToolCallId: string;
 		input: unknown;
 		output: unknown | undefined;
 		status: "running" | "completed" | "error";
@@ -295,6 +295,7 @@ export class ConversationRepository implements Repository {
 			id: tc.id,
 			index: tc.tool_index,
 			name: tc.tool_name,
+			originalToolCallId: tc.original_tool_id ?? tc.id,
 			input: tryParseJson(
 				tc.input_json,
 				ToolInputJsonSchema,
@@ -516,25 +517,25 @@ export class ConversationRepository implements Repository {
 	/**
 	 * Record the start of a tool call.
 	 * Input is validated before serialization.
-	 *
-	 * @param data.id - Explicit ID to use (e.g., from AI SDK's toolCallId). Falls back to toolName.
+	 * 
+	 * @param data.originalToolCallId - The ID of the tool call from the AI SDK.
 	 */
 	async recordToolStart(data: ToolStartData): Promise<string> {
-		// Use provided ID or fall back to tool name
-		const toolId = data.id ?? data.toolName;
+		const id = ids.toolCall();
 
 		await this.db
 			.insertInto("turn_tools")
 			.values({
-				id: toolId,
+				id,
 				turn_id: data.turnId,
 				tool_index: data.toolIndex,
 				tool_name: data.toolName,
+				original_tool_id: data.originalToolCallId,
 				reason: data.reason,
 				input_json: stringifyJson(
 					data.input,
 					ToolInputJsonSchema,
-					`tool[${toolId}].input_json`,
+					`tool[${data.originalToolCallId}].input_json`,
 				),
 				output_json: null,
 				status: "running",
@@ -543,7 +544,7 @@ export class ConversationRepository implements Repository {
 			})
 			.execute();
 
-		return toolId;
+		return id;
 	}
 
 	/**
@@ -551,7 +552,7 @@ export class ConversationRepository implements Repository {
 	 * Output is validated before serialization.
 	 */
 	async recordToolComplete(
-		toolId: string,
+		id: string,
 		output: unknown,
 		success: boolean,
 	): Promise<void> {
@@ -561,12 +562,12 @@ export class ConversationRepository implements Repository {
 				output_json: stringifyJson(
 					output,
 					ToolOutputJsonSchema,
-					`tool[${toolId}].output_json`,
+					`tool[${id}].output_json`,
 				),
 				status: success ? "completed" : "error",
 				completed_at: Date.now(),
 			})
-			.where("id", "=", toolId)
+			.where("id", "=", id)
 			.execute();
 	}
 

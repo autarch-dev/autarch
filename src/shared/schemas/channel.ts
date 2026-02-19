@@ -96,6 +96,7 @@ export const ChannelMessageSchema = z.object({
 				/** Index for interleaving with text segments */
 				index: z.number(),
 				name: z.string(),
+				originalToolCallId: z.string(),
 				input: z.unknown(),
 				output: z.unknown().optional(),
 				status: z.enum(["running", "completed", "error"]),

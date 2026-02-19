@@ -27,6 +27,7 @@ export const ids = {
 	workflow: () => generateId("workflow"),
 	session: () => generateId("session"),
 	turn: () => generateId("turn"),
+	toolCall: () => generateId("toolcall"),
 	message: () => generateId("message"),
 	thought: () => generateId("thought"),
 	scopeCard: () => generateId("scope"),
