@@ -246,6 +246,7 @@ export const TurnCompletedPayloadSchema = z.object({
 	sessionId: z.string(),
 	turnId: z.string(),
 	tokenCount: z.number().optional(),
+	costUsd: z.number().optional(),
 	/** Context type (channel, workflow, roadmap, subtask, or persona) */
 	contextType: SessionContextTypeSchema.optional(),
 	/** Context ID (channel ID, workflow ID, roadmap ID, subtask ID, or persona roadmap ID) - enables direct routing without session lookup */

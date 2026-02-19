@@ -1504,6 +1504,7 @@ export class AgentRunner {
 				sessionId: this.session.id,
 				turnId,
 				tokenCount: usage?.tokenCount,
+				costUsd: usage?.cost,
 				contextType: this.session.contextType,
 				contextId: this.session.contextId,
 				agentRole: this.session.agentRole,
