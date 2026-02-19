@@ -844,7 +844,12 @@ Please install dependencies, verify the build succeeds, and run the linter to es
 				sessionId: session.id,
 			}),
 		);
-		void this.recordStageTransition(workflowId, "review", "in_progress");
+		void this.recordStageTransition(
+			workflowId,
+			"review",
+			"in_progress",
+			"rewind",
+		);
 
 		// Run in background (non-blocking)
 		runner.run(initialMessage, { hidden: true }).catch((error) => {
