@@ -35,6 +35,7 @@ import { isExaKeyConfigured } from "@/backend/services/globalSettings";
 import { KnowledgeRepository } from "@/backend/services/knowledge/repository";
 import {
 	askQuestionsTool,
+	completeReviewTool,
 	requestExtensionTool,
 	submitPlanTool,
 } from "@/backend/tools";
@@ -63,6 +64,7 @@ import type {
 	ToolCall,
 	Turn,
 } from "./types";
+import { hasToolResult } from "./util";
 import { getWorkflowOrchestrator } from "./WorkflowOrchestrator";
 
 // =============================================================================
@@ -1018,6 +1020,8 @@ export class AgentRunner {
 				hasToolCall(submitScopeTool.name),
 				hasToolCall(submitResearchTool.name),
 				hasToolCall(submitPlanTool.name),
+				hasToolCall(completeReviewTool.name),
+				hasToolResult("complete_pulse"), //We want to end on _successful_ tool calls for pulse completion, not _any_ tool call.
 			],
 			abortSignal: signal,
 			experimental_repairToolCall: async (options) => {
