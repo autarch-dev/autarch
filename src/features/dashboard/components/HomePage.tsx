@@ -240,9 +240,7 @@ export function HomePage() {
 					/>
 					<StatCard
 						label="Today's Spend"
-						value={
-							todaySpendLoading ? "$0.00" : formatCurrency(todaySpend ?? 0)
-						}
+						value={todaySpendLoading ? "..." : formatCurrency(todaySpend ?? 0)}
 						icon={DollarSign}
 					/>
 				</div>
