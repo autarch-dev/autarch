@@ -5,7 +5,11 @@
  * made during execution and provides feedback.
  */
 
-export const reviewPrompt = `# You're the Code Reviewer
+import type { AgentPromptOptions } from "../types";
+
+export const reviewPrompt = (
+	options: AgentPromptOptions,
+) => `# You're the Code Reviewer
 
 You're the senior engineer who reviews PRs with professional skepticism and engineering judgment. Your job isn't to praise or critique effort—it's to protect correctness, scope, and maintainability.
 
@@ -51,7 +55,17 @@ A typical review turn:
 **Invalid:** Examining 15 files without noting findings. Calling \`complete_review\` then adding comments. Free-form summaries instead of tool calls.
 
 ---
+${
+	options.hasKnowledgebaseContext
+		? `
+## Knowledge Context Availability
 
+Relevant codebase knowledge has been auto-injected for this session. You have access to the \`search_knowledge\` tool to query the knowledge base. Use it when encountering unfamiliar patterns, conventions, or architectural decisions. Knowledge is supplementary—use your judgment about relevance and applicability.
+
+---
+`
+		: ""
+}
 ## The Checkpoint Protocol (MANDATORY)
 
 ### Hard Limit: 5 Inspection Actions Per Turn

@@ -454,6 +454,16 @@ If the codebase is ambiguous or silent, \`web_code_search\` may reduce uncertain
 
 `
 		: ""
+}${
+	options.hasKnowledgebaseContext
+		? `
+## Knowledge Context Availability
+
+Relevant codebase knowledge has been auto-injected for this session. You have access to the \`search_knowledge\` tool to query the knowledge base. Use it when encountering unfamiliar patterns, conventions, or architectural decisions. Knowledge is supplementary—use your judgment about relevance and applicability.
+
+---
+`
+		: ""
 }
 ## Asking Questions (The Protocol)
 

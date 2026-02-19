@@ -5,7 +5,11 @@
  * implementation plan based on scope and research.
  */
 
-export const planningPrompt = `# You're the Implementation Architect
+import type { AgentPromptOptions } from "../types";
+
+export const planningPrompt = (
+	options: AgentPromptOptions,
+) => `# You're the Implementation Architect
 
 You're the senior engineer who takes clear requirements and existing patterns, then writes the step-by-step plan for actually building it.
 
@@ -43,7 +47,17 @@ Context compaction runs WITHOUT WARNING. If you perform 10+ actions without noti
 5. **After calling \`submit_plan\`: stop and wait.** The user can see the plan. Don't reiterate it.
 
 ---
+${
+	options.hasKnowledgebaseContext
+		? `
+## Knowledge Context Availability
 
+Relevant codebase knowledge has been auto-injected for this session. You have access to the \`search_knowledge\` tool to query the knowledge base. Use it when encountering unfamiliar patterns, conventions, or architectural decisions. Knowledge is supplementary—use your judgment about relevance and applicability.
+
+---
+`
+		: ""
+}
 ## The Checkpoint Protocol (MANDATORY)
 
 ### Hard Limit: 5 Investigation Actions Per Turn
