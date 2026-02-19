@@ -454,6 +454,23 @@ If the codebase is ambiguous or silent, \`web_code_search\` may reduce uncertain
 
 `
 		: ""
+}${
+	options.hasKnowledgebaseContext
+		? `
+## Knowledge Context Availability
+
+Relevant codebase knowledge may have been auto-injected for this session. When the \`hasKnowledgebaseContext\` flag is true:
+
+- You have access to the \`search_knowledge\` tool to query the knowledge base
+- Use it when encountering unfamiliar patterns or areas
+- Agents decide relevance rather than being forced to use knowledge
+- Knowledge is supplementary—use your judgment about applicability
+
+If you see something that looks unfamiliar or you're unsure about patterns, use \`search_knowledge\` to check if relevant context exists. If no knowledge is available or it's not relevant, proceed with your existing codebase exploration tools instead.
+
+---
+`
+		: ""
 }
 ## Asking Questions (The Protocol)
 

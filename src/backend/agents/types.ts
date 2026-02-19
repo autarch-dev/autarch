@@ -27,6 +27,7 @@ export type AgentRole = z.infer<typeof AgentRoleSchema>;
 
 export interface AgentPromptOptions {
 	hasWebCodeSearch?: boolean;
+	hasKnowledgebaseContext?: boolean;
 	/** Override the submit tool name referenced in persona prompts (e.g. 'submit_roadmap' for single-persona mode) */
 	submitToolName?: string;
 }
