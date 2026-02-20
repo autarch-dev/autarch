@@ -2135,8 +2135,8 @@ describe("Agent Spawning", () => {
 			expect(message).toContain("Preflight");
 			// Should include worktree path
 			expect(message).toContain("/test/worktree");
-			// Should reference the pulse
-			expect(message).toContain("Implement feature");
+			// Should not reference the pulse
+			expect(message).not.toContain("Implement feature");
 		});
 	});
 
