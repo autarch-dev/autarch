@@ -30,6 +30,7 @@ export const listDirectoryInputSchema = z.object({
 		.default(".")
 		.describe("Path relative to project root (empty or '.' for root)"),
 	depth: z
+		.coerce
 		.number()
 		.int()
 		.positive()

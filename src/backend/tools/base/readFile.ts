@@ -18,6 +18,7 @@ export const readFileInputSchema = z.object({
 	reason: z.string().describe(REASON_DESCRIPTION),
 	path: z.string().describe("Path to file, relative to project root"),
 	startLine: z
+		.coerce
 		.number()
 		.int()
 		.positive()
@@ -25,6 +26,7 @@ export const readFileInputSchema = z.object({
 		.optional()
 		.describe("Optional start line (1-indexed, inclusive)"),
 	endLine: z
+		.coerce
 		.number()
 		.int()
 		.positive()

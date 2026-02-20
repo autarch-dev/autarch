@@ -30,6 +30,7 @@ export const grepInputSchema = z.object({
 			"Optional glob pattern to filter files, e.g., '**/*.cs' for C# files only",
 		),
 	caseSensitive: z
+		.coerce
 		.boolean()
 		.optional()
 		.default(false)
@@ -37,6 +38,7 @@ export const grepInputSchema = z.object({
 			"If true, perform case-sensitive matching; if false (default), match case-insensitively",
 		),
 	skip: z
+		.coerce
 		.number()
 		.int()
 		.nonnegative()

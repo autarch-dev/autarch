@@ -29,6 +29,7 @@ export const semanticSearchInputSchema = z.object({
 			"Pattern weights as 'glob:weight' strings, e.g. ['**/*.cs:1.5', 'docs/**:0.1']. Weight >1 boosts, <1 penalizes, 0 excludes.",
 		),
 	maxResults: z
+		.coerce
 		.number()
 		.int()
 		.positive()
