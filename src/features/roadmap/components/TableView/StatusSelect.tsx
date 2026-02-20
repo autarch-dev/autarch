@@ -22,7 +22,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useWorkflowsStore } from "@/features/dashboard/store/workflowsStore";
 import { cn } from "@/lib/utils";
-import type { Initiative, InitiativeStatus } from "@/shared/schemas/roadmap";
+import type {
+	Initiative,
+	InitiativeStatus,
+	VisionDocument,
+} from "@/shared/schemas/roadmap";
 import {
 	WORKFLOW_STATUS_COLORS,
 	WORKFLOW_STATUS_LABELS,
@@ -46,6 +50,7 @@ const STATUS_COLORS: Record<InitiativeStatus, string> = {
 
 export function StatusSelect({
 	initiative,
+	vision,
 	onUpdateInitiative,
 	onMenuOpenChange,
 }: {
@@ -56,6 +61,7 @@ export function StatusSelect({
 		status: InitiativeStatus;
 		workflowId?: string;
 	};
+	vision: VisionDocument | null;
 	onUpdateInitiative: (
 		initiativeId: string,
 		data: Partial<Pick<Initiative, "status">> & {
@@ -110,7 +116,7 @@ export function StatusSelect({
 		setIsCreatingWorkflow(true);
 		try {
 			const workflow = await createWorkflow(
-				`# ${initiative.title}${initiative.description ? `\n\n${initiative.description}` : ""}`,
+				`# ${initiative.title}${initiative.description ? `\n\n${initiative.description}` : ""}\n\n---\n\nFor context, here is the vision document for the whole roadmap. Limit your scope to specific initiative above.\n\n${vision?.content ?? "(no vision document available)"}`,
 			);
 			await onUpdateInitiative(initiative.id, {
 				workflowId: workflow.id,

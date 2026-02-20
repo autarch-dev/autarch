@@ -378,6 +378,7 @@ export const RoadmapView = memo(function RoadmapView({
 							milestones={milestones}
 							initiatives={initiatives}
 							dependencies={dependencies}
+							vision={vision ?? null}
 							onUpdateMilestone={onUpdateMilestone}
 							onUpdateInitiative={onUpdateInitiative}
 							onCreateMilestone={onCreateMilestone}
@@ -402,6 +403,7 @@ export const RoadmapView = memo(function RoadmapView({
 			{/* Initiative Detail Side Panel */}
 			<InitiativeDetail
 				initiative={selectedInitiative}
+				vision={vision ?? null}
 				open={isDetailOpen}
 				onOpenChange={handleDetailOpenChange}
 				onUpdateInitiative={onUpdateInitiative}

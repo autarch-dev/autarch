@@ -20,6 +20,7 @@ import type {
 	Initiative,
 	Milestone,
 	RoadmapDependency,
+	VisionDocument,
 } from "@/shared/schemas/roadmap";
 import { EditableTextCell } from "./EditableTextCell";
 import { InitiativeRow } from "./InitiativeRow";
@@ -83,6 +84,7 @@ export const MilestoneGroup = memo(
 		newlyCreatedInitiativeId,
 		onTitleSaved,
 		onTitleCancelled,
+		vision,
 	}: {
 		milestone: Milestone;
 		initiatives: Initiative[];
@@ -110,6 +112,7 @@ export const MilestoneGroup = memo(
 		newlyCreatedInitiativeId?: string | null;
 		onTitleSaved?: (initiative: Initiative) => void;
 		onTitleCancelled?: (initiativeId: string) => void;
+		vision: VisionDocument | null;
 	}) => {
 		// Calculate milestone progress from initiatives
 		const milestoneProgress = useMemo(() => {
@@ -225,6 +228,7 @@ export const MilestoneGroup = memo(
 								<InitiativeRow
 									key={initiative.id}
 									initiative={initiative}
+									vision={vision}
 									dependencyNames={depNames}
 									hasDependencies={hasInitDeps}
 									onUpdate={onUpdateInitiative}

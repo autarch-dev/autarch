@@ -41,6 +41,7 @@ import type {
 	InitiativeStatus,
 	Milestone,
 	RoadmapDependency,
+	VisionDocument,
 } from "@/shared/schemas/roadmap";
 import { MilestoneGroup } from "./MilestoneGroup";
 
@@ -61,6 +62,7 @@ interface TableViewProps {
 	milestones: Milestone[];
 	initiatives: Initiative[];
 	dependencies: RoadmapDependency[];
+	vision: VisionDocument | null;
 	onUpdateMilestone: (
 		milestoneId: string,
 		data: Partial<Pick<Milestone, "title" | "description">>,
@@ -208,6 +210,7 @@ export const TableView = memo(
 		milestones,
 		initiatives,
 		dependencies,
+		vision,
 		onUpdateMilestone,
 		onUpdateInitiative,
 		onCreateMilestone,
@@ -536,6 +539,7 @@ export const TableView = memo(
 											key={milestone.id}
 											milestone={milestone}
 											initiatives={milestoneInitiatives}
+											vision={vision}
 											dependencies={dependencies}
 											allMilestones={milestones}
 											allInitiatives={initiatives}

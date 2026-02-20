@@ -23,7 +23,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { type Initiative, InitiativeSizes } from "@/shared/schemas/roadmap";
+import {
+	type Initiative,
+	InitiativeSizes,
+	type VisionDocument,
+} from "@/shared/schemas/roadmap";
 import { EditableTextCell } from "./EditableTextCell";
 import { PrioritySelect } from "./PrioritySelect";
 import { StatusSelect } from "./StatusSelect";
@@ -31,6 +35,7 @@ import { StatusSelect } from "./StatusSelect";
 export const InitiativeRow = memo(
 	({
 		initiative,
+		vision,
 		dependencyNames,
 		hasDependencies: hasDeps,
 		onUpdate,
@@ -41,6 +46,7 @@ export const InitiativeRow = memo(
 		onTitleCancelled,
 	}: {
 		initiative: Initiative;
+		vision: VisionDocument | null;
 		dependencyNames: string[];
 		hasDependencies: boolean;
 		onUpdate: (
@@ -99,6 +105,7 @@ export const InitiativeRow = memo(
 				<TableCell>
 					<StatusSelect
 						initiative={initiative}
+						vision={vision}
 						onUpdateInitiative={onUpdate}
 						onMenuOpenChange={handleMenuOpenChange}
 					/>

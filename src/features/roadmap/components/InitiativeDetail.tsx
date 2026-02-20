@@ -52,6 +52,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useWorkflowsStore } from "@/features/dashboard/store/workflowsStore";
 import { cn } from "@/lib/utils";
+import type { VisionDocument } from "@/shared/schemas";
 import type {
 	Initiative,
 	InitiativePriority,
@@ -97,6 +98,7 @@ const STATUS_COLORS: Record<InitiativeStatus, string> = {
 
 interface InitiativeDetailProps {
 	initiative: Initiative | null;
+	vision: VisionDocument | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onUpdateInitiative: (
@@ -118,6 +120,7 @@ interface InitiativeDetailProps {
 export const InitiativeDetail = memo(
 	({
 		initiative,
+		vision,
 		open,
 		onOpenChange,
 		onUpdateInitiative,
@@ -283,7 +286,7 @@ export const InitiativeDetail = memo(
 			setIsCreatingWorkflow(true);
 			try {
 				const workflow = await createWorkflow(
-					`# ${initiative.title}${initiative.description ? `\n\n${initiative.description}` : ""}`,
+					`# ${initiative.title}${initiative.description ? `\n\n${initiative.description}` : ""}\n\n---\n\nFor context, here is the vision document for the whole roadmap. Limit your scope to specific initiative above.\n\n${vision?.content ?? "(no vision document available)"}`,
 				);
 				await onUpdateInitiative(initiative.id, {
 					workflowId: workflow.id,
@@ -296,7 +299,7 @@ export const InitiativeDetail = memo(
 			} finally {
 				setIsCreatingWorkflow(false);
 			}
-		}, [initiative, createWorkflow, onUpdateInitiative]);
+		}, [initiative, createWorkflow, onUpdateInitiative, vision]);
 
 		if (!initiative) return null;
 
