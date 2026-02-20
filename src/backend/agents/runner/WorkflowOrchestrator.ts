@@ -598,14 +598,13 @@ You are preparing the development environment in an isolated worktree before cod
 
 **Worktree Path:** \`${pulsingResult.worktreePath}\`
 
-### Quick Path Execution
+### Your Task
 
-This workflow is taking the quick path (skipping research and planning stages).
+1. Initialize the development environment (restore dependencies, build, etc.)
+2. Record any pre-existing build errors/warnings as baselines using \`record_baseline\`
+3. When the environment is ready, call \`complete_preflight\` with a summary
 
-**Pulse to Execute:** 1
-- ${singlePulse.id}: ${singlePulse.title}
-
-Please install dependencies, verify the build succeeds, and run the linter to establish a baseline for the execution phase.`;
+Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
 
 		// Run preflight agent
 		const runner = new AgentRunner(session, {
@@ -1788,13 +1787,6 @@ You are preparing the development environment in an isolated worktree before cod
 
 **Worktree Path:** \`${pulsingResult.worktreePath}\`
 
-### Plan Overview
-
-**Approach:** ${plan.approachSummary}
-
-**Pulses to Execute:** ${plan.pulses.length}
-${plan.pulses.map((p) => `- ${p.id}: ${p.title}`).join("\n")}
-
 ### Your Task
 
 1. Initialize the development environment (restore dependencies, build, etc.)
@@ -2451,13 +2443,6 @@ When ready, submit your plan using the \`submit_plan\` tool.`;
 You are preparing the development environment in an isolated worktree before code execution begins.
 
 **Worktree Path:** \`${worktreePath}\`
-
-### Plan Overview
-
-**Approach:** ${plan.approachSummary}
-
-**Pulses to Execute:** ${plan.pulses.length}
-${plan.pulses.map((p) => `- ${p.id}: ${p.title}`).join("\n")}
 
 ### Your Task
 
