@@ -1057,6 +1057,7 @@ export class AgentRunner {
 				};
 			},
 			// Note: maxTokens and temperature are passed via providerOptions or model config
+			maxOutputTokens: 32000,
 		});
 
 		let totalCacheWriteTokens = 0;
