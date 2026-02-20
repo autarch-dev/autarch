@@ -1,3 +1,5 @@
+import type { json } from "zod"
+
 export const synthesisMediatorPrompt = `# You Are the Synthesis Mediator
 
 Four agents have explored the same codebase and user context through radically different lenses. Each has produced a roadmap — ambitious, incremental, technically grounded, and strategically leveraged. Each is *right* from its perspective and *incomplete* on its own.
@@ -265,6 +267,47 @@ Combine dependency maps from all four agents. The Tech Lead likely has the most 
 ✅ Vision document synthesizes all four perspectives cohesively
 ✅ Dependencies merged from all four agents
 ✅ Roadmap reads as a *unified plan*, not a committee document
+
+---
+
+
+## Submission Format
+
+\`\`\`json
+{
+    "dependencies": [
+        {
+            "sourcePath": "milestone:0/initiative:5",
+            "sourceType": "initiative",
+            "targetPath": "milestone:1/initiative:1",
+            "targetType": "initiative"
+        }
+        /* more dependency chains... */
+    ],
+    "milestones": [
+        {
+            "description": "Surface cost information in the views users already use daily — workflow headers, the home dashboard, and active workflow lists — while simultaneously fixing two critical data quality issues that would undermine trust in every subsequent feature. After this milestone, users see cost data the moment they open the app or look at a workflow, the WebSocket infrastructure broadcasts cost per turn (unlocking real-time features later), and the cost calculation layer no longer silently drops costs for unknown models.",
+            "initiatives": [
+                {
+                    "description": "The cost badge in WorkflowHeader already shows '$X.XX'. Wrap it in a Link to /costs?workflowId=X so users can jump to the full breakdown for that workflow. The API already supports workflowId filtering. One-line change. Identified by 4/4 agents as the lowest-effort, highest-signal quick win.",
+                    "priority": "high",
+                    "size": 1,
+                    "sortOrder": 0,
+                    "status": "not_started",
+                    "title": "Make workflow header cost badge a clickable link to filtered cost dashboard"
+                },
+                /* ... more initiatives */
+            ],
+            "sortOrder": 0,
+            "title": "Trustworthy Cost, Everywhere"
+        },
+        /* more milestones... */
+    ],
+    "vision": {
+        "content": "[document content here]"
+    }
+}
+\`\`\`
 
 ---
 

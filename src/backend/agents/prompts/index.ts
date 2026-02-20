@@ -59,5 +59,20 @@ export function getPromptForRole(
 	role: AgentRole,
 	options: AgentPromptOptions,
 ): string {
-	return agentPrompts[role](options);
+	return `${agentPrompts[role](options)}
+	
+## Tool Calling: Reason
+
+When invoking tools, you must provide a \`reason\` for why you are calling the tool.
+This reason will be used to help the user understand what you are doing.
+Keep it short and to the point.
+
+Example:
+\`\`\`json
+{
+	"reason": "Add Channels property to ViewModel used by ChannelListView"
+	[... other tool parameters ...]
+}
+\`\`\`
+`;
 }

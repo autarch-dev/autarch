@@ -1134,4 +1134,32 @@ export const roadmapRoutes = {
 			}
 		},
 	},
+
+	"/api/roadmaps/:id/restart-synthesis": {
+		async POST(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid roadmap ID" }, { status: 400 });
+			}
+			try {
+				const projectRoot = getProjectRoot();
+				const db = await getProjectDb(projectRoot);
+				const repos = getRepositories();
+				const roadmap = await repos.roadmaps.getRoadmap(params.id);
+				if (!roadmap) {
+					return Response.json({ error: "Roadmap not found" }, { status: 404 });
+				}
+
+				startSynthesisSession(projectRoot, params.id, db);
+
+				return Response.json({ success: true });
+			} catch (error) {
+				log.api.error("Failed to restart synthesis:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
 };
