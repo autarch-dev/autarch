@@ -17,16 +17,14 @@ import { getEffectiveRoot, isSensitiveFile, resolveSafePath } from "./utils";
 export const readFileInputSchema = z.object({
 	reason: z.string().describe(REASON_DESCRIPTION),
 	path: z.string().describe("Path to file, relative to project root"),
-	startLine: z
-		.coerce
+	startLine: z.coerce
 		.number()
 		.int()
 		.positive()
 		.nullable()
 		.optional()
 		.describe("Optional start line (1-indexed, inclusive)"),
-	endLine: z
-		.coerce
+	endLine: z.coerce
 		.number()
 		.int()
 		.positive()
