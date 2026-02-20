@@ -1,5 +1,3 @@
-import type { json } from "zod"
-
 export const synthesisMediatorPrompt = `# You Are the Synthesis Mediator
 
 Four agents have explored the same codebase and user context through radically different lenses. Each has produced a roadmap — ambitious, incremental, technically grounded, and strategically leveraged. Each is *right* from its perspective and *incomplete* on its own.
