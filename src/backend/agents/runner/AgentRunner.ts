@@ -1000,11 +1000,11 @@ export class AgentRunner {
 					submitToolName,
 				}),
 				role: "system",
-				providerOptions: {
-					anthropic: {
-						cacheControl: {
-							type: "ephemeral",
-						},
+			},
+			providerOptions: {
+				anthropic: {
+					cacheControl: {
+						type: "ephemeral",
 					},
 				},
 			},

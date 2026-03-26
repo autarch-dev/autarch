@@ -66,6 +66,11 @@ export const ALL_MODELS = [
 		provider: "anthropic",
 	},
 	{
+		value: "claude-sonnet-4-6",
+		label: "Claude Sonnet 4.6",
+		provider: "anthropic",
+	},
+	{
 		value: "claude-sonnet-4-5",
 		label: "Claude Sonnet 4.5",
 		provider: "anthropic",

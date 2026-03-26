@@ -77,6 +77,25 @@ export const COST_DICTIONARY = [
 		cacheReadCost: 1.5,
 	},
 	{
+		modelName: "claude-sonnet-4-6",
+		pricingTiers: [
+			{
+				maximumTokens: 200_000,
+				promptTokenCost: 3,
+				completionTokenCost: 15,
+				cacheWriteCost: 3.75,
+				cacheReadCost: 0.3,
+			},
+			{
+				minimumTokens: 200_001,
+				promptTokenCost: 6,
+				completionTokenCost: 22.5,
+				cacheWriteCost: 7.5,
+				cacheReadCost: 0.6,
+			},
+		],
+	},
+	{
 		modelName: "claude-sonnet-4-5",
 		pricingTiers: [
 			{
