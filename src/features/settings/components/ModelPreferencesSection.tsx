@@ -24,6 +24,8 @@ export function ModelPreferencesSection() {
 		modelPreferences,
 		loadModelPreferences,
 		saveModelPreferences,
+		bedrockModels,
+		loadBedrockModels,
 		isLoading,
 	} = useSettings();
 	const { providers, modelsByProvider, loadProviders } = useCustomProviders();
@@ -32,10 +34,11 @@ export function ModelPreferencesSection() {
 	useEffect(() => {
 		loadModelPreferences();
 		loadProviders();
+		loadBedrockModels();
 		if (!apiKeysStatus) {
 			loadApiKeysStatus();
 		}
-	}, [loadModelPreferences, loadApiKeysStatus, loadProviders, apiKeysStatus]);
+	}, [loadModelPreferences, loadApiKeysStatus, loadProviders, loadBedrockModels, apiKeysStatus]);
 
 	// Filter built-in models to only show those from providers with configured API keys
 	const builtInModels = useMemo(() => {
@@ -63,18 +66,32 @@ export function ModelPreferencesSection() {
 		return options;
 	}, [apiKeysStatus, providers, modelsByProvider]);
 
+	// Build Bedrock model options (prefixed with "bedrock/" so the backend can resolve them)
+	const bedrockModelOptions = useMemo(() => {
+		return bedrockModels.map((m) => ({
+			value: `bedrock/${m.modelId}`,
+			label: m.label,
+			providerName: m.providerName,
+		}));
+	}, [bedrockModels]);
+
 	const availableModels = useMemo(
 		() => [
 			...builtInModels.map((m) => ({ value: m.value, label: m.label })),
+			...bedrockModelOptions.map((m) => ({
+				value: m.value,
+				label: m.label,
+			})),
 			...customModelOptions.map((m) => ({
 				value: m.value,
 				label: `${m.label} (${m.providerLabel})`,
 			})),
 		],
-		[builtInModels, customModelOptions],
+		[builtInModels, bedrockModelOptions, customModelOptions],
 	);
 
-	const hasCustomModels = customModelOptions.length > 0;
+	const hasExtraModels =
+		customModelOptions.length > 0 || bedrockModelOptions.length > 0;
 
 	// Handle model selection change - auto-save
 	const handleChange = async (scenario: ModelScenario, value: string) => {
@@ -126,8 +143,9 @@ export function ModelPreferencesSection() {
 					scenario="basic"
 					value={modelPreferences?.basic}
 					builtInModels={builtInModels}
+					bedrockModelOptions={bedrockModelOptions}
 					customModelOptions={customModelOptions}
-					hasCustomModels={hasCustomModels}
+					hasExtraModels={hasExtraModels}
 					availableModels={availableModels}
 					onChange={(value) => handleChange("basic", value)}
 					disabled={isLoading}
@@ -140,8 +158,9 @@ export function ModelPreferencesSection() {
 					scenario="discussion"
 					value={modelPreferences?.discussion}
 					builtInModels={builtInModels}
+					bedrockModelOptions={bedrockModelOptions}
 					customModelOptions={customModelOptions}
-					hasCustomModels={hasCustomModels}
+					hasExtraModels={hasExtraModels}
 					availableModels={availableModels}
 					onChange={(value) => handleChange("discussion", value)}
 					disabled={isLoading}
@@ -160,8 +179,9 @@ export function ModelPreferencesSection() {
 							scenario={scenario}
 							value={modelPreferences?.[scenario]}
 							builtInModels={builtInModels}
+							bedrockModelOptions={bedrockModelOptions}
 							customModelOptions={customModelOptions}
-							hasCustomModels={hasCustomModels}
+							hasExtraModels={hasExtraModels}
 							availableModels={availableModels}
 							onChange={(value) => handleChange(scenario, value)}
 							disabled={isLoading}
@@ -177,8 +197,9 @@ interface ModelRowProps {
 	scenario: ModelScenario;
 	value?: string;
 	builtInModels: { value: string; label: string }[];
+	bedrockModelOptions: { value: string; label: string; providerName: string }[];
 	customModelOptions: { value: string; label: string; providerLabel: string }[];
-	hasCustomModels: boolean;
+	hasExtraModels: boolean;
 	availableModels: { value: string; label: string }[];
 	onChange: (value: string) => void;
 	disabled: boolean;
@@ -188,8 +209,9 @@ function ModelRow({
 	scenario,
 	value,
 	builtInModels,
+	bedrockModelOptions,
 	customModelOptions,
-	hasCustomModels,
+	hasExtraModels,
 	availableModels,
 	onChange,
 	disabled,
@@ -214,7 +236,7 @@ function ModelRow({
 						<SelectValue placeholder="Select model" />
 					</SelectTrigger>
 					<SelectContent className="bg-zinc-900 border-zinc-700 max-h-[300px]">
-						{hasCustomModels ? (
+						{hasExtraModels ? (
 							<>
 								<SelectGroup>
 									<SelectLabel className="text-[11px] text-zinc-500">
@@ -230,6 +252,22 @@ function ModelRow({
 										</SelectItem>
 									))}
 								</SelectGroup>
+								{bedrockModelOptions.length > 0 && (
+									<SelectGroup>
+										<SelectLabel className="text-[11px] text-zinc-500">
+											Amazon Bedrock
+										</SelectLabel>
+										{bedrockModelOptions.map((model) => (
+											<SelectItem
+												key={model.value}
+												value={model.value}
+												className="text-xs text-zinc-200 focus:bg-zinc-800 focus:text-zinc-100"
+											>
+												{model.label}
+											</SelectItem>
+										))}
+									</SelectGroup>
+								)}
 								{/* Group custom models by provider */}
 								{(() => {
 									const byProvider = new Map<

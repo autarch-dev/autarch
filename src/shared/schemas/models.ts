@@ -53,7 +53,7 @@ export const RECOMMENDED_MODELS = {
 		google: "gemini-3-pro-preview",
 		xai: "grok-4-fast-reasoning",
 	},
-} as const satisfies Record<ModelScenario, Record<AIProvider, string>>;
+} as const satisfies Record<ModelScenario, Record<Exclude<AIProvider, "bedrock">, string>>;
 
 // Models mapped to their provider
 export const ALL_MODELS = [

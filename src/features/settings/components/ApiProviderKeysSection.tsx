@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { AI_PROVIDER_LABELS, AIProvider } from "@/shared/schemas/settings";
 import { useSettings } from "../hooks/useSettings";
 
-const PROVIDERS = AIProvider.options;
+const PROVIDERS = AIProvider.options.filter((p) => p !== "bedrock");
 
 interface ApiKeyRowProps {
 	provider: (typeof PROVIDERS)[number];

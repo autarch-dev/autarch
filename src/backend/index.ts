@@ -6,7 +6,12 @@ import { getProjectDb } from "./db/project";
 import { log } from "./logger";
 import { initProjectRoot } from "./projectRoot";
 import { initRepositories } from "./repositories";
-import { agentRoutes, customProviderRoutes, settingsRoutes } from "./routes";
+import {
+	agentRoutes,
+	bedrockRoutes,
+	customProviderRoutes,
+	settingsRoutes,
+} from "./routes";
 import { initServerPort } from "./serverPort";
 import { startWatching } from "./services/embedding";
 import { handleClose, handleMessage, handleOpen } from "./ws";
@@ -21,6 +26,7 @@ const server = serve({
 		// API routes - Bun handles dynamic :param routes natively
 		...settingsRoutes,
 		...customProviderRoutes,
+		...bedrockRoutes,
 		...agentRoutes,
 
 		// WebSocket upgrade endpoint

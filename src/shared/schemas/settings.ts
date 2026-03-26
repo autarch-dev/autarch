@@ -4,7 +4,7 @@ import { z } from "zod";
 // Enums
 // =============================================================================
 
-export const AIProvider = z.enum(["openai", "anthropic", "google", "xai"]);
+export const AIProvider = z.enum(["openai", "anthropic", "google", "xai", "bedrock"]);
 export type AIProvider = z.infer<typeof AIProvider>;
 
 export const ModelScenario = z.enum([
@@ -50,6 +50,7 @@ export const ApiKeysResponseSchema = z.object({
 	anthropic: z.boolean(),
 	google: z.boolean(),
 	xai: z.boolean(),
+	bedrock: z.boolean(),
 	customProviders: z.record(z.string(), z.boolean()).optional(),
 });
 export type ApiKeysResponse = z.infer<typeof ApiKeysResponseSchema>;
@@ -140,6 +141,7 @@ export const AI_PROVIDER_LABELS: Record<AIProvider, string> = {
 	anthropic: "Anthropic",
 	google: "Google (Gemini)",
 	xai: "xAI (Grok)",
+	bedrock: "Amazon Bedrock",
 };
 
 /** Labels for model scenarios shown in settings UI */

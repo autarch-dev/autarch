@@ -17,6 +17,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import {
+	type BedrockModel,
+	fetchBedrockModels,
+} from "@/features/settings/api/settingsApi";
 import { useCustomProviders } from "@/features/settings/hooks/useCustomProviders";
 import {
 	type AIProvider,
@@ -45,10 +49,12 @@ export function ModelPrefsStep() {
 
 	const [localPrefs, setLocalPrefs] = useState<ModelPreferences>({});
 	const [hasInitializedDefaults, setHasInitializedDefaults] = useState(false);
+	const [bedrockModels, setBedrockModels] = useState<BedrockModel[]>([]);
 
 	useEffect(() => {
 		loadModelPreferences();
 		loadProviders();
+		fetchBedrockModels().then(setBedrockModels);
 		if (!apiKeysStatus) {
 			loadApiKeysStatus();
 		}
@@ -79,23 +85,36 @@ export function ModelPrefsStep() {
 		return options;
 	}, [apiKeysStatus, providers, modelsByProvider]);
 
+	const bedrockModelOptions = useMemo(() => {
+		return bedrockModels.map((m) => ({
+			value: `bedrock/${m.modelId}`,
+			label: m.label,
+			providerName: m.providerName,
+		}));
+	}, [bedrockModels]);
+
 	const availableModels = useMemo(
 		() => [
 			...builtInModels.map((m) => ({ value: m.value, label: m.label })),
+			...bedrockModelOptions.map((m) => ({
+				value: m.value,
+				label: m.label,
+			})),
 			...customModelOptions.map((m) => ({
 				value: m.value,
 				label: `${m.label} (${m.providerLabel})`,
 			})),
 		],
-		[builtInModels, customModelOptions],
+		[builtInModels, bedrockModelOptions, customModelOptions],
 	);
 
-	const hasCustomModels = customModelOptions.length > 0;
+	const hasExtraModels =
+		customModelOptions.length > 0 || bedrockModelOptions.length > 0;
 
-	// Get the first available provider (in priority order)
-	const firstAvailableProvider = useMemo((): AIProvider | null => {
+	// Get the first available keyed provider (in priority order)
+	const firstAvailableProvider = useMemo((): Exclude<AIProvider, "bedrock"> | null => {
 		if (!apiKeysStatus) return null;
-		const priorityOrder: AIProvider[] = [
+		const priorityOrder: Exclude<AIProvider, "bedrock">[] = [
 			"anthropic",
 			"openai",
 			"google",
@@ -178,7 +197,7 @@ export function ModelPrefsStep() {
 								<SelectValue placeholder="Select a model" />
 							</SelectTrigger>
 							<SelectContent className="max-h-[300px]">
-								{hasCustomModels ? (
+								{hasExtraModels ? (
 									<>
 										<SelectGroup>
 											<SelectLabel className="text-xs text-muted-foreground">
@@ -190,6 +209,18 @@ export function ModelPrefsStep() {
 												</SelectItem>
 											))}
 										</SelectGroup>
+										{bedrockModelOptions.length > 0 && (
+											<SelectGroup>
+												<SelectLabel className="text-xs text-muted-foreground">
+													Amazon Bedrock
+												</SelectLabel>
+												{bedrockModelOptions.map((model) => (
+													<SelectItem key={model.value} value={model.value}>
+														{model.label}
+													</SelectItem>
+												))}
+											</SelectGroup>
+										)}
 										{(() => {
 											const byProvider = new Map<
 												string,

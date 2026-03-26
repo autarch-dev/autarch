@@ -5,6 +5,7 @@
  */
 
 export { analyticsRoutes } from "./analyticsRoutes";
+export { bedrockRoutes } from "./bedrock";
 export { channelRoutes } from "./channelRoutes";
 export { costRoutes } from "./costRoutes";
 export { credentialPromptRoutes } from "./credentialPromptRoutes";

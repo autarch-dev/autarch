@@ -8,9 +8,11 @@ import type {
 	ModelPreferences,
 } from "@/shared/schemas/settings";
 import {
+	type BedrockModel,
 	clearApiKey,
 	clearIntegrationKey,
 	fetchApiKeysStatus,
+	fetchBedrockModels,
 	fetchGitIdentity,
 	fetchHooksConfig,
 	fetchIntegrationsStatus,
@@ -49,6 +51,10 @@ interface SettingsState {
 	modelPreferences: ModelPreferences | null;
 	loadModelPreferences: () => Promise<void>;
 	saveModelPreferences: (prefs: ModelPreferences) => Promise<void>;
+
+	// Bedrock models
+	bedrockModels: BedrockModel[];
+	loadBedrockModels: () => Promise<void>;
 
 	// Hooks
 	hooksConfig: PostWriteHooksConfig | null;
@@ -204,6 +210,22 @@ export const useSettings = create<SettingsState>((set) => ({
 				err instanceof Error ? err.message : "Failed to save model preferences";
 			set({ error: message, isLoading: false });
 			throw err;
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Bedrock Models
+	// ---------------------------------------------------------------------------
+
+	bedrockModels: [],
+
+	loadBedrockModels: async () => {
+		try {
+			const models = await fetchBedrockModels();
+			set({ bedrockModels: models });
+		} catch (err) {
+			console.error("Failed to load Bedrock models:", err);
+			set({ bedrockModels: [] });
 		}
 	},
 

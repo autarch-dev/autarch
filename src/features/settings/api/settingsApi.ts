@@ -135,6 +135,30 @@ export async function updateModelPreferences(
 }
 
 // =============================================================================
+// Bedrock Models
+// =============================================================================
+
+export interface BedrockModel {
+	modelId: string;
+	label: string;
+	providerName: string;
+}
+
+/**
+ * Fetch available Bedrock foundation models from AWS.
+ * Returns an empty array if credentials are not configured or the call fails.
+ */
+export async function fetchBedrockModels(): Promise<BedrockModel[]> {
+	try {
+		const response = await fetch("/api/settings/bedrock/models");
+		if (!response.ok) return [];
+		return await response.json();
+	} catch {
+		return [];
+	}
+}
+
+// =============================================================================
 // Post-Write Hooks
 // =============================================================================
 

@@ -39,9 +39,15 @@ const PROVIDER_TO_KEY = {
 	google: SETTING_KEYS.API_KEY_GOOGLE,
 	xai: SETTING_KEYS.API_KEY_XAI,
 } as const satisfies Record<
-	AIProvider,
+	Exclude<AIProvider, "bedrock">,
 	(typeof SETTING_KEYS)[keyof typeof SETTING_KEYS]
 >;
+
+type KeyedProvider = keyof typeof PROVIDER_TO_KEY;
+
+function isKeyedProvider(provider: AIProvider): provider is KeyedProvider {
+	return provider in PROVIDER_TO_KEY;
+}
 
 const SCENARIO_TO_KEY = {
 	basic: SETTING_KEYS.MODEL_BASIC,
@@ -115,6 +121,7 @@ export async function getApiKeysStatus(): Promise<ApiKeysResponse> {
 		anthropic: anthropic !== null && anthropic.length > 0,
 		google: google !== null && google.length > 0,
 		xai: xai !== null && xai.length > 0,
+		bedrock: true, // Bedrock uses AWS credential chain; always "configured"
 	};
 }
 
@@ -125,6 +132,7 @@ export async function setApiKey(
 	provider: AIProvider,
 	key: string,
 ): Promise<void> {
+	if (!isKeyedProvider(provider)) return;
 	const settingKey = PROVIDER_TO_KEY[provider];
 	await setSetting(settingKey, key);
 }
@@ -133,6 +141,7 @@ export async function setApiKey(
  * Get the raw API key for a provider (for internal use only).
  */
 export async function getApiKey(provider: AIProvider): Promise<string | null> {
+	if (!isKeyedProvider(provider)) return null;
 	const settingKey = PROVIDER_TO_KEY[provider];
 	return getSetting(settingKey);
 }
@@ -141,6 +150,7 @@ export async function getApiKey(provider: AIProvider): Promise<string | null> {
  * Clear (delete) an API key for a specific provider.
  */
 export async function clearApiKey(provider: AIProvider): Promise<void> {
+	if (!isKeyedProvider(provider)) return;
 	const settingKey = PROVIDER_TO_KEY[provider];
 	await deleteSetting(settingKey);
 }

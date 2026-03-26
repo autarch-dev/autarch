@@ -13,7 +13,7 @@ import { AI_PROVIDER_LABELS, AIProvider } from "@/shared/schemas/settings";
 import { useOnboarding } from "../../hooks/useOnboarding";
 import { WizardCard } from "./WizardCard";
 
-const PROVIDERS = AIProvider.options;
+const PROVIDERS = AIProvider.options.filter((p) => p !== "bedrock");
 
 interface ApiKeyInputProps {
 	provider: (typeof PROVIDERS)[number];

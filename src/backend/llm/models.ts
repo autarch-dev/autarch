@@ -6,11 +6,13 @@
  * user-defined custom providers via the OpenAI-compatible protocol.
  */
 
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createXai } from "@ai-sdk/xai";
+import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import type { LanguageModel } from "ai";
 import { type AIProvider, ALL_MODELS } from "@/shared/schemas";
 import type { AgentRole } from "../agents/types";
@@ -75,6 +77,16 @@ export async function getModelForScenario(
 		throw new Error(
 			`No model configured for scenario "${effectiveScenario}". Please complete onboarding or set model preferences.`,
 		);
+	}
+
+	// Bedrock models are stored as "bedrock/<bedrockModelId>"
+	if (modelId.startsWith("bedrock/")) {
+		const bedrockModelId = modelId.slice("bedrock/".length);
+		const bedrock = createAmazonBedrock({
+			region: "us-east-1",
+			credentialProvider: fromNodeProviderChain(),
+		});
+		return { model: bedrock(bedrockModelId), modelId };
 	}
 
 	// Try built-in provider first
@@ -159,6 +171,13 @@ function createBuiltInModel(
 		case "xai": {
 			const xai = createXai({ apiKey });
 			return xai(modelName);
+		}
+		case "bedrock": {
+			const bedrock = createAmazonBedrock({
+				region: "us-east-1",
+				credentialProvider: fromNodeProviderChain(),
+			});
+			return bedrock(modelName);
 		}
 		default: {
 			const _exhaustive: never = provider;

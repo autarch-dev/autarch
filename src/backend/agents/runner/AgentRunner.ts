@@ -1007,6 +1007,7 @@ export class AgentRunner {
 						type: "ephemeral",
 					},
 				},
+				bedrock: { cachePoint: { type: "default", ttl: "5m" } },
 			},
 			messages: conversationHistory,
 			tools,
