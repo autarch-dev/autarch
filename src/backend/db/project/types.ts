@@ -204,6 +204,8 @@ export interface PulsesTable {
 	checkpoint_commit_sha: string | null;
 	/** Diff artifact ID for review */
 	diff_artifact_id: string | null;
+	/** Jira issue key for the Sub-task created for this pulse */
+	jira_issue_id: string | null;
 	/** If true, pulse completed with acknowledged unresolved issues */
 	has_unresolved_issues: number; // 0 or 1 (SQLite boolean)
 	/** If true, this checkpoint was created from a failure/stop recovery */

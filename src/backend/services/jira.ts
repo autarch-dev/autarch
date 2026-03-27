@@ -31,6 +31,7 @@ import type {
 import { getProjectDb } from "../db/project";
 import { log } from "../logger";
 import { getProjectRoot } from "../projectRoot";
+import { getRepositories } from "../repositories";
 import { getJiraApiToken, getJiraEmail } from "./globalSettings";
 import { getJiraConfig } from "./projectSettings";
 
@@ -1273,6 +1274,7 @@ export async function syncArtifactComment(
 
 /**
  * Sync pulse definitions as Sub-tasks under a workflow's Task.
+ * Only creates Sub-tasks for pulses that don't already have a Jira issue ID.
  */
 export async function syncPulses(
 	plan: Plan,
@@ -1293,8 +1295,29 @@ export async function syncPulses(
 		return;
 	}
 
+	const repos = getRepositories();
+	const workflow = await repos.workflows.getById(plan.workflowId);
+	if (!workflow) {
+		log.jira.warn(`Workflow ${plan.workflowId} not found, skipping pulse sync`);
+		return;
+	}
+
 	for (const pulse of plan.pulses) {
 		try {
+			// Check if pulse already has a Jira issue ID
+			const existingPulse = await repos.pulses.getPulseByPlannedId(
+				plan.workflowId,
+				pulse.id,
+			);
+
+			if (existingPulse?.jiraIssueId) {
+				log.jira.info(
+					`Pulse "${pulse.title}" already synced as ${existingPulse.jiraIssueId}`,
+				);
+				continue;
+			}
+
+			// Create new Sub-task
 			const issue = await createIssue(
 				auth,
 				config.jiraProjectKey,
@@ -1308,6 +1331,11 @@ export async function syncPulses(
 				log.jira.info(
 					`Created Sub-task ${issue.key} for pulse "${pulse.title}"`,
 				);
+
+				// Update pulse with Jira issue ID
+				if (existingPulse) {
+					await repos.pulses.updateJiraIssueId(existingPulse.id, issue.key);
+				}
 			} else {
 				log.jira.warn(`Failed to create Sub-task for pulse "${pulse.title}"`);
 			}

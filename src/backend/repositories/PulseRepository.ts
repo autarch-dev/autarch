@@ -27,6 +27,7 @@ export interface Pulse {
 	worktreePath?: string;
 	checkpointCommitSha?: string;
 	diffArtifactId?: string;
+	jiraIssueId?: string;
 	hasUnresolvedIssues: boolean;
 	isRecoveryCheckpoint: boolean;
 	rejectionCount: number;
@@ -101,6 +102,7 @@ export class PulseRepository implements Repository {
 			worktreePath: row.worktree_path ?? undefined,
 			checkpointCommitSha: row.checkpoint_commit_sha ?? undefined,
 			diffArtifactId: row.diff_artifact_id ?? undefined,
+			jiraIssueId: row.jira_issue_id ?? undefined,
 			hasUnresolvedIssues: row.has_unresolved_issues === 1,
 			isRecoveryCheckpoint: row.is_recovery_checkpoint === 1,
 			rejectionCount: row.rejection_count,
@@ -181,6 +183,20 @@ export class PulseRepository implements Repository {
 			.where("workflow_id", "=", workflowId)
 			.where("status", "=", "proposed")
 			.orderBy("created_at", "asc")
+			.executeTakeFirst();
+
+		return row ? this.toPulse(row) : null;
+	}
+
+	/**
+	 * Get pulse by planned pulse ID
+	 */
+	async getPulseByPlannedId(workflowId: string, plannedPulseId: string): Promise<Pulse | null> {
+		const row = await this.db
+			.selectFrom("pulses")
+			.selectAll()
+			.where("workflow_id", "=", workflowId)
+			.where("planned_pulse_id", "=", plannedPulseId)
 			.executeTakeFirst();
 
 		return row ? this.toPulse(row) : null;
@@ -653,6 +669,17 @@ export class PulseRepository implements Repository {
 		await this.db
 			.deleteFrom("preflight_setup")
 			.where("workflow_id", "=", workflowId)
+			.execute();
+	}
+
+	/**
+	 * Update Jira issue ID for a pulse
+	 */
+	async updateJiraIssueId(pulseId: string, jiraIssueId: string): Promise<void> {
+		await this.db
+			.updateTable("pulses")
+			.set({ jira_issue_id: jiraIssueId })
+			.where("id", "=", pulseId)
 			.execute();
 	}
 
