@@ -18,6 +18,7 @@ import {
 	syncArtifactComment,
 	syncInitiative,
 	syncMilestone,
+	syncPulses,
 	syncWorkflow,
 	syncWorkflowStatus,
 	transitionIssueToDone,
@@ -60,13 +61,19 @@ interface TransitionIssueToDoneJob {
 	issueTypeName: string;
 }
 
+interface SyncPulsesJob {
+	type: "sync-pulses";
+	workflowId: string;
+}
+
 export type JiraSyncJob =
 	| SyncWorkflowJob
 	| SyncWorkflowStatusJob
 	| SyncArtifactCommentJob
 	| SyncMilestoneJob
 	| SyncInitiativeJob
-	| TransitionIssueToDoneJob;
+	| TransitionIssueToDoneJob
+	| SyncPulsesJob;
 
 // =============================================================================
 // Queue Implementation
@@ -224,6 +231,28 @@ class JiraSyncQueue {
 					initiative.milestoneId,
 				);
 				await syncInitiative(initiative, milestone?.jiraEpicKey);
+				return;
+			}
+
+			case "sync-pulses": {
+				const repos = getRepositories();
+				const workflow = await repos.workflows.getById(job.workflowId);
+
+				if (!(workflow?.jiraIssueKey)) {
+					log.jira.warn(
+						`Workflow ${job.workflowId} not found, skipping sync`,
+					);
+					return;
+				}
+
+				const plan = await repos.artifacts.getLatestPlan(job.workflowId);
+
+				if (!plan) {
+					log.jira.warn(`No plan found for workflow ${job.workflowId}`);
+					return;
+				}
+
+				await syncPulses(plan, workflow.jiraIssueKey);
 				return;
 			}
 

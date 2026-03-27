@@ -547,6 +547,11 @@ ${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
 			`[Quick Path] Created single pulse ${singlePulse.id} for workflow ${workflowId}`,
 		);
 
+		jiraSyncQueue.enqueue({
+			type: "sync-pulses",
+			workflowId,
+		})
+
 		// Mark skipped stages
 		await this.workflowRepo.setSkippedStages(workflowId, [
 			"researching",
