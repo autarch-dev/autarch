@@ -402,17 +402,6 @@ function planToAdf(plan: Plan): AdfDocument {
 		paragraph(plan.approachSummary),
 	];
 
-	if (plan.pulses.length > 0) {
-		content.push(heading("Pulses", 3));
-		for (const pulse of plan.pulses) {
-			content.push(heading(pulse.title, 4));
-			content.push(paragraph(pulse.description));
-			if (pulse.expectedChanges.length > 0) {
-				content.push(bulletList(pulse.expectedChanges));
-			}
-		}
-	}
-
 	return adfDocument(content);
 }
 
