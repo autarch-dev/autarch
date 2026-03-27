@@ -112,7 +112,10 @@ export function ModelPrefsStep() {
 		customModelOptions.length > 0 || bedrockModelOptions.length > 0;
 
 	// Get the first available keyed provider (in priority order)
-	const firstAvailableProvider = useMemo((): Exclude<AIProvider, "bedrock"> | null => {
+	const firstAvailableProvider = useMemo((): Exclude<
+		AIProvider,
+		"bedrock"
+	> | null => {
 		if (!apiKeysStatus) return null;
 		const priorityOrder: Exclude<AIProvider, "bedrock">[] = [
 			"anthropic",

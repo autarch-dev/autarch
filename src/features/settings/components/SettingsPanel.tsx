@@ -14,6 +14,7 @@ import { CustomProvidersSection } from "./CustomProvidersSection";
 import { GitIdentitySection } from "./GitIdentitySection";
 import { HooksSection } from "./HooksSection";
 import { IntegrationsSection } from "./IntegrationsSection";
+import { JiraSection } from "./JiraSection";
 import { ModelPreferencesSection } from "./ModelPreferencesSection";
 import { PersistentApprovalsSection } from "./PersistentApprovalsSection";
 
@@ -84,6 +85,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 							<ApiProviderKeysSection />
 							<CustomProvidersSection />
 							<IntegrationsSection />
+							<JiraSection />
 						</TabsContent>
 
 						<TabsContent value="models" className="mt-6">

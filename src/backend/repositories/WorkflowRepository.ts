@@ -57,6 +57,11 @@ export class WorkflowRepository implements Repository {
 			skippedStages: row.skipped_stages ? JSON.parse(row.skipped_stages) : [],
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
+			jiraIssueKey: row.jira_issue_key ?? undefined,
+			jiraIssueId: row.jira_issue_id ?? undefined,
+			jiraSyncStatus: row.jira_sync_status ?? undefined,
+			jiraSyncedAt: row.jira_synced_at ?? undefined,
+			jiraSyncError: row.jira_sync_error ?? undefined,
 		};
 	}
 

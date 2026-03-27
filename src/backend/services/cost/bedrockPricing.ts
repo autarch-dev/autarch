@@ -52,9 +52,10 @@ export async function initBedrockPricing(): Promise<void> {
 			`Bedrock pricing cache loaded: ${cache.size} inference profiles`,
 		);
 	} catch (err) {
-		const message =
-			err instanceof Error ? err.message : "Unknown error";
-		log.server.warn(`Failed to load Bedrock pricing (cost tracking will be unavailable): ${message}`);
+		const message = err instanceof Error ? err.message : "Unknown error";
+		log.server.warn(
+			`Failed to load Bedrock pricing (cost tracking will be unavailable): ${message}`,
+		);
 	}
 }
 
@@ -192,8 +193,12 @@ function buildCache(entries: RawPriceEntry[]): void {
 		const costParams: CostParams = {
 			promptTokenCost: prices.input,
 			completionTokenCost: prices.output,
-			...(prices.cacheRead !== undefined && { cacheReadCost: prices.cacheRead }),
-			...(prices.cacheWrite !== undefined && { cacheWriteCost: prices.cacheWrite }),
+			...(prices.cacheRead !== undefined && {
+				cacheReadCost: prices.cacheRead,
+			}),
+			...(prices.cacheWrite !== undefined && {
+				cacheWriteCost: prices.cacheWrite,
+			}),
 		};
 
 		// Store under the raw model ID

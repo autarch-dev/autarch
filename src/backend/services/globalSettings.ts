@@ -189,6 +189,73 @@ export async function clearExaApiKey(): Promise<void> {
 }
 
 // =============================================================================
+// Jira Credentials (keyed per project path)
+// =============================================================================
+
+function jiraTokenKey(projectPath: string): string {
+	return `jira_api_token:${projectPath}`;
+}
+
+function jiraEmailKey(projectPath: string): string {
+	return `jira_email:${projectPath}`;
+}
+
+/**
+ * Get the Jira API token for a specific project.
+ */
+export async function getJiraApiToken(
+	projectPath: string,
+): Promise<string | null> {
+	return getSetting(jiraTokenKey(projectPath));
+}
+
+/**
+ * Get the Jira email for a specific project.
+ */
+export async function getJiraEmail(
+	projectPath: string,
+): Promise<string | null> {
+	return getSetting(jiraEmailKey(projectPath));
+}
+
+/**
+ * Set the Jira credentials for a specific project.
+ */
+export async function setJiraCredentials(
+	projectPath: string,
+	email: string,
+	apiToken: string,
+): Promise<void> {
+	await Promise.all([
+		setSetting(jiraEmailKey(projectPath), email),
+		setSetting(jiraTokenKey(projectPath), apiToken),
+	]);
+}
+
+/**
+ * Clear Jira credentials for a specific project.
+ */
+export async function clearJiraCredentials(projectPath: string): Promise<void> {
+	await Promise.all([
+		deleteSetting(jiraEmailKey(projectPath)),
+		deleteSetting(jiraTokenKey(projectPath)),
+	]);
+}
+
+/**
+ * Check if Jira credentials are configured for a specific project.
+ */
+export async function isJiraConfigured(projectPath: string): Promise<boolean> {
+	const [email, token] = await Promise.all([
+		getJiraEmail(projectPath),
+		getJiraApiToken(projectPath),
+	]);
+	return (
+		email !== null && email.length > 0 && token !== null && token.length > 0
+	);
+}
+
+// =============================================================================
 // Model Preferences
 // =============================================================================
 

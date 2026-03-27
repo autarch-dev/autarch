@@ -3,6 +3,7 @@ import {
 	type PostWriteHooksConfig,
 	PostWriteHooksConfigSchema,
 } from "@/shared/schemas/hooks";
+import { type JiraConfig, JiraConfigSchema } from "@/shared/schemas/jira";
 import {
 	type MergeStrategy,
 	MergeStrategySchema,
@@ -22,6 +23,7 @@ export const PROJECT_META_KEYS = {
 	PERSISTENT_SHELL_APPROVALS: "persistent_shell_approvals",
 	GIT_AUTHOR_NAME: "git_author_name",
 	GIT_AUTHOR_EMAIL: "git_author_email",
+	JIRA_CONFIG: "jira_config",
 } as const;
 
 // =============================================================================
@@ -254,4 +256,60 @@ export async function setGitAuthorEmail(
 	value: string,
 ): Promise<void> {
 	await setProjectMeta(projectRoot, PROJECT_META_KEYS.GIT_AUTHOR_EMAIL, value);
+}
+
+// =============================================================================
+// Jira Configuration
+// =============================================================================
+
+/**
+ * Get the project's Jira integration configuration.
+ * Returns null if no configuration is stored or if the stored data is invalid.
+ */
+export async function getJiraConfig(
+	projectRoot: string,
+): Promise<JiraConfig | null> {
+	const value = await getProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.JIRA_CONFIG,
+	);
+	if (value === null) {
+		return null;
+	}
+	try {
+		const parsed = JSON.parse(value);
+		const result = JiraConfigSchema.safeParse(parsed);
+		return result.success ? result.data : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Set the project's Jira integration configuration.
+ */
+export async function setJiraConfig(
+	projectRoot: string,
+	config: JiraConfig,
+): Promise<void> {
+	const result = JiraConfigSchema.safeParse(config);
+	if (!result.success) {
+		throw new Error(`Invalid Jira configuration: ${result.error.message}`);
+	}
+	await setProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.JIRA_CONFIG,
+		JSON.stringify(result.data),
+	);
+}
+
+/**
+ * Clear the project's Jira integration configuration.
+ */
+export async function clearJiraConfig(projectRoot: string): Promise<void> {
+	const db = await getProjectDb(projectRoot);
+	await db
+		.deleteFrom("project_meta")
+		.where("key", "=", PROJECT_META_KEYS.JIRA_CONFIG)
+		.execute();
 }

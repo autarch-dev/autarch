@@ -4,7 +4,13 @@ import { z } from "zod";
 // Enums
 // =============================================================================
 
-export const AIProvider = z.enum(["openai", "anthropic", "google", "xai", "bedrock"]);
+export const AIProvider = z.enum([
+	"openai",
+	"anthropic",
+	"google",
+	"xai",
+	"bedrock",
+]);
 export type AIProvider = z.infer<typeof AIProvider>;
 
 export const ModelScenario = z.enum([

@@ -137,6 +137,11 @@ export class RoadmapRepository implements Repository {
 			sortOrder: row.sort_order,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
+			jiraEpicKey: row.jira_epic_key ?? undefined,
+			jiraEpicId: row.jira_epic_id ?? undefined,
+			jiraSyncStatus: row.jira_sync_status ?? undefined,
+			jiraSyncedAt: row.jira_synced_at ?? undefined,
+			jiraSyncError: row.jira_sync_error ?? undefined,
 		};
 	}
 
@@ -158,6 +163,11 @@ export class RoadmapRepository implements Repository {
 			sortOrder: row.sort_order,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
+			jiraIssueKey: row.jira_issue_key ?? undefined,
+			jiraIssueId: row.jira_issue_id ?? undefined,
+			jiraSyncStatus: row.jira_sync_status ?? undefined,
+			jiraSyncedAt: row.jira_synced_at ?? undefined,
+			jiraSyncError: row.jira_sync_error ?? undefined,
 		};
 	}
 

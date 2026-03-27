@@ -50,4 +50,7 @@ export const log = {
 
 	/** Knowledge extraction and storage */
 	knowledge: createLogger("knowledge"),
+
+	/** Jira integration sync */
+	jira: createLogger("jira"),
 };

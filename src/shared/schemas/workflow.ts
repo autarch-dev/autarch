@@ -1,20 +1,10 @@
 import { z } from "zod";
 import { ChannelMessageSchema } from "./channel";
+import { JiraSyncStatusSchema } from "./jira";
+import type { WorkflowStatus } from "./workflow-status";
+import { WorkflowStatusSchema } from "./workflow-status";
 
-// =============================================================================
-// Workflow Status and Priority
-// =============================================================================
-
-export const WorkflowStatusSchema = z.enum([
-	"backlog",
-	"scoping",
-	"researching",
-	"planning",
-	"in_progress",
-	"review",
-	"done",
-]);
-export type WorkflowStatus = z.infer<typeof WorkflowStatusSchema>;
+export { type WorkflowStatus, WorkflowStatusSchema } from "./workflow-status";
 
 export const WORKFLOW_STATUS_COLORS: Record<WorkflowStatus, string> = {
 	backlog: "text-muted-foreground bg-muted",
@@ -278,6 +268,12 @@ export const WorkflowSchema = z.object({
 	updatedAt: z.number(),
 	/** Total cost (USD) from cost_records. Null if not yet computed or no cost records exist. */
 	totalCost: z.number().nullable().optional(),
+	// Jira sync fields
+	jiraIssueKey: z.string().optional(),
+	jiraIssueId: z.string().optional(),
+	jiraSyncStatus: JiraSyncStatusSchema.optional(),
+	jiraSyncedAt: z.number().optional(),
+	jiraSyncError: z.string().optional(),
 });
 export type Workflow = z.infer<typeof WorkflowSchema>;
 

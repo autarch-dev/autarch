@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { JiraSyncStatusSchema } from "./jira";
 
 // =============================================================================
 // Roadmap Status and Enums
@@ -72,6 +73,12 @@ export const MilestoneSchema = z.object({
 	sortOrder: z.number(),
 	createdAt: z.number(),
 	updatedAt: z.number(),
+	// Jira sync fields
+	jiraEpicKey: z.string().optional(),
+	jiraEpicId: z.string().optional(),
+	jiraSyncStatus: JiraSyncStatusSchema.optional(),
+	jiraSyncedAt: z.number().optional(),
+	jiraSyncError: z.string().optional(),
 });
 export type Milestone = z.infer<typeof MilestoneSchema>;
 
@@ -93,6 +100,12 @@ export const InitiativeSchema = z.object({
 	sortOrder: z.number(),
 	createdAt: z.number(),
 	updatedAt: z.number(),
+	// Jira sync fields
+	jiraIssueKey: z.string().optional(),
+	jiraIssueId: z.string().optional(),
+	jiraSyncStatus: JiraSyncStatusSchema.optional(),
+	jiraSyncedAt: z.number().optional(),
+	jiraSyncError: z.string().optional(),
 });
 export type Initiative = z.infer<typeof InitiativeSchema>;
 

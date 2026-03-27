@@ -38,7 +38,13 @@ export function ModelPreferencesSection() {
 		if (!apiKeysStatus) {
 			loadApiKeysStatus();
 		}
-	}, [loadModelPreferences, loadApiKeysStatus, loadProviders, loadBedrockModels, apiKeysStatus]);
+	}, [
+		loadModelPreferences,
+		loadApiKeysStatus,
+		loadProviders,
+		loadBedrockModels,
+		apiKeysStatus,
+	]);
 
 	// Filter built-in models to only show those from providers with configured API keys
 	const builtInModels = useMemo(() => {

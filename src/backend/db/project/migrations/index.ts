@@ -48,6 +48,7 @@ import { migrate as migrate0040PersonaRoadmaps } from "./0040-persona-roadmaps";
 import { migrate as migrate0041RoadmapPerspective } from "./0041-roadmap-perspective";
 import { migrate as migrate0042CacheTokens } from "./0042-cache-tokens";
 import { migrate as migrate0043OriginalToolCallId } from "./0043-original-tool-call-id";
+import { migrate as migrate0044JiraSyncColumns } from "./0044-jira-sync-columns";
 
 /**
  * Run all migrations for the project database.
@@ -128,4 +129,7 @@ export async function migrateProjectDb(
 
 	// Original tool call id column (0043)
 	await migrate0043OriginalToolCallId(db);
+
+	// Jira sync columns on workflows, milestones, initiatives (0044)
+	await migrate0044JiraSyncColumns(db);
 }

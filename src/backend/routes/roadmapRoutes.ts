@@ -29,6 +29,7 @@ import { getProjectDb } from "../db/project";
 import { log } from "../logger";
 import { getProjectRoot } from "../projectRoot";
 import { getRepositories } from "../repositories";
+import { jiraSyncQueue } from "../services/jiraSyncQueue";
 import {
 	createPersonaRoadmaps,
 	failPersonaAndCheckDone,
@@ -557,6 +558,12 @@ export const roadmapRoutes = {
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));
 
+				// Enqueue Jira sync
+				jiraSyncQueue.enqueue({
+					type: "sync-milestone",
+					milestoneId: milestone.id,
+				});
+
 				log.api.success(`Created milestone: ${milestone.id}`);
 				return Response.json(milestone, { status: 201 });
 			} catch (error) {
@@ -606,6 +613,12 @@ export const roadmapRoutes = {
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));
 
+				// Enqueue Jira sync
+				jiraSyncQueue.enqueue({
+					type: "sync-milestone",
+					milestoneId: milestone.id,
+				});
+
 				return Response.json(milestone);
 			} catch (error) {
 				log.api.error("Failed to update milestone:", error);
@@ -633,9 +646,22 @@ export const roadmapRoutes = {
 				}
 
 				const repos = getRepositories();
+				// Capture Jira key before delete for cleanup
+				const milestoneToDelete = await repos.roadmaps.getMilestone(
+					params.milestoneId,
+				);
 				await repos.roadmaps.deleteMilestone(params.milestoneId);
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));
+
+				// Enqueue Jira cleanup
+				if (milestoneToDelete?.jiraEpicKey) {
+					jiraSyncQueue.enqueue({
+						type: "transition-issue-done",
+						issueKey: milestoneToDelete.jiraEpicKey,
+						issueTypeName: "Epic",
+					});
+				}
 
 				return new Response(null, { status: 204 });
 			} catch (error) {
@@ -689,6 +715,12 @@ export const roadmapRoutes = {
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));
 
+				// Enqueue Jira sync
+				jiraSyncQueue.enqueue({
+					type: "sync-initiative",
+					initiativeId: initiative.id,
+				});
+
 				log.api.success(`Created initiative: ${initiative.id}`);
 				return Response.json(initiative, { status: 201 });
 			} catch (error) {
@@ -740,6 +772,12 @@ export const roadmapRoutes = {
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));
 
+				// Enqueue Jira sync
+				jiraSyncQueue.enqueue({
+					type: "sync-initiative",
+					initiativeId: initiative.id,
+				});
+
 				return Response.json(initiative);
 			} catch (error) {
 				log.api.error("Failed to update initiative:", error);
@@ -769,9 +807,22 @@ export const roadmapRoutes = {
 				}
 
 				const repos = getRepositories();
+				// Capture Jira key before delete for cleanup
+				const initiativeToDelete = await repos.roadmaps.getInitiative(
+					params.initiativeId,
+				);
 				await repos.roadmaps.deleteInitiative(params.initiativeId);
 
 				broadcast(createRoadmapUpdatedEvent({ roadmapId: params.id }));
+
+				// Enqueue Jira cleanup
+				if (initiativeToDelete?.jiraIssueKey) {
+					jiraSyncQueue.enqueue({
+						type: "transition-issue-done",
+						issueKey: initiativeToDelete.jiraIssueKey,
+						issueTypeName: "Story",
+					});
+				}
 
 				return new Response(null, { status: 204 });
 			} catch (error) {

@@ -31,6 +31,7 @@ import {
 	type WorkflowRepository,
 } from "@/backend/repositories";
 import { estimateTokens } from "@/backend/services/embedding";
+import { jiraSyncQueue } from "@/backend/services/jiraSyncQueue";
 import {
 	extractKnowledge,
 	type KnowledgeSearchResult,
@@ -145,6 +146,9 @@ export class WorkflowOrchestrator {
 			}),
 		);
 		void this.recordStageTransition(workflow.id, "backlog", "scoping");
+
+		// Enqueue Jira sync — create Task in Jira for new workflow
+		jiraSyncQueue.enqueue({ type: "sync-workflow", workflowId: workflow.id });
 
 		// Start the scoping agent session
 		const session = await this.sessionManager.startSession({
@@ -435,6 +439,15 @@ export class WorkflowOrchestrator {
 			workflow.pendingArtifactType,
 			"approved",
 		);
+
+		// Enqueue Jira artifact comment sync
+		if (workflow.pendingArtifactType) {
+			jiraSyncQueue.enqueue({
+				type: "sync-artifact-comment",
+				workflowId,
+				artifactType: workflow.pendingArtifactType,
+			});
+		}
 
 		// Handle scoping stage with path selection (quick vs full)
 		if (workflow.status === "scoping") {
@@ -943,6 +956,13 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 			broadcast(createWorkflowCompletedEvent({ workflowId }));
 			void this.recordStageTransition(workflowId, previousStage, "done");
 
+			// Enqueue Jira status sync
+			jiraSyncQueue.enqueue({
+				type: "sync-workflow-status",
+				workflowId,
+				newStatus: "done",
+			});
+
 			// Fire-and-forget initiative auto-completion - never blocks workflow completion
 			(async () => {
 				const initiative =
@@ -1012,6 +1032,13 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 			}),
 		);
 		void this.recordStageTransition(workflowId, previousStage, newStage);
+
+		// Enqueue Jira status sync
+		jiraSyncQueue.enqueue({
+			type: "sync-workflow-status",
+			workflowId,
+			newStatus: newStage,
+		});
 
 		// Start the new agent with an appropriate initial message
 		const initial = await this.buildInitialMessage(

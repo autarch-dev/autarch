@@ -9,6 +9,7 @@
  */
 
 import type { PendingArtifactType } from "@/shared/schemas/events";
+import type { JiraSyncStatus } from "@/shared/schemas/jira";
 import type { QuestionStatus, QuestionType } from "@/shared/schemas/questions";
 import type {
 	SessionContextType,
@@ -100,6 +101,12 @@ export interface WorkflowsTable {
 	skipped_stages: string; // JSON array of skipped stage names (e.g., '["researching", "planning"]')
 	created_at: number;
 	updated_at: number;
+	// Jira sync fields
+	jira_issue_key: string | null;
+	jira_issue_id: string | null;
+	jira_sync_status: JiraSyncStatus | null;
+	jira_synced_at: number | null;
+	jira_sync_error: string | null;
 }
 
 // =============================================================================
@@ -527,6 +534,12 @@ export interface MilestoneTable {
 	sort_order: number;
 	created_at: number;
 	updated_at: number;
+	// Jira sync fields
+	jira_epic_key: string | null;
+	jira_epic_id: string | null;
+	jira_sync_status: JiraSyncStatus | null;
+	jira_synced_at: number | null;
+	jira_sync_error: string | null;
 }
 
 // =============================================================================
@@ -548,6 +561,12 @@ export interface InitiativeTable {
 	sort_order: number;
 	created_at: number;
 	updated_at: number;
+	// Jira sync fields
+	jira_issue_key: string | null;
+	jira_issue_id: string | null;
+	jira_sync_status: JiraSyncStatus | null;
+	jira_synced_at: number | null;
+	jira_sync_error: string | null;
 }
 
 // =============================================================================
