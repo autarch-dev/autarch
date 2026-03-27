@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import { getProjectDb } from "@/backend/db/project";
+import { jiraSyncQueue } from "@/backend/services/jiraSyncQueue";
 import { ids } from "@/backend/utils";
 import { broadcast } from "@/backend/ws";
 import { createRoadmapUpdatedEvent } from "@/shared/schemas/events";
@@ -316,6 +317,16 @@ This will persist the entire roadmap structure and activate it.`,
 
 			// 5. Broadcast roadmap updated event
 			broadcast(createRoadmapUpdatedEvent({ roadmapId }));
+
+			// 6. Enqueue Jira sync for all created milestones and initiatives
+			for (const milestoneId of milestoneIds) {
+				jiraSyncQueue.enqueue({ type: "sync-milestone", milestoneId });
+			}
+			for (const initiativeIdList of initiativeIds.values()) {
+				for (const initiativeId of initiativeIdList) {
+					jiraSyncQueue.enqueue({ type: "sync-initiative", initiativeId });
+				}
+			}
 
 			return {
 				success: true,

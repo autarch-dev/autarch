@@ -1000,6 +1000,9 @@ export class AgentRunner {
 					submitToolName,
 				}),
 				role: "system",
+				providerOptions: {
+					bedrock: { cachePoint: { type: "default", ttl: "5m" } },
+				}
 			},
 			providerOptions: {
 				anthropic: {
@@ -1007,7 +1010,6 @@ export class AgentRunner {
 						type: "ephemeral",
 					},
 				},
-				bedrock: { cachePoint: { type: "default", ttl: "5m" } },
 			},
 			messages: conversationHistory,
 			tools,

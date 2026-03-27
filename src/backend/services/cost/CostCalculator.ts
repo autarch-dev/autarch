@@ -12,7 +12,6 @@
 import { log } from "@/backend/logger";
 import { ModelNameSchema } from "@/shared/schemas";
 import { getCustomModel } from "../customProviders";
-import { getBedrockModelCost } from "./bedrockPricing";
 import {
 	COST_DICTIONARY,
 	type CostParams,
@@ -65,14 +64,26 @@ export class CostCalculator {
 			}
 		}
 
-		// Try Bedrock pricing cache (model IDs are "bedrock/<profileId>")
+		// Try Bedrock models (IDs are "bedrock/<profileId>").
+		// Extract the model name from the inference profile ID and look it
+		// up in the static cost dictionary. Bedrock cross-region inference
+		// pricing matches the direct API pricing.
 		if (modelId.startsWith("bedrock/")) {
-			const profileId = modelId.slice("bedrock/".length);
-			const bedrockCost = getBedrockModelCost(profileId);
-			if (bedrockCost) {
+			const dictEntry = this.findBedrockCostEntry(modelId);
+			if (dictEntry) {
+				if ("pricingTiers" in dictEntry) {
+					return this.calculateTieredCost(
+						modelId,
+						dictEntry.pricingTiers,
+						uncachedPromptTokens,
+						completionTokens,
+						cacheWriteTokens,
+						cacheReadTokens,
+					);
+				}
 				return this.calculateSimpleCost(
 					modelId,
-					bedrockCost,
+					dictEntry,
 					uncachedPromptTokens,
 					completionTokens,
 					cacheWriteTokens,
@@ -118,6 +129,35 @@ export class CostCalculator {
 		};
 		this.customCostCache.set(modelId, cost);
 		return cost;
+	}
+
+	/**
+	 * Extract the model name from a Bedrock inference profile ID and find
+	 * the matching COST_DICTIONARY entry.
+	 *
+	 * Profile IDs look like "bedrock/us.anthropic.claude-opus-4-6-v1".
+	 * We strip the "bedrock/" prefix, the region ("us."), the provider
+	 * ("anthropic."), and the version suffix ("-v1") to get "claude-opus-4-6",
+	 * then look that up in the cost dictionary.
+	 */
+	private findBedrockCostEntry(
+		modelId: string,
+	): (typeof COST_DICTIONARY)[number] | null {
+		// "bedrock/us.anthropic.claude-opus-4-6-v1" → "us.anthropic.claude-opus-4-6-v1"
+		const profileId = modelId.slice("bedrock/".length);
+
+		// Strip region + provider prefix: "us.anthropic.claude-opus-4-6-v1" → "claude-opus-4-6-v1"
+		const parts = profileId.split(".");
+		const rawModelName = parts.length >= 3 ? parts.slice(2).join(".") : parts[parts.length - 1];
+		if (!rawModelName) return null;
+
+		// Strip version suffix: "claude-opus-4-6-v1" → "claude-opus-4-6"
+		const modelName = rawModelName.replace(/-v\d+$/, "");
+
+		const parsed = ModelNameSchema.safeParse(modelName);
+		if (!parsed.success) return null;
+
+		return COST_DICTIONARY.find((m) => m.modelName === parsed.data) ?? null;
 	}
 
 	/** Invalidate the cache when custom model costs are updated. */

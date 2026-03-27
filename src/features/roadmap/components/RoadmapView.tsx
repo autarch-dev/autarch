@@ -13,6 +13,7 @@ import {
 	Pencil,
 	TableIcon,
 	Trash2,
+	Upload,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -231,6 +232,25 @@ export const RoadmapView = memo(function RoadmapView({
 		}
 	}, [roadmap, milestones, initiatives, dependencies]);
 
+	const handlePushToJira = useCallback(async () => {
+		try {
+			const response = await fetch(
+				`/api/roadmaps/${roadmap.id}/sync-jira`,
+				{ method: "POST" },
+			);
+			if (!response.ok) {
+				const data = await response.json();
+				throw new Error(data.error ?? "Failed to push to Jira");
+			}
+			const data = await response.json();
+			toast.success(`Pushed ${data.enqueued} items to Jira`);
+		} catch (err) {
+			toast.error(
+				err instanceof Error ? err.message : "Failed to push to Jira",
+			);
+		}
+	}, [roadmap.id]);
+
 	const handleTitleClick = () => {
 		setEditTitle(roadmap.title);
 		setIsEditingTitle(true);
@@ -308,6 +328,10 @@ export const RoadmapView = memo(function RoadmapView({
 								<DropdownMenuItem onClick={handleExportMarkdown}>
 									<ClipboardCopy className="size-4 mr-2" />
 									Export to Markdown
+								</DropdownMenuItem>
+								<DropdownMenuItem onClick={handlePushToJira}>
+									<Upload className="size-4 mr-2" />
+									Push to Jira
 								</DropdownMenuItem>
 								<DropdownMenuSeparator />
 								<DropdownMenuItem

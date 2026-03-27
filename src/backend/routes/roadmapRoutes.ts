@@ -1186,6 +1186,51 @@ export const roadmapRoutes = {
 		},
 	},
 
+	"/api/roadmaps/:id/sync-jira": {
+		async POST(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid roadmap ID" }, { status: 400 });
+			}
+			try {
+				const repos = getRepositories();
+				const details = await repos.roadmaps.getRoadmapWithDetails(params.id);
+				if (!details) {
+					return Response.json({ error: "Roadmap not found" }, { status: 404 });
+				}
+
+				let enqueued = 0;
+
+				for (const milestone of details.milestones) {
+					jiraSyncQueue.enqueue({
+						type: "sync-milestone",
+						milestoneId: milestone.id,
+					});
+					enqueued++;
+				}
+
+				for (const initiative of details.initiatives) {
+					jiraSyncQueue.enqueue({
+						type: "sync-initiative",
+						initiativeId: initiative.id,
+					});
+					enqueued++;
+				}
+
+				log.api.info(
+					`Enqueued ${enqueued} Jira sync jobs for roadmap ${params.id}`,
+				);
+				return Response.json({ success: true, enqueued });
+			} catch (error) {
+				log.api.error("Failed to sync roadmap to Jira:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
 	"/api/roadmaps/:id/restart-synthesis": {
 		async POST(req: Request) {
 			const params = parseParams(req, IdParamSchema);
