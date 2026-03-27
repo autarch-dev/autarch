@@ -12,6 +12,7 @@
 import { log } from "@/backend/logger";
 import { ModelNameSchema } from "@/shared/schemas";
 import { getCustomModel } from "../customProviders";
+import { getBedrockModelCost } from "./bedrockPricing";
 import {
 	COST_DICTIONARY,
 	type CostParams,
@@ -56,6 +57,22 @@ export class CostCalculator {
 				return this.calculateSimpleCost(
 					modelId,
 					cost,
+					uncachedPromptTokens,
+					completionTokens,
+					cacheWriteTokens,
+					cacheReadTokens,
+				);
+			}
+		}
+
+		// Try Bedrock pricing cache (model IDs are "bedrock/<profileId>")
+		if (modelId.startsWith("bedrock/")) {
+			const profileId = modelId.slice("bedrock/".length);
+			const bedrockCost = getBedrockModelCost(profileId);
+			if (bedrockCost) {
+				return this.calculateSimpleCost(
+					modelId,
+					bedrockCost,
 					uncachedPromptTokens,
 					completionTokens,
 					cacheWriteTokens,

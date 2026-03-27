@@ -13,6 +13,7 @@ import {
 	settingsRoutes,
 } from "./routes";
 import { initServerPort } from "./serverPort";
+import { initBedrockPricing } from "./services/cost/bedrockPricing";
 import { startWatching } from "./services/embedding";
 import { handleClose, handleMessage, handleOpen } from "./ws";
 
@@ -92,6 +93,9 @@ try {
 
 // Start embedding index + file watcher
 startWatching(projectRoot);
+
+// Load Bedrock pricing in the background (non-blocking)
+initBedrockPricing();
 
 log.server.box(`Autarch running at ${server.url}`);
 
