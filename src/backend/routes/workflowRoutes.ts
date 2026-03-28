@@ -536,6 +536,39 @@ export const workflowRoutes = {
 		},
 	},
 
+	"/api/workflows/:id/reset-orphaned-pulse": {
+		async POST(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid workflow ID" }, { status: 400 });
+			}
+			try {
+				const orchestrator = getWorkflowOrchestrator();
+				const result = await orchestrator.resetOrphanedPulse(params.id);
+				if (result.found && result.reset) {
+					log.api.success(
+						`Reset orphaned pulse ${result.pulseId} and restarted execution for workflow: ${params.id}`,
+					);
+				} else if (result.found) {
+					log.api.info(
+						`Found running pulse ${result.pulseId} for workflow ${params.id} but it has an active session - not orphaned`,
+					);
+				} else {
+					log.api.info(
+						`No orphaned pulse found for workflow: ${params.id}`,
+					);
+				}
+				return Response.json(result);
+			} catch (error) {
+				log.api.error("Failed to reset orphaned pulse:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
 	"/api/workflows/:id/diff": {
 		async GET(req: Request) {
 			const params = parseParams(req, IdParamSchema);

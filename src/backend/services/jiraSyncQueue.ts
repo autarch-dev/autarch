@@ -146,11 +146,17 @@ class JiraSyncQueue {
 					log.jira.warn(`Workflow ${job.workflowId} not found, skipping sync`);
 					return;
 				}
-				// Look up parent initiative's Jira Story key for hierarchy linking
+				// Look up parent initiative to determine if workflow should link to
+				// its existing Jira Story instead of creating a new one
 				const initiative = await repos.roadmaps.findInitiativeByWorkflowId(
 					job.workflowId,
 				);
-				await syncWorkflow(workflow, initiative?.jiraIssueKey);
+				const initiativeJira =
+					initiative?.jiraIssueKey
+						? { key: initiative.jiraIssueKey, id: initiative.jiraIssueId }
+						: undefined;
+				await syncWorkflow(workflow, initiativeJira);
+
 				return;
 			}
 

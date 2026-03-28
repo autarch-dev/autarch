@@ -65,12 +65,17 @@ export function WorkflowHeader({
 }: WorkflowHeaderProps) {
 	const [isArchiveDialogOpen, setIsArchiveDialogOpen] =
 		useState<boolean>(false);
+	const [isResetPulseDialogOpen, setIsResetPulseDialogOpen] =
+		useState<boolean>(false);
 	const [isPopoverOpen, setIsPopoverOpen] = useState<boolean>(false);
 	const [costByModel, setCostByModel] = useState<CostData[] | null>(null);
 	const [costByRole, setCostByRole] = useState<RoleData[] | null>(null);
 	const [costLoading, setCostLoading] = useState<boolean>(false);
 	const [costError, setCostError] = useState<Error | null>(null);
 	const archiveWorkflow = useWorkflowsStore((state) => state.archiveWorkflow);
+	const resetOrphanedPulse = useWorkflowsStore(
+		(state) => state.resetOrphanedPulse,
+	);
 
 	const formatCurrency = (value: number) => `$${value.toFixed(2)}`;
 
@@ -241,6 +246,13 @@ export function WorkflowHeader({
 									</Button>
 								</DropdownMenuTrigger>
 								<DropdownMenuContent align="end">
+									{workflow.status === "in_progress" && (
+										<DropdownMenuItem
+											onClick={() => setIsResetPulseDialogOpen(true)}
+										>
+											Reset Orphaned Pulse
+										</DropdownMenuItem>
+									)}
 									<DropdownMenuItem
 										onClick={() => setIsArchiveDialogOpen(true)}
 									>
@@ -291,6 +303,57 @@ export function WorkflowHeader({
 							}}
 						>
 							Archive
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog
+				open={isResetPulseDialogOpen}
+				onOpenChange={setIsResetPulseDialogOpen}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Reset Orphaned Pulse</DialogTitle>
+						<DialogDescription>
+							This will check for a pulse stuck in "running" status with no
+							active session (typically after a process restart). If found,
+							it will be reset and execution will resume.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setIsResetPulseDialogOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={() => {
+								resetOrphanedPulse(workflow.id)
+									.then((result) => {
+											if (result.reset) {
+												console.log(
+													`Reset orphaned pulse ${result.pulseId} and restarted execution`,
+												);
+											} else if (result.found) {
+												console.log(
+													"Pulse has active session - not orphaned",
+												);
+											} else {
+												console.log("No orphaned pulse found");
+											}
+										})
+										.catch((error) => {
+											console.error(
+												"Failed to reset orphaned pulse:",
+												error,
+											);
+										});
+								setIsResetPulseDialogOpen(false);
+							}}
+						>
+							Reset & Resume
 						</Button>
 					</DialogFooter>
 				</DialogContent>

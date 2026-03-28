@@ -17,7 +17,7 @@ import type { PulseRepository } from "@/backend/repositories/PulseRepository";
 // =============================================================================
 
 /** Number of rejections before revealing escape hatch */
-const ESCAPE_HATCH_THRESHOLD = 2;
+const ESCAPE_HATCH_THRESHOLD = 1;
 
 /** Tool names that indicate failures when their output contains errors */
 const FAILURE_TOOLS = ["edit_file", "multi_edit", "write_file"];

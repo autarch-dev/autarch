@@ -547,11 +547,6 @@ ${scopeCard.outOfScope.map((item) => `- ${item}`).join("\n")}`;
 			`[Quick Path] Created single pulse ${singlePulse.id} for workflow ${workflowId}`,
 		);
 
-		jiraSyncQueue.enqueue({
-			type: "sync-pulses",
-			workflowId,
-		})
-
 		// Mark skipped stages
 		await this.workflowRepo.setSkippedStages(workflowId, [
 			"researching",
@@ -1795,6 +1790,9 @@ ${researchCard.recommendations.map((r) => `- ${r}`).join("\n")}`;
 				plan.pulses,
 			);
 
+			// Enqueue Jira sub-task sync for the created pulses
+			jiraSyncQueue.enqueue({ type: "sync-pulses", workflowId });
+
 			// Create preflight setup record
 			const workflow = await this.workflowRepo.getById(workflowId);
 			if (workflow?.currentSessionId) {
@@ -2093,6 +2091,75 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 				error instanceof Error ? error.message : "Pulse retry failed",
 			);
 		});
+	}
+
+	/**
+	 * Reset an orphaned pulse and restart execution
+	 *
+	 * Detects if there's a pulse stuck in "running" status with no active session
+	 * (typically after a process restart). Resets the pulse to "proposed" and
+	 * triggers execution of the next pulse.
+	 *
+	 * @param workflowId - The workflow to check and reset
+	 * @returns Object indicating if an orphaned pulse was found and reset
+	 */
+	async resetOrphanedPulse(workflowId: string): Promise<{
+		found: boolean;
+		pulseId?: string;
+		reset: boolean;
+		startedNextPulse: boolean;
+	}> {
+		const workflow = await this.workflowRepo.getById(workflowId);
+		if (!workflow) {
+			throw new Error(`Workflow not found: ${workflowId}`);
+		}
+
+		// Check if workflow is in a stage that supports pulse execution
+		if (workflow.status !== "in_progress") {
+			return { found: false, reset: false, startedNextPulse: false };
+		}
+
+		// Get the currently running pulse
+		const runningPulse = await this.pulseRepo.getRunningPulse(workflowId);
+		if (!runningPulse) {
+			return { found: false, reset: false, startedNextPulse: false };
+		}
+
+		// Check if there's an active session for this workflow
+		const hasActiveSession =
+			workflow.currentSessionId &&
+			(await this.sessionManager.getOrRestoreSession(workflow.currentSessionId))
+				?.status === "active";
+
+		// If there's an active session, the pulse is not orphaned
+		if (hasActiveSession) {
+			return {
+				found: true,
+				pulseId: runningPulse.id,
+				reset: false,
+				startedNextPulse: false,
+			};
+		}
+
+		log.workflow.info(
+			`Detected orphaned pulse ${runningPulse.id} for workflow ${workflowId} - no active session`,
+		);
+
+		// Reset the orphaned pulse back to proposed
+		await this.pulseRepo.resetPulseToProposed(runningPulse.id);
+		log.workflow.info(
+			`Reset orphaned pulse ${runningPulse.id} to proposed status`,
+		);
+
+		// Now trigger execution of the next pulse (which will be the one we just reset)
+		await this.handlePreflightCompletion(workflowId);
+
+		return {
+			found: true,
+			pulseId: runningPulse.id,
+			reset: true,
+			startedNextPulse: true,
+		};
 	}
 
 	// ===========================================================================

@@ -211,6 +211,12 @@ interface WorkflowsState {
 
 	// Actions - Archive
 	archiveWorkflow: (id: string) => Promise<void>;
+	resetOrphanedPulse: (workflowId: string) => Promise<{
+		found: boolean;
+		pulseId?: string;
+		reset: boolean;
+		startedNextPulse: boolean;
+	}>;
 
 	// Actions - Execution State
 	setPulses: (workflowId: string, pulses: Pulse[]) => void;
@@ -742,6 +748,34 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				subtasks,
 			};
 		});
+	},
+
+	resetOrphanedPulse: async (workflowId: string) => {
+		const response = await fetch(
+			`/api/workflows/${workflowId}/reset-orphaned-pulse`,
+			{
+				method: "POST",
+			},
+		);
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error ?? "Failed to reset orphaned pulse");
+		}
+
+		const result: {
+			found: boolean;
+			pulseId?: string;
+			reset: boolean;
+			startedNextPulse: boolean;
+		} = await response.json();
+
+		// Refresh history to get updated pulse state
+		if (result.reset) {
+			get().fetchHistory(workflowId);
+		}
+
+		return result;
 	},
 
 	// ===========================================================================

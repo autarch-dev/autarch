@@ -486,6 +486,17 @@ async function updateIssue(
 	return result.ok;
 }
 
+async function getCurrentUserAccountId(
+	auth: JiraAuth,
+): Promise<string | null> {
+	const result = await jiraFetch<{ accountId: string }>(
+		auth,
+		"GET",
+		"/myself",
+	);
+	return result.ok ? result.data.accountId : null;
+}
+
 async function transitionIssue(
 	auth: JiraAuth,
 	issueKey: string,
@@ -977,12 +988,14 @@ export async function syncInitiative(
 }
 
 /**
- * Sync a Workflow → Jira Task
- * Creates or updates the Task in Jira, linked under the initiative's Story.
+ * Sync a Workflow → Jira Story.
+ * If the workflow is linked to an initiative that already has a Jira issue,
+ * the workflow is associated with that existing Story instead of creating a new one.
+ * Otherwise creates a new Story in Jira.
  */
 export async function syncWorkflow(
 	workflow: Workflow,
-	parentStoryKey?: string,
+	initiativeJira?: { key: string; id?: string },
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
 	if (!ctx || !ctx.config.syncWorkflows) return;
@@ -996,7 +1009,14 @@ export async function syncWorkflow(
 
 	try {
 		if (workflow.jiraIssueKey) {
-			// Update existing
+			// Workflow already has a Jira issue. If it's linked to an initiative,
+			// don't overwrite the initiative's title/description.
+			if (initiativeJira) {
+				await updateWorkflowSyncStatus(workflow.id, "synced");
+				return;
+			}
+
+			// Standalone workflow — update existing Story
 			const fields: Record<string, unknown> = {
 				summary: workflow.title,
 			};
@@ -1012,7 +1032,7 @@ export async function syncWorkflow(
 			if (success) {
 				await updateWorkflowSyncStatus(workflow.id, "synced");
 				log.jira.info(
-					`Updated Task ${workflow.jiraIssueKey} for workflow ${workflow.id}`,
+					`Updated Story ${workflow.jiraIssueKey} for workflow ${workflow.id}`,
 				);
 			} else {
 				await updateWorkflowSyncStatus(
@@ -1020,23 +1040,34 @@ export async function syncWorkflow(
 					"error",
 					undefined,
 					undefined,
-					"Failed to update Jira Task",
+					"Failed to update Jira Story",
 				);
 			}
+		} else if (initiativeJira) {
+			// Link this workflow to the initiative's existing Jira Story
+			await updateWorkflowSyncStatus(
+				workflow.id,
+				"synced",
+				initiativeJira.key,
+				initiativeJira.id,
+			);
+			log.jira.info(
+				`Linked workflow ${workflow.id} to initiative Story ${initiativeJira.key}`,
+			);
 		} else {
-			// Create new
-			const taskTypeId = await findIssueTypeId(
+			// Standalone workflow — create a new Story
+			const storyTypeId = await findIssueTypeId(
 				auth,
 				config.jiraProjectKey,
-				"Task",
+				"Story",
 			);
-			if (!taskTypeId) {
+			if (!storyTypeId) {
 				await updateWorkflowSyncStatus(
 					workflow.id,
 					"error",
 					undefined,
 					undefined,
-					"Task issue type not found in Jira project",
+					"Story issue type not found in Jira project",
 				);
 				return;
 			}
@@ -1044,10 +1075,10 @@ export async function syncWorkflow(
 			const issue = await createIssue(
 				auth,
 				config.jiraProjectKey,
-				taskTypeId,
+				storyTypeId,
 				workflow.title,
 				workflow.description,
-				parentStoryKey,
+				undefined,
 				priorityId,
 			);
 
@@ -1058,14 +1089,16 @@ export async function syncWorkflow(
 					issue.key,
 					issue.id,
 				);
-				log.jira.info(`Created Task ${issue.key} for workflow ${workflow.id}`);
+				log.jira.info(
+					`Created Story ${issue.key} for workflow ${workflow.id}`,
+				);
 			} else {
 				await updateWorkflowSyncStatus(
 					workflow.id,
 					"error",
 					undefined,
 					undefined,
-					"Failed to create Jira Task",
+					"Failed to create Jira Story",
 				);
 			}
 		}
@@ -1114,13 +1147,17 @@ export async function syncWorkflowStatus(
 	}
 
 	// Find the target Jira status ID from the status mapping
-	// We need to look up the Task issue type ID first
-	const taskTypeId = await findIssueTypeId(auth, config.jiraProjectKey, "Task");
+	// We need to look up the Story issue type ID first
+	const taskTypeId = await findIssueTypeId(
+		auth,
+		config.jiraProjectKey,
+		"Story",
+	);
 	if (!taskTypeId) return;
 
 	const mapping = config.statusMapping[taskTypeId];
 	if (!mapping) {
-		log.jira.warn(`No status mapping for Task issue type ${taskTypeId}`);
+		log.jira.warn(`No status mapping for Story issue type ${taskTypeId}`);
 		return;
 	}
 
@@ -1147,6 +1184,21 @@ export async function syncWorkflowStatus(
 		log.jira.error(
 			`Error transitioning ${issueKey}: ${error instanceof Error ? error.message : error}`,
 		);
+	}
+
+	// When a workflow starts, assign the issue to the authenticated user
+	if (newStatus === "in_progress") {
+		try {
+			const accountId = await getCurrentUserAccountId(auth);
+			if (accountId) {
+				await updateIssue(auth, issueKey, { assignee: { accountId } });
+				log.jira.info(`Assigned ${issueKey} to user ${accountId}`);
+			}
+		} catch (error) {
+			log.jira.warn(
+				`Failed to assign ${issueKey}: ${error instanceof Error ? error.message : error}`,
+			);
+		}
 	}
 }
 

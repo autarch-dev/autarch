@@ -351,6 +351,24 @@ export class PulseRepository implements Repository {
 	}
 
 	/**
+	 * Reset a running pulse back to proposed status
+	 * Used when a pulse is orphaned (process restarted while pulse was executing)
+	 */
+	async resetPulseToProposed(id: string): Promise<void> {
+		await this.db
+			.updateTable("pulses")
+			.set({
+				status: "proposed",
+				pulse_branch: null,
+				worktree_path: null,
+				started_at: null,
+				ended_at: null,
+			})
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
 	 * Increment rejection count and return the new count
 	 */
 	async incrementRejectionCount(id: string): Promise<number> {
