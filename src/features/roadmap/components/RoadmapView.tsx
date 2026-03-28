@@ -234,10 +234,9 @@ export const RoadmapView = memo(function RoadmapView({
 
 	const handlePushToJira = useCallback(async () => {
 		try {
-			const response = await fetch(
-				`/api/roadmaps/${roadmap.id}/sync-jira`,
-				{ method: "POST" },
-			);
+			const response = await fetch(`/api/roadmaps/${roadmap.id}/sync-jira`, {
+				method: "POST",
+			});
 			if (!response.ok) {
 				const data = await response.json();
 				throw new Error(data.error ?? "Failed to push to Jira");

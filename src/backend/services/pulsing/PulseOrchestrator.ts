@@ -27,6 +27,7 @@ import type {
 	PulseRepository,
 } from "@/backend/repositories/PulseRepository";
 import type { WorkflowRepository } from "@/backend/repositories/WorkflowRepository";
+import { jiraSyncQueue } from "@/backend/services/jiraSyncQueue";
 import { broadcast } from "@/backend/ws";
 import {
 	createPulseCompletedEvent,
@@ -213,6 +214,12 @@ export class PulseOrchestrator {
 		// Update pulse status
 		await this.pulseRepo.startPulse(pulse.id, pulseBranch, worktreePath);
 
+		jiraSyncQueue.enqueue({
+			type: "sync-pulse-status",
+			pulseId: pulse.id,
+			pulseStatus: "running",
+		});
+
 		log.workflow.info(`Started pulse ${pulse.id} on branch ${pulseBranch}`);
 
 		// Broadcast pulse started event to UI
@@ -312,6 +319,12 @@ export class PulseOrchestrator {
 			);
 			await this.pulseRepo.updateDescription(pulseId, commitMessage);
 
+			jiraSyncQueue.enqueue({
+				type: "sync-pulse-status",
+				pulseId,
+				pulseStatus: "succeeded",
+			});
+
 			// Check if there are more pulses
 			const nextPulse = await this.pulseRepo.getNextProposedPulse(
 				pulse.workflowId,
@@ -385,6 +398,12 @@ export class PulseOrchestrator {
 		await this.pulseRepo.failPulse(pulseId, reason, recoveryCommitSha);
 		log.workflow.info(`Failed pulse ${pulseId}: ${reason}`);
 
+		jiraSyncQueue.enqueue({
+			type: "sync-pulse-status",
+			pulseId,
+			pulseStatus: "failed",
+		});
+
 		// Broadcast pulse failed event
 		broadcast(
 			createPulseFailedEvent({
@@ -419,6 +438,12 @@ export class PulseOrchestrator {
 
 		await this.pulseRepo.stopPulse(pulseId, recoveryCommitSha);
 		log.workflow.info(`Stopped pulse ${pulseId}`);
+
+		jiraSyncQueue.enqueue({
+			type: "sync-pulse-status",
+			pulseId,
+			pulseStatus: "stopped",
+		});
 	}
 
 	// ===========================================================================

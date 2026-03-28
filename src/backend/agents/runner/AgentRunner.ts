@@ -1002,7 +1002,7 @@ export class AgentRunner {
 				role: "system",
 				providerOptions: {
 					bedrock: { cachePoint: { type: "default", ttl: "5m" } },
-				}
+				},
 			},
 			providerOptions: {
 				anthropic: {

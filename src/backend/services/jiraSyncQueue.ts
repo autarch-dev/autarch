@@ -18,6 +18,7 @@ import {
 	syncArtifactComment,
 	syncInitiative,
 	syncMilestone,
+	syncPulseStatus,
 	syncPulses,
 	syncWorkflow,
 	syncWorkflowStatus,
@@ -66,6 +67,12 @@ interface SyncPulsesJob {
 	workflowId: string;
 }
 
+interface SyncPulseStatusJob {
+	type: "sync-pulse-status";
+	pulseId: string;
+	pulseStatus: "running" | "succeeded" | "failed" | "stopped";
+}
+
 export type JiraSyncJob =
 	| SyncWorkflowJob
 	| SyncWorkflowStatusJob
@@ -73,7 +80,8 @@ export type JiraSyncJob =
 	| SyncMilestoneJob
 	| SyncInitiativeJob
 	| TransitionIssueToDoneJob
-	| SyncPulsesJob;
+	| SyncPulsesJob
+	| SyncPulseStatusJob;
 
 // =============================================================================
 // Queue Implementation
@@ -151,10 +159,9 @@ class JiraSyncQueue {
 				const initiative = await repos.roadmaps.findInitiativeByWorkflowId(
 					job.workflowId,
 				);
-				const initiativeJira =
-					initiative?.jiraIssueKey
-						? { key: initiative.jiraIssueKey, id: initiative.jiraIssueId }
-						: undefined;
+				const initiativeJira = initiative?.jiraIssueKey
+					? { key: initiative.jiraIssueKey, id: initiative.jiraIssueId }
+					: undefined;
 				await syncWorkflow(workflow, initiativeJira);
 
 				return;
@@ -244,10 +251,8 @@ class JiraSyncQueue {
 				const repos = getRepositories();
 				const workflow = await repos.workflows.getById(job.workflowId);
 
-				if (!(workflow?.jiraIssueKey)) {
-					log.jira.warn(
-						`Workflow ${job.workflowId} not found, skipping sync`,
-					);
+				if (!workflow?.jiraIssueKey) {
+					log.jira.warn(`Workflow ${job.workflowId} not found, skipping sync`);
 					return;
 				}
 
@@ -264,6 +269,11 @@ class JiraSyncQueue {
 
 			case "transition-issue-done": {
 				await transitionIssueToDone(job.issueKey, job.issueTypeName);
+				return;
+			}
+
+			case "sync-pulse-status": {
+				await syncPulseStatus(job.pulseId, job.pulseStatus);
 				return;
 			}
 		}

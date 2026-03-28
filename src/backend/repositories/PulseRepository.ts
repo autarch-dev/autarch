@@ -191,7 +191,10 @@ export class PulseRepository implements Repository {
 	/**
 	 * Get pulse by planned pulse ID
 	 */
-	async getPulseByPlannedId(workflowId: string, plannedPulseId: string): Promise<Pulse | null> {
+	async getPulseByPlannedId(
+		workflowId: string,
+		plannedPulseId: string,
+	): Promise<Pulse | null> {
 		const row = await this.db
 			.selectFrom("pulses")
 			.selectAll()

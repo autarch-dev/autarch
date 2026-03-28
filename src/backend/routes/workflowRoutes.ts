@@ -554,9 +554,7 @@ export const workflowRoutes = {
 						`Found running pulse ${result.pulseId} for workflow ${params.id} but it has an active session - not orphaned`,
 					);
 				} else {
-					log.api.info(
-						`No orphaned pulse found for workflow: ${params.id}`,
-					);
+					log.api.info(`No orphaned pulse found for workflow: ${params.id}`);
 				}
 				return Response.json(result);
 			} catch (error) {

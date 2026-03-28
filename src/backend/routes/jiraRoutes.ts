@@ -290,6 +290,7 @@ export const jiraRoutes = {
 					...config,
 					statusMapping: defaults.statusMapping,
 					initiativePriorityMapping: defaults.initiativePriorityMapping,
+					pulseStatusMapping: defaults.pulseStatusMapping,
 					workflowPriorityMapping: defaults.workflowPriorityMapping,
 				};
 

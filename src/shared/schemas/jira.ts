@@ -23,6 +23,16 @@ export const JiraStatusMappingSchema = z.object(
 );
 export type JiraStatusMapping = z.infer<typeof JiraStatusMappingSchema>;
 
+// Status mapping for pulse sub-tasks — keyed by Jira issue type ID.
+// Maps each pulse execution state to a Jira status ID (null = skip transition).
+export const PulseStatusMappingSchema = z.object({
+	running: z.string().nullable(),
+	succeeded: z.string().nullable(),
+	failed: z.string().nullable(),
+	stopped: z.string().nullable(),
+});
+export type PulseStatusMapping = z.infer<typeof PulseStatusMappingSchema>;
+
 export const JiraConfigSchema = z.object({
 	enabled: z.boolean(),
 
@@ -35,8 +45,13 @@ export const JiraConfigSchema = z.object({
 	syncWorkflows: z.boolean().default(true),
 	syncArtifacts: z.boolean().default(true),
 
-	// Status mapping — keyed by Jira issue type ID
+	// Status mapping for workflows/initiatives/milestones — keyed by Jira issue type ID
 	statusMapping: z.record(z.string(), JiraStatusMappingSchema).default({}),
+
+	// Status mapping for pulse sub-tasks — keyed by Jira issue type ID
+	pulseStatusMapping: z
+		.record(z.string(), PulseStatusMappingSchema)
+		.default({}),
 
 	// Priority mapping
 	initiativePriorityMapping: z

@@ -486,14 +486,8 @@ async function updateIssue(
 	return result.ok;
 }
 
-async function getCurrentUserAccountId(
-	auth: JiraAuth,
-): Promise<string | null> {
-	const result = await jiraFetch<{ accountId: string }>(
-		auth,
-		"GET",
-		"/myself",
-	);
+async function getCurrentUserAccountId(auth: JiraAuth): Promise<string | null> {
+	const result = await jiraFetch<{ accountId: string }>(auth, "GET", "/myself");
 	return result.ok ? result.data.accountId : null;
 }
 
@@ -631,11 +625,18 @@ export async function fetchProjectMetadata(
  */
 export function buildDefaultMappings(meta: JiraProjectMetadata): {
 	statusMapping: JiraConfig["statusMapping"];
+	pulseStatusMapping: JiraConfig["pulseStatusMapping"];
 	initiativePriorityMapping: JiraConfig["initiativePriorityMapping"];
 	workflowPriorityMapping: JiraConfig["workflowPriorityMapping"];
 } {
+	// Build a lookup from issue type ID → subtask flag
+	const subtaskTypeIds = new Set(
+		meta.issueTypes.filter((t) => t.subtask).map((t) => t.id),
+	);
+
 	// --- Status mapping (per issue type) ---
 	const statusMapping: JiraConfig["statusMapping"] = {};
+	const pulseStatusMapping: JiraConfig["pulseStatusMapping"] = {};
 
 	for (const [typeId, typeStatuses] of Object.entries(meta.statuses)) {
 		const byCategory: Record<string, string> = {};
@@ -655,15 +656,25 @@ export function buildDefaultMappings(meta: JiraProjectMetadata): {
 		const newId = byCategory.new ?? null;
 		const inProgressId = byCategory.indeterminate ?? null;
 
-		statusMapping[typeId] = {
-			backlog: newId,
-			scoping: newId,
-			researching: inProgressId,
-			planning: inProgressId,
-			in_progress: inProgressId,
-			review: inProgressId,
-			done: doneStatus,
-		};
+		if (subtaskTypeIds.has(typeId)) {
+			// Sub-task types use the pulse status mapping
+			pulseStatusMapping[typeId] = {
+				running: inProgressId,
+				succeeded: doneStatus,
+				failed: null,
+				stopped: null,
+			};
+		} else {
+			statusMapping[typeId] = {
+				backlog: newId,
+				scoping: newId,
+				researching: inProgressId,
+				planning: inProgressId,
+				in_progress: inProgressId,
+				review: inProgressId,
+				done: doneStatus,
+			};
+		}
 	}
 
 	// --- Priority mapping ---
@@ -693,7 +704,12 @@ export function buildDefaultMappings(meta: JiraProjectMetadata): {
 		urgent: findPriority("highest", "critical", "blocker"),
 	};
 
-	return { statusMapping, initiativePriorityMapping, workflowPriorityMapping };
+	return {
+		statusMapping,
+		pulseStatusMapping,
+		initiativePriorityMapping,
+		workflowPriorityMapping,
+	};
 }
 
 export async function testConnection(
@@ -1089,9 +1105,7 @@ export async function syncWorkflow(
 					issue.key,
 					issue.id,
 				);
-				log.jira.info(
-					`Created Story ${issue.key} for workflow ${workflow.id}`,
-				);
+				log.jira.info(`Created Story ${issue.key} for workflow ${workflow.id}`);
 			} else {
 				await updateWorkflowSyncStatus(
 					workflow.id,
@@ -1377,6 +1391,16 @@ export async function syncPulses(
 				if (existingPulse) {
 					await repos.pulses.updateJiraIssueId(existingPulse.id, issue.key);
 				}
+
+				// Assign sub-task to the authenticated user
+				try {
+					const accountId = await getCurrentUserAccountId(auth);
+					if (accountId) {
+						await updateIssue(auth, issue.key, { assignee: { accountId } });
+					}
+				} catch {
+					log.jira.warn(`Could not assign Sub-task ${issue.key}`);
+				}
 			} else {
 				log.jira.warn(`Failed to create Sub-task for pulse "${pulse.title}"`);
 			}
@@ -1385,6 +1409,70 @@ export async function syncPulses(
 				`Error creating Sub-task for pulse "${pulse.title}": ${error instanceof Error ? error.message : error}`,
 			);
 		}
+	}
+}
+
+/**
+ * Transition a pulse's Jira Sub-task to the appropriate status and, when
+ * the pulse starts running, assign it to the authenticated user.
+ */
+export async function syncPulseStatus(
+	pulseId: string,
+	pulseStatus: "running" | "succeeded" | "failed" | "stopped",
+): Promise<void> {
+	const ctx = await resolveConfigAndAuth();
+	if (!ctx || !ctx.config.syncWorkflows) return;
+
+	const { config, auth } = ctx;
+
+	const repos = getRepositories();
+	const pulse = await repos.pulses.getPulse(pulseId);
+	if (!pulse?.jiraIssueId) return;
+
+	const issueKey = pulse.jiraIssueId;
+
+	// Assign to current user when the pulse starts
+	if (pulseStatus === "running") {
+		try {
+			const accountId = await getCurrentUserAccountId(auth);
+			if (accountId) {
+				await updateIssue(auth, issueKey, { assignee: { accountId } });
+				log.jira.info(`Assigned Sub-task ${issueKey} to user ${accountId}`);
+			}
+		} catch (error) {
+			log.jira.warn(
+				`Failed to assign Sub-task ${issueKey}: ${error instanceof Error ? error.message : error}`,
+			);
+		}
+	}
+
+	// Transition status using the pulse status mapping
+	const subtaskTypeId = await findIssueTypeId(
+		auth,
+		config.jiraProjectKey,
+		"Sub-task",
+	);
+	if (!subtaskTypeId) return;
+
+	const mapping = config.pulseStatusMapping[subtaskTypeId];
+	const targetStatusId = mapping?.[pulseStatus];
+	if (!targetStatusId) return;
+
+	try {
+		const success = await transitionIssue(auth, issueKey, targetStatusId);
+		if (success) {
+			log.jira.info(
+				`Transitioned Sub-task ${issueKey} to status ${targetStatusId} (pulse ${pulseStatus})`,
+			);
+		} else {
+			log.jira.warn(
+				`Failed to transition Sub-task ${issueKey} to status ${targetStatusId}`,
+			);
+		}
+	} catch (error) {
+		log.jira.error(
+			`Error transitioning Sub-task ${issueKey}: ${error instanceof Error ? error.message : error}`,
+		);
 	}
 }
 

@@ -317,8 +317,8 @@ export function WorkflowHeader({
 						<DialogTitle>Reset Orphaned Pulse</DialogTitle>
 						<DialogDescription>
 							This will check for a pulse stuck in "running" status with no
-							active session (typically after a process restart). If found,
-							it will be reset and execution will resume.
+							active session (typically after a process restart). If found, it
+							will be reset and execution will resume.
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>
@@ -332,24 +332,19 @@ export function WorkflowHeader({
 							onClick={() => {
 								resetOrphanedPulse(workflow.id)
 									.then((result) => {
-											if (result.reset) {
-												console.log(
-													`Reset orphaned pulse ${result.pulseId} and restarted execution`,
-												);
-											} else if (result.found) {
-												console.log(
-													"Pulse has active session - not orphaned",
-												);
-											} else {
-												console.log("No orphaned pulse found");
-											}
-										})
-										.catch((error) => {
-											console.error(
-												"Failed to reset orphaned pulse:",
-												error,
+										if (result.reset) {
+											console.log(
+												`Reset orphaned pulse ${result.pulseId} and restarted execution`,
 											);
-										});
+										} else if (result.found) {
+											console.log("Pulse has active session - not orphaned");
+										} else {
+											console.log("No orphaned pulse found");
+										}
+									})
+									.catch((error) => {
+										console.error("Failed to reset orphaned pulse:", error);
+									});
 								setIsResetPulseDialogOpen(false);
 							}}
 						>

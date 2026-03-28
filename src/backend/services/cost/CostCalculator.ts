@@ -148,7 +148,8 @@ export class CostCalculator {
 
 		// Strip region + provider prefix: "us.anthropic.claude-opus-4-6-v1" → "claude-opus-4-6-v1"
 		const parts = profileId.split(".");
-		const rawModelName = parts.length >= 3 ? parts.slice(2).join(".") : parts[parts.length - 1];
+		const rawModelName =
+			parts.length >= 3 ? parts.slice(2).join(".") : parts[parts.length - 1];
 		if (!rawModelName) return null;
 
 		// Strip version suffix: "claude-opus-4-6-v1" → "claude-opus-4-6"
