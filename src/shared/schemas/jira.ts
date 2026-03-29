@@ -16,9 +16,11 @@ export type JiraSyncStatus = z.infer<typeof JiraSyncStatusSchema>;
 // a corresponding Jira status mapping entry at compile time.
 export const JiraStatusMappingSchema = z.object(
 	Object.fromEntries(
-		WORKFLOW_STATUSES.map((s) => [s, z.string().nullable()]),
+		WORKFLOW_STATUSES.map((s) => [s, z.string().nullable().default(null)]),
 	) as {
-		[K in (typeof WORKFLOW_STATUSES)[number]]: z.ZodNullable<z.ZodString>;
+		[K in (typeof WORKFLOW_STATUSES)[number]]: z.ZodDefault<
+			z.ZodNullable<z.ZodString>
+		>;
 	},
 );
 export type JiraStatusMapping = z.infer<typeof JiraStatusMappingSchema>;
