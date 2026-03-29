@@ -59,7 +59,7 @@ interface SyncInitiativeJob {
 interface TransitionIssueToDoneJob {
 	type: "transition-issue-done";
 	issueKey: string;
-	issueTypeName: string;
+	autarchType: "milestone" | "initiative" | "workflow";
 }
 
 interface SyncPulsesJob {
@@ -268,7 +268,7 @@ class JiraSyncQueue {
 			}
 
 			case "transition-issue-done": {
-				await transitionIssueToDone(job.issueKey, job.issueTypeName);
+				await transitionIssueToDone(job.issueKey, job.autarchType);
 				return;
 			}
 

@@ -629,52 +629,83 @@ export function buildDefaultMappings(meta: JiraProjectMetadata): {
 	initiativePriorityMapping: JiraConfig["initiativePriorityMapping"];
 	workflowPriorityMapping: JiraConfig["workflowPriorityMapping"];
 } {
-	// Build a lookup from issue type ID → subtask flag
-	const subtaskTypeIds = new Set(
-		meta.issueTypes.filter((t) => t.subtask).map((t) => t.id),
-	);
-
-	// --- Status mapping (per issue type) ---
-	const statusMapping: JiraConfig["statusMapping"] = {};
-	const pulseStatusMapping: JiraConfig["pulseStatusMapping"] = {};
-
-	for (const [typeId, typeStatuses] of Object.entries(meta.statuses)) {
+	// Helper: build a JiraStatusMapping from a given Jira issue type ID
+	const buildStatusMapping = (
+		typeId: string,
+	): JiraConfig["statusMapping"]["workflow"] => {
+		const typeStatuses = meta.statuses[typeId] ?? [];
 		const byCategory: Record<string, string> = {};
 		for (const s of typeStatuses) {
-			// Keep the first status we see per category (Jira's natural order)
 			if (!byCategory[s.statusCategory.key]) {
 				byCategory[s.statusCategory.key] = s.id;
 			}
 		}
-
-		// Find the "done" category status specifically — prefer last one
-		// (Jira projects often have multiple indeterminate but one done)
 		const doneStatus =
 			[...typeStatuses].reverse().find((s) => s.statusCategory.key === "done")
 				?.id ?? null;
-
 		const newId = byCategory.new ?? null;
 		const inProgressId = byCategory.indeterminate ?? null;
+		return {
+			backlog: newId,
+			scoping: newId,
+			researching: inProgressId,
+			planning: inProgressId,
+			in_progress: inProgressId,
+			review: inProgressId,
+			done: doneStatus,
+		};
+	};
 
-		if (subtaskTypeIds.has(typeId)) {
-			// Sub-task types use the pulse status mapping
-			pulseStatusMapping[typeId] = {
-				running: inProgressId,
-				succeeded: doneStatus,
-				failed: null,
-				stopped: null,
-			};
-		} else {
-			statusMapping[typeId] = {
-				backlog: newId,
-				scoping: newId,
-				researching: inProgressId,
-				planning: inProgressId,
-				in_progress: inProgressId,
-				review: inProgressId,
-				done: doneStatus,
-			};
+	const nullStatusMapping: JiraConfig["statusMapping"]["workflow"] = {
+		backlog: null,
+		scoping: null,
+		researching: null,
+		planning: null,
+		in_progress: null,
+		review: null,
+		done: null,
+	};
+
+	// Find the Jira type IDs for the Autarch objects we care about
+	const epicTypeId = meta.issueTypes.find(
+		(t) => t.name === "Epic" && !t.subtask,
+	)?.id;
+	const storyTypeId = meta.issueTypes.find(
+		(t) => t.name === "Story" && !t.subtask,
+	)?.id;
+	const subtaskTypeId = meta.issueTypes.find((t) => t.subtask)?.id;
+
+	const statusMapping: JiraConfig["statusMapping"] = {
+		milestone: epicTypeId ? buildStatusMapping(epicTypeId) : nullStatusMapping,
+		initiative: storyTypeId
+			? buildStatusMapping(storyTypeId)
+			: nullStatusMapping,
+		workflow: storyTypeId ? buildStatusMapping(storyTypeId) : nullStatusMapping,
+	};
+
+	// Pulse sub-task mapping (single, all pulses share the same Sub-task type)
+	let pulseStatusMapping: JiraConfig["pulseStatusMapping"] = {
+		running: null,
+		succeeded: null,
+		failed: null,
+		stopped: null,
+	};
+	if (subtaskTypeId) {
+		const typeStatuses = meta.statuses[subtaskTypeId] ?? [];
+		const byCategory: Record<string, string> = {};
+		for (const s of typeStatuses) {
+			if (!byCategory[s.statusCategory.key])
+				byCategory[s.statusCategory.key] = s.id;
 		}
+		const doneStatus =
+			[...typeStatuses].reverse().find((s) => s.statusCategory.key === "done")
+				?.id ?? null;
+		pulseStatusMapping = {
+			running: byCategory.indeterminate ?? null,
+			succeeded: doneStatus,
+			failed: null,
+			stopped: null,
+		};
 	}
 
 	// --- Priority mapping ---
@@ -1024,14 +1055,24 @@ export async function syncWorkflow(
 		config.workflowPriorityMapping[workflow.priority] ?? undefined;
 
 	try {
-		if (workflow.jiraIssueKey) {
-			// Workflow already has a Jira issue. If it's linked to an initiative,
-			// don't overwrite the initiative's title/description.
-			if (initiativeJira) {
+		if (initiativeJira) {
+			// Always adopt the initiative's Jira Story as the workflow's issue,
+			// even if the workflow already has a different key (race where sync
+			// ran before the initiative link was established).
+			if (workflow.jiraIssueKey !== initiativeJira.key) {
+				await updateWorkflowSyncStatus(
+					workflow.id,
+					"synced",
+					initiativeJira.key,
+					initiativeJira.id,
+				);
+				log.jira.info(
+					`Linked workflow ${workflow.id} to initiative Story ${initiativeJira.key}`,
+				);
+			} else {
 				await updateWorkflowSyncStatus(workflow.id, "synced");
-				return;
 			}
-
+		} else if (workflow.jiraIssueKey) {
 			// Standalone workflow — update existing Story
 			const fields: Record<string, unknown> = {
 				summary: workflow.title,
@@ -1059,17 +1100,6 @@ export async function syncWorkflow(
 					"Failed to update Jira Story",
 				);
 			}
-		} else if (initiativeJira) {
-			// Link this workflow to the initiative's existing Jira Story
-			await updateWorkflowSyncStatus(
-				workflow.id,
-				"synced",
-				initiativeJira.key,
-				initiativeJira.id,
-			);
-			log.jira.info(
-				`Linked workflow ${workflow.id} to initiative Story ${initiativeJira.key}`,
-			);
 		} else {
 			// Standalone workflow — create a new Story
 			const storyTypeId = await findIssueTypeId(
@@ -1160,18 +1190,10 @@ export async function syncWorkflowStatus(
 		return;
 	}
 
-	// Find the target Jira status ID from the status mapping
-	// We need to look up the Story issue type ID first
-	const taskTypeId = await findIssueTypeId(
-		auth,
-		config.jiraProjectKey,
-		"Story",
-	);
-	if (!taskTypeId) return;
-
-	const mapping = config.statusMapping[taskTypeId];
+	// Find the target Jira status ID from the workflow status mapping
+	const mapping = config.statusMapping.workflow;
 	if (!mapping) {
-		log.jira.warn(`No status mapping for Story issue type ${taskTypeId}`);
+		log.jira.warn(`No workflow status mapping configured`);
 		return;
 	}
 
@@ -1218,34 +1240,21 @@ export async function syncWorkflowStatus(
 
 /**
  * Transition a Jira issue to "done" status (used for delete handling).
- * @param issueTypeName - The Jira issue type name (e.g., "Epic", "Story", "Task")
- *   so we look up the correct status mapping for that type.
+ * @param autarchType - The Autarch object type ("milestone" | "initiative" | "workflow")
  */
 export async function transitionIssueToDone(
 	issueKey: string,
-	issueTypeName: string,
+	autarchType: "milestone" | "initiative" | "workflow",
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
 	if (!ctx) return;
 
 	const { config, auth } = ctx;
 
-	const typeId = await findIssueTypeId(
-		auth,
-		config.jiraProjectKey,
-		issueTypeName,
-	);
-	if (!typeId) {
-		log.jira.warn(
-			`Issue type "${issueTypeName}" not found, cannot transition ${issueKey} to done`,
-		);
-		return;
-	}
-
-	const mapping = config.statusMapping[typeId];
+	const mapping = config.statusMapping[autarchType];
 	if (!mapping?.done) {
 		log.jira.warn(
-			`No "done" status mapping for ${issueTypeName} (type ${typeId}) to close ${issueKey}`,
+			`No "done" status mapping for ${autarchType} to close ${issueKey}`,
 		);
 		return;
 	}
@@ -1447,15 +1456,7 @@ export async function syncPulseStatus(
 	}
 
 	// Transition status using the pulse status mapping
-	const subtaskTypeId = await findIssueTypeId(
-		auth,
-		config.jiraProjectKey,
-		"Sub-task",
-	);
-	if (!subtaskTypeId) return;
-
-	const mapping = config.pulseStatusMapping[subtaskTypeId];
-	const targetStatusId = mapping?.[pulseStatus];
+	const targetStatusId = config.pulseStatusMapping[pulseStatus];
 	if (!targetStatusId) return;
 
 	try {

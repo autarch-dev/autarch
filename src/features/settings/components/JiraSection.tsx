@@ -23,7 +23,22 @@ import type {
 	JiraStatus,
 } from "@/shared/schemas/jira";
 import { WORKFLOW_STATUS_LABELS } from "@/shared/schemas/workflow";
-import { WORKFLOW_STATUSES } from "@/shared/schemas/workflow-status";
+import type { WORKFLOW_STATUSES } from "@/shared/schemas/workflow-status";
+
+// Only show the statuses that drive meaningful Jira transitions
+const RELEVANT_WORKFLOW_STATUSES: Array<(typeof WORKFLOW_STATUSES)[number]> = [
+	"in_progress",
+	"review",
+	"done",
+];
+
+const PULSE_STATUS_LABELS: Record<string, string> = {
+	running: "Running",
+	succeeded: "Succeeded",
+	failed: "Failed",
+	stopped: "Stopped",
+};
+
 import {
 	bootstrapJiraMappings,
 	clearJiraConfig,
@@ -211,22 +226,17 @@ export function JiraSection() {
 	};
 
 	const updateStatusMapping = async (
-		issueTypeId: string,
+		autarchType: "milestone" | "initiative" | "workflow",
 		workflowStatus: string,
 		jiraStatusId: string | null,
 	) => {
 		if (!config) return;
-		const base = Object.fromEntries(
-			WORKFLOW_STATUSES.map((s) => [s, null]),
-		) as JiraConfig["statusMapping"][string];
-		const current = config.statusMapping[issueTypeId];
 		const updated: JiraConfig = {
 			...config,
 			statusMapping: {
 				...config.statusMapping,
-				[issueTypeId]: {
-					...base,
-					...current,
+				[autarchType]: {
+					...config.statusMapping[autarchType],
 					[workflowStatus]: jiraStatusId,
 				},
 			},
@@ -267,6 +277,22 @@ export function JiraSection() {
 		await saveJiraConfig(updated);
 	};
 
+	const updatePulseStatusMapping = async (
+		pulseStatus: keyof JiraConfig["pulseStatusMapping"],
+		jiraStatusId: string | null,
+	) => {
+		if (!config) return;
+		const updated: JiraConfig = {
+			...config,
+			pulseStatusMapping: {
+				...config.pulseStatusMapping,
+				[pulseStatus]: jiraStatusId,
+			},
+		};
+		setConfig(updated);
+		await saveJiraConfig(updated);
+	};
+
 	if (isLoading) {
 		return (
 			<section className="pt-6 border-t border-zinc-800/50">
@@ -281,16 +307,45 @@ export function JiraSection() {
 		);
 	}
 
-	// Helper: resolve Jira issue type name from its ID
-	const issueTypeName = (typeId: string): string => {
-		const match = metadata?.issueTypes.find((t) => t.id === typeId);
-		return match?.name ?? typeId;
+	// Helper: get statuses available for a given Jira issue type name
+	const statusesByTypeName = (typeName: string): JiraStatus[] => {
+		const type = metadata?.issueTypes.find((t) => t.name === typeName);
+		if (!type) return [];
+		return metadata?.statuses[type.id] ?? [];
 	};
 
-	// Helper: get statuses available for a given issue type
-	const statusesForType = (typeId: string): JiraStatus[] => {
-		return metadata?.statuses[typeId] ?? [];
+	// Helper: get statuses for the first sub-task type
+	const subtaskStatuses = (): JiraStatus[] => {
+		const type = metadata?.issueTypes.find((t) => t.subtask);
+		if (!type) return [];
+		return metadata?.statuses[type.id] ?? [];
 	};
+
+	const STATUS_MAPPING_SECTIONS: Array<{
+		key: "milestone" | "initiative" | "workflow";
+		label: string;
+		jiraTypeName: string;
+		statuses: Array<(typeof WORKFLOW_STATUSES)[number]>;
+	}> = [
+		{
+			key: "milestone",
+			label: "Milestone",
+			jiraTypeName: "Epic",
+			statuses: ["done"],
+		},
+		{
+			key: "initiative",
+			label: "Initiative",
+			jiraTypeName: "Story",
+			statuses: ["done"],
+		},
+		{
+			key: "workflow",
+			label: "Workflow",
+			jiraTypeName: "Story",
+			statuses: RELEVANT_WORKFLOW_STATUSES,
+		},
+	];
 
 	return (
 		<section className="pt-6 border-t border-zinc-800/50">
@@ -544,41 +599,37 @@ export function JiraSection() {
 										</Button>
 									</div>
 
-									{/* Status Mappings — per issue type */}
+									{/* Status Mapping — per Autarch object type */}
 									<div className="space-y-4">
 										<h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
 											Status Mapping
 										</h4>
-										{Object.keys(config.statusMapping).length === 0 ? (
-											<p className="text-xs text-zinc-600">
-												No status mappings configured. Click "Reset Defaults" to
-												auto-populate.
-											</p>
-										) : (
-											Object.keys(config.statusMapping).map((typeId) => {
-												const mapping = config.statusMapping[typeId];
-												if (!mapping) return null;
-												const statuses = statusesForType(typeId);
+										{STATUS_MAPPING_SECTIONS.map(
+											({ key, label, jiraTypeName, statuses: ws }) => {
+												const mapping = config.statusMapping[key];
+												const jiraStatuses = statusesByTypeName(jiraTypeName);
 												return (
-													<div key={typeId} className="space-y-2">
+													<div key={key} className="space-y-2">
 														<p className="text-xs font-medium text-zinc-400">
-															{issueTypeName(typeId)}
+															{label}
 														</p>
 														<div className="grid grid-cols-2 gap-x-4 gap-y-2">
-															{WORKFLOW_STATUSES.map((ws) => (
+															{ws.map((workflowStatus) => (
 																<div
-																	key={ws}
+																	key={workflowStatus}
 																	className="flex items-center justify-between gap-2"
 																>
 																	<span className="text-xs text-zinc-400 min-w-[80px]">
-																		{WORKFLOW_STATUS_LABELS[ws]}
+																		{WORKFLOW_STATUS_LABELS[workflowStatus]}
 																	</span>
 																	<Select
-																		value={mapping[ws] ?? SKIP_VALUE}
+																		value={
+																			mapping[workflowStatus] ?? SKIP_VALUE
+																		}
 																		onValueChange={(v) =>
 																			updateStatusMapping(
-																				typeId,
-																				ws,
+																				key,
+																				workflowStatus,
 																				v === SKIP_VALUE ? null : v,
 																			)
 																		}
@@ -595,7 +646,7 @@ export function JiraSection() {
 																					Skip
 																				</span>
 																			</SelectItem>
-																			{statuses.map((s) => (
+																			{jiraStatuses.map((s) => (
 																				<SelectItem key={s.id} value={s.id}>
 																					{s.name}
 																				</SelectItem>
@@ -607,8 +658,57 @@ export function JiraSection() {
 														</div>
 													</div>
 												);
-											})
+											},
 										)}
+									</div>
+
+									{/* Pulse Sub-task Status Mapping */}
+									<div className="space-y-4">
+										<h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+											Pulse Sub-task Status Mapping
+										</h4>
+										<div className="grid grid-cols-2 gap-x-4 gap-y-2">
+											{(
+												Object.keys(
+													PULSE_STATUS_LABELS,
+												) as (keyof typeof config.pulseStatusMapping)[]
+											).map((ps) => (
+												<div
+													key={ps}
+													className="flex items-center justify-between gap-2"
+												>
+													<span className="text-xs text-zinc-400 min-w-[80px]">
+														{PULSE_STATUS_LABELS[ps]}
+													</span>
+													<Select
+														value={config.pulseStatusMapping[ps] ?? SKIP_VALUE}
+														onValueChange={(v) =>
+															updatePulseStatusMapping(
+																ps,
+																v === SKIP_VALUE ? null : v,
+															)
+														}
+													>
+														<SelectTrigger
+															size="sm"
+															className="h-7 text-xs border-zinc-700 bg-zinc-900 w-[160px]"
+														>
+															<SelectValue placeholder="Skip" />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value={SKIP_VALUE}>
+																<span className="text-zinc-500">Skip</span>
+															</SelectItem>
+															{subtaskStatuses().map((s) => (
+																<SelectItem key={s.id} value={s.id}>
+																	{s.name}
+																</SelectItem>
+															))}
+														</SelectContent>
+													</Select>
+												</div>
+											))}
+										</div>
 									</div>
 
 									{/* Initiative Priority Mapping */}

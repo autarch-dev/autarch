@@ -659,7 +659,7 @@ export const roadmapRoutes = {
 					jiraSyncQueue.enqueue({
 						type: "transition-issue-done",
 						issueKey: milestoneToDelete.jiraEpicKey,
-						issueTypeName: "Epic",
+						autarchType: "milestone",
 					});
 				}
 
@@ -778,6 +778,16 @@ export const roadmapRoutes = {
 					initiativeId: initiative.id,
 				});
 
+				// If a workflow was just linked, re-sync it so it adopts the
+				// initiative's Jira Story (resolves the race where sync-workflow
+				// ran before the link was established).
+				if (parsed.data.workflowId) {
+					jiraSyncQueue.enqueue({
+						type: "sync-workflow",
+						workflowId: parsed.data.workflowId,
+					});
+				}
+
 				return Response.json(initiative);
 			} catch (error) {
 				log.api.error("Failed to update initiative:", error);
@@ -820,7 +830,7 @@ export const roadmapRoutes = {
 					jiraSyncQueue.enqueue({
 						type: "transition-issue-done",
 						issueKey: initiativeToDelete.jiraIssueKey,
-						issueTypeName: "Story",
+						autarchType: "initiative",
 					});
 				}
 
