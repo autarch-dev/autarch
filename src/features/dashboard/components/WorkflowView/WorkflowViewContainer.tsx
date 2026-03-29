@@ -57,6 +57,7 @@ export function WorkflowViewContainer({
 	const requestFixes = useWorkflowsStore((s) => s.requestFixes);
 	const rewindWorkflow = useWorkflowsStore((s) => s.rewindWorkflow);
 	const continueExecution = useWorkflowsStore((s) => s.continueExecution);
+	const retryFailedPulse = useWorkflowsStore((s) => s.retryFailedPulse);
 
 	// Select workflow and fetch history when workflowId changes
 	useEffect(() => {
@@ -112,6 +113,10 @@ export function WorkflowViewContainer({
 		await continueExecution(workflowId);
 	}, [workflowId, continueExecution]);
 
+	const handleRetryFailedPulse = useCallback(async () => {
+		await retryFailedPulse(workflowId);
+	}, [workflowId, retryFailedPulse]);
+
 	const handleWorkflowArchived = useCallback(() => {
 		// Navigate back to dashboard root when workflow is archived
 		setLocation("/dashboard");
@@ -146,6 +151,7 @@ export function WorkflowViewContainer({
 			onRequestFixes={handleRequestFixes}
 			onRewind={handleRewindWorkflow}
 			onContinueExecution={handleContinueExecution}
+			onRetryFailedPulse={handleRetryFailedPulse}
 			onArchived={handleWorkflowArchived}
 		/>
 	);

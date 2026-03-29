@@ -2098,6 +2098,67 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 		});
 	}
 
+	async retryFailedPulse(workflowId: string): Promise<void> {
+		const workflow = await this.workflowRepo.getById(workflowId);
+		if (!workflow) {
+			throw new Error(`Workflow not found: ${workflowId}`);
+		}
+
+		const failedPulse = await this.pulseRepo.getFailedPulse(workflowId);
+		if (!failedPulse) {
+			throw new Error(`No failed pulse found for workflow ${workflowId}`);
+		}
+
+		log.workflow.info(
+			`Retrying failed pulse ${failedPulse.id} for workflow ${workflowId}`,
+		);
+
+		// Stop any lingering session
+		if (workflow.currentSessionId) {
+			log.workflow.info(`Stopping session ${workflow.currentSessionId}`);
+			await this.sessionManager.stopSession(workflow.currentSessionId);
+			await new Promise((resolve) => setTimeout(resolve, 500));
+		}
+
+		await this.pulseRepo.resetFailedPulseToRunning(failedPulse.id);
+
+		const projectRoot = getProjectRoot();
+		const worktreePath =
+			failedPulse.worktreePath ?? getWorktreePath(projectRoot, workflowId);
+
+		const session = await this.sessionManager.startSession({
+			contextType: "workflow",
+			contextId: workflowId,
+			agentRole: "execution",
+			pulseId: failedPulse.id,
+		});
+
+		await this.workflowRepo.setCurrentSession(workflowId, session.id);
+
+		const initialMessage = await this.buildPulseInitialMessage(
+			workflowId,
+			failedPulse,
+			true,
+		);
+
+		const runner = new AgentRunner(session, {
+			projectRoot,
+			conversationRepo: this.conversationRepo,
+			worktreePath,
+		});
+
+		runner.run(initialMessage, { hidden: true }).catch((error) => {
+			log.workflow.error(
+				`Failed pulse retry failed for workflow ${workflowId}:`,
+				error,
+			);
+			this.errorWorkflow(
+				workflowId,
+				error instanceof Error ? error.message : "Failed pulse retry failed",
+			);
+		});
+	}
+
 	/**
 	 * Reset an orphaned pulse and restart execution
 	 *

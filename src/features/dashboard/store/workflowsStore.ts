@@ -212,6 +212,7 @@ interface WorkflowsState {
 	// Actions - Archive
 	archiveWorkflow: (id: string) => Promise<void>;
 	continueExecution: (workflowId: string) => Promise<void>;
+	retryFailedPulse: (workflowId: string) => Promise<void>;
 	resetOrphanedPulse: (workflowId: string) => Promise<{
 		found: boolean;
 		pulseId?: string;
@@ -762,6 +763,22 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 		if (!response.ok) {
 			const error = await response.json();
 			throw new Error(error.error ?? "Failed to continue execution");
+		}
+
+		get().fetchHistory(workflowId);
+	},
+
+	retryFailedPulse: async (workflowId: string) => {
+		const response = await fetch(
+			`/api/workflows/${workflowId}/retry-failed-pulse`,
+			{
+				method: "POST",
+			},
+		);
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error ?? "Failed to retry failed pulse");
 		}
 
 		get().fetchHistory(workflowId);

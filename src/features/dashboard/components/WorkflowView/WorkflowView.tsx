@@ -56,6 +56,7 @@ interface WorkflowViewProps {
 	onRequestFixes?: (commentIds: string[], summary?: string) => Promise<void>;
 	onRewind?: (targetStage: RewindTarget) => Promise<void>;
 	onContinueExecution?: () => Promise<void>;
+	onRetryFailedPulse?: () => Promise<void>;
 	onArchived?: () => void;
 }
 
@@ -78,6 +79,7 @@ export const WorkflowView = memo(function WorkflowView({
 	onRequestFixes,
 	onRewind,
 	onContinueExecution,
+	onRetryFailedPulse,
 	onArchived,
 }: WorkflowViewProps) {
 	// Track which stage the user is currently viewing (may differ from workflow.status)
@@ -144,6 +146,7 @@ export const WorkflowView = memo(function WorkflowView({
 						preflightSetup={preflightSetup}
 						plans={plans}
 						onContinueExecution={onContinueExecution}
+						onRetryFailedPulse={onRetryFailedPulse}
 					/>
 				);
 

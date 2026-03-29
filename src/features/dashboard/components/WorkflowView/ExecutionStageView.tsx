@@ -53,6 +53,8 @@ export interface ExecutionStageViewProps extends StageViewProps {
 	plans: Plan[];
 	/** Called when user wants to continue execution after a halted pulse with unresolved issues */
 	onContinueExecution?: () => Promise<void>;
+	/** Called when user wants to retry a failed pulse */
+	onRetryFailedPulse?: () => Promise<void>;
 }
 
 /**
@@ -397,6 +399,7 @@ export function ExecutionStageView({
 	preflightSetup,
 	plans,
 	onContinueExecution,
+	onRetryFailedPulse,
 }: ExecutionStageViewProps) {
 	// Build lookup map from plannedPulseId to PulseDefinition from the latest approved plan
 	const pulseDefinitionMap = useMemo(() => {
@@ -427,6 +430,7 @@ export function ExecutionStageView({
 		pulses.length > 0 ? Math.round((completedCount / pulses.length) * 100) : 0;
 
 	const [isContinuing, setIsContinuing] = useState(false);
+	const [isRetrying, setIsRetrying] = useState(false);
 
 	const handleContinueExecution = async () => {
 		if (!onContinueExecution) return;
@@ -435,6 +439,16 @@ export function ExecutionStageView({
 			await onContinueExecution();
 		} finally {
 			setIsContinuing(false);
+		}
+	};
+
+	const handleRetryFailedPulse = async () => {
+		if (!onRetryFailedPulse) return;
+		setIsRetrying(true);
+		try {
+			await onRetryFailedPulse();
+		} finally {
+			setIsRetrying(false);
 		}
 	};
 
@@ -484,6 +498,9 @@ export function ExecutionStageView({
 					!runningPulse &&
 					!!onContinueExecution;
 
+				const showRetryButton =
+					pulse.status === "failed" && !runningPulse && !!onRetryFailedPulse;
+
 				return (
 					<Fragment key={pulse.id}>
 						<PulseCollapsibleItem
@@ -511,6 +528,26 @@ export function ExecutionStageView({
 									Continue Execution
 								</Button>
 								<div className="h-px flex-1 bg-yellow-500/30" />
+							</div>
+						)}
+						{showRetryButton && (
+							<div className="flex items-center justify-center gap-3 py-1">
+								<div className="h-px flex-1 bg-destructive/30" />
+								<Button
+									size="sm"
+									variant="destructive"
+									onClick={handleRetryFailedPulse}
+									disabled={isRetrying}
+									className="gap-2"
+								>
+									{isRetrying ? (
+										<Loader2 className="h-4 w-4 animate-spin" />
+									) : (
+										<Play className="h-4 w-4" />
+									)}
+									Retry Pulse
+								</Button>
+								<div className="h-px flex-1 bg-destructive/30" />
 							</div>
 						)}
 					</Fragment>

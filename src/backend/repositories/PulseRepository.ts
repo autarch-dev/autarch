@@ -353,6 +353,29 @@ export class PulseRepository implements Repository {
 			.execute();
 	}
 
+	async getFailedPulse(workflowId: string): Promise<Pulse | null> {
+		const row = await this.db
+			.selectFrom("pulses")
+			.selectAll()
+			.where("workflow_id", "=", workflowId)
+			.where("status", "=", "failed")
+			.executeTakeFirst();
+
+		return row ? this.toPulse(row) : null;
+	}
+
+	async resetFailedPulseToRunning(id: string): Promise<void> {
+		await this.db
+			.updateTable("pulses")
+			.set({
+				status: "running",
+				failure_reason: null,
+				ended_at: null,
+			})
+			.where("id", "=", id)
+			.execute();
+	}
+
 	/**
 	 * Reset a running pulse back to proposed status
 	 * Used when a pulse is orphaned (process restarted while pulse was executing)
