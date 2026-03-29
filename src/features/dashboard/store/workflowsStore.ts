@@ -170,7 +170,10 @@ interface WorkflowsState {
 
 	// Actions - Workflow CRUD
 	fetchWorkflows: () => Promise<void>;
-	createWorkflow: (prompt: string, jiraOptions?: { jiraIssueId?: string; jiraIssueKey?: string }) => Promise<Workflow>;
+	createWorkflow: (
+		prompt: string,
+		jiraOptions?: { jiraIssueId?: string; jiraIssueKey?: string },
+	) => Promise<Workflow>;
 	selectWorkflow: (workflowId: string | null) => void;
 
 	// Actions - Conversation
@@ -288,7 +291,10 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 		}
 	},
 
-	createWorkflow: async (prompt: string, jiraOptions?: { jiraIssueId?: string; jiraIssueKey?: string }) => {
+	createWorkflow: async (
+		prompt: string,
+		jiraOptions?: { jiraIssueId?: string; jiraIssueKey?: string },
+	) => {
 		const response = await fetch("/api/workflows", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },

@@ -287,8 +287,11 @@ export const InitiativeDetail = memo(
 			try {
 				const workflow = await createWorkflow(
 					`# ${initiative.title}${initiative.description ? `\n\n${initiative.description}` : ""}\n\n---\n\nFor context, here is the vision document for the whole roadmap. Limit your scope to specific initiative above.\n\n${vision?.content ?? "(no vision document available)"}`,
-					initiative.jiraIssueId ?? initiative.jiraIssueKey
-						? { jiraIssueId: initiative.jiraIssueId, jiraIssueKey: initiative.jiraIssueKey }
+					(initiative.jiraIssueId ?? initiative.jiraIssueKey)
+						? {
+								jiraIssueId: initiative.jiraIssueId,
+								jiraIssueKey: initiative.jiraIssueKey,
+							}
 						: undefined,
 				);
 				await onUpdateInitiative(initiative.id, {
