@@ -211,6 +211,7 @@ interface WorkflowsState {
 
 	// Actions - Archive
 	archiveWorkflow: (id: string) => Promise<void>;
+	continueExecution: (workflowId: string) => Promise<void>;
 	resetOrphanedPulse: (workflowId: string) => Promise<{
 		found: boolean;
 		pulseId?: string;
@@ -748,6 +749,22 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				subtasks,
 			};
 		});
+	},
+
+	continueExecution: async (workflowId: string) => {
+		const response = await fetch(
+			`/api/workflows/${workflowId}/continue-execution`,
+			{
+				method: "POST",
+			},
+		);
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error ?? "Failed to continue execution");
+		}
+
+		get().fetchHistory(workflowId);
 	},
 
 	resetOrphanedPulse: async (workflowId: string) => {

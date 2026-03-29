@@ -1294,7 +1294,10 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 			log.workflow.info(
 				`Pulse ${pulse.id} completed with unresolved issues - halting orchestration`,
 			);
-			// Don't start next pulse - wait for human intervention
+			// Stop session so continueExecution can restart cleanly
+			if (workflow.currentSessionId) {
+				await this.sessionManager.stopSession(workflow.currentSessionId);
+			}
 			return;
 		}
 
@@ -1410,6 +1413,10 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 			log.workflow.info(
 				`Pulse ${completedPulse.id} completed with unresolved issues - halting orchestration`,
 			);
+			// Stop session so continueExecution can restart cleanly
+			if (workflow.currentSessionId) {
+				await this.sessionManager.stopSession(workflow.currentSessionId);
+			}
 			return;
 		}
 
@@ -2178,6 +2185,49 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 		}
 
 		return { found: false, reset: false, startedNextPulse: false };
+	}
+
+	/**
+	 * Continue execution after a pulse halted with unresolved issues.
+	 *
+	 * The user has manually resolved the issues in the worktree and wants
+	 * to resume. Starts the next proposed pulse.
+	 */
+	async continueExecution(workflowId: string): Promise<void> {
+		const workflow = await this.workflowRepo.getById(workflowId);
+		if (!workflow) {
+			throw new Error(`Workflow not found: ${workflowId}`);
+		}
+
+		if (workflow.status !== "in_progress") {
+			throw new Error(
+				`Workflow ${workflowId} is not in_progress (status: ${workflow.status})`,
+			);
+		}
+
+		const hasActiveSession =
+			workflow.currentSessionId &&
+			(await this.sessionManager.getOrRestoreSession(workflow.currentSessionId))
+				?.status === "active";
+
+		if (hasActiveSession) {
+			throw new Error(
+				`Workflow ${workflowId} already has an active session - not halted`,
+			);
+		}
+
+		const proposedPulse = await this.pulseRepo.getNextProposedPulse(workflowId);
+		if (!proposedPulse) {
+			throw new Error(
+				`No proposed pulse found for workflow ${workflowId} - nothing to continue`,
+			);
+		}
+
+		log.workflow.info(
+			`Continuing execution for workflow ${workflowId} - starting pulse ${proposedPulse.id}`,
+		);
+
+		await this.handlePreflightCompletion(workflowId);
 	}
 
 	// ===========================================================================

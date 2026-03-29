@@ -56,6 +56,7 @@ export function WorkflowViewContainer({
 	const requestChanges = useWorkflowsStore((s) => s.requestChanges);
 	const requestFixes = useWorkflowsStore((s) => s.requestFixes);
 	const rewindWorkflow = useWorkflowsStore((s) => s.rewindWorkflow);
+	const continueExecution = useWorkflowsStore((s) => s.continueExecution);
 
 	// Select workflow and fetch history when workflowId changes
 	useEffect(() => {
@@ -107,6 +108,10 @@ export function WorkflowViewContainer({
 		[workflowId, requestFixes],
 	);
 
+	const handleContinueExecution = useCallback(async () => {
+		await continueExecution(workflowId);
+	}, [workflowId, continueExecution]);
+
 	const handleWorkflowArchived = useCallback(() => {
 		// Navigate back to dashboard root when workflow is archived
 		setLocation("/dashboard");
@@ -140,6 +145,7 @@ export function WorkflowViewContainer({
 			onRequestChanges={handleRequestChanges}
 			onRequestFixes={handleRequestFixes}
 			onRewind={handleRewindWorkflow}
+			onContinueExecution={handleContinueExecution}
 			onArchived={handleWorkflowArchived}
 		/>
 	);

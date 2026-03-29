@@ -14,11 +14,13 @@ import {
 	ChevronRight,
 	Circle,
 	Loader2,
+	Play,
 	Ruler,
 	XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -49,6 +51,8 @@ export interface ExecutionStageViewProps extends StageViewProps {
 	preflightSetup?: PreflightSetup;
 	/** Plans for this workflow (used to retrieve pulse metadata via plannedPulseId) */
 	plans: Plan[];
+	/** Called when user wants to continue execution after a halted pulse with unresolved issues */
+	onContinueExecution?: () => Promise<void>;
 }
 
 /**
@@ -392,6 +396,7 @@ export function ExecutionStageView({
 	pulses,
 	preflightSetup,
 	plans,
+	onContinueExecution,
 }: ExecutionStageViewProps) {
 	// Build lookup map from plannedPulseId to PulseDefinition from the latest approved plan
 	const pulseDefinitionMap = useMemo(() => {
@@ -420,6 +425,18 @@ export function ExecutionStageView({
 	const runningPulse = pulses.find((p) => p.status === "running") ?? null;
 	const progressPct =
 		pulses.length > 0 ? Math.round((completedCount / pulses.length) * 100) : 0;
+
+	const [isContinuing, setIsContinuing] = useState(false);
+
+	const handleContinueExecution = async () => {
+		if (!onContinueExecution) return;
+		setIsContinuing(true);
+		try {
+			await onContinueExecution();
+		} finally {
+			setIsContinuing(false);
+		}
+	};
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -458,16 +475,47 @@ export function ExecutionStageView({
 			)}
 
 			{/* Pulses */}
-			{pulses.map((pulse, index) => (
-				<PulseCollapsibleItem
-					key={pulse.id}
-					pulse={pulse}
-					index={index}
-					messages={messages}
-					pulseDefinitionMap={pulseDefinitionMap}
-					streamingMessage={streamingMessage}
-				/>
-			))}
+			{pulses.map((pulse, index) => {
+				const nextPulse = pulses[index + 1];
+				const showContinueButton =
+					pulse.hasUnresolvedIssues &&
+					pulse.status === "succeeded" &&
+					nextPulse?.status === "proposed" &&
+					!runningPulse &&
+					!!onContinueExecution;
+
+				return (
+					<Fragment key={pulse.id}>
+						<PulseCollapsibleItem
+							key={pulse.id}
+							pulse={pulse}
+							index={index}
+							messages={messages}
+							pulseDefinitionMap={pulseDefinitionMap}
+							streamingMessage={streamingMessage}
+						/>
+						{showContinueButton && (
+							<div className="flex items-center justify-center gap-3 py-1">
+								<div className="h-px flex-1 bg-yellow-500/30" />
+								<Button
+									size="sm"
+									onClick={handleContinueExecution}
+									disabled={isContinuing}
+									className="gap-2"
+								>
+									{isContinuing ? (
+										<Loader2 className="h-4 w-4 animate-spin" />
+									) : (
+										<Play className="h-4 w-4" />
+									)}
+									Continue Execution
+								</Button>
+								<div className="h-px flex-1 bg-yellow-500/30" />
+							</div>
+						)}
+					</Fragment>
+				);
+			})}
 
 			{/* Empty state when no pulses yet */}
 			{pulses.length === 0 && !preflightSetup && (
