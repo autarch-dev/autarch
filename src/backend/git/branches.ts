@@ -93,11 +93,14 @@ export async function createPulseBranch(
 	// (Git can't have both 'foo' and 'foo/bar' as branch names)
 	const branchName = `${workflowBranch}-${pulseId}`;
 
-	// Create branch from workflow branch
-	await execGitOrThrow(["branch", branchName, workflowBranch], {
-		cwd: repoRoot,
-	});
-	log.git.info(`Created pulse branch: ${branchName}`);
+	// If the branch already exists (e.g. after an orphaned-pulse reset), reuse it
+	const exists = await branchExists(repoRoot, branchName);
+	if (!exists) {
+		await execGitOrThrow(["branch", branchName, workflowBranch], {
+			cwd: repoRoot,
+		});
+	}
+	log.git.info(`${exists ? "Reusing" : "Created"} pulse branch: ${branchName}`);
 
 	return branchName;
 }

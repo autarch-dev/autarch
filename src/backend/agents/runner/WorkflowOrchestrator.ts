@@ -864,14 +864,13 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 
 		// Run in background (non-blocking)
 		runner.run(initialMessage, { hidden: true }).catch((error) => {
+			const reason = error instanceof Error ? error.message : "Unknown error";
 			log.workflow.error(
 				`Execution agent failed for fix pulse ${startedPulse.id}:`,
 				error,
 			);
-			this.errorWorkflow(
-				workflowId,
-				error instanceof Error ? error.message : "Unknown error",
-			);
+			this.handlePulseFailure(workflowId, reason);
+			this.errorWorkflow(workflowId, reason);
 		});
 	}
 
@@ -1233,14 +1232,13 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 
 		// Run in background (non-blocking)
 		runner.run(initialMessage, { hidden: true }).catch((error) => {
+			const reason = error instanceof Error ? error.message : "Unknown error";
 			log.workflow.error(
 				`Execution agent failed for pulse ${firstPulse.id}:`,
 				error,
 			);
-			this.errorWorkflow(
-				workflowId,
-				error instanceof Error ? error.message : "Unknown error",
-			);
+			this.handlePulseFailure(workflowId, reason);
+			this.errorWorkflow(workflowId, reason);
 		});
 	}
 
@@ -1346,14 +1344,13 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 
 				// Run in background (non-blocking)
 				runner.run(initialMessage, { hidden: true }).catch((error) => {
+					const reason = error instanceof Error ? error.message : "Unknown error";
 					log.workflow.error(
 						`Execution agent failed for pulse ${nextPulse.id}:`,
 						error,
 					);
-					this.errorWorkflow(
-						workflowId,
-						error instanceof Error ? error.message : "Unknown error",
-					);
+					this.handlePulseFailure(workflowId, reason);
+					this.errorWorkflow(workflowId, reason);
 				});
 			}
 		} else {
@@ -1463,14 +1460,13 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 
 				// Run in background (non-blocking)
 				runner.run(initialMessage, { hidden: true }).catch((error) => {
+					const reason = error instanceof Error ? error.message : "Unknown error";
 					log.workflow.error(
 						`Execution agent failed for pulse ${nextPulse.id}:`,
 						error,
 					);
-					this.errorWorkflow(
-						workflowId,
-						error instanceof Error ? error.message : "Unknown error",
-					);
+					this.handlePulseFailure(workflowId, reason);
+					this.errorWorkflow(workflowId, reason);
 				});
 			}
 		} else {
@@ -2119,47 +2115,67 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 			return { found: false, reset: false, startedNextPulse: false };
 		}
 
-		// Get the currently running pulse
-		const runningPulse = await this.pulseRepo.getRunningPulse(workflowId);
-		if (!runningPulse) {
-			return { found: false, reset: false, startedNextPulse: false };
-		}
-
 		// Check if there's an active session for this workflow
 		const hasActiveSession =
 			workflow.currentSessionId &&
 			(await this.sessionManager.getOrRestoreSession(workflow.currentSessionId))
 				?.status === "active";
 
-		// If there's an active session, the pulse is not orphaned
-		if (hasActiveSession) {
+		// Get the currently running pulse
+		const runningPulse = await this.pulseRepo.getRunningPulse(workflowId);
+
+		if (runningPulse) {
+			// If there's an active session, the pulse is not orphaned
+			if (hasActiveSession) {
+				return {
+					found: true,
+					pulseId: runningPulse.id,
+					reset: false,
+					startedNextPulse: false,
+				};
+			}
+
+			log.workflow.info(
+				`Detected orphaned pulse ${runningPulse.id} for workflow ${workflowId} - no active session`,
+			);
+
+			// Reset the orphaned pulse back to proposed
+			await this.pulseRepo.resetPulseToProposed(runningPulse.id);
+			log.workflow.info(
+				`Reset orphaned pulse ${runningPulse.id} to proposed status`,
+			);
+
+			// Trigger execution of the next pulse (the one we just reset)
+			await this.handlePreflightCompletion(workflowId);
+
 			return {
 				found: true,
 				pulseId: runningPulse.id,
-				reset: false,
-				startedNextPulse: false,
+				reset: true,
+				startedNextPulse: true,
 			};
 		}
 
-		log.workflow.info(
-			`Detected orphaned pulse ${runningPulse.id} for workflow ${workflowId} - no active session`,
-		);
+		// No running pulse — check if there's a proposed pulse stuck with no active session.
+		// This happens when a previous reset succeeded but the subsequent execution crashed
+		// before the pulse transitioned to "running".
+		const proposedPulse = await this.pulseRepo.getNextProposedPulse(workflowId);
+		if (proposedPulse && !hasActiveSession) {
+			log.workflow.info(
+				`Detected stuck proposed pulse ${proposedPulse.id} for workflow ${workflowId} - resuming execution`,
+			);
 
-		// Reset the orphaned pulse back to proposed
-		await this.pulseRepo.resetPulseToProposed(runningPulse.id);
-		log.workflow.info(
-			`Reset orphaned pulse ${runningPulse.id} to proposed status`,
-		);
+			await this.handlePreflightCompletion(workflowId);
 
-		// Now trigger execution of the next pulse (which will be the one we just reset)
-		await this.handlePreflightCompletion(workflowId);
+			return {
+				found: true,
+				pulseId: proposedPulse.id,
+				reset: false,
+				startedNextPulse: true,
+			};
+		}
 
-		return {
-			found: true,
-			pulseId: runningPulse.id,
-			reset: true,
-			startedNextPulse: true,
-		};
+		return { found: false, reset: false, startedNextPulse: false };
 	}
 
 	// ===========================================================================
