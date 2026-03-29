@@ -82,10 +82,44 @@ export const JiraConfigSchema = z.object({
 				review: null,
 				done: null,
 			},
+		})
+		.catch({
+			milestone: {
+				backlog: null,
+				scoping: null,
+				researching: null,
+				planning: null,
+				in_progress: null,
+				review: null,
+				done: null,
+			},
+			initiative: {
+				backlog: null,
+				scoping: null,
+				researching: null,
+				planning: null,
+				in_progress: null,
+				review: null,
+				done: null,
+			},
+			workflow: {
+				backlog: null,
+				scoping: null,
+				researching: null,
+				planning: null,
+				in_progress: null,
+				review: null,
+				done: null,
+			},
 		}),
 
 	// Status mapping for pulse sub-tasks (single mapping, all pulses are Sub-tasks)
 	pulseStatusMapping: PulseStatusMappingSchema.default({
+		running: null,
+		succeeded: null,
+		failed: null,
+		stopped: null,
+	}).catch({
 		running: null,
 		succeeded: null,
 		failed: null,

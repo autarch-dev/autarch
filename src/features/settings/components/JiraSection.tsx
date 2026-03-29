@@ -105,6 +105,15 @@ export function JiraSection() {
 				setBaseUrl(cfg.jiraBaseUrl);
 				setProjectKey(cfg.jiraProjectKey);
 				setConfig(cfg);
+			} else if (configured) {
+				// Credentials exist but config is missing or structurally stale
+				// (e.g. schema changed) — re-bootstrap from Jira metadata.
+				const bootstrapped = await bootstrapJiraMappings();
+				if (bootstrapped) {
+					setBaseUrl(bootstrapped.jiraBaseUrl);
+					setProjectKey(bootstrapped.jiraProjectKey);
+					setConfig(bootstrapped);
+				}
 			}
 		} finally {
 			setIsLoading(false);
