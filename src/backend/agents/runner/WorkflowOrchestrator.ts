@@ -2205,15 +2205,17 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 			);
 		}
 
-		const hasActiveSession =
-			workflow.currentSessionId &&
-			(await this.sessionManager.getOrRestoreSession(workflow.currentSessionId))
-				?.status === "active";
-
-		if (hasActiveSession) {
-			throw new Error(
-				`Workflow ${workflowId} already has an active session - not halted`,
+		// Stop any stale session left over from a halt (pre-fix or crash)
+		if (workflow.currentSessionId) {
+			const session = await this.sessionManager.getOrRestoreSession(
+				workflow.currentSessionId,
 			);
+			if (session?.status === "active") {
+				log.workflow.info(
+					`Stopping stale session ${workflow.currentSessionId} before continuing execution`,
+				);
+				await this.sessionManager.stopSession(workflow.currentSessionId);
+			}
 		}
 
 		const proposedPulse = await this.pulseRepo.getNextProposedPulse(workflowId);
