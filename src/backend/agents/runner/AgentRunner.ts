@@ -757,6 +757,27 @@ export class AgentRunner {
 			}
 		}
 
+		// After the main for (const turn of turns) loop:
+		for (let i = messages.length - 1; i >= 0; i--) {
+			const msg = messages[i];
+			if (msg && msg.role === "user" && msg.content === "Continue.") {
+				messages[i] = {
+					role: "user",
+					content: [
+						{
+							type: "text",
+							text: "Continue.",
+							providerOptions: {
+								bedrock: { cachePoint: { type: "default" } },
+							},
+						},
+					],
+				};
+
+				break; // rolling — only the last one
+			}
+		}
+
 		log.agent.debug(
 			`loadConversationHistory complete: ${messages.length} messages built`,
 		);
