@@ -23,14 +23,7 @@ import type {
 	JiraStatus,
 } from "@/shared/schemas/jira";
 import { WORKFLOW_STATUS_LABELS } from "@/shared/schemas/workflow";
-import type { WORKFLOW_STATUSES } from "@/shared/schemas/workflow-status";
-
-// Only show the statuses that drive meaningful Jira transitions
-const RELEVANT_WORKFLOW_STATUSES: Array<(typeof WORKFLOW_STATUSES)[number]> = [
-	"in_progress",
-	"review",
-	"done",
-];
+import { WORKFLOW_STATUSES } from "@/shared/schemas/workflow-status";
 
 const PULSE_STATUS_LABELS: Record<string, string> = {
 	running: "Running",
@@ -334,7 +327,7 @@ export function JiraSection() {
 		key: "milestone" | "initiative" | "workflow";
 		label: string;
 		jiraTypeName: string;
-		statuses: Array<(typeof WORKFLOW_STATUSES)[number]>;
+		statuses: ReadonlyArray<(typeof WORKFLOW_STATUSES)[number]>;
 	}> = [
 		{
 			key: "milestone",
@@ -352,7 +345,7 @@ export function JiraSection() {
 			key: "workflow",
 			label: "Workflow",
 			jiraTypeName: "Story",
-			statuses: RELEVANT_WORKFLOW_STATUSES,
+			statuses: WORKFLOW_STATUSES,
 		},
 	];
 

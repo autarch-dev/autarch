@@ -1344,7 +1344,8 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 
 				// Run in background (non-blocking)
 				runner.run(initialMessage, { hidden: true }).catch((error) => {
-					const reason = error instanceof Error ? error.message : "Unknown error";
+					const reason =
+						error instanceof Error ? error.message : "Unknown error";
 					log.workflow.error(
 						`Execution agent failed for pulse ${nextPulse.id}:`,
 						error,
@@ -1460,7 +1461,8 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 
 				// Run in background (non-blocking)
 				runner.run(initialMessage, { hidden: true }).catch((error) => {
-					const reason = error instanceof Error ? error.message : "Unknown error";
+					const reason =
+						error instanceof Error ? error.message : "Unknown error";
 					log.workflow.error(
 						`Execution agent failed for pulse ${nextPulse.id}:`,
 						error,
