@@ -10,7 +10,6 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { bedrock } from "@ai-sdk/amazon-bedrock";
 import type {
 	AssistantModelMessage,
 	ModelMessage,
