@@ -267,7 +267,7 @@ function updateInitiativeSyncStatus(
 	});
 }
 
-function updateWorkflowSyncStatus(
+export function updateWorkflowSyncStatus(
 	workflowId: string,
 	status: JiraSyncStatus,
 	jiraKey?: string,

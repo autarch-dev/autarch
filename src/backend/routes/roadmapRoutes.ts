@@ -29,6 +29,7 @@ import { getProjectDb } from "../db/project";
 import { log } from "../logger";
 import { getProjectRoot } from "../projectRoot";
 import { getRepositories } from "../repositories";
+import { updateWorkflowSyncStatus } from "../services/jira";
 import { jiraSyncQueue } from "../services/jiraSyncQueue";
 import {
 	createPersonaRoadmaps,
@@ -778,14 +779,15 @@ export const roadmapRoutes = {
 					initiativeId: initiative.id,
 				});
 
-				// If a workflow was just linked, re-sync it so it adopts the
-				// initiative's Jira Story (resolves the race where sync-workflow
-				// ran before the link was established).
-				if (parsed.data.workflowId) {
-					jiraSyncQueue.enqueue({
-						type: "sync-workflow",
-						workflowId: parsed.data.workflowId,
-					});
+				// If a workflow was just linked and the initiative already has a
+				// Jira key, inherit it directly — no queue needed.
+				if (parsed.data.workflowId && initiative.jiraIssueKey) {
+					await updateWorkflowSyncStatus(
+						parsed.data.workflowId,
+						"synced",
+						initiative.jiraIssueKey,
+						initiative.jiraIssueId,
+					);
 				}
 
 				return Response.json(initiative);
