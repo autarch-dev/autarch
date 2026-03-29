@@ -102,7 +102,7 @@ export function ShellApprovalDialog({
 				{view === "approve" ? (
 					<>
 						{/* Command display */}
-						<div className="rounded-md bg-muted p-3 my-2">
+						<div className="rounded-md bg-muted p-3 my-2 max-h-[50vh] overflow-y-auto">
 							<code className="text-sm font-mono whitespace-pre-wrap break-all">
 								{command}
 							</code>
