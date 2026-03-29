@@ -124,6 +124,8 @@ export class WorkflowOrchestrator {
 	async createWorkflow(
 		prompt: string,
 		priority: "low" | "medium" | "high" | "urgent" = "medium",
+		jiraIssueId?: string,
+		jiraIssueKey?: string,
 	): Promise<Workflow> {
 		// Generate title and description from the user's prompt using LLM
 		const { title, description } =
@@ -135,6 +137,8 @@ export class WorkflowOrchestrator {
 			description,
 			priority,
 			status: "scoping",
+			jiraIssueId,
+			jiraIssueKey,
 		});
 
 		// Broadcast creation event

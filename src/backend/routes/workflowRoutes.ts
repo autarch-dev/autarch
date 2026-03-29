@@ -33,6 +33,8 @@ import {
 const CreateWorkflowRequestSchema = z.object({
 	prompt: z.string().min(1),
 	priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+	jiraIssueId: z.string().optional(),
+	jiraIssueKey: z.string().optional(),
 });
 
 const RequestChangesSchema = z.object({
@@ -176,6 +178,8 @@ export const workflowRoutes = {
 				const workflow = await orchestrator.createWorkflow(
 					parsed.data.prompt,
 					parsed.data.priority ?? "medium",
+					parsed.data.jiraIssueId,
+					parsed.data.jiraIssueKey,
 				);
 
 				log.api.success(`Created workflow: ${workflow.id}`);

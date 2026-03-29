@@ -25,6 +25,8 @@ export interface CreateWorkflowData {
 	priority?: WorkflowPriority;
 	status?: WorkflowStatus;
 	skippedStages?: string[];
+	jiraIssueId?: string;
+	jiraIssueKey?: string;
 }
 
 // =============================================================================
@@ -124,6 +126,8 @@ export class WorkflowRepository implements Repository {
 				archived: 0,
 				pending_artifact_type: null,
 				skipped_stages: JSON.stringify(data.skippedStages || []),
+				jira_issue_id: data.jiraIssueId ?? null,
+				jira_issue_key: data.jiraIssueKey ?? null,
 				created_at: now,
 				updated_at: now,
 			})
