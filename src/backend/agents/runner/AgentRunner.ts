@@ -10,6 +10,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { bedrock } from "@ai-sdk/amazon-bedrock";
 import type {
 	AssistantModelMessage,
 	ModelMessage,
@@ -262,6 +263,7 @@ export class AgentRunner {
 		userMessage: string,
 		options: RunOptions = {},
 		nudgeCount = 0,
+		cacheUserMessage = false,
 	): Promise<void> {
 		// Clone to avoid mutating the shared registry singleton
 		const agentConfig = { ...getAgentConfig(this.session.agentRole) };
@@ -356,6 +358,17 @@ export class AgentRunner {
 		const userMsg: UserModelMessage = {
 			role: "user",
 			content: userMessageContent,
+			providerOptions: {
+				...(cacheUserMessage
+					? {
+							bedrock: {
+								cachePoint: {
+									type: "default",
+								},
+							},
+						}
+					: {}),
+			},
 		};
 		conversationHistory.push(userMsg);
 
@@ -472,7 +485,7 @@ export class AgentRunner {
 		);
 
 		// Recursively call run with the nudge message
-		await this.run(nudgeMessage, options, currentNudgeCount + 1);
+		await this.run(nudgeMessage, options, currentNudgeCount + 1, true);
 	}
 
 	/**
@@ -514,7 +527,7 @@ export class AgentRunner {
 
 		// Continue with a simple prompt (reset nudge count for fresh allowance)
 		// Hide the continuation message from UI
-		await this.run("Continue.", { ...options, hidden: true }, 0);
+		await this.run("Continue.", { ...options, hidden: true }, 0, true);
 	}
 
 	/**
@@ -754,27 +767,6 @@ export class AgentRunner {
 						messages.push(toolMsg);
 					}
 				}
-			}
-		}
-
-		// After the main for (const turn of turns) loop:
-		for (let i = messages.length - 1; i >= 0; i--) {
-			const msg = messages[i];
-			if (msg && msg.role === "user" && msg.content === "Continue.") {
-				messages[i] = {
-					role: "user",
-					content: [
-						{
-							type: "text",
-							text: "Continue.",
-							providerOptions: {
-								bedrock: { cachePoint: { type: "default" } },
-							},
-						},
-					],
-				};
-
-				break; // rolling — only the last one
 			}
 		}
 
