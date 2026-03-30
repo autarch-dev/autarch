@@ -507,3 +507,77 @@ export async function mergePulseBranch(
 
 	log.git.info(`Merged pulse branch ${pulseBranch} into ${workflowBranch}`);
 }
+
+/**
+ * Push a workflow branch to origin and create a GitHub pull request via the gh CLI.
+ *
+ * @param repoRoot - Path to the main repository
+ * @param workflowBranch - The branch to push and open a PR from
+ * @param baseBranch - The target branch for the PR
+ * @param title - PR title (first line of commit message)
+ * @param body - PR body (remaining commit message content)
+ * @returns The URL of the created pull request
+ */
+export async function createPullRequest(
+	repoRoot: string,
+	workflowBranch: string,
+	baseBranch: string,
+	title: string,
+	body: string,
+): Promise<string> {
+	// Push branch to origin
+	const pushResult = await execGit(["push", "-u", "origin", workflowBranch], {
+		cwd: repoRoot,
+		askpass: true,
+	});
+	if (!pushResult.success) {
+		throw new Error(
+			`Failed to push branch ${workflowBranch}: ${pushResult.stderr}`,
+		);
+	}
+
+	// Create PR via gh CLI
+	const args = [
+		"pr",
+		"create",
+		"--base",
+		baseBranch,
+		"--head",
+		workflowBranch,
+		"--title",
+		title,
+		"--body",
+		body,
+	];
+
+	const proc = Bun.spawn(["gh", ...args], {
+		cwd: repoRoot,
+		stdout: "pipe",
+		stderr: "pipe",
+		stdin: "ignore",
+	});
+	const timer = setTimeout(() => proc.kill(), 30000);
+
+	const [stdout, stderr] = await Promise.all([
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+	]);
+
+	const exitCode = await proc.exited;
+	const timedOut = proc.killed;
+	clearTimeout(timer);
+
+	if (timedOut) {
+		throw new Error(`gh pr create timed out after 30s`);
+	}
+
+	if (exitCode !== 0) {
+		throw new Error(`gh pr create failed: ${stderr.trim()}`);
+	}
+
+	const prUrl = stdout.trim();
+	log.git.info(
+		`Created pull request for ${workflowBranch} -> ${baseBranch}: ${prUrl}`,
+	);
+	return prUrl;
+}

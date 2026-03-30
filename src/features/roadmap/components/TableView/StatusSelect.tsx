@@ -60,6 +60,8 @@ export function StatusSelect({
 		description?: string;
 		status: InitiativeStatus;
 		workflowId?: string;
+		jiraIssueId?: string;
+		jiraIssueKey?: string;
 	};
 	vision: VisionDocument | null;
 	onUpdateInitiative: (

@@ -50,6 +50,7 @@ import { migrate as migrate0042CacheTokens } from "./0042-cache-tokens";
 import { migrate as migrate0043OriginalToolCallId } from "./0043-original-tool-call-id";
 import { migrate as migrate0044JiraSyncColumns } from "./0044-jira-sync-columns";
 import { migrate as migrate0045PulseJiraIssueId } from "./0045-pulse-jira-issue-id";
+import { migrate as migrate0046PullRequestUrlColumn } from "./0046-pull-request-url-column";
 
 /**
  * Run all migrations for the project database.
@@ -136,4 +137,7 @@ export async function migrateProjectDb(
 
 	// jira_issue_id column on pulses (0045)
 	await migrate0045PulseJiraIssueId(db);
+
+	// pull_request_url column on workflows (0046)
+	await migrate0046PullRequestUrlColumn(db);
 }

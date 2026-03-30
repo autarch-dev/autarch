@@ -132,6 +132,7 @@ export default function ReviewCardApproval({
 	const [mergeErrorMessage, setMergeErrorMessage] = useState<string | null>(
 		null,
 	);
+	const [ghAvailable, setGhAvailable] = useState(false);
 	const [selectedCommentIds, setSelectedCommentIds] = useState<Set<string>>(
 		new Set(),
 	);
@@ -144,7 +145,7 @@ export default function ReviewCardApproval({
 		}
 	}, [reviewCard.status]);
 
-	// Fetch default merge strategy on mount
+	// Fetch default merge strategy and gh CLI status on mount
 	useEffect(() => {
 		setIsFetchingDefault(true);
 		fetch("/api/settings/merge-strategy")
@@ -166,6 +167,15 @@ export default function ReviewCardApproval({
 			})
 			.finally(() => {
 				setIsFetchingDefault(false);
+			});
+
+		fetch("/api/settings/gh-status")
+			.then((res) => res.json())
+			.then((data) => {
+				setGhAvailable(data.available === true);
+			})
+			.catch(() => {
+				setGhAvailable(false);
 			});
 	}, []);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -482,6 +492,7 @@ export default function ReviewCardApproval({
 				onSubmit={handleApproveAndMerge}
 				isSubmitting={isSubmitting}
 				isFetchingDefault={isFetchingDefault}
+				ghAvailable={ghAvailable}
 			/>
 		</>
 	);

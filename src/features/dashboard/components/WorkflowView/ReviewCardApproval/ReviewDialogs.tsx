@@ -6,7 +6,12 @@
  * - Rerun Review dialog
  */
 
-import { GitMerge, Loader2, RotateCcw } from "lucide-react";
+import {
+	GitMerge,
+	GitPullRequestCreateArrow,
+	Loader2,
+	RotateCcw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -204,6 +209,7 @@ interface ApproveDialogProps {
 	onSubmit: () => void;
 	isSubmitting: boolean;
 	isFetchingDefault: boolean;
+	ghAvailable: boolean;
 }
 
 export function ApproveDialog({
@@ -217,7 +223,9 @@ export function ApproveDialog({
 	onSubmit,
 	isSubmitting,
 	isFetchingDefault,
+	ghAvailable,
 }: ApproveDialogProps) {
+	const isPullRequest = selectedStrategy === "pull-request";
 	return (
 		<Dialog
 			open={open}
@@ -227,9 +235,13 @@ export function ApproveDialog({
 		>
 			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>Approve and Merge</DialogTitle>
+					<DialogTitle>
+						{isPullRequest ? "Open Pull Request" : "Approve and Merge"}
+					</DialogTitle>
 					<DialogDescription>
-						Choose a merge strategy and confirm the commit message.
+						{isPullRequest
+							? "Push the branch and open a pull request on GitHub."
+							: "Choose a merge strategy and confirm the commit message."}
 					</DialogDescription>
 				</DialogHeader>
 				<div className="space-y-4 py-4">
@@ -257,11 +269,17 @@ export function ApproveDialog({
 								<SelectItem value="squash">Squash</SelectItem>
 								<SelectItem value="merge-commit">Merge commit</SelectItem>
 								<SelectItem value="rebase">Rebase and merge</SelectItem>
+								<SelectItem value="pull-request" disabled={!ghAvailable}>
+									Open pull request
+									{!ghAvailable && " (gh CLI unavailable)"}
+								</SelectItem>
 							</SelectContent>
 						</Select>
 					</div>
 					<div className="space-y-2">
-						<Label htmlFor="commit-message">Commit Message</Label>
+						<Label htmlFor="commit-message">
+							{isPullRequest ? "PR Title & Description" : "Commit Message"}
+						</Label>
 						<Textarea
 							id="commit-message"
 							value={commitMessage}
@@ -269,15 +287,23 @@ export function ApproveDialog({
 							placeholder={
 								selectedStrategy === "fast-forward"
 									? "Not required for fast-forward merge"
-									: "Enter commit message..."
+									: isPullRequest
+										? "feat(scope): PR title\n\nOptional description..."
+										: "Enter commit message..."
 							}
-							rows={4}
+							rows={isPullRequest ? 6 : 4}
 							disabled={selectedStrategy === "fast-forward"}
 						/>
 						{selectedStrategy === "fast-forward" && (
 							<p className="text-xs text-muted-foreground">
 								Fast-forward merges don't create a new commit, so no message is
 								needed.
+							</p>
+						)}
+						{isPullRequest && (
+							<p className="text-xs text-muted-foreground">
+								First line becomes the PR title. Everything after becomes the PR
+								description.
 							</p>
 						)}
 					</div>
@@ -305,8 +331,12 @@ export function ApproveDialog({
 						}
 					>
 						{isSubmitting && <Loader2 className="size-4 mr-1 animate-spin" />}
-						<GitMerge className="size-4 mr-1" />
-						Approve and Merge
+						{isPullRequest ? (
+							<GitPullRequestCreateArrow className="size-4 mr-1" />
+						) : (
+							<GitMerge className="size-4 mr-1" />
+						)}
+						{isPullRequest ? "Open Pull Request" : "Approve and Merge"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -933,6 +933,29 @@ export const workflowRoutes = {
 		},
 	},
 
+	"/api/settings/gh-status": {
+		async GET() {
+			try {
+				const proc = Bun.spawn(["gh", "auth", "status"], {
+					stdout: "pipe",
+					stderr: "pipe",
+					stdin: "ignore",
+				});
+				const stderr = await new Response(proc.stderr).text();
+				const exitCode = await proc.exited;
+				return Response.json({
+					available: exitCode === 0,
+					message: exitCode === 0 ? "Authenticated" : stderr.trim(),
+				});
+			} catch {
+				return Response.json({
+					available: false,
+					message: "gh CLI not found",
+				});
+			}
+		},
+	},
+
 	"/api/settings/hooks": {
 		async GET() {
 			try {

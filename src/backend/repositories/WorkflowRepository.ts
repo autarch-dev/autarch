@@ -64,6 +64,7 @@ export class WorkflowRepository implements Repository {
 			jiraSyncStatus: row.jira_sync_status ?? undefined,
 			jiraSyncedAt: row.jira_synced_at ?? undefined,
 			jiraSyncError: row.jira_sync_error ?? undefined,
+			pullRequestUrl: row.pull_request_url ?? undefined,
 		};
 	}
 
@@ -245,6 +246,20 @@ export class WorkflowRepository implements Repository {
 			.updateTable("workflows")
 			.set({
 				base_branch: baseBranch,
+				updated_at: Date.now(),
+			})
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
+	 * Set the pull request URL for a workflow (set when completing via "Open PR")
+	 */
+	async setPullRequestUrl(id: string, url: string): Promise<void> {
+		await this.db
+			.updateTable("workflows")
+			.set({
+				pull_request_url: url,
 				updated_at: Date.now(),
 			})
 			.where("id", "=", id)

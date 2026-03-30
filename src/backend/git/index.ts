@@ -26,6 +26,7 @@ export {
 export { getDiff, getUncommittedDiff } from "./diffs";
 // Re-export merge operations (7 functions)
 export {
+	createPullRequest,
 	fastForwardMerge,
 	mergeCommit,
 	mergePulseBranch,

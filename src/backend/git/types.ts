@@ -25,6 +25,7 @@ export type MergeStrategy =
 	| "squash"
 	| "merge-commit"
 	| "rebase";
+// Excludes `pull-request` because that isn't handled by the git module
 
 // =============================================================================
 // Constants

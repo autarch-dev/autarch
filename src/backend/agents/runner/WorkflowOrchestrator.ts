@@ -14,6 +14,7 @@ import type { KnowledgeCategory } from "@/backend/db/knowledge/types";
 import {
 	checkoutInWorktree,
 	cleanupWorkflow,
+	createPullRequest,
 	getCurrentBranch,
 	getDiff,
 	getWorktreePath,
@@ -337,9 +338,11 @@ export class WorkflowOrchestrator {
 		}
 
 		// Handle merge and cleanup for review stage approvals
+		const { mergeStrategy, commitMessage } = options ?? {};
+
 		if (
-			options?.mergeStrategy &&
-			options?.commitMessage &&
+			mergeStrategy &&
+			commitMessage &&
 			workflow.pendingArtifactType === "review_card"
 		) {
 			const baseBranch = workflow.baseBranch;
@@ -389,51 +392,99 @@ export class WorkflowOrchestrator {
 				}
 			}
 
-			try {
-				// Merge workflow branch into base branch
-				await mergeWorkflowBranch(
-					projectRoot,
-					worktreePath,
-					baseBranch,
-					workflowBranch,
-					options.mergeStrategy,
-					options.commitMessage,
-					trailers,
-				);
-
-				log.workflow.info(
-					`Merged workflow ${workflowId} into ${baseBranch} using ${options.mergeStrategy} strategy`,
-				);
-
-				// Cleanup worktree and delete workflow branch
-				await cleanupWorkflow(projectRoot, workflowId, { deleteBranch: true });
-				log.workflow.info(
-					`Cleaned up workflow ${workflowId} after successful merge`,
-				);
-			} catch (error) {
-				const errorMessage =
-					error instanceof Error ? error.message : String(error);
-				log.workflow.error(
-					`Merge failed for workflow ${workflowId}: ${errorMessage}`,
-				);
-
-				// Attempt to restore worktree to workflow branch to leave it in a consistent state
+			if (mergeStrategy === "pull-request") {
+				// Open a pull request instead of merging locally
 				try {
-					await checkoutInWorktree(worktreePath, workflowBranch);
-					log.workflow.info(
-						`Restored worktree to ${workflowBranch} after merge failure`,
+					// Parse commit message: first line = PR title, rest = PR body
+					const [firstLine = "", ...restLines] = commitMessage.split("\n");
+					const prTitle = firstLine.trim() || workflow.title;
+					const prBody = restLines.join("\n").trim();
+
+					const prUrl = await createPullRequest(
+						projectRoot,
+						workflowBranch,
+						baseBranch,
+						prTitle,
+						prBody,
 					);
-				} catch (restoreError) {
-					// Log but don't throw - the original error is more important
+
+					await this.workflowRepo.setPullRequestUrl(workflowId, prUrl);
+
+					log.workflow.info(`Created PR for workflow ${workflowId}: ${prUrl}`);
+
+					// Clean up worktree but keep the branch (PR needs the remote branch)
+					await cleanupWorkflow(projectRoot, workflowId, {
+						deleteBranch: false,
+					});
+					log.workflow.info(
+						`Cleaned up worktree for workflow ${workflowId} after PR creation`,
+					);
+				} catch (error) {
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
 					log.workflow.error(
-						`Failed to restore worktree to ${workflowBranch}: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`,
+						`PR creation failed for workflow ${workflowId}: ${errorMessage}`,
+					);
+
+					try {
+						await checkoutInWorktree(worktreePath, workflowBranch);
+					} catch (restoreError) {
+						log.workflow.error(
+							`Failed to restore worktree to ${workflowBranch}: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`,
+						);
+					}
+
+					throw new Error(`Failed to create pull request: ${errorMessage}`);
+				}
+			} else {
+				try {
+					// Merge workflow branch into base branch
+					await mergeWorkflowBranch(
+						projectRoot,
+						worktreePath,
+						baseBranch,
+						workflowBranch,
+						mergeStrategy,
+						commitMessage,
+						trailers,
+					);
+
+					log.workflow.info(
+						`Merged workflow ${workflowId} into ${baseBranch} using ${mergeStrategy} strategy`,
+					);
+
+					// Cleanup worktree and delete workflow branch
+					await cleanupWorkflow(projectRoot, workflowId, {
+						deleteBranch: true,
+					});
+					log.workflow.info(
+						`Cleaned up workflow ${workflowId} after successful merge`,
+					);
+				} catch (error) {
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
+					log.workflow.error(
+						`Merge failed for workflow ${workflowId}: ${errorMessage}`,
+					);
+
+					// Attempt to restore worktree to workflow branch to leave it in a consistent state
+					try {
+						await checkoutInWorktree(worktreePath, workflowBranch);
+						log.workflow.info(
+							`Restored worktree to ${workflowBranch} after merge failure`,
+						);
+					} catch (restoreError) {
+						// Log but don't throw - the original error is more important
+						log.workflow.error(
+							`Failed to restore worktree to ${workflowBranch}: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`,
+						);
+					}
+
+					// Do NOT call transitionStage - workflow stays in review
+					throw new Error(
+						`Failed to merge workflow branch into ${baseBranch}: ${errorMessage}`,
 					);
 				}
-
-				// Do NOT call transitionStage - workflow stays in review
-				throw new Error(
-					`Failed to merge workflow branch into ${baseBranch}: ${errorMessage}`,
-				);
 			}
 		}
 

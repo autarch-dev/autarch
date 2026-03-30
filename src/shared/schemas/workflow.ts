@@ -241,6 +241,7 @@ export const MergeStrategySchema = z.enum([
 	"squash",
 	"merge-commit",
 	"rebase",
+	"pull-request",
 ]);
 export type MergeStrategy = z.infer<typeof MergeStrategySchema>;
 
@@ -274,6 +275,7 @@ export const WorkflowSchema = z.object({
 	jiraSyncStatus: JiraSyncStatusSchema.optional(),
 	jiraSyncedAt: z.number().optional(),
 	jiraSyncError: z.string().optional(),
+	pullRequestUrl: z.string().optional(),
 });
 export type Workflow = z.infer<typeof WorkflowSchema>;
 

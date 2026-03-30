@@ -107,6 +107,7 @@ export interface WorkflowsTable {
 	jira_sync_status: JiraSyncStatus | null;
 	jira_synced_at: number | null;
 	jira_sync_error: string | null;
+	pull_request_url: string | null;
 }
 
 // =============================================================================
