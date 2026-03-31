@@ -621,7 +621,19 @@ That's the job. Get that right, and everything downstream gets easier.
 
 ---
 
-## Quick Reference: The Checkpoint Pattern
+${
+	options.agentsMdContent
+		? `## Repository Agent Guidelines
+
+The repository contains an agent guidelines file with project-specific instructions and context. These guidelines were written by the repository maintainers to help AI agents understand the project's conventions, architecture, and preferences. Treat them as authoritative project context.
+
+${options.agentsMdContent}
+
+---
+
+`
+		: ""
+}## Quick Reference: The Checkpoint Pattern
 
 Every turn *MUST* follow this structure:
 

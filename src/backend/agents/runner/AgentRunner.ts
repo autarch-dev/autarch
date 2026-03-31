@@ -575,6 +575,22 @@ export class AgentRunner extends BaseAgentRunner {
 			(t) => t.name === "submit_roadmap" || t.name === "submit_persona_roadmap",
 		)?.name;
 
+		// Read AGENTS.md or CLAUDE.md from repository root for research agent context
+		let agentsMdContent: string | undefined;
+		if (agentConfig.role === "research") {
+			for (const filename of ["AGENTS.md", "CLAUDE.md"]) {
+				try {
+					agentsMdContent = await fs.readFile(
+						path.join(this.config.projectRoot, filename),
+						"utf-8",
+					);
+					break;
+				} catch {
+					// File doesn't exist, try next
+				}
+			}
+		}
+
 		// Start streaming with AI SDK
 		const result = streamText({
 			model,
@@ -582,6 +598,7 @@ export class AgentRunner extends BaseAgentRunner {
 				content: agentConfig.systemPrompt({
 					hasWebCodeSearch: hasExaKey,
 					submitToolName,
+					agentsMdContent,
 				}),
 				role: "system",
 				providerOptions: {

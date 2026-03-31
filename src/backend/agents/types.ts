@@ -30,6 +30,8 @@ export interface AgentPromptOptions {
 	hasKnowledgebaseContext?: boolean;
 	/** Override the submit tool name referenced in persona prompts (e.g. 'submit_roadmap' for single-persona mode) */
 	submitToolName?: string;
+	/** Contents of AGENTS.md or CLAUDE.md from the repository root, if present */
+	agentsMdContent?: string;
 }
 
 /**
