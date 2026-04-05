@@ -142,6 +142,7 @@ export async function* parseClaudeStream(
 	const decoder = new TextDecoder();
 	let buffer = "";
 	let sessionIdEmitted = false;
+	let hasSeenStreamEvents = false;
 
 	try {
 		while (true) {
@@ -180,9 +181,12 @@ export async function* parseClaudeStream(
 				}
 
 				if (event.type === "stream_event") {
+					hasSeenStreamEvents = true;
 					yield* processStreamEvent(event as unknown as StreamEvent);
 				} else if (event.type === "assistant") {
-					// Complete assistant message (emitted without --include-partial-messages)
+					// Skip assistant message if we already got streaming deltas
+					// (with --include-partial-messages, both are emitted — avoid double-counting)
+					if (hasSeenStreamEvents) break;
 					yield* processAssistantMessage(event as unknown as AssistantEvent);
 				} else if (event.type === "result") {
 					const result = event as unknown as ResultEvent;

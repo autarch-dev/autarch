@@ -256,6 +256,7 @@ export class ClaudeCodeRunner
 			"--output-format",
 			"stream-json",
 			"--verbose",
+			"--include-partial-messages",
 			"--model",
 			modelAlias,
 			"--mcp-config",
@@ -338,6 +339,7 @@ export class ClaudeCodeRunner
 		let currentSegmentBuffer = "";
 		let currentSegmentIndex = 0;
 		let activeToolCallId: string | null = null;
+		let toolInputBuffer = "";
 		const nativeToolCalls = new Map<string, ToolCall>();
 		let usage = {
 			inputTokens: 0,
@@ -416,14 +418,14 @@ export class ClaudeCodeRunner
 						}
 
 						activeToolCallId = event.toolCallId;
+						toolInputBuffer = "";
 
-						// Record all tool calls in DB for UI rendering.
-						// Strip the mcp__autarch__ prefix for MCP tools so the UI
-						// shows the clean tool name (e.g., "find_symbol" not "mcp__autarch__find_symbol").
+						// Strip the mcp__autarch__ prefix for display
 						const displayName = event.toolName.startsWith("mcp__autarch__")
 							? event.toolName.slice("mcp__autarch__".length)
 							: event.toolName;
 
+						// Record tool start immediately (will update with input on tool_end)
 						const toolCall = await this.recordToolStart(
 							turnId,
 							currentSegmentIndex,
@@ -436,18 +438,43 @@ export class ClaudeCodeRunner
 						break;
 					}
 
+					case "tool_input_delta": {
+						toolInputBuffer += event.partialJson;
+						break;
+					}
+
 					case "tool_end":
 					case "content_block_end": {
 						if (activeToolCallId) {
-							// Complete native tool records
 							const toolCall = nativeToolCalls.get(activeToolCallId);
 							if (toolCall) {
+								// Parse buffered input to extract reason
+								let parsedInput: unknown = {};
+								if (toolInputBuffer.length > 0) {
+									try {
+										parsedInput = JSON.parse(toolInputBuffer);
+									} catch {
+										// Partial/malformed JSON — use raw string
+										parsedInput = { raw: toolInputBuffer };
+									}
+								}
+
+								// Update the tool record with the actual input
+								// (recordToolStart was called with {} — update reason from parsed input)
+								if (
+									typeof parsedInput === "object" &&
+									parsedInput !== null &&
+									"reason" in parsedInput
+								) {
+									toolCall.reason = (parsedInput as { reason: string }).reason;
+								}
+
 								await this.recordToolComplete(toolCall, "", true);
 								options.onToolCompleted?.(toolCall);
 								nativeToolCalls.delete(activeToolCallId);
 							}
 							activeToolCallId = null;
-
+							toolInputBuffer = "";
 							currentSegmentIndex++;
 						}
 						break;
