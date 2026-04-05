@@ -181,6 +181,9 @@ export async function* parseClaudeStream(
 
 				if (event.type === "stream_event") {
 					yield* processStreamEvent(event as unknown as StreamEvent);
+				} else if (event.type === "assistant") {
+					// Complete assistant message (emitted without --include-partial-messages)
+					yield* processAssistantMessage(event as unknown as AssistantEvent);
 				} else if (event.type === "result") {
 					const result = event as unknown as ResultEvent;
 					yield {
@@ -253,5 +256,39 @@ function* processStreamEvent(event: StreamEvent): Generator<ParsedEvent> {
 
 		// message_start, message_delta, message_stop — no action needed
 		// (session_id is captured from top-level, usage from result event)
+	}
+}
+
+/**
+ * Process an assistant message (complete, non-streaming).
+ * Emitted by Claude Code when --include-partial-messages is not set.
+ * Extract text and tool_use blocks from the message content.
+ */
+function* processAssistantMessage(
+	event: AssistantEvent,
+): Generator<ParsedEvent> {
+	const msg = event.message as {
+		content?: Array<{
+			type: string;
+			text?: string;
+			id?: string;
+			name?: string;
+			input?: unknown;
+		}>;
+	};
+
+	if (!msg?.content || !Array.isArray(msg.content)) return;
+
+	for (const block of msg.content) {
+		if (block.type === "text" && block.text) {
+			yield { type: "text_delta", text: block.text };
+		} else if (block.type === "tool_use" && block.id && block.name) {
+			yield {
+				type: "tool_start",
+				toolCallId: block.id,
+				toolName: block.name,
+			};
+			yield { type: "tool_end", toolCallId: block.id };
+		}
 	}
 }

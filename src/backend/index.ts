@@ -22,6 +22,7 @@ let serverRef: ReturnType<typeof serve>;
 
 const server = serve({
 	port: 0, // Random available port
+	idleTimeout: 120, // 2 minutes — MCP tool calls (e.g., shell, LLM) can take time
 
 	routes: {
 		// API routes - Bun handles dynamic :param routes natively

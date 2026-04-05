@@ -17,6 +17,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { TERMINAL_TOOLS } from "@/backend/agents/runner/BaseAgentRunner";
 import { getSessionManager } from "@/backend/agents/runner/SessionManager";
 import type { ActiveSession } from "@/backend/agents/runner/types";
+// getAgentConfig is lazy-imported in createMcpServerForRequest to avoid
+// circular dependency: McpServer → registry → tools → blocks (not yet initialized)
 import { getProjectDb } from "@/backend/db/project";
 import {
 	createChannelToolContext,
@@ -30,45 +32,54 @@ import { signalTermination } from "./runnerRegistry";
 import { isMcpTool } from "./toolClassification";
 
 // =============================================================================
-// Session-scoped MCP server instances
+// MCP Server Factory
 // =============================================================================
 
-const mcpServers = new Map<string, McpServer>();
-
 /**
- * Get or create an MCP server instance for a session.
+ * Create a fresh MCP server for a single request.
  *
- * Each session gets its own McpServer with tools registered based on
- * the session's agent role. The server is stateless per-request via
- * WebStandardStreamableHTTPServerTransport.
+ * The MCP SDK's McpServer can only be connected to one transport at a time,
+ * and stateless HTTP mode creates a new transport per request. So we create
+ * a new McpServer per request as well. Tool registration is cheap — it's
+ * just building a handler map, no I/O.
+ *
+ * Looks up the session's agent role to filter tools — only tools assigned
+ * to that role in the agent registry are exposed via MCP.
  */
-export function getOrCreateMcpServer(sessionId: string): McpServer {
-	const existing = mcpServers.get(sessionId);
-	if (existing) {
-		return existing;
+export async function createMcpServerForRequest(
+	sessionId: string,
+): Promise<McpServer> {
+	// Look up the session to determine which tools to expose
+	const sessionManager = getSessionManager();
+	const session = await sessionManager.getOrRestoreSession(sessionId);
+
+	let allowedToolNames: Set<string> | null = null;
+	if (session) {
+		const { getAgentConfig } =
+			require("@/backend/agents/registry") as typeof import("@/backend/agents/registry");
+		const agentConfig = getAgentConfig(session.agentRole);
+		allowedToolNames = new Set(agentConfig.tools.map((t: { name: string }) => t.name));
 	}
 
-	const server = createMcpServer(sessionId);
-	mcpServers.set(sessionId, server);
-	return server;
+	return createMcpServer(sessionId, allowedToolNames);
 }
 
 /**
  * Clean up an MCP server when a session ends.
+ * No-op in stateless mode since servers are created per-request.
  */
-export async function cleanupMcpServer(sessionId: string): Promise<void> {
-	const server = mcpServers.get(sessionId);
-	if (server) {
-		await server.close();
-		mcpServers.delete(sessionId);
-	}
+export async function cleanupMcpServer(_sessionId: string): Promise<void> {
+	// Stateless mode: nothing to clean up
 }
 
 // =============================================================================
 // MCP Server Creation
 // =============================================================================
 
-function createMcpServer(sessionId: string): McpServer {
+function createMcpServer(
+	sessionId: string,
+	allowedToolNames: Set<string> | null,
+): McpServer {
 	const server = new McpServer(
 		{
 			name: "autarch",
@@ -81,9 +92,13 @@ function createMcpServer(sessionId: string): McpServer {
 		},
 	);
 
-	// Register all MCP-classified tools
+	// Register MCP-classified tools that this role has access to
 	for (const [toolName, registeredTool] of Object.entries(toolRegistry)) {
 		if (!isMcpTool(toolName)) {
+			continue;
+		}
+		// If we know the role's tools, filter to only those
+		if (allowedToolNames && !allowedToolNames.has(toolName)) {
 			continue;
 		}
 

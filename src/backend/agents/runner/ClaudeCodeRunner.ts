@@ -35,6 +35,17 @@ import { BaseAgentRunner } from "./BaseAgentRunner";
 import type { RunOptions } from "./types";
 
 // =============================================================================
+// Claude Code Session ID Cache
+// =============================================================================
+
+/**
+ * Maps Autarch session IDs to Claude Code session IDs.
+ * Persists across ClaudeCodeRunner instances (which are created fresh per run()
+ * call via the factory) so that --resume works for multi-turn conversations.
+ */
+const ccSessionIds = new Map<string, string>();
+
+// =============================================================================
 // ClaudeCodeRunner
 // =============================================================================
 
@@ -42,9 +53,6 @@ export class ClaudeCodeRunner
 	extends BaseAgentRunner
 	implements KillableRunner
 {
-	/** Claude Code session ID for --resume across nudge/continue calls */
-	private ccSessionId: string | null = null;
-
 	/** Set by MCP handler when a terminal tool fires */
 	private shouldTerminate = false;
 
@@ -181,16 +189,12 @@ export class ClaudeCodeRunner
 				);
 
 				// Build CLI args
-				const args = this.buildCliArgs(
-					mcpConfigPath,
-					promptPath,
-					modelAlias,
-					fullMessage,
-				);
+				const args = this.buildCliArgs(mcpConfigPath, promptPath, modelAlias);
 
 				// Spawn claude -p
 				const usage = await this.spawnAndStream(
 					args,
+					fullMessage,
 					assistantTurn.id,
 					options,
 				);
@@ -245,12 +249,10 @@ export class ClaudeCodeRunner
 		mcpConfigPath: string,
 		promptPath: string,
 		modelAlias: string,
-		message: string,
 	): string[] {
 		const args = [
 			"claude",
 			"-p",
-			"--bare",
 			"--output-format",
 			"stream-json",
 			"--verbose",
@@ -258,19 +260,22 @@ export class ClaudeCodeRunner
 			modelAlias,
 			"--mcp-config",
 			mcpConfigPath,
+			"--strict-mcp-config",
 			"--append-system-prompt-file",
 			promptPath,
 			"--allowedTools",
 			getAllowedTools(this.session.agentRole),
+			"--permission-mode",
+			"acceptEdits",
+			"--disable-slash-commands",
+			"--no-chrome",
 		];
 
 		// Resume existing Claude Code session for nudge/continue
-		if (this.ccSessionId) {
-			args.push("--resume", this.ccSessionId);
+		const ccSessionId = ccSessionIds.get(this.session.id);
+		if (ccSessionId) {
+			args.push("--resume", ccSessionId);
 		}
-
-		// User message as positional argument
-		args.push(message);
 
 		return args;
 	}
@@ -281,6 +286,7 @@ export class ClaudeCodeRunner
 
 	private async spawnAndStream(
 		args: string[],
+		message: string,
 		turnId: string,
 		options: RunOptions,
 	): Promise<{
@@ -290,16 +296,23 @@ export class ClaudeCodeRunner
 	}> {
 		const cwd = this.config.worktreePath ?? this.config.projectRoot;
 
-		log.agent.debug(
-			`[ClaudeCode] Spawning: ${args.slice(0, 5).join(" ")} ... (cwd: ${cwd})`,
-		);
+		log.agent.info(`[ClaudeCode] Spawning: ${args.join(" ")} (cwd: ${cwd})`);
+		log.agent.debug(`[ClaudeCode] Message length: ${message.length} chars`);
 
 		const proc = Bun.spawn(args, {
 			cwd,
+			stdin: "pipe",
 			stdout: "pipe",
 			stderr: "pipe",
 			env: { ...process.env },
 		});
+
+		// Write message to stdin, then close to signal EOF
+		proc.stdin.write(message);
+		proc.stdin.end();
+
+		// Collect stderr concurrently (must start before stdout consumption)
+		const stderrPromise = new Response(proc.stderr).text();
 
 		// Set up abort handling
 		const signal = options.signal ?? this.session.abortController?.signal;
@@ -332,9 +345,9 @@ export class ClaudeCodeRunner
 
 				switch (event.type) {
 					case "session_id": {
-						this.ccSessionId = event.sessionId;
-						log.agent.debug(
-							`[ClaudeCode] Captured session ID: ${event.sessionId}`,
+						ccSessionIds.set(this.session.id, event.sessionId);
+						log.agent.info(
+							`[ClaudeCode] Captured CC session ID: ${event.sessionId}`,
 						);
 						break;
 					}
@@ -438,17 +451,39 @@ export class ClaudeCodeRunner
 			// Wait for process to exit
 			await proc.exited;
 
-			if (proc.exitCode !== 0 && !this.shouldTerminate) {
-				const stderr = await new Response(proc.stderr).text();
-				if (stderr.trim()) {
-					log.agent.error(`[ClaudeCode] stderr: ${stderr.slice(0, 500)}`);
-				}
-				// Don't throw on non-zero exit if we intentionally killed the process
-				if (proc.exitCode !== null && proc.exitCode !== 143) {
-					throw new Error(
-						`Claude Code exited with code ${proc.exitCode}: ${stderr.slice(0, 200)}`,
+			// Log any buffered text content on exit (helps debug when CC exits unexpectedly)
+			if (proc.exitCode !== 0 && currentSegmentBuffer.trim()) {
+				log.agent.debug(
+					`[ClaudeCode] Buffered stdout at exit:\n${currentSegmentBuffer.slice(0, 1000)}`,
+				);
+			}
+
+			// Always capture stderr (collected concurrently since spawn)
+			const stderr = await stderrPromise;
+			if (stderr.trim()) {
+				const level =
+					proc.exitCode !== 0 && !this.shouldTerminate ? "error" : "debug";
+				if (level === "error") {
+					log.agent.error(
+						`[ClaudeCode] stderr (exit ${proc.exitCode}):\n${stderr.slice(0, 1000)}`,
+					);
+				} else {
+					log.agent.debug(
+						`[ClaudeCode] stderr (exit ${proc.exitCode}):\n${stderr.slice(0, 1000)}`,
 					);
 				}
+			}
+
+			// Throw on unexpected non-zero exit
+			if (
+				proc.exitCode !== 0 &&
+				!this.shouldTerminate &&
+				proc.exitCode !== null &&
+				proc.exitCode !== 143
+			) {
+				throw new Error(
+					`Claude Code exited with code ${proc.exitCode}: ${stderr.slice(0, 200)}`,
+				);
 			}
 		} finally {
 			signal?.removeEventListener("abort", abortHandler);
