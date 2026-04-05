@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { CreateChannelRequestSchema } from "@/shared/schemas/channel";
 import {
+	createChannelArchivedEvent,
 	createChannelCreatedEvent,
 	createChannelDeletedEvent,
 } from "@/shared/schemas/events";
@@ -245,6 +246,49 @@ export const channelRoutes = {
 				return Response.json(response);
 			} catch (error) {
 				log.api.error("Failed to get channel history:", error);
+				return Response.json(
+					{ error: error instanceof Error ? error.message : "Unknown error" },
+					{ status: 500 },
+				);
+			}
+		},
+	},
+
+	"/api/channels/:id/archive": {
+		async POST(req: Request) {
+			const params = parseParams(req, IdParamSchema);
+			if (!params) {
+				return Response.json({ error: "Invalid channel ID" }, { status: 400 });
+			}
+			try {
+				const repos = getRepositories();
+
+				// Check if channel exists
+				const channel = await repos.channels.getById(params.id);
+				if (!channel) {
+					return Response.json({ error: "Channel not found" }, { status: 404 });
+				}
+
+				// Stop any active session for this channel
+				const sessionManager = getSessionManager();
+				const activeSession = sessionManager.getSessionByContext(
+					"channel",
+					params.id,
+				);
+				if (activeSession) {
+					await sessionManager.stopSession(activeSession.id);
+				}
+
+				// Archive the channel
+				await repos.channels.archive(params.id);
+
+				// Broadcast archive event
+				broadcast(createChannelArchivedEvent({ channelId: params.id }));
+
+				log.api.success(`Archived channel: ${params.id}`);
+				return Response.json({ success: true });
+			} catch (error) {
+				log.api.error("Failed to archive channel:", error);
 				return Response.json(
 					{ error: error instanceof Error ? error.message : "Unknown error" },
 					{ status: 500 },
