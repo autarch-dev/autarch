@@ -172,8 +172,21 @@ export class ClaudeCodeRunner
 				);
 				await fs.writeFile(promptPath, systemPrompt);
 
+				// Resolve model alias for this agent role
+				const { getClaudeCodeModelForRole } = await import(
+					"@/backend/services/globalSettings"
+				);
+				const modelAlias = await getClaudeCodeModelForRole(
+					this.session.agentRole,
+				);
+
 				// Build CLI args
-				const args = this.buildCliArgs(mcpConfigPath, promptPath, fullMessage);
+				const args = this.buildCliArgs(
+					mcpConfigPath,
+					promptPath,
+					modelAlias,
+					fullMessage,
+				);
 
 				// Spawn claude -p
 				const usage = await this.spawnAndStream(
@@ -231,6 +244,7 @@ export class ClaudeCodeRunner
 	private buildCliArgs(
 		mcpConfigPath: string,
 		promptPath: string,
+		modelAlias: string,
 		message: string,
 	): string[] {
 		const args = [
@@ -240,6 +254,8 @@ export class ClaudeCodeRunner
 			"--output-format",
 			"stream-json",
 			"--verbose",
+			"--model",
+			modelAlias,
 			"--mcp-config",
 			mcpConfigPath,
 			"--append-system-prompt-file",

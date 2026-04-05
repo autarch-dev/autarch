@@ -3,12 +3,14 @@ import type {
 	AgentBackend,
 	AIProvider,
 	ApiKeysResponse,
+	ClaudeCodeModelPreferences,
 	ModelPreferences,
 	OnboardingStatusResponse,
 } from "@/shared/schemas/settings";
 import {
 	fetchAgentBackend,
 	fetchApiKeysStatus,
+	fetchCcModelPreferences,
 	fetchGitIdentity,
 	fetchGitIdentityDefaults,
 	fetchModelPreferences,
@@ -16,6 +18,7 @@ import {
 	saveGitIdentity as saveGitIdentityApi,
 	setApiKey,
 	updateAgentBackend,
+	updateCcModelPreferences,
 	updateModelPreferences,
 } from "../api/settingsApi";
 
@@ -29,6 +32,7 @@ export type WizardStep =
 	| "agent-backend"
 	| "api-keys"
 	| "model-prefs"
+	| "cc-model-prefs"
 	| "git-identity"
 	| "complete";
 
@@ -54,10 +58,15 @@ interface OnboardingState {
 	loadApiKeysStatus: () => Promise<void>;
 	saveApiKey: (provider: AIProvider, key: string) => Promise<void>;
 
-	// Model preferences
+	// Model preferences (API backend)
 	modelPreferences: ModelPreferences | null;
 	loadModelPreferences: () => Promise<void>;
 	saveModelPreferences: (prefs: ModelPreferences) => Promise<void>;
+
+	// Claude Code model preferences
+	ccModelPreferences: ClaudeCodeModelPreferences | null;
+	loadCcModelPreferences: () => Promise<void>;
+	saveCcModelPreferences: (prefs: ClaudeCodeModelPreferences) => Promise<void>;
 
 	// Git identity
 	gitIdentityName: string;
@@ -83,9 +92,30 @@ const STEP_ORDER: WizardStep[] = [
 	"agent-backend",
 	"api-keys",
 	"model-prefs",
+	"cc-model-prefs",
 	"git-identity",
 	"complete",
 ];
+
+// =============================================================================
+// Step Skipping Logic
+// =============================================================================
+
+/**
+ * Determine if a step should be skipped based on the selected backend.
+ * - "api-keys" and "model-prefs" are skipped when using Claude Code
+ *   (Claude Code doesn't need API keys, and has its own model step)
+ * - "cc-model-prefs" is skipped when using API backend
+ */
+function isStepSkipped(step: WizardStep, backend: AgentBackend): boolean {
+	if (backend === "claude-code") {
+		return step === "api-keys" || step === "model-prefs";
+	}
+	if (backend === "api") {
+		return step === "cc-model-prefs";
+	}
+	return false;
+}
 
 // =============================================================================
 // Store
@@ -101,22 +131,26 @@ export const useOnboarding = create<OnboardingState>((set, get) => ({
 	setStep: (step) => set({ currentStep: step }),
 
 	nextStep: () => {
-		const { currentStep } = get();
+		const { currentStep, agentBackend } = get();
 		const currentIndex = STEP_ORDER.indexOf(currentStep);
-		const nextIndex = Math.min(currentIndex + 1, STEP_ORDER.length - 1);
-		const nextStep = STEP_ORDER[nextIndex];
-		if (nextStep) {
-			set({ currentStep: nextStep });
+		for (let i = currentIndex + 1; i < STEP_ORDER.length; i++) {
+			const step = STEP_ORDER[i];
+			if (step && !isStepSkipped(step, agentBackend)) {
+				set({ currentStep: step });
+				return;
+			}
 		}
 	},
 
 	prevStep: () => {
-		const { currentStep } = get();
+		const { currentStep, agentBackend } = get();
 		const currentIndex = STEP_ORDER.indexOf(currentStep);
-		const prevIndex = Math.max(currentIndex - 1, 0);
-		const prevStep = STEP_ORDER[prevIndex];
-		if (prevStep) {
-			set({ currentStep: prevStep });
+		for (let i = currentIndex - 1; i >= 0; i--) {
+			const step = STEP_ORDER[i];
+			if (step && !isStepSkipped(step, agentBackend)) {
+				set({ currentStep: step });
+				return;
+			}
 		}
 	},
 
@@ -213,6 +247,37 @@ export const useOnboarding = create<OnboardingState>((set, get) => ({
 		try {
 			await updateModelPreferences(prefs);
 			set({ modelPreferences: prefs, isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to save model preferences";
+			set({ error: message, isLoading: false });
+			throw err;
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Claude Code Model Preferences
+	// ---------------------------------------------------------------------------
+
+	ccModelPreferences: null,
+
+	loadCcModelPreferences: async () => {
+		set({ isLoading: true, error: null });
+		try {
+			const prefs = await fetchCcModelPreferences();
+			set({ ccModelPreferences: prefs, isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to load model preferences";
+			set({ error: message, isLoading: false });
+		}
+	},
+
+	saveCcModelPreferences: async (prefs) => {
+		set({ isLoading: true, error: null });
+		try {
+			await updateCcModelPreferences(prefs);
+			set({ ccModelPreferences: prefs, isLoading: false });
 		} catch (err) {
 			const message =
 				err instanceof Error ? err.message : "Failed to save model preferences";

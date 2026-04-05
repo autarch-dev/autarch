@@ -31,6 +31,39 @@ export type IntegrationType = z.infer<typeof IntegrationType>;
 export const AgentBackend = z.enum(["api", "claude-code"]);
 export type AgentBackend = z.infer<typeof AgentBackend>;
 
+export const ClaudeCodeModel = z.enum(["opus", "sonnet", "haiku"]);
+export type ClaudeCodeModel = z.infer<typeof ClaudeCodeModel>;
+
+export const CLAUDE_CODE_MODEL_LABELS: Record<ClaudeCodeModel, string> = {
+	opus: "Claude Opus",
+	sonnet: "Claude Sonnet",
+	haiku: "Claude Haiku",
+};
+
+export const CLAUDE_CODE_MODEL_DESCRIPTIONS: Record<ClaudeCodeModel, string> = {
+	opus: "Most capable — deep reasoning, complex tasks",
+	sonnet: "Balanced — fast and capable for most tasks",
+	haiku: "Fastest — lightweight tasks, lowest cost",
+};
+
+/**
+ * Model preferences when using the Claude Code backend.
+ * Maps each agent scenario to a Claude Code model alias.
+ */
+export const ClaudeCodeModelPreferencesSchema = z.object({
+	basic: z.string().optional(),
+	discussion: z.string().optional(),
+	scoping: z.string().optional(),
+	research: z.string().optional(),
+	planning: z.string().optional(),
+	execution: z.string().optional(),
+	review: z.string().optional(),
+	roadmap_planning: z.string().optional(),
+});
+export type ClaudeCodeModelPreferences = z.infer<
+	typeof ClaudeCodeModelPreferencesSchema
+>;
+
 // =============================================================================
 // Onboarding
 // =============================================================================

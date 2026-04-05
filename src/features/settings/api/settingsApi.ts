@@ -13,6 +13,8 @@ import {
 	type AIProvider,
 	type ApiKeysResponse,
 	ApiKeysResponseSchema,
+	type ClaudeCodeModelPreferences,
+	ClaudeCodeModelPreferencesSchema,
 	type IntegrationsStatusResponse,
 	IntegrationsStatusResponseSchema,
 	type ModelPreferences,
@@ -161,6 +163,36 @@ export async function updateAgentBackend(backend: AgentBackend): Promise<void> {
 	if (!response.ok) {
 		const error = await response.json();
 		throw new Error(error.error ?? "Failed to update agent backend");
+	}
+}
+
+// =============================================================================
+// Claude Code Model Preferences
+// =============================================================================
+
+/**
+ * Get Claude Code model preferences.
+ */
+export async function fetchCcModelPreferences(): Promise<ClaudeCodeModelPreferences> {
+	const response = await fetch("/api/settings/cc-models");
+	const data = await response.json();
+	return ClaudeCodeModelPreferencesSchema.parse(data);
+}
+
+/**
+ * Update Claude Code model preferences.
+ */
+export async function updateCcModelPreferences(
+	prefs: ClaudeCodeModelPreferences,
+): Promise<void> {
+	const response = await fetch("/api/settings/cc-models", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(prefs),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to update model preferences");
 	}
 }
 

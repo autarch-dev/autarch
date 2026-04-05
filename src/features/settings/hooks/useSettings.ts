@@ -5,6 +5,7 @@ import type {
 	AgentBackend,
 	AIProvider,
 	ApiKeysResponse,
+	ClaudeCodeModelPreferences,
 	IntegrationsStatusResponse,
 	ModelPreferences,
 } from "@/shared/schemas/settings";
@@ -15,6 +16,7 @@ import {
 	fetchAgentBackend,
 	fetchApiKeysStatus,
 	fetchBedrockModels,
+	fetchCcModelPreferences,
 	fetchGitIdentity,
 	fetchHooksConfig,
 	fetchIntegrationsStatus,
@@ -24,6 +26,7 @@ import {
 	setApiKey,
 	setIntegrationKey,
 	updateAgentBackend,
+	updateCcModelPreferences,
 	updateGitIdentity,
 	updateHooksConfig,
 	updateModelPreferences,
@@ -55,9 +58,14 @@ interface SettingsState {
 	saveIntegrationKey: (key: string) => Promise<void>;
 	clearIntegrationKey: () => Promise<void>;
 
-	// Model preferences
+	// Model preferences (API backend)
 	modelPreferences: ModelPreferences | null;
 	loadModelPreferences: () => Promise<void>;
+
+	// Claude Code model preferences
+	ccModelPreferences: ClaudeCodeModelPreferences | null;
+	loadCcModelPreferences: () => Promise<void>;
+	saveCcModelPreferences: (prefs: ClaudeCodeModelPreferences) => Promise<void>;
 	saveModelPreferences: (prefs: ModelPreferences) => Promise<void>;
 
 	// Bedrock models
@@ -240,6 +248,37 @@ export const useSettings = create<SettingsState>((set) => ({
 		try {
 			await updateModelPreferences(prefs);
 			set({ modelPreferences: prefs, isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to save model preferences";
+			set({ error: message, isLoading: false });
+			throw err;
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Claude Code Model Preferences
+	// ---------------------------------------------------------------------------
+
+	ccModelPreferences: null,
+
+	loadCcModelPreferences: async () => {
+		set({ isLoading: true, error: null });
+		try {
+			const prefs = await fetchCcModelPreferences();
+			set({ ccModelPreferences: prefs, isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to load model preferences";
+			set({ error: message, isLoading: false });
+		}
+	},
+
+	saveCcModelPreferences: async (prefs) => {
+		set({ isLoading: true, error: null });
+		try {
+			await updateCcModelPreferences(prefs);
+			set({ ccModelPreferences: prefs, isLoading: false });
 		} catch (err) {
 			const message =
 				err instanceof Error ? err.message : "Failed to save model preferences";

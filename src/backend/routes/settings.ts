@@ -1,6 +1,7 @@
 import { GitIdentitySchema } from "@/shared/schemas/git-identity";
 import {
 	AgentBackend,
+	ClaudeCodeModelPreferencesSchema,
 	DeleteApiKeyRequestSchema,
 	SetApiKeyRequestSchema,
 	SetIntegrationKeyRequestSchema,
@@ -15,11 +16,13 @@ import {
 	clearExaApiKey,
 	getAgentBackend,
 	getApiKeysStatus,
+	getClaudeCodeModelPreferences,
 	getModelPreferences,
 	getOnboardingStatus,
 	isExaKeyConfigured,
 	setAgentBackend,
 	setApiKey,
+	setClaudeCodeModelPreferences,
 	setExaApiKey,
 	setModelPreferences,
 } from "../services/globalSettings";
@@ -190,6 +193,32 @@ export const settingsRoutes = {
 			}
 
 			await setAgentBackend(parsed.data);
+			return Response.json({ success: true });
+		},
+	},
+
+	// =========================================================================
+	// Claude Code Model Preferences
+	// =========================================================================
+
+	"/api/settings/cc-models": {
+		async GET() {
+			const preferences = await getClaudeCodeModelPreferences();
+			return Response.json(preferences);
+		},
+
+		async PUT(req: Request) {
+			const body = await req.json();
+			const parsed = ClaudeCodeModelPreferencesSchema.safeParse(body);
+
+			if (!parsed.success) {
+				return Response.json(
+					{ error: "Invalid request", details: parsed.error.flatten() },
+					{ status: 400 },
+				);
+			}
+
+			await setClaudeCodeModelPreferences(parsed.data);
 			return Response.json({ success: true });
 		},
 	},

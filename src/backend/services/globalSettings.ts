@@ -3,6 +3,7 @@ import {
 	type AgentBackend,
 	type AIProvider,
 	type ApiKeysResponse,
+	type ClaudeCodeModelPreferences,
 	type ModelPreferences,
 	type ModelScenario,
 	ModelScenario as ModelScenarioEnum,
@@ -33,6 +34,14 @@ const SETTING_KEYS = {
 	MODEL_REVIEW: "model_review",
 	MODEL_ROADMAP_PLANNING: "model_roadmap_planning",
 	AGENT_BACKEND: "agent_backend",
+	CC_MODEL_BASIC: "cc_model_basic",
+	CC_MODEL_DISCUSSION: "cc_model_discussion",
+	CC_MODEL_SCOPING: "cc_model_scoping",
+	CC_MODEL_RESEARCH: "cc_model_research",
+	CC_MODEL_PLANNING: "cc_model_planning",
+	CC_MODEL_EXECUTION: "cc_model_execution",
+	CC_MODEL_REVIEW: "cc_model_review",
+	CC_MODEL_ROADMAP_PLANNING: "cc_model_roadmap_planning",
 } as const;
 
 const PROVIDER_TO_KEY = {
@@ -293,7 +302,94 @@ export async function setAgentBackend(backend: AgentBackend): Promise<void> {
 }
 
 // =============================================================================
-// Model Preferences
+// Claude Code Model Preferences
+// =============================================================================
+
+const CC_SCENARIO_TO_KEY = {
+	basic: SETTING_KEYS.CC_MODEL_BASIC,
+	discussion: SETTING_KEYS.CC_MODEL_DISCUSSION,
+	scoping: SETTING_KEYS.CC_MODEL_SCOPING,
+	research: SETTING_KEYS.CC_MODEL_RESEARCH,
+	planning: SETTING_KEYS.CC_MODEL_PLANNING,
+	execution: SETTING_KEYS.CC_MODEL_EXECUTION,
+	review: SETTING_KEYS.CC_MODEL_REVIEW,
+	roadmap_planning: SETTING_KEYS.CC_MODEL_ROADMAP_PLANNING,
+} as const satisfies Record<
+	ModelScenario,
+	(typeof SETTING_KEYS)[keyof typeof SETTING_KEYS]
+>;
+
+/** Default model aliases per scenario when using Claude Code */
+const CC_MODEL_DEFAULTS: Record<ModelScenario, string> = {
+	basic: "haiku",
+	discussion: "sonnet",
+	scoping: "sonnet",
+	research: "sonnet",
+	planning: "sonnet",
+	execution: "sonnet",
+	review: "sonnet",
+	roadmap_planning: "sonnet",
+};
+
+/**
+ * Get Claude Code model preferences.
+ */
+export async function getClaudeCodeModelPreferences(): Promise<ClaudeCodeModelPreferences> {
+	const entries = await Promise.all(
+		ModelScenarioEnum.options.map(async (scenario) => {
+			const value = await getSetting(CC_SCENARIO_TO_KEY[scenario]);
+			return [scenario, value ?? undefined] as const;
+		}),
+	);
+	return Object.fromEntries(entries) as ClaudeCodeModelPreferences;
+}
+
+/**
+ * Set Claude Code model preferences.
+ */
+export async function setClaudeCodeModelPreferences(
+	prefs: ClaudeCodeModelPreferences,
+): Promise<void> {
+	const updates = ModelScenarioEnum.options.flatMap((scenario) => {
+		const model = prefs[scenario];
+		return model !== undefined
+			? [setSetting(CC_SCENARIO_TO_KEY[scenario], model)]
+			: [];
+	});
+	await Promise.all(updates);
+}
+
+/**
+ * Get the Claude Code model alias for an agent role.
+ * Falls back to defaults if no preference is set.
+ */
+export async function getClaudeCodeModelForRole(role: string): Promise<string> {
+	// Map agent roles to model scenarios
+	const scenarioMap: Record<string, ModelScenario> = {
+		basic: "basic",
+		discussion: "discussion",
+		scoping: "scoping",
+		research: "research",
+		planning: "planning",
+		execution: "execution",
+		preflight: "execution",
+		review: "review",
+		review_sub: "review",
+		roadmap_planning: "roadmap_planning",
+		visionary: "roadmap_planning",
+		iterative: "roadmap_planning",
+		tech_lead: "roadmap_planning",
+		pathfinder: "roadmap_planning",
+		synthesis: "roadmap_planning",
+	};
+
+	const scenario = scenarioMap[role] ?? "execution";
+	const saved = await getSetting(CC_SCENARIO_TO_KEY[scenario]);
+	return saved ?? CC_MODEL_DEFAULTS[scenario];
+}
+
+// =============================================================================
+// Model Preferences (API Backend)
 // =============================================================================
 
 /**

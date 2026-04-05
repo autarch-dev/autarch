@@ -11,6 +11,7 @@ import { useCustomProviders } from "../hooks/useCustomProviders";
 import { useSettings } from "../hooks/useSettings";
 import { AgentBackendSection } from "./AgentBackendSection";
 import { ApiProviderKeysSection } from "./ApiProviderKeysSection";
+import { CcModelPreferencesSection } from "./CcModelPreferencesSection";
 import { CustomProvidersSection } from "./CustomProvidersSection";
 import { GitIdentitySection } from "./GitIdentitySection";
 import { HooksSection } from "./HooksSection";
@@ -26,9 +27,11 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 	const {
+		agentBackend,
 		loadAgentBackend,
 		loadApiKeysStatus,
 		loadModelPreferences,
+		loadCcModelPreferences,
 		loadIntegrationsStatus,
 		loadHooksConfig,
 		loadPersistentApprovals,
@@ -36,12 +39,16 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 	} = useSettings();
 	const { loadProviders } = useCustomProviders();
 
+	const isApi = agentBackend !== "claude-code";
+	const isClaudeCode = agentBackend === "claude-code";
+
 	// Load all data when panel opens
 	useEffect(() => {
 		if (open) {
 			loadAgentBackend();
 			loadApiKeysStatus();
 			loadModelPreferences();
+			loadCcModelPreferences();
 			loadIntegrationsStatus();
 			loadHooksConfig();
 			loadPersistentApprovals();
@@ -53,6 +60,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 		loadAgentBackend,
 		loadApiKeysStatus,
 		loadModelPreferences,
+		loadCcModelPreferences,
 		loadIntegrationsStatus,
 		loadHooksConfig,
 		loadPersistentApprovals,
@@ -66,14 +74,14 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 				side="right"
 				className="w-full overflow-y-clip sm:max-w-lg border-l-0 bg-zinc-950"
 			>
-				<Tabs defaultValue="keys" className="w-full h-screen flex flex-col">
+				<Tabs defaultValue="provider" className="w-full h-screen flex flex-col">
 					<SheetHeader className="shrink-0">
 						<SheetTitle className="text-xl font-medium tracking-tight text-zinc-100">
 							Settings
 						</SheetTitle>
 						<TabsList className="w-full bg-zinc-900/50">
-							<TabsTrigger value="keys" className="flex-1">
-								API Keys
+							<TabsTrigger value="provider" className="flex-1">
+								Provider
 							</TabsTrigger>
 							<TabsTrigger value="models" className="flex-1">
 								Models
@@ -85,16 +93,21 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 					</SheetHeader>
 
 					<ScrollArea className="flex-1 min-h-0 px-8">
-						<TabsContent value="keys" className="mt-6 space-y-6">
-							<ApiProviderKeysSection />
-							<CustomProvidersSection />
+						<TabsContent value="provider" className="mt-6 space-y-6">
+							<AgentBackendSection />
+							{isApi && (
+								<>
+									<ApiProviderKeysSection />
+									<CustomProvidersSection />
+								</>
+							)}
 							<IntegrationsSection />
 							<JiraSection />
 						</TabsContent>
 
 						<TabsContent value="models" className="mt-6 space-y-6">
-							<AgentBackendSection />
-							<ModelPreferencesSection />
+							{isApi && <ModelPreferencesSection />}
+							{isClaudeCode && <CcModelPreferencesSection />}
 						</TabsContent>
 
 						<TabsContent value="project" className="mt-6 space-y-6">
