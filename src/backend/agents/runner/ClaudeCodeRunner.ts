@@ -38,12 +38,11 @@ import type { RunOptions, ToolCall } from "./types";
 // Claude Code Session ID Cache
 // =============================================================================
 
-/**
- * Maps Autarch session IDs to Claude Code session IDs.
- * Persists across ClaudeCodeRunner instances (which are created fresh per run()
- * call via the factory) so that --resume works for multi-turn conversations.
- */
-const ccSessionIds = new Map<string, string>();
+import {
+	activeTurnIds,
+	activeWorktreePaths,
+	ccSessionIds,
+} from "@/backend/mcp/sessionState";
 
 // =============================================================================
 // ClaudeCodeRunner
@@ -147,6 +146,12 @@ export class ClaudeCodeRunner
 			turnIndex++,
 		);
 
+		// Share state with MCP handler
+		activeTurnIds.set(this.session.id, assistantTurn.id);
+		if (this.config.worktreePath) {
+			activeWorktreePaths.set(this.session.id, this.config.worktreePath);
+		}
+
 		try {
 			// Generate system prompt
 			const hasExaKey = await isExaKeyConfigured();
@@ -226,6 +231,8 @@ export class ClaudeCodeRunner
 				await fs.unlink(promptPath).catch(() => {});
 			} finally {
 				deregisterRunner(this.session.id);
+				activeTurnIds.delete(this.session.id);
+				activeWorktreePaths.delete(this.session.id);
 				await cleanupMcpConfig(this.config.projectRoot, this.session.id);
 			}
 		} catch (error) {
@@ -264,7 +271,7 @@ export class ClaudeCodeRunner
 			"--strict-mcp-config",
 			"--append-system-prompt-file",
 			promptPath,
-			"--allowedTools",
+			"--tools",
 			getAllowedTools(this.session.agentRole),
 			"--permission-mode",
 			"acceptEdits",

@@ -29,6 +29,7 @@ import { log } from "@/backend/logger";
 import { toolRegistry } from "@/backend/tools";
 import type { ToolContext, ToolResult } from "@/backend/tools/types";
 import { signalTermination } from "./runnerRegistry";
+import { activeTurnIds, activeWorktreePaths } from "./sessionState";
 import { isMcpTool } from "./toolClassification";
 
 // =============================================================================
@@ -186,6 +187,10 @@ async function buildToolContext(
 	const { getProjectRoot } = await import("@/backend/projectRoot");
 	const projectRoot = getProjectRoot();
 
+	// Get shared state from the runner (turn ID for artifacts, worktree for file ops)
+	const turnId = activeTurnIds.get(session.id);
+	const worktreePath = activeWorktreePaths.get(session.id);
+
 	if (session.contextType === "channel") {
 		return await createChannelToolContext(
 			projectRoot,
@@ -201,7 +206,7 @@ async function buildToolContext(
 			session.contextId,
 			session.id,
 			toolResultMap,
-			undefined,
+			turnId,
 			session.agentRole,
 		);
 	}
@@ -223,8 +228,8 @@ async function buildToolContext(
 			subtask.workflow_id,
 			session.id,
 			toolResultMap,
-			undefined,
-			undefined, // worktreePath — will be resolved from workflow
+			turnId,
+			worktreePath,
 			session.agentRole,
 		);
 
@@ -248,7 +253,7 @@ async function buildToolContext(
 			personaRecord.roadmap_id,
 			session.id,
 			toolResultMap,
-			undefined,
+			turnId,
 			session.agentRole,
 		);
 
@@ -261,8 +266,8 @@ async function buildToolContext(
 		session.contextId,
 		session.id,
 		toolResultMap,
-		undefined,
-		undefined, // worktreePath — set by the runner before spawning claude
+		turnId,
+		worktreePath,
 		session.agentRole,
 	);
 }
