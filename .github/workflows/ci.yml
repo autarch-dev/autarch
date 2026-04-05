@@ -26,4 +26,4 @@ jobs:
         run: bun biome ci .
 
       - name: Typecheck
-        run: tsc --noEmit
+        run: bun run typecheck
