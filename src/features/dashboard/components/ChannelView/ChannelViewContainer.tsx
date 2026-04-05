@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useShallow } from "zustand/react/shallow";
 import { useDiscussionsStore } from "../../store";
 import { ChannelView } from "./ChannelView";
@@ -28,6 +29,9 @@ export function ChannelViewContainer({ channelId }: ChannelViewContainerProps) {
 	const selectChannel = useDiscussionsStore((s) => s.selectChannel);
 	const fetchHistory = useDiscussionsStore((s) => s.fetchHistory);
 	const sendMessage = useDiscussionsStore((s) => s.sendMessage);
+
+	const [, setLocation] = useLocation();
+	const handleArchived = useCallback(() => setLocation("/"), [setLocation]);
 
 	// Select channel and fetch history when channelId changes
 	useEffect(() => {
@@ -60,6 +64,7 @@ export function ChannelViewContainer({ channelId }: ChannelViewContainerProps) {
 			streamingMessage={conversation?.streamingMessage}
 			isLoading={conversation?.isLoading ?? channelsLoading}
 			onSendMessage={handleSendMessage}
+			onArchived={handleArchived}
 		/>
 	);
 }
