@@ -23,8 +23,11 @@
  * ```
  */
 
-// AgentRunner
+// Runner system
 export { AgentRunner } from "./AgentRunner";
+export { BaseAgentRunner } from "./BaseAgentRunner";
+export { createRunner } from "./createRunner";
+export type { IAgentRunner } from "./IAgentRunner";
 // SessionManager
 export {
 	getSessionManager,
