@@ -1,19 +1,28 @@
-import { Bell, Hash, MoreHorizontal, Pin, Users } from "lucide-react";
+import { Archive, Hash } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { useDiscussionsStore } from "@/features/dashboard/store";
 import type { Channel } from "@/shared/schemas/channel";
 
 interface ChannelHeaderProps {
 	channel: Channel;
+	onArchived?: () => void;
 }
 
-export function ChannelHeader({ channel }: ChannelHeaderProps) {
+export function ChannelHeader({ channel, onArchived }: ChannelHeaderProps) {
+	const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+	const archiveChannel = useDiscussionsStore((s) => s.archiveChannel);
+
 	return (
 		<header className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 			<div className="flex items-center gap-2">
@@ -28,39 +37,42 @@ export function ChannelHeader({ channel }: ChannelHeaderProps) {
 				)}
 			</div>
 			<div className="flex items-center gap-1">
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button variant="ghost" size="icon-sm">
-							<Pin className="size-4" />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>Pinned messages</TooltipContent>
-				</Tooltip>
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button variant="ghost" size="icon-sm">
-							<Users className="size-4" />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>Members</TooltipContent>
-				</Tooltip>
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button variant="ghost" size="icon-sm">
-							<Bell className="size-4" />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>Notifications</TooltipContent>
-				</Tooltip>
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button variant="ghost" size="icon-sm">
-							<MoreHorizontal className="size-4" />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>More options</TooltipContent>
-				</Tooltip>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					onClick={() => setIsArchiveDialogOpen(true)}
+				>
+					<Archive className="size-4" />
+				</Button>
 			</div>
+			<Dialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Archive Channel</DialogTitle>
+						<DialogDescription>
+							Archive this channel? It will be hidden from the channel list.
+							This action cannot be undone.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setIsArchiveDialogOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={() => {
+								archiveChannel(channel.id);
+								onArchived?.();
+							}}
+						>
+							Archive
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</header>
 	);
 }
