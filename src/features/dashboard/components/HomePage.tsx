@@ -168,9 +168,11 @@ export function HomePage() {
 	);
 	const sortedChannels = useMemo(
 		() =>
-			[...channels].sort((a, b) =>
-				a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-			),
+			[...channels]
+				.filter((c) => !c.archived)
+				.sort((a, b) =>
+					a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+				),
 		[channels],
 	);
 

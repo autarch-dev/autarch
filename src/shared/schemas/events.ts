@@ -155,6 +155,20 @@ export const ChannelDeletedEventSchema = z.object({
 });
 export type ChannelDeletedEvent = z.infer<typeof ChannelDeletedEventSchema>;
 
+// channel:archived
+export const ChannelArchivedPayloadSchema = z.object({
+	channelId: z.string(),
+});
+export type ChannelArchivedPayload = z.infer<
+	typeof ChannelArchivedPayloadSchema
+>;
+
+export const ChannelArchivedEventSchema = z.object({
+	type: z.literal("channel:archived"),
+	payload: ChannelArchivedPayloadSchema,
+});
+export type ChannelArchivedEvent = z.infer<typeof ChannelArchivedEventSchema>;
+
 // =============================================================================
 // Session Events
 // =============================================================================
@@ -828,6 +842,7 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	// Channel events
 	ChannelCreatedEventSchema,
 	ChannelDeletedEventSchema,
+	ChannelArchivedEventSchema,
 	// Session events
 	SessionStartedEventSchema,
 	SessionCompletedEventSchema,
@@ -931,6 +946,12 @@ export function createChannelDeletedEvent(
 	payload: ChannelDeletedPayload,
 ): ChannelDeletedEvent {
 	return { type: "channel:deleted", payload };
+}
+
+export function createChannelArchivedEvent(
+	payload: ChannelArchivedPayload,
+): ChannelArchivedEvent {
+	return { type: "channel:archived", payload };
 }
 
 // Session events

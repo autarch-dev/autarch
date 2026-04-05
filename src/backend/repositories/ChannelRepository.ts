@@ -30,6 +30,7 @@ export class ChannelRepository implements Repository {
 			id: row.id,
 			name: row.name,
 			description: row.description ?? undefined,
+			archived: row.archived === 1,
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
 		};
@@ -85,6 +86,7 @@ export class ChannelRepository implements Repository {
 		const rows = await this.db
 			.selectFrom("channels")
 			.selectAll()
+			.where("archived", "=", 0)
 			.orderBy("name", "asc")
 			.execute();
 
@@ -108,6 +110,7 @@ export class ChannelRepository implements Repository {
 				id: channelId,
 				name,
 				description: description ?? null,
+				archived: 0,
 				created_at: now,
 				updated_at: now,
 			})
@@ -119,6 +122,19 @@ export class ChannelRepository implements Repository {
 			throw new Error(`Failed to create channel: ${channelId}`);
 		}
 		return channel;
+	}
+
+	/**
+	 * Archive a channel by ID
+	 */
+	async archive(id: string): Promise<boolean> {
+		const [result] = await this.db
+			.updateTable("channels")
+			.set({ archived: 1, updated_at: Date.now() })
+			.where("id", "=", id)
+			.execute();
+
+		return !!result && result.numUpdatedRows > 0;
 	}
 
 	/**

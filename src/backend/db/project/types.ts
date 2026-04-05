@@ -79,6 +79,7 @@ export interface ChannelsTable {
 	id: string;
 	name: string;
 	description: string | null;
+	archived: number; // 0 or 1 (SQLite boolean)
 	created_at: number;
 	updated_at: number;
 }

@@ -13,6 +13,7 @@ interface ChannelViewProps {
 	streamingMessage?: StreamingMessage;
 	isLoading?: boolean;
 	onSendMessage?: (content: string) => void;
+	onArchived?: () => void;
 }
 
 export const ChannelView = memo(function ChannelView({
@@ -21,6 +22,7 @@ export const ChannelView = memo(function ChannelView({
 	streamingMessage,
 	isLoading,
 	onSendMessage,
+	onArchived,
 }: ChannelViewProps) {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -35,7 +37,7 @@ export const ChannelView = memo(function ChannelView({
 	return (
 		<TooltipProvider>
 			<div className="flex flex-col h-full">
-				<ChannelHeader channel={channel} />
+				<ChannelHeader channel={channel} onArchived={onArchived} />
 
 				<ScrollArea className="flex-1 min-h-0">
 					<div className="py-2">
