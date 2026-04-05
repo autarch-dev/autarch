@@ -58,7 +58,9 @@ export async function createMcpServerForRequest(
 		const { getAgentConfig } =
 			require("@/backend/agents/registry") as typeof import("@/backend/agents/registry");
 		const agentConfig = getAgentConfig(session.agentRole);
-		allowedToolNames = new Set(agentConfig.tools.map((t: { name: string }) => t.name));
+		allowedToolNames = new Set(
+			agentConfig.tools.map((t: { name: string }) => t.name),
+		);
 	}
 
 	return createMcpServer(sessionId, allowedToolNames);

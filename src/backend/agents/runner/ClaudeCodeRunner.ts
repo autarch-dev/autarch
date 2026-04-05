@@ -32,7 +32,7 @@ import {
 } from "@/shared/schemas/events";
 import { getAgentConfig } from "../registry";
 import { BaseAgentRunner } from "./BaseAgentRunner";
-import type { RunOptions } from "./types";
+import type { RunOptions, ToolCall } from "./types";
 
 // =============================================================================
 // Claude Code Session ID Cache
@@ -322,10 +322,23 @@ export class ClaudeCodeRunner
 		};
 		signal?.addEventListener("abort", abortHandler);
 
+		// Internal CC tools we don't track in the UI
+		const IGNORED_TOOLS = new Set([
+			"ToolSearch",
+			"Agent",
+			"TodoWrite",
+			"NotebookEdit",
+			"EnterPlanMode",
+			"ExitPlanMode",
+			"EnterWorktree",
+			"ExitWorktree",
+		]);
+
 		// Track streaming state
 		let currentSegmentBuffer = "";
 		let currentSegmentIndex = 0;
 		let activeToolCallId: string | null = null;
+		const nativeToolCalls = new Map<string, ToolCall>();
 		let usage = {
 			inputTokens: 0,
 			outputTokens: 0,
@@ -378,6 +391,11 @@ export class ClaudeCodeRunner
 					}
 
 					case "tool_start": {
+						// Skip internal CC tools we don't want in the UI
+						if (IGNORED_TOOLS.has(event.toolName)) {
+							break;
+						}
+
 						// Flush text segment before tool
 						if (currentSegmentBuffer.length > 0) {
 							await this.saveMessage(
@@ -399,25 +417,37 @@ export class ClaudeCodeRunner
 
 						activeToolCallId = event.toolCallId;
 
-						// For native Claude Code tools (Read, Write, etc.), record in DB
-						// MCP tools are recorded by the MCP handler
-						if (!event.toolName.startsWith("mcp__")) {
-							const toolCall = await this.recordToolStart(
-								turnId,
-								currentSegmentIndex,
-								event.toolCallId,
-								event.toolName,
-								{},
-							);
-							options.onToolStarted?.(toolCall);
-						}
+						// Record all tool calls in DB for UI rendering.
+						// Strip the mcp__autarch__ prefix for MCP tools so the UI
+						// shows the clean tool name (e.g., "find_symbol" not "mcp__autarch__find_symbol").
+						const displayName = event.toolName.startsWith("mcp__autarch__")
+							? event.toolName.slice("mcp__autarch__".length)
+							: event.toolName;
+
+						const toolCall = await this.recordToolStart(
+							turnId,
+							currentSegmentIndex,
+							event.toolCallId,
+							displayName,
+							{},
+						);
+						nativeToolCalls.set(event.toolCallId, toolCall);
+						options.onToolStarted?.(toolCall);
 						break;
 					}
 
 					case "tool_end":
 					case "content_block_end": {
 						if (activeToolCallId) {
+							// Complete native tool records
+							const toolCall = nativeToolCalls.get(activeToolCallId);
+							if (toolCall) {
+								await this.recordToolComplete(toolCall, "", true);
+								options.onToolCompleted?.(toolCall);
+								nativeToolCalls.delete(activeToolCallId);
+							}
 							activeToolCallId = null;
+
 							currentSegmentIndex++;
 						}
 						break;
