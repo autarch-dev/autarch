@@ -225,7 +225,7 @@ orchestration for human review.`,
 							baseline.stderr.length +
 							stdout.length +
 							stderr.length;
-						if (combinedSize > 100000) {
+						if (combinedSize > 200000) {
 							log.workflow.error(
 								`Output size exceeds LLM context limits for command '${command}'`,
 							);
