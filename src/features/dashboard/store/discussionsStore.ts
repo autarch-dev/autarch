@@ -13,6 +13,7 @@ import type {
 	MessageQuestion,
 } from "@/shared/schemas/channel";
 import type {
+	ChannelArchivedPayload,
 	ChannelCreatedPayload,
 	ChannelDeletedPayload,
 	QuestionsAnsweredPayload,
@@ -102,6 +103,7 @@ interface DiscussionsState {
 	fetchChannels: () => Promise<void>;
 	createChannel: (name: string, description?: string) => Promise<Channel>;
 	deleteChannel: (channelId: string) => Promise<void>;
+	archiveChannel: (channelId: string) => Promise<void>;
 	selectChannel: (channelId: string | null) => void;
 
 	// Actions - Conversation
@@ -188,6 +190,19 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 			selectedChannelId:
 				state.selectedChannelId === channelId ? null : state.selectedChannelId,
 		}));
+	},
+
+	archiveChannel: async (channelId: string) => {
+		const res = await fetch(`/api/channels/${channelId}/archive`, {
+			method: "POST",
+		});
+		if (!res.ok) throw new Error("Failed to archive channel");
+		set((s) => ({
+			channels: s.channels.filter((c) => c.id !== channelId),
+			selectedChannelId:
+				s.selectedChannelId === channelId ? null : s.selectedChannelId,
+		}));
+		get().conversations.delete(channelId);
 	},
 
 	selectChannel: (channelId: string | null) => {
@@ -344,6 +359,9 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 			case "channel:deleted":
 				handleChannelDeleted(event.payload, set, get);
 				break;
+			case "channel:archived":
+				handleChannelArchived(event.payload, set, get);
+				break;
 
 			// Session events for channels
 			case "session:started":
@@ -457,6 +475,20 @@ function handleChannelCreated(
 
 function handleChannelDeleted(
 	payload: ChannelDeletedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => ({
+		channels: state.channels.filter((c) => c.id !== payload.channelId),
+		selectedChannelId:
+			state.selectedChannelId === payload.channelId
+				? null
+				: state.selectedChannelId,
+	}));
+}
+
+function handleChannelArchived(
+	payload: ChannelArchivedPayload,
 	set: SetState,
 	_get: GetState,
 ): void {
