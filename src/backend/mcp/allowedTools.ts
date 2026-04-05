@@ -1,45 +1,48 @@
 /**
- * Claude Code Allowed Tools per Agent Role
+ * Claude Code Tool Restrictions per Agent Role
  *
- * Maps each Autarch agent role to the `--allowedTools` string passed to `claude -p`.
- * This is the security boundary — Claude Code can ONLY use these tools.
+ * Maps each Autarch agent role to the `--tools` string passed to `claude -p`.
+ * This restricts which tools Claude Code can use — unlisted tools are unavailable.
  *
- * Explicitly blocked (never in any allowedTools list):
- * - Bash — shell goes through MCP (mcp__autarch__shell) to preserve approval flow
- * - Agent — prevents untracked subagent work outside Autarch's orchestrator
- * - TodoWrite, NotebookEdit, plan/worktree/team tools — not applicable
+ * All roles get: Read, Glob, Grep, WebFetch, WebSearch + mcp__autarch__* (MCP tools)
+ *
+ * Routed through MCP (not native) to preserve Autarch hooks:
+ * - shell → mcp__autarch__shell (approval flow, timeouts, output truncation)
+ * - write_file, edit_file, multi_edit → MCP (post-write lint fix, error catching)
+ *
+ * Explicitly unavailable:
+ * - Bash, Write, Edit — file writes and shell go through MCP
+ * - Agent — prevents untracked subagent work
+ * - TodoWrite, NotebookEdit, plan/worktree/team tools
  */
 
 import type { AgentRole } from "@/backend/agents/types";
 
-/** Read-only native tools available to all roles */
-const READ_ONLY = "Read,Glob,Grep,WebFetch,WebSearch";
-
-/** Read-write native tools for execution roles */
-const READ_WRITE = "Read,Write,Edit,Glob,Grep,WebFetch,WebSearch";
+/** Native tools available to all roles (read-only + web) */
+const BASE_TOOLS = "Read,Glob,Grep,WebFetch,WebSearch";
 
 /** MCP wildcard to allow all Autarch MCP tools */
 const MCP_WILDCARD = "mcp__autarch__*";
 
 const ALLOWED_TOOLS_BY_ROLE: Record<AgentRole, string> = {
 	// Read-only roles
-	basic: `${READ_ONLY},${MCP_WILDCARD}`,
-	discussion: `${READ_ONLY},${MCP_WILDCARD}`,
-	scoping: `${READ_ONLY},${MCP_WILDCARD}`,
-	research: `${READ_ONLY},${MCP_WILDCARD}`,
-	planning: `${READ_ONLY},${MCP_WILDCARD}`,
-	review: `${READ_ONLY},${MCP_WILDCARD}`,
-	review_sub: `${READ_ONLY},${MCP_WILDCARD}`,
-	roadmap_planning: `${READ_ONLY},${MCP_WILDCARD}`,
-	visionary: `${READ_ONLY},${MCP_WILDCARD}`,
-	iterative: `${READ_ONLY},${MCP_WILDCARD}`,
-	tech_lead: `${READ_ONLY},${MCP_WILDCARD}`,
-	pathfinder: `${READ_ONLY},${MCP_WILDCARD}`,
-	synthesis: `${READ_ONLY},${MCP_WILDCARD}`,
+	basic: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	discussion: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	scoping: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	research: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	planning: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	review: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	review_sub: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	roadmap_planning: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	visionary: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	iterative: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	tech_lead: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	pathfinder: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	synthesis: `${BASE_TOOLS},${MCP_WILDCARD}`,
 
 	// Read-write roles
-	execution: `${READ_WRITE},${MCP_WILDCARD}`,
-	preflight: `${READ_ONLY},${MCP_WILDCARD}`,
+	execution: `${BASE_TOOLS},${MCP_WILDCARD}`,
+	preflight: `${BASE_TOOLS},${MCP_WILDCARD}`,
 };
 
 /**

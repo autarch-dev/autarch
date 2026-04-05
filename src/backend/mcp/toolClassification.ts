@@ -13,16 +13,14 @@ import type { ToolName } from "@/backend/tools/types";
  *
  * Mapping:
  * - read_file → Claude Code `Read`
- * - write_file → Claude Code `Write` (execution role only)
- * - edit_file, multi_edit → Claude Code `Edit` (execution role only)
  * - list_directory → Claude Code `Glob`
  * - grep → Claude Code `Grep`
+ *
+ * NOTE: write_file, edit_file, multi_edit are routed through MCP (not native)
+ * to preserve Autarch's post-write hooks (lint fix, error catching).
  */
 export const NATIVE_TOOLS: ReadonlySet<string> = new Set<ToolName>([
 	"read_file",
-	"write_file",
-	"edit_file",
-	"multi_edit",
 	"list_directory",
 	"grep",
 ]);
@@ -37,6 +35,10 @@ export const NATIVE_TOOLS: ReadonlySet<string> = new Set<ToolName>([
 export const MCP_TOOLS: ReadonlySet<string> = new Set<string>([
 	// Shell (via MCP to preserve approval flow)
 	"shell",
+	// File writes (via MCP to preserve post-write hooks)
+	"write_file",
+	"edit_file",
+	"multi_edit",
 	// Base (Autarch-specific)
 	"semantic_search",
 	"take_note",
