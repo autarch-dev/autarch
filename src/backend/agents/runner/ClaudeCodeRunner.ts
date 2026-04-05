@@ -42,6 +42,7 @@ import {
 	activeTurnIds,
 	activeWorktreePaths,
 	ccSessionIds,
+	toolCallCorrelation,
 } from "@/backend/mcp/sessionState";
 
 // =============================================================================
@@ -273,6 +274,8 @@ export class ClaudeCodeRunner
 			promptPath,
 			"--tools",
 			getAllowedTools(this.session.agentRole),
+			"--allowedTools",
+			"mcp__autarch__*",
 			"--permission-mode",
 			"acceptEdits",
 			"--disable-slash-commands",
@@ -453,6 +456,22 @@ export class ClaudeCodeRunner
 							} catch {
 								parsedInput = { raw: inputJson };
 							}
+						}
+
+						// Store correlation: LLM tool_call_id → Anthropic toolu_ ID
+						if (
+							typeof parsedInput === "object" &&
+							parsedInput !== null &&
+							"tool_call_id" in parsedInput &&
+							typeof (parsedInput as Record<string, unknown>).tool_call_id ===
+								"string"
+						) {
+							const schemaToolCallId = (parsedInput as Record<string, unknown>)
+								.tool_call_id as string;
+							toolCallCorrelation.set(schemaToolCallId, event.toolCallId);
+							log.agent.info(
+								`[ClaudeCode] Stored correlation: ${schemaToolCallId} → ${event.toolCallId}`,
+							);
 						}
 
 						// Strip mcp__autarch__ prefix for display

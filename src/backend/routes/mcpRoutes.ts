@@ -50,6 +50,7 @@ export const mcpRoutes = {
 		async POST(req: Request) {
 			try {
 				const params = parseParams(req, McpSessionParams);
+				log.agent.info(`[MCP] POST /mcp/sessions/${params.sessionId}`);
 				return await handleMcpRequest(params.sessionId, req);
 			} catch (error) {
 				log.agent.error("MCP POST handler error:", error);

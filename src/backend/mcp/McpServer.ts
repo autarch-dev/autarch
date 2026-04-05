@@ -14,6 +14,7 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
 import { TERMINAL_TOOLS } from "@/backend/agents/runner/BaseAgentRunner";
 import { getSessionManager } from "@/backend/agents/runner/SessionManager";
 import type { ActiveSession } from "@/backend/agents/runner/types";
@@ -29,7 +30,11 @@ import { log } from "@/backend/logger";
 import { toolRegistry } from "@/backend/tools";
 import type { ToolContext, ToolResult } from "@/backend/tools/types";
 import { signalTermination } from "./runnerRegistry";
-import { activeTurnIds, activeWorktreePaths } from "./sessionState";
+import {
+	activeTurnIds,
+	activeWorktreePaths,
+	toolCallCorrelation,
+} from "./sessionState";
 import { isMcpTool } from "./toolClassification";
 
 // =============================================================================
@@ -105,11 +110,22 @@ function createMcpServer(
 			continue;
 		}
 
+		// Extend the tool's input schema with tool_call_id for MCP↔stream correlation
+		const extendedSchema = (
+			registeredTool.inputSchema as z.ZodObject<z.ZodRawShape>
+		).extend({
+			tool_call_id: z
+				.string()
+				.describe(
+					"Required. A unique identifier for this tool call. Generate a short, unique string for each call (e.g. 'find_sym_1', 'shell_build_check').",
+				),
+		});
+
 		server.registerTool(
 			toolName,
 			{
 				description: registeredTool.description,
-				inputSchema: registeredTool.inputSchema,
+				inputSchema: extendedSchema,
 			},
 			async (input) => {
 				return await executeTool(sessionId, toolName, input, registeredTool);
@@ -148,6 +164,32 @@ async function executeTool(
 	// Construct ToolContext for this session
 	const toolResultMap = new Map<string, boolean>();
 	const toolContext = await buildToolContext(session, toolResultMap);
+
+	// Correlate MCP call → Anthropic tool call ID via the LLM-generated tool_call_id field.
+	// The stream parser stored the mapping (schema tool_call_id → Anthropic toolu_ ID)
+	// when it saw the tool input in the stream.
+	const inputObj = input as Record<string, unknown> | undefined;
+	log.tools.info(
+		`[MCP] executeTool ${toolName}: input keys=${inputObj ? Object.keys(inputObj).join(",") : "n/a"} tool_call_id=${inputObj?.tool_call_id}`,
+	);
+	if (inputObj?.tool_call_id && typeof inputObj.tool_call_id === "string") {
+		const schemaToolCallId = (input as Record<string, unknown>)
+			.tool_call_id as string;
+		const anthropicId = toolCallCorrelation.get(schemaToolCallId);
+		if (anthropicId) {
+			log.tools.info(
+				`Found correlation for tool call ID: ${schemaToolCallId} → ${anthropicId}`,
+			);
+			toolContext.toolCallId = anthropicId;
+			toolCallCorrelation.delete(schemaToolCallId);
+		} else {
+			log.tools.warn(
+				`No correlation found for tool call ID: ${schemaToolCallId}`,
+			);
+			// Fallback: use the schema ID directly if no correlation found
+			toolContext.toolCallId = schemaToolCallId;
+		}
+	}
 
 	try {
 		const result = await registeredTool.execute(input, toolContext);
