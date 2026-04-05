@@ -8,6 +8,8 @@ import {
 	PostWriteHooksConfigSchema,
 } from "@/shared/schemas/hooks";
 import {
+	type AgentBackend,
+	AgentBackend as AgentBackendSchema,
 	type AIProvider,
 	type ApiKeysResponse,
 	ApiKeysResponseSchema,
@@ -131,6 +133,34 @@ export async function updateModelPreferences(
 	if (!response.ok) {
 		const error = await response.json();
 		throw new Error(error.error ?? "Failed to update model preferences");
+	}
+}
+
+// =============================================================================
+// Agent Backend
+// =============================================================================
+
+/**
+ * Get the current agent backend setting.
+ */
+export async function fetchAgentBackend(): Promise<AgentBackend> {
+	const response = await fetch("/api/settings/agent-backend");
+	const data = await response.json();
+	return AgentBackendSchema.parse(data.backend);
+}
+
+/**
+ * Update the agent backend setting.
+ */
+export async function updateAgentBackend(backend: AgentBackend): Promise<void> {
+	const response = await fetch("/api/settings/agent-backend", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ backend }),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to update agent backend");
 	}
 }
 

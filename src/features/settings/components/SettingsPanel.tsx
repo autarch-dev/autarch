@@ -9,6 +9,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCustomProviders } from "../hooks/useCustomProviders";
 import { useSettings } from "../hooks/useSettings";
+import { AgentBackendSection } from "./AgentBackendSection";
 import { ApiProviderKeysSection } from "./ApiProviderKeysSection";
 import { CustomProvidersSection } from "./CustomProvidersSection";
 import { GitIdentitySection } from "./GitIdentitySection";
@@ -25,6 +26,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 	const {
+		loadAgentBackend,
 		loadApiKeysStatus,
 		loadModelPreferences,
 		loadIntegrationsStatus,
@@ -37,6 +39,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 	// Load all data when panel opens
 	useEffect(() => {
 		if (open) {
+			loadAgentBackend();
 			loadApiKeysStatus();
 			loadModelPreferences();
 			loadIntegrationsStatus();
@@ -47,6 +50,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 		}
 	}, [
 		open,
+		loadAgentBackend,
 		loadApiKeysStatus,
 		loadModelPreferences,
 		loadIntegrationsStatus,
@@ -88,7 +92,8 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 							<JiraSection />
 						</TabsContent>
 
-						<TabsContent value="models" className="mt-6">
+						<TabsContent value="models" className="mt-6 space-y-6">
+							<AgentBackendSection />
 							<ModelPreferencesSection />
 						</TabsContent>
 

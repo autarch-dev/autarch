@@ -1,5 +1,6 @@
 import { GitIdentitySchema } from "@/shared/schemas/git-identity";
 import {
+	AgentBackend,
 	DeleteApiKeyRequestSchema,
 	SetApiKeyRequestSchema,
 	SetIntegrationKeyRequestSchema,
@@ -12,10 +13,12 @@ import { getCustomProviderKeysStatus } from "../services/customProviders";
 import {
 	clearApiKey,
 	clearExaApiKey,
+	getAgentBackend,
 	getApiKeysStatus,
 	getModelPreferences,
 	getOnboardingStatus,
 	isExaKeyConfigured,
+	setAgentBackend,
 	setApiKey,
 	setExaApiKey,
 	setModelPreferences,
@@ -162,6 +165,31 @@ export const settingsRoutes = {
 			}
 
 			await setModelPreferences(parsed.data);
+			return Response.json({ success: true });
+		},
+	},
+
+	// =========================================================================
+	// Agent Backend
+	// =========================================================================
+
+	"/api/settings/agent-backend": {
+		async GET() {
+			return Response.json({ backend: getAgentBackend() });
+		},
+
+		async PUT(req: Request) {
+			const body = await req.json();
+			const parsed = AgentBackend.safeParse(body?.backend);
+
+			if (!parsed.success) {
+				return Response.json(
+					{ error: "Invalid backend value" },
+					{ status: 400 },
+				);
+			}
+
+			await setAgentBackend(parsed.data);
 			return Response.json({ success: true });
 		},
 	},

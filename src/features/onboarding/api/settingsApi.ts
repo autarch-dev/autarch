@@ -5,6 +5,8 @@ import {
 	GitIdentitySchema,
 } from "@/shared/schemas/git-identity";
 import {
+	type AgentBackend,
+	AgentBackend as AgentBackendSchema,
 	type AIProvider,
 	type ApiKeysResponse,
 	ApiKeysResponseSchema,
@@ -105,5 +107,29 @@ export async function saveGitIdentity(identity: GitIdentity): Promise<void> {
 	});
 	if (!response.ok) {
 		throw new Error("Failed to save git identity");
+	}
+}
+
+/**
+ * Get the current agent backend setting.
+ */
+export async function fetchAgentBackend(): Promise<AgentBackend> {
+	const response = await fetch("/api/settings/agent-backend");
+	const data = await response.json();
+	return AgentBackendSchema.parse(data.backend);
+}
+
+/**
+ * Update the agent backend setting.
+ */
+export async function updateAgentBackend(backend: AgentBackend): Promise<void> {
+	const response = await fetch("/api/settings/agent-backend", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ backend }),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to update agent backend");
 	}
 }

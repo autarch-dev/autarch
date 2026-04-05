@@ -1,11 +1,13 @@
 import { create } from "zustand";
 import type {
+	AgentBackend,
 	AIProvider,
 	ApiKeysResponse,
 	ModelPreferences,
 	OnboardingStatusResponse,
 } from "@/shared/schemas/settings";
 import {
+	fetchAgentBackend,
 	fetchApiKeysStatus,
 	fetchGitIdentity,
 	fetchGitIdentityDefaults,
@@ -13,6 +15,7 @@ import {
 	fetchOnboardingStatus,
 	saveGitIdentity as saveGitIdentityApi,
 	setApiKey,
+	updateAgentBackend,
 	updateModelPreferences,
 } from "../api/settingsApi";
 
@@ -23,6 +26,7 @@ import {
 export type WizardStep =
 	| "intro"
 	| "features"
+	| "agent-backend"
 	| "api-keys"
 	| "model-prefs"
 	| "git-identity"
@@ -34,6 +38,12 @@ interface OnboardingState {
 	setStep: (step: WizardStep) => void;
 	nextStep: () => void;
 	prevStep: () => void;
+
+	// Agent backend
+	agentBackend: AgentBackend;
+	setAgentBackend: (backend: AgentBackend) => void;
+	saveAgentBackend: () => Promise<void>;
+	loadAgentBackend: () => Promise<void>;
 
 	// Loading states
 	isLoading: boolean;
@@ -70,6 +80,7 @@ interface OnboardingState {
 const STEP_ORDER: WizardStep[] = [
 	"intro",
 	"features",
+	"agent-backend",
 	"api-keys",
 	"model-prefs",
 	"git-identity",
@@ -106,6 +117,36 @@ export const useOnboarding = create<OnboardingState>((set, get) => ({
 		const prevStep = STEP_ORDER[prevIndex];
 		if (prevStep) {
 			set({ currentStep: prevStep });
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Agent Backend
+	// ---------------------------------------------------------------------------
+
+	agentBackend: "api",
+
+	setAgentBackend: (backend) => set({ agentBackend: backend }),
+
+	loadAgentBackend: async () => {
+		try {
+			const backend = await fetchAgentBackend();
+			set({ agentBackend: backend });
+		} catch {
+			// Default to "api" if loading fails
+		}
+	},
+
+	saveAgentBackend: async () => {
+		set({ isLoading: true, error: null });
+		try {
+			await updateAgentBackend(get().agentBackend);
+			set({ isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to save agent backend";
+			set({ error: message, isLoading: false });
+			throw err;
 		}
 	},
 

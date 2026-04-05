@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { GitIdentity } from "@/shared/schemas/git-identity";
 import type { PostWriteHooksConfig } from "@/shared/schemas/hooks";
 import type {
+	AgentBackend,
 	AIProvider,
 	ApiKeysResponse,
 	IntegrationsStatusResponse,
@@ -11,6 +12,7 @@ import {
 	type BedrockModel,
 	clearApiKey,
 	clearIntegrationKey,
+	fetchAgentBackend,
 	fetchApiKeysStatus,
 	fetchBedrockModels,
 	fetchGitIdentity,
@@ -21,6 +23,7 @@ import {
 	removePersistentApproval,
 	setApiKey,
 	setIntegrationKey,
+	updateAgentBackend,
 	updateGitIdentity,
 	updateHooksConfig,
 	updateModelPreferences,
@@ -34,6 +37,11 @@ interface SettingsState {
 	// Loading states
 	isLoading: boolean;
 	error: string | null;
+
+	// Agent backend
+	agentBackend: AgentBackend | null;
+	loadAgentBackend: () => Promise<void>;
+	saveAgentBackend: (backend: AgentBackend) => Promise<void>;
 
 	// API keys
 	apiKeysStatus: ApiKeysResponse | null;
@@ -83,6 +91,33 @@ export const useSettings = create<SettingsState>((set) => ({
 
 	isLoading: false,
 	error: null,
+
+	// ---------------------------------------------------------------------------
+	// Agent Backend
+	// ---------------------------------------------------------------------------
+
+	agentBackend: null,
+
+	loadAgentBackend: async () => {
+		try {
+			const backend = await fetchAgentBackend();
+			set({ agentBackend: backend });
+		} catch (err) {
+			console.error("Failed to load agent backend:", err);
+		}
+	},
+
+	saveAgentBackend: async (backend) => {
+		try {
+			await updateAgentBackend(backend);
+			set({ agentBackend: backend });
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to save agent backend";
+			set({ error: message });
+			throw err;
+		}
+	},
 
 	// ---------------------------------------------------------------------------
 	// API Keys

@@ -1,4 +1,5 @@
 import { useOnboarding, type WizardStep } from "../../hooks/useOnboarding";
+import { AgentBackendStep } from "./AgentBackendStep";
 import { ApiKeysStep } from "./ApiKeysStep";
 import { CompleteStep } from "./CompleteStep";
 import { FeaturesSlide } from "./FeaturesSlide";
@@ -9,6 +10,7 @@ import { ModelPrefsStep } from "./ModelPrefsStep";
 const STEP_COMPONENTS: Record<WizardStep, React.ComponentType> = {
 	intro: IntroSlide,
 	features: FeaturesSlide,
+	"agent-backend": AgentBackendStep,
 	"api-keys": ApiKeysStep,
 	"model-prefs": ModelPrefsStep,
 	"git-identity": GitIdentityStep,
@@ -18,6 +20,7 @@ const STEP_COMPONENTS: Record<WizardStep, React.ComponentType> = {
 const STEP_ORDER: WizardStep[] = [
 	"intro",
 	"features",
+	"agent-backend",
 	"api-keys",
 	"model-prefs",
 	"git-identity",
