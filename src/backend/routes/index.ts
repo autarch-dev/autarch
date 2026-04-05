@@ -12,6 +12,7 @@ export { credentialPromptRoutes } from "./credentialPromptRoutes";
 export { customProviderRoutes } from "./customProviders";
 export { jiraRoutes } from "./jiraRoutes";
 export { knowledgeRoutes } from "./knowledgeRoutes";
+export { mcpRoutes } from "./mcpRoutes";
 export { questionRoutes } from "./questionRoutes";
 export { roadmapRoutes } from "./roadmapRoutes";
 export { sessionRoutes } from "./sessionRoutes";
@@ -27,6 +28,7 @@ import { costRoutes } from "./costRoutes";
 import { credentialPromptRoutes } from "./credentialPromptRoutes";
 import { jiraRoutes } from "./jiraRoutes";
 import { knowledgeRoutes } from "./knowledgeRoutes";
+import { mcpRoutes } from "./mcpRoutes";
 import { questionRoutes } from "./questionRoutes";
 import { roadmapRoutes } from "./roadmapRoutes";
 import { sessionRoutes } from "./sessionRoutes";
@@ -53,4 +55,5 @@ export const agentRoutes = {
 	...costRoutes,
 	...knowledgeRoutes,
 	...jiraRoutes,
+	...mcpRoutes,
 };

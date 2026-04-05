@@ -25,10 +25,7 @@ import type {
 } from "@ai-sdk/provider-utils";
 import { hasToolCall, stepCountIs, streamText } from "ai";
 import { getKnowledgeDb } from "@/backend/db/knowledge";
-import {
-	convertToAISDKTools,
-	getModelForScenario,
-} from "@/backend/llm";
+import { convertToAISDKTools, getModelForScenario } from "@/backend/llm";
 import { log } from "@/backend/logger";
 import { getCostCalculator } from "@/backend/services/cost";
 import { isExaKeyConfigured } from "@/backend/services/globalSettings";
@@ -52,11 +49,7 @@ import {
 } from "@/shared/schemas/events";
 import { getAgentConfig } from "../registry";
 import { BaseAgentRunner } from "./BaseAgentRunner";
-import type {
-	RunOptions,
-	ToolCall,
-	Turn,
-} from "./types";
+import type { RunOptions, ToolCall, Turn } from "./types";
 import { hasToolResult } from "./util";
 
 // =============================================================================

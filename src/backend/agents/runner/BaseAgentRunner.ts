@@ -12,24 +12,22 @@
  */
 
 import { getProjectDb } from "@/backend/db/project";
-import { log } from "@/backend/logger";
-import { getRepositories } from "@/backend/repositories";
 import {
 	createChannelToolContext,
 	createRoadmapToolContext,
 	createWorkflowToolContext,
 } from "@/backend/llm";
+import { log } from "@/backend/logger";
+import { getRepositories } from "@/backend/repositories";
 import type { ToolContext } from "@/backend/tools/types";
 import { ids } from "@/backend/utils/ids";
 import { broadcast } from "@/backend/ws";
 import {
 	createTurnCompletedEvent,
-	createTurnSegmentCompleteEvent,
 	createTurnStartedEvent,
 	createTurnToolCompletedEvent,
 	createTurnToolStartedEvent,
 } from "@/shared/schemas/events";
-import { getAgentConfig } from "../registry";
 import type { IAgentRunner } from "./IAgentRunner";
 import type {
 	ActiveSession,
