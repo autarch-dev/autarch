@@ -33,7 +33,9 @@ import { signalTermination } from "./runnerRegistry";
 import {
 	activeTurnIds,
 	activeWorktreePaths,
-	toolCallCorrelation,
+	awaitCorrelation,
+	deleteCorrelation,
+	terminalToolsFired,
 } from "./sessionState";
 import { isMcpTool } from "./toolClassification";
 
@@ -166,29 +168,14 @@ async function executeTool(
 	const toolContext = await buildToolContext(session, toolResultMap);
 
 	// Correlate MCP call → Anthropic tool call ID via the LLM-generated tool_call_id field.
-	// The stream parser stored the mapping (schema tool_call_id → Anthropic toolu_ ID)
-	// when it saw the tool input in the stream.
+	// The stream parser resolves the deferred promise when it sees the tool input.
+	// If the MCP handler runs first (race), it awaits until the stream catches up.
 	const inputObj = input as Record<string, unknown> | undefined;
-	log.tools.info(
-		`[MCP] executeTool ${toolName}: input keys=${inputObj ? Object.keys(inputObj).join(",") : "n/a"} tool_call_id=${inputObj?.tool_call_id}`,
-	);
 	if (inputObj?.tool_call_id && typeof inputObj.tool_call_id === "string") {
-		const schemaToolCallId = (input as Record<string, unknown>)
-			.tool_call_id as string;
-		const anthropicId = toolCallCorrelation.get(schemaToolCallId);
-		if (anthropicId) {
-			log.tools.info(
-				`Found correlation for tool call ID: ${schemaToolCallId} → ${anthropicId}`,
-			);
-			toolContext.toolCallId = anthropicId;
-			toolCallCorrelation.delete(schemaToolCallId);
-		} else {
-			log.tools.warn(
-				`No correlation found for tool call ID: ${schemaToolCallId}`,
-			);
-			// Fallback: use the schema ID directly if no correlation found
-			toolContext.toolCallId = schemaToolCallId;
-		}
+		const schemaToolCallId = inputObj.tool_call_id as string;
+		const anthropicId = await awaitCorrelation(schemaToolCallId);
+		toolContext.toolCallId = anthropicId;
+		deleteCorrelation(schemaToolCallId);
 	}
 
 	try {
@@ -347,8 +334,16 @@ function checkTerminalTool(
 	// request_extension is terminal for nudge detection but should NOT
 	// kill the process — it means "continue with another turn"
 	if (toolName === "request_extension") {
+		const ext = terminalToolsFired.get(sessionId) ?? [];
+		ext.push(toolName);
+		terminalToolsFired.set(sessionId, ext);
 		return;
 	}
+
+	// Record the terminal tool so maybeNudge knows it fired
+	const existing = terminalToolsFired.get(sessionId) ?? [];
+	existing.push(toolName);
+	terminalToolsFired.set(sessionId, existing);
 
 	log.agent.info(
 		`Terminal tool ${toolName} called for session ${sessionId} — scheduling termination`,

@@ -42,7 +42,8 @@ import {
 	activeTurnIds,
 	activeWorktreePaths,
 	ccSessionIds,
-	toolCallCorrelation,
+	resolveCorrelation,
+	terminalToolsFired,
 } from "@/backend/mcp/sessionState";
 
 // =============================================================================
@@ -218,15 +219,38 @@ export class ClaudeCodeRunner
 					`[ClaudeCode] Agent turn ${assistantTurn.id} completed`,
 				);
 
-				// Post-turn hooks (inherited from BaseAgentRunner)
-				await this.maybeNudge(
-					assistantTurn.id,
-					options,
-					nudgeCount,
-					agentConfig.tools,
-				);
-				await this.maybeContinue(assistantTurn.id, options);
-				await this.maybeAutoTransition(assistantTurn.id);
+				// Check if MCP terminal tools fired during this turn.
+				// The base class maybeNudge checks the DB for succeeded tools,
+				// but MCP tools are still "running" in the DB at this point
+				// (they complete at next message_start). Use the sessionState
+				// record instead.
+				const firedTools = terminalToolsFired.get(this.session.id) ?? [];
+				terminalToolsFired.delete(this.session.id);
+
+				if (firedTools.length > 0) {
+					// Terminal tool already fired via MCP — skip nudging.
+					// Still run maybeContinue (for request_extension) and
+					// maybeAutoTransition (for complete_preflight/complete_pulse).
+					if (firedTools.includes("request_extension")) {
+						await this.maybeContinue(assistantTurn.id, options);
+					}
+					if (
+						firedTools.includes("complete_preflight") ||
+						firedTools.includes("complete_pulse")
+					) {
+						await this.maybeAutoTransition(assistantTurn.id);
+					}
+				} else {
+					// No MCP terminal tools — use standard post-turn hooks
+					await this.maybeNudge(
+						assistantTurn.id,
+						options,
+						nudgeCount,
+						agentConfig.tools,
+					);
+					await this.maybeContinue(assistantTurn.id, options);
+					await this.maybeAutoTransition(assistantTurn.id);
+				}
 
 				// Clean up temp prompt file
 				await fs.unlink(promptPath).catch(() => {});
@@ -468,7 +492,7 @@ export class ClaudeCodeRunner
 						) {
 							const schemaToolCallId = (parsedInput as Record<string, unknown>)
 								.tool_call_id as string;
-							toolCallCorrelation.set(schemaToolCallId, event.toolCallId);
+							resolveCorrelation(schemaToolCallId, event.toolCallId);
 							log.agent.info(
 								`[ClaudeCode] Stored correlation: ${schemaToolCallId} → ${event.toolCallId}`,
 							);
