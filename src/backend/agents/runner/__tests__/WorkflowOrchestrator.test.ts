@@ -37,6 +37,7 @@ import {
 	mockGetRepositories,
 	mockGetWorktreePath,
 	mockInsertKnowledgeInjectionEvents,
+	mockJiraSyncQueue,
 	mockMergeWorkflowBranch,
 	mockPulseOrchestratorInstance,
 	mockPulseRepo,
@@ -117,6 +118,7 @@ describe("Stage Transitions", () => {
 		mockGenerateObject.mockClear();
 		mockExtractKnowledge.mockClear();
 		mockShellApprovalService.cleanupWorkflow.mockClear();
+		mockJiraSyncQueue.enqueue.mockClear();
 
 		// Reset agent runner and pulse orchestrator mocks
 		resetMockAgentRunner();
@@ -905,6 +907,7 @@ describe("Error Handling", () => {
 		mockGenerateObject.mockClear();
 		mockExtractKnowledge.mockClear();
 		mockShellApprovalService.cleanupWorkflow.mockClear();
+		mockJiraSyncQueue.enqueue.mockClear();
 
 		// Reset agent runner and pulse orchestrator mocks
 		resetMockAgentRunner();
@@ -1730,6 +1733,7 @@ describe("Agent Spawning", () => {
 		mockGenerateObject.mockClear();
 		mockExtractKnowledge.mockClear();
 		mockShellApprovalService.cleanupWorkflow.mockClear();
+		mockJiraSyncQueue.enqueue.mockClear();
 
 		// Reset agent runner and pulse orchestrator mocks
 		resetMockAgentRunner();

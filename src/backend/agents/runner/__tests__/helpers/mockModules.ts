@@ -67,6 +67,18 @@ export const mockLog = {
 };
 
 // =============================================================================
+// Jira sync queue mock
+// =============================================================================
+
+export const mockJiraSyncQueue = {
+	enqueue: mock(() => {}),
+	stop: mock(() => Promise.resolve()),
+	get length() {
+		return 0;
+	},
+};
+
+// =============================================================================
 // Project root mock
 // =============================================================================
 
@@ -222,6 +234,10 @@ export function setupMockModules() {
 
 	mock.module("@/backend/services/knowledge/repository", () => ({
 		KnowledgeRepository: MockKnowledgeRepositoryClass,
+	}));
+
+	mock.module("@/backend/services/jiraSyncQueue", () => ({
+		jiraSyncQueue: mockJiraSyncQueue,
 	}));
 
 	mock.module("@/backend/services/pulsing", () => ({

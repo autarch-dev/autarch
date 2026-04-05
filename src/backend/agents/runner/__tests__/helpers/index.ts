@@ -39,6 +39,7 @@ export {
 	mockGetRepositories,
 	mockGetWorktreePath,
 	mockIds,
+	mockJiraSyncQueue,
 	mockInsertKnowledgeInjectionEvents,
 	mockLog,
 	mockMergeWorkflowBranch,
