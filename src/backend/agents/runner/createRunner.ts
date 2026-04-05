@@ -2,11 +2,12 @@
  * Runner Factory
  *
  * Creates the appropriate IAgentRunner based on the configured backend.
- * Currently always returns the Vercel AI SDK-based AgentRunner.
- * Phase 4 will add ClaudeCodeRunner selection.
+ * The backend is a user-chosen setting (defaults to "api").
  */
 
+import { getAgentBackend } from "@/backend/services/globalSettings";
 import { AgentRunner } from "./AgentRunner";
+import { ClaudeCodeRunner } from "./ClaudeCodeRunner";
 import type { IAgentRunner } from "./IAgentRunner";
 import type { ActiveSession, RunnerConfig } from "./types";
 
@@ -19,9 +20,8 @@ export function createRunner(
 	session: ActiveSession,
 	config: RunnerConfig,
 ): IAgentRunner {
-	// Phase 4: backend selection based on getAgentBackend()
-	// if (getAgentBackend() === "claude-code") {
-	//   return new ClaudeCodeRunner(session, config);
-	// }
+	if (getAgentBackend() === "claude-code") {
+		return new ClaudeCodeRunner(session, config);
+	}
 	return new AgentRunner(session, config);
 }

@@ -10,7 +10,10 @@
  */
 
 import { log } from "@/backend/logger";
+import { cleanupMcpServer } from "@/backend/mcp/McpServer";
+import { deregisterRunner } from "@/backend/mcp/runnerRegistry";
 import type { SessionRepository } from "@/backend/repositories";
+import { cleanupMcpTransport } from "@/backend/routes/mcpRoutes";
 import { shellApprovalService } from "@/backend/services/shell-approval";
 import { broadcast } from "@/backend/ws";
 import {
@@ -120,6 +123,21 @@ export class SessionManager {
 
 		// Clean up any pending shell approvals for this session
 		shellApprovalService.cleanupSession(sessionId);
+
+		// Clean up MCP resources (runner registry, MCP server, transport)
+		deregisterRunner(sessionId);
+		cleanupMcpTransport(sessionId).catch((err) =>
+			log.session.warn(
+				`Failed to cleanup MCP transport for session ${sessionId}:`,
+				err,
+			),
+		);
+		cleanupMcpServer(sessionId).catch((err) =>
+			log.session.warn(
+				`Failed to cleanup MCP server for session ${sessionId}:`,
+				err,
+			),
+		);
 
 		// Update database via repository
 		await this.sessionRepo.updateStatus(sessionId, status);

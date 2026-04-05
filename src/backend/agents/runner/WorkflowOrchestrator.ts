@@ -64,7 +64,7 @@ import {
 	STAGE_TRANSITIONS,
 	type Workflow,
 } from "@/shared/schemas/workflow";
-import { AgentRunner } from "./AgentRunner";
+import { createRunner } from "./createRunner";
 import type { SessionManager } from "./SessionManager";
 import type { AgentRole, ArtifactType, StageTransitionResult } from "./types";
 
@@ -170,7 +170,7 @@ export class WorkflowOrchestrator {
 
 		// Run the scoping agent with the initial prompt (non-blocking)
 		const projectRoot = getProjectRoot();
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 		});
@@ -675,7 +675,7 @@ You are preparing the development environment in an isolated worktree before cod
 Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
 
 		// Run preflight agent
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 			worktreePath: pulsingResult.worktreePath,
@@ -740,7 +740,7 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 
 		// Create runner and resume
 		const projectRoot = getProjectRoot();
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 		});
@@ -891,7 +891,7 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 			startedPulse,
 		);
 
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 			worktreePath,
@@ -1110,7 +1110,7 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 					? getWorktreePath(projectRoot, workflowId)
 					: undefined;
 
-			const runner = new AgentRunner(session, {
+			const runner = createRunner(session, {
 				projectRoot,
 				conversationRepo: this.conversationRepo,
 				worktreePath,
@@ -1275,7 +1275,7 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 			firstPulse,
 		);
 
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 			worktreePath,
@@ -1390,7 +1390,7 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 					nextPulse,
 				);
 
-				const runner = new AgentRunner(session, {
+				const runner = createRunner(session, {
 					projectRoot,
 					conversationRepo: this.conversationRepo,
 					worktreePath,
@@ -1511,7 +1511,7 @@ Do NOT modify any tracked files. Only initialize dependencies and build artifact
 					nextPulse,
 				);
 
-				const runner = new AgentRunner(session, {
+				const runner = createRunner(session, {
 					projectRoot,
 					conversationRepo: this.conversationRepo,
 					worktreePath,
@@ -2134,7 +2134,7 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 			true,
 		);
 
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 			worktreePath,
@@ -2196,7 +2196,7 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 			true,
 		);
 
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 			worktreePath,
@@ -2483,7 +2483,7 @@ When ready, submit your research findings using the \`submit_research\` tool.`;
 		]);
 		initialMessage += knowledgeInjection.text;
 
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 		});
@@ -2622,7 +2622,7 @@ When ready, submit your plan using the \`submit_plan\` tool.`;
 		]);
 		initialMessage += knowledgeInjection.text;
 
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 		});
@@ -2738,7 +2738,7 @@ You are preparing the development environment in an isolated worktree before cod
 Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
 
 		// Start the preflight agent
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 			worktreePath,
@@ -2857,7 +2857,7 @@ Please review the changes made for this scope. Use the available tools to:
 		// Get the worktree path for the review agent
 		const worktreePath = getWorktreePath(projectRoot, workflowId);
 
-		const runner = new AgentRunner(session, {
+		const runner = createRunner(session, {
 			projectRoot,
 			conversationRepo: this.conversationRepo,
 			worktreePath,

@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { AgentRunner, getSessionManager } from "../agents/runner";
+import { createRunner, getSessionManager } from "../agents/runner";
 import { log } from "../logger";
 import { getProjectRoot } from "../projectRoot";
 import { getRepositories } from "../repositories";
@@ -87,7 +87,7 @@ export const sessionRoutes = {
 				const projectRoot = getProjectRoot();
 				const repos = getRepositories();
 
-				const runner = new AgentRunner(session, {
+				const runner = createRunner(session, {
 					projectRoot,
 					conversationRepo: repos.conversations,
 				});

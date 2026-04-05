@@ -7,7 +7,7 @@
  */
 
 import { z } from "zod";
-import { AgentRunner } from "@/backend/agents/runner/AgentRunner";
+import { createRunner } from "@/backend/agents/runner";
 import { getSessionManager } from "@/backend/agents/runner/SessionManager";
 import { getProjectDb } from "@/backend/db/project";
 import { getDiff } from "@/backend/git";
@@ -278,7 +278,7 @@ Use this when the diff is large enough to benefit from parallel focused reviews.
 					await startSubtask(db, subtaskId);
 
 					// Construct runner for the subagent
-					const runner = new AgentRunner(subSession, {
+					const runner = createRunner(subSession, {
 						projectRoot: context.projectRoot,
 						conversationRepo,
 						worktreePath: context.worktreePath,

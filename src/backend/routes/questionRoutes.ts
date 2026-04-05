@@ -11,7 +11,7 @@ import {
 	createQuestionsSubmittedEvent,
 } from "@/shared/schemas/events";
 import type { AnswerQuestionsResponse } from "@/shared/schemas/questions";
-import { AgentRunner, getSessionManager } from "../agents/runner";
+import { createRunner, getSessionManager } from "../agents/runner";
 import { log } from "../logger";
 import { getProjectRoot } from "../projectRoot";
 import { getRepositories } from "../repositories";
@@ -147,7 +147,7 @@ export const questionRoutes = {
 					);
 
 					if (session && session.status === "active") {
-						const runner = new AgentRunner(session, {
+						const runner = createRunner(session, {
 							projectRoot,
 							conversationRepo: repos.conversations,
 						});
@@ -307,7 +307,7 @@ export const questionRoutes = {
 					const session = await sessionManager.getOrRestoreSession(sessionId);
 
 					if (session && session.status === "active") {
-						const runner = new AgentRunner(session, {
+						const runner = createRunner(session, {
 							projectRoot,
 							conversationRepo: repos.conversations,
 						});

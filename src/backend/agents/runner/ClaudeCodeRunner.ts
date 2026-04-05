@@ -242,7 +242,7 @@ export class ClaudeCodeRunner
 			"--verbose",
 			"--mcp-config",
 			mcpConfigPath,
-			"--append-system-prompt-file",
+			"--system-prompt-file",
 			promptPath,
 			"--allowedTools",
 			getAllowedTools(this.session.agentRole),

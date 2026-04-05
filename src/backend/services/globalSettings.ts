@@ -1,5 +1,6 @@
 import { SCENARIOS } from "@/shared/schemas/models";
 import {
+	type AgentBackend,
 	type AIProvider,
 	type ApiKeysResponse,
 	type ModelPreferences,
@@ -31,6 +32,7 @@ const SETTING_KEYS = {
 	MODEL_EXECUTION: "model_execution",
 	MODEL_REVIEW: "model_review",
 	MODEL_ROADMAP_PLANNING: "model_roadmap_planning",
+	AGENT_BACKEND: "agent_backend",
 } as const;
 
 const PROVIDER_TO_KEY = {
@@ -253,6 +255,41 @@ export async function isJiraConfigured(projectPath: string): Promise<boolean> {
 	return (
 		email !== null && email.length > 0 && token !== null && token.length > 0
 	);
+}
+
+// =============================================================================
+// Agent Backend
+// =============================================================================
+
+/** Cached backend value — initialized at startup, read synchronously */
+let cachedBackend: AgentBackend = "api";
+
+/**
+ * Load the agent backend setting from DB and cache it.
+ * Called once at startup.
+ */
+export async function initAgentBackend(): Promise<void> {
+	const value = await getSetting(SETTING_KEYS.AGENT_BACKEND);
+	if (value === "claude-code") {
+		cachedBackend = "claude-code";
+	} else {
+		cachedBackend = "api";
+	}
+}
+
+/**
+ * Get the configured agent backend (sync, from cache).
+ */
+export function getAgentBackend(): AgentBackend {
+	return cachedBackend;
+}
+
+/**
+ * Set the agent backend preference.
+ */
+export async function setAgentBackend(backend: AgentBackend): Promise<void> {
+	await setSetting(SETTING_KEYS.AGENT_BACKEND, backend);
+	cachedBackend = backend;
 }
 
 // =============================================================================

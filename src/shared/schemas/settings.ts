@@ -28,6 +28,9 @@ export type ModelScenario = z.infer<typeof ModelScenario>;
 export const IntegrationType = z.enum(["exa"]);
 export type IntegrationType = z.infer<typeof IntegrationType>;
 
+export const AgentBackend = z.enum(["api", "claude-code"]);
+export type AgentBackend = z.infer<typeof AgentBackend>;
+
 // =============================================================================
 // Onboarding
 // =============================================================================

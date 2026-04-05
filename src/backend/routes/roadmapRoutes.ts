@@ -22,7 +22,7 @@ import {
 	RoadmapStatusSchema,
 } from "@/shared/schemas/roadmap";
 import { ROADMAP_PLANNING_TOOLS } from "../agents/registry";
-import { AgentRunner, getSessionManager } from "../agents/runner";
+import { createRunner, getSessionManager } from "../agents/runner";
 import { AgentRoleSchema } from "../agents/types";
 
 import { getProjectDb } from "../db/project";
@@ -266,7 +266,7 @@ async function startPersonaSessions(
 				`You are working on a roadmap titled "${title}".${context}\n\n` +
 				"Please analyze this and create a comprehensive roadmap. Use the submit_roadmap tool to submit your final roadmap. Provide sortOrder as sequential numbers starting from 0 for milestones and initiatives.";
 
-			const runner = new AgentRunner(session, {
+			const runner = createRunner(session, {
 				projectRoot,
 				conversationRepo: repos.conversations,
 				toolsOverride: ROADMAP_PLANNING_TOOLS,
@@ -324,7 +324,7 @@ async function startPersonaSessions(
 				`You are working on a roadmap titled "${title}".${context}\n\n` +
 				"Please analyze this from your unique perspective and produce a complete roadmap proposal.";
 
-			const runner = new AgentRunner(session, {
+			const runner = createRunner(session, {
 				projectRoot,
 				conversationRepo: repos.conversations,
 			});

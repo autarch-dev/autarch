@@ -10,7 +10,7 @@
  * exactly one caller triggers synthesis when the last persona finishes.
  */
 
-import { AgentRunner } from "@/backend/agents/runner/AgentRunner";
+import { createRunner } from "@/backend/agents/runner";
 import { getSessionManager } from "@/backend/agents/runner/SessionManager";
 import type {
 	PersonaRoadmapStatus,
@@ -461,7 +461,7 @@ export function startSynthesisSession(
 			});
 
 			const { conversations: conversationRepo } = getRepositories();
-			const runner = new AgentRunner(session, {
+			const runner = createRunner(session, {
 				projectRoot,
 				conversationRepo,
 			});

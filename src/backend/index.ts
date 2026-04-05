@@ -14,6 +14,7 @@ import {
 } from "./routes";
 import { initServerPort } from "./serverPort";
 import { startWatching } from "./services/embedding";
+import { initAgentBackend } from "./services/globalSettings";
 import { handleClose, handleMessage, handleOpen } from "./ws";
 
 // Server reference for WebSocket upgrades
@@ -87,6 +88,7 @@ try {
 		repos.conversations,
 		repos.pulses,
 	);
+	await initAgentBackend();
 	log.server.success("Agent system initialized");
 })();
 

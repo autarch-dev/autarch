@@ -5,7 +5,7 @@
  * Not review-specific — designed for reuse by any agent that delegates work.
  */
 
-import { AgentRunner } from "@/backend/agents/runner/AgentRunner";
+import { createRunner } from "@/backend/agents/runner";
 import { getSessionManager } from "@/backend/agents/runner/SessionManager";
 import type { SubtaskStatus, SubtasksTable } from "@/backend/db/project/types";
 import { log } from "@/backend/logger";
@@ -512,7 +512,7 @@ export function resumeCoordinatorSession(
 		.then(async (coordinatorSession) => {
 			if (coordinatorSession) {
 				const { conversations: conversationRepo } = getRepositories();
-				const runner = new AgentRunner(coordinatorSession, {
+				const runner = createRunner(coordinatorSession, {
 					projectRoot: context.projectRoot,
 					conversationRepo,
 					worktreePath: context.worktreePath,
