@@ -63,9 +63,13 @@ export function ChannelHeader({ channel, onArchived }: ChannelHeaderProps) {
 						</Button>
 						<Button
 							variant="destructive"
-							onClick={() => {
-								archiveChannel(channel.id);
-								onArchived?.();
+							onClick={async () => {
+								try {
+									await archiveChannel(channel.id);
+									onArchived?.();
+								} catch {
+									// archive failed, stay on channel
+								}
 							}}
 						>
 							Archive

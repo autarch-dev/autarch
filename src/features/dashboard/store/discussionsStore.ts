@@ -197,12 +197,16 @@ export const useDiscussionsStore = create<DiscussionsState>((set, get) => ({
 			method: "POST",
 		});
 		if (!res.ok) throw new Error("Failed to archive channel");
-		set((s) => ({
-			channels: s.channels.filter((c) => c.id !== channelId),
-			selectedChannelId:
-				s.selectedChannelId === channelId ? null : s.selectedChannelId,
-		}));
-		get().conversations.delete(channelId);
+		set((s) => {
+			const conversations = new Map(s.conversations);
+			conversations.delete(channelId);
+			return {
+				channels: s.channels.filter((c) => c.id !== channelId),
+				selectedChannelId:
+					s.selectedChannelId === channelId ? null : s.selectedChannelId,
+				conversations,
+			};
+		});
 	},
 
 	selectChannel: (channelId: string | null) => {
