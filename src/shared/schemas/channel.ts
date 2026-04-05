@@ -12,6 +12,7 @@ export const ChannelSchema = z.object({
 	id: z.string(),
 	name: z.string().min(1).max(50),
 	description: z.string().max(500).optional(),
+	archived: z.boolean(),
 	createdAt: z.number(),
 	updatedAt: z.number(),
 });

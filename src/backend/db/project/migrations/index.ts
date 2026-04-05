@@ -51,6 +51,7 @@ import { migrate as migrate0043OriginalToolCallId } from "./0043-original-tool-c
 import { migrate as migrate0044JiraSyncColumns } from "./0044-jira-sync-columns";
 import { migrate as migrate0045PulseJiraIssueId } from "./0045-pulse-jira-issue-id";
 import { migrate as migrate0046PullRequestUrlColumn } from "./0046-pull-request-url-column";
+import { migrate as migrate0047ChannelArchivedColumn } from "./0047-channel-archived-column";
 
 /**
  * Run all migrations for the project database.
@@ -140,4 +141,7 @@ export async function migrateProjectDb(
 
 	// pull_request_url column on workflows (0046)
 	await migrate0046PullRequestUrlColumn(db);
+
+	// archived column on channels (0047)
+	await migrate0047ChannelArchivedColumn(db);
 }

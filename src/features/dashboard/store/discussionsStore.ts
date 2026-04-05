@@ -444,6 +444,7 @@ function handleChannelCreated(
 			id: payload.channelId,
 			name: payload.name,
 			description: payload.description,
+			archived: false,
 			createdAt: Date.now(),
 			updatedAt: Date.now(),
 		};
