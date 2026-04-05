@@ -297,8 +297,7 @@ export class ClaudeCodeRunner
 	}> {
 		const cwd = this.config.worktreePath ?? this.config.projectRoot;
 
-		log.agent.info(`[ClaudeCode] Spawning: ${args.join(" ")} (cwd: ${cwd})`);
-		log.agent.debug(`[ClaudeCode] Message length: ${message.length} chars`);
+		log.agent.debug(`[ClaudeCode] Spawning: ${args.join(" ")} (cwd: ${cwd})`);
 
 		const proc = Bun.spawn(args, {
 			cwd,
@@ -318,7 +317,7 @@ export class ClaudeCodeRunner
 		// Set up abort handling
 		const signal = options.signal ?? this.session.abortController?.signal;
 		const abortHandler = () => {
-			log.agent.info(`[ClaudeCode] Abort signal received — killing process`);
+			log.agent.debug(`[ClaudeCode] Abort signal received — killing process`);
 			proc.kill("SIGTERM");
 		};
 		signal?.addEventListener("abort", abortHandler);
@@ -338,9 +337,9 @@ export class ClaudeCodeRunner
 		// Track streaming state
 		let currentSegmentBuffer = "";
 		let currentSegmentIndex = 0;
-		let activeToolCallId: string | null = null;
-		let toolInputBuffer = "";
-		const nativeToolCalls = new Map<string, ToolCall>();
+		const toolInputBuffers = new Map<string, string>();
+		const toolNames = new Map<string, string>(); // toolCallId → toolName
+		const pendingToolCalls = new Map<string, ToolCall>(); // tools started, awaiting completion
 		let usage = {
 			inputTokens: 0,
 			outputTokens: 0,
@@ -353,7 +352,7 @@ export class ClaudeCodeRunner
 			)) {
 				// Check if MCP handler signaled termination
 				if (this.shouldTerminate) {
-					log.agent.info(`[ClaudeCode] Terminal tool fired — killing process`);
+					log.agent.debug(`[ClaudeCode] Terminal tool fired — killing process`);
 					proc.kill("SIGTERM");
 					break;
 				}
@@ -392,9 +391,30 @@ export class ClaudeCodeRunner
 						break;
 					}
 
-					case "tool_start": {
-						// Skip internal CC tools we don't want in the UI
-						if (IGNORED_TOOLS.has(event.toolName)) {
+					case "tool_call_start": {
+						// Track the tool name and start buffering input
+						// Don't emit to UI yet — wait for tool_end when we have full input
+						toolNames.set(event.toolCallId, event.toolName);
+						toolInputBuffers.set(event.toolCallId, "");
+						break;
+					}
+
+					case "tool_input_delta": {
+						if (event.toolCallId) {
+							const prev = toolInputBuffers.get(event.toolCallId) ?? "";
+							toolInputBuffers.set(event.toolCallId, prev + event.partialJson);
+						}
+						break;
+					}
+
+					case "tool_call_end": {
+						const toolName = toolNames.get(event.toolCallId);
+						if (!toolName) break;
+
+						// Skip internal CC tools
+						if (IGNORED_TOOLS.has(toolName)) {
+							toolNames.delete(event.toolCallId);
+							toolInputBuffers.delete(event.toolCallId);
 							break;
 						}
 
@@ -417,65 +437,62 @@ export class ClaudeCodeRunner
 							currentSegmentBuffer = "";
 						}
 
-						activeToolCallId = event.toolCallId;
-						toolInputBuffer = "";
+						// Parse buffered input
+						const inputJson = toolInputBuffers.get(event.toolCallId) ?? "";
+						let parsedInput: unknown = {};
+						if (inputJson.length > 0) {
+							try {
+								parsedInput = JSON.parse(inputJson);
+							} catch {
+								parsedInput = { raw: inputJson };
+							}
+						}
 
-						// Strip the mcp__autarch__ prefix for display
-						const displayName = event.toolName.startsWith("mcp__autarch__")
-							? event.toolName.slice("mcp__autarch__".length)
-							: event.toolName;
+						// Strip mcp__autarch__ prefix for display
+						const displayName = toolName.startsWith("mcp__autarch__")
+							? toolName.slice("mcp__autarch__".length)
+							: toolName;
 
-						// Record tool start immediately (will update with input on tool_end)
+						log.agent.debug(
+							`[ClaudeCode] tool ready: ${displayName} inputLen=${inputJson.length}`,
+						);
+
+						// Record tool start with full input + reason
+						// Status stays "running" until next message_start
 						const toolCall = await this.recordToolStart(
 							turnId,
 							currentSegmentIndex,
 							event.toolCallId,
 							displayName,
-							{},
+							parsedInput,
 						);
-						nativeToolCalls.set(event.toolCallId, toolCall);
+						pendingToolCalls.set(event.toolCallId, toolCall);
 						options.onToolStarted?.(toolCall);
+
+						toolNames.delete(event.toolCallId);
+						toolInputBuffers.delete(event.toolCallId);
+						currentSegmentIndex++;
 						break;
 					}
 
-					case "tool_input_delta": {
-						toolInputBuffer += event.partialJson;
-						break;
-					}
-
-					case "tool_end":
 					case "content_block_end": {
-						if (activeToolCallId) {
-							const toolCall = nativeToolCalls.get(activeToolCallId);
-							if (toolCall) {
-								// Parse buffered input to extract reason
-								let parsedInput: unknown = {};
-								if (toolInputBuffer.length > 0) {
-									try {
-										parsedInput = JSON.parse(toolInputBuffer);
-									} catch {
-										// Partial/malformed JSON — use raw string
-										parsedInput = { raw: toolInputBuffer };
-									}
-								}
+						// Non-tool content block ended — no action needed
+						break;
+					}
 
-								// Update the tool record with the actual input
-								// (recordToolStart was called with {} — update reason from parsed input)
-								if (
-									typeof parsedInput === "object" &&
-									parsedInput !== null &&
-									"reason" in parsedInput
-								) {
-									toolCall.reason = (parsedInput as { reason: string }).reason;
-								}
-
+					case "message_start": {
+						// New LLM turn starting — all pending tools must have
+						// finished executing (Claude Code waits for MCP results
+						// before continuing). Complete them now.
+						if (pendingToolCalls.size > 0) {
+							log.agent.debug(
+								`[ClaudeCode] message_start: completing ${pendingToolCalls.size} pending tool(s)`,
+							);
+							for (const [, toolCall] of pendingToolCalls) {
 								await this.recordToolComplete(toolCall, "", true);
 								options.onToolCompleted?.(toolCall);
-								nativeToolCalls.delete(activeToolCallId);
 							}
-							activeToolCallId = null;
-							toolInputBuffer = "";
-							currentSegmentIndex++;
+							pendingToolCalls.clear();
 						}
 						break;
 					}
@@ -494,6 +511,18 @@ export class ClaudeCodeRunner
 						break;
 					}
 				}
+			}
+
+			// Complete any remaining pending tools
+			if (pendingToolCalls.size > 0) {
+				log.agent.debug(
+					`[ClaudeCode] Stream ended: completing ${pendingToolCalls.size} pending tool(s)`,
+				);
+				for (const [, toolCall] of pendingToolCalls) {
+					await this.recordToolComplete(toolCall, "", true);
+					options.onToolCompleted?.(toolCall);
+				}
+				pendingToolCalls.clear();
 			}
 
 			// Save remaining text

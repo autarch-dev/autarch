@@ -789,7 +789,7 @@ export abstract class BaseAgentRunner implements IAgentRunner {
 			success,
 		);
 
-		// Broadcast completion event
+		// Broadcast completion event (include input for UI to update reason)
 		broadcast(
 			createTurnToolCompletedEvent({
 				sessionId: this.session.id,
@@ -797,6 +797,7 @@ export abstract class BaseAgentRunner implements IAgentRunner {
 				toolId: toolCall.id,
 				output,
 				success,
+				input: toolCall.input,
 			}),
 		);
 	}

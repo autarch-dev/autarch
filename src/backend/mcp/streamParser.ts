@@ -113,10 +113,11 @@ export type ParsedEvent =
 	| { type: "session_id"; sessionId: string }
 	| { type: "text_delta"; text: string }
 	| { type: "thinking_delta"; text: string }
-	| { type: "tool_start"; toolCallId: string; toolName: string }
+	| { type: "tool_call_start"; toolCallId: string; toolName: string }
 	| { type: "tool_input_delta"; toolCallId: string; partialJson: string }
-	| { type: "tool_end"; toolCallId: string }
+	| { type: "tool_call_end"; toolCallId: string }
 	| { type: "content_block_end"; index: number }
+	| { type: "message_start" }
 	| {
 			type: "result";
 			sessionId: string;
@@ -143,6 +144,7 @@ export async function* parseClaudeStream(
 	let buffer = "";
 	let sessionIdEmitted = false;
 	let hasSeenStreamEvents = false;
+	const streamProcessor = new StreamEventProcessor();
 
 	try {
 		while (true) {
@@ -182,7 +184,7 @@ export async function* parseClaudeStream(
 
 				if (event.type === "stream_event") {
 					hasSeenStreamEvents = true;
-					yield* processStreamEvent(event as unknown as StreamEvent);
+					yield* streamProcessor.process(event as unknown as StreamEvent);
 				} else if (event.type === "assistant") {
 					// Skip assistant message if we already got streaming deltas
 					// (with --include-partial-messages, both are emitted — avoid double-counting)
@@ -215,51 +217,80 @@ export async function* parseClaudeStream(
 }
 
 /**
- * Process a stream_event (wraps Anthropic API events).
+ * Stateful stream event processor.
+ * Tracks content block index → tool call ID mapping for correlating
+ * input_json_delta events with their tool calls (needed for parallel tool calls).
  */
-function* processStreamEvent(event: StreamEvent): Generator<ParsedEvent> {
-	const apiEvent = event.event;
-	if (!apiEvent?.type) return;
+class StreamEventProcessor {
+	/** Maps content block index → tool call ID */
+	private indexToToolId = new Map<number, string>();
 
-	switch (apiEvent.type) {
-		case "content_block_start": {
-			const block = apiEvent.content_block;
-			if (block.type === "tool_use" && block.id && block.name) {
-				yield {
-					type: "tool_start",
-					toolCallId: block.id,
-					toolName: block.name,
-				};
+	*process(event: StreamEvent): Generator<ParsedEvent> {
+		const apiEvent = event.event;
+		if (!apiEvent?.type) return;
+
+		log.agent.debug(
+			`[StreamParser] event: ${apiEvent.type} index=${(apiEvent as { index?: number }).index}`,
+		);
+
+		switch (apiEvent.type) {
+			case "content_block_start": {
+				const block = apiEvent.content_block;
+				log.agent.debug(
+					`[StreamParser] content_block_start: type=${block.type} id=${block.id} name=${block.name} index=${apiEvent.index}`,
+				);
+				if (block.type === "tool_use" && block.id && block.name) {
+					this.indexToToolId.set(apiEvent.index, block.id);
+					yield {
+						type: "tool_call_start",
+						toolCallId: block.id,
+						toolName: block.name,
+					};
+				}
+				break;
 			}
-			break;
-		}
 
-		case "content_block_delta": {
-			const delta = apiEvent.delta;
-			if (delta.type === "text_delta") {
-				yield { type: "text_delta", text: delta.text };
-			} else if (delta.type === "input_json_delta") {
-				// Tool input is being streamed — buffer it.
-				// The MCP handler will receive the complete input when the tool executes.
-				// We emit this for potential future use (progress indication).
-				yield {
-					type: "tool_input_delta",
-					toolCallId: "", // Not available in delta events
-					partialJson: delta.partial_json,
-				};
-			} else if (delta.type === "thinking_delta") {
-				yield { type: "thinking_delta", text: delta.thinking };
+			case "content_block_delta": {
+				const delta = apiEvent.delta;
+				if (delta.type === "text_delta") {
+					yield { type: "text_delta", text: delta.text };
+				} else if (delta.type === "input_json_delta") {
+					const toolCallId = this.indexToToolId.get(apiEvent.index) ?? "";
+					log.agent.debug(
+						`[StreamParser] input_json_delta: index=${apiEvent.index} toolCallId=${toolCallId} partial=${delta.partial_json.slice(0, 80)}`,
+					);
+					yield {
+						type: "tool_input_delta",
+						toolCallId,
+						partialJson: delta.partial_json,
+					};
+				} else if (delta.type === "thinking_delta") {
+					yield { type: "thinking_delta", text: delta.thinking };
+				}
+				break;
 			}
-			break;
-		}
 
-		case "content_block_stop": {
-			yield { type: "content_block_end", index: apiEvent.index };
-			break;
-		}
+			case "content_block_stop": {
+				const toolCallId = this.indexToToolId.get(apiEvent.index);
+				log.agent.debug(
+					`[StreamParser] content_block_stop: index=${apiEvent.index} toolCallId=${toolCallId ?? "(text)"}`,
+				);
+				if (toolCallId) {
+					yield { type: "tool_call_end", toolCallId };
+					this.indexToToolId.delete(apiEvent.index);
+				} else {
+					yield { type: "content_block_end", index: apiEvent.index };
+				}
+				break;
+			}
 
-		// message_start, message_delta, message_stop — no action needed
-		// (session_id is captured from top-level, usage from result event)
+			case "message_start": {
+				yield { type: "message_start" };
+				break;
+			}
+
+			// message_delta, message_stop — no action needed
+		}
 	}
 }
 
@@ -288,11 +319,11 @@ function* processAssistantMessage(
 			yield { type: "text_delta", text: block.text };
 		} else if (block.type === "tool_use" && block.id && block.name) {
 			yield {
-				type: "tool_start",
+				type: "tool_call_start",
 				toolCallId: block.id,
 				toolName: block.name,
 			};
-			yield { type: "tool_end", toolCallId: block.id };
+			yield { type: "tool_call_end", toolCallId: block.id };
 		}
 	}
 }

@@ -1714,6 +1714,8 @@ function handleToolCompleted(
 					? {
 							...t,
 							output: payload.output,
+							// Merge input if provided (ClaudeCodeRunner sends input with completion)
+							...(payload.input !== undefined ? { input: payload.input } : {}),
 							status: payload.success
 								? ("completed" as const)
 								: ("error" as const),

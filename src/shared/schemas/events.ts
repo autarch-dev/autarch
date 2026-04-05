@@ -360,6 +360,8 @@ export const TurnToolCompletedPayloadSchema = z.object({
 	toolId: z.string(),
 	output: z.unknown(),
 	success: z.boolean(),
+	/** Updated tool input (for ClaudeCodeRunner where input arrives after start) */
+	input: z.unknown().optional(),
 });
 export type TurnToolCompletedPayload = z.infer<
 	typeof TurnToolCompletedPayloadSchema

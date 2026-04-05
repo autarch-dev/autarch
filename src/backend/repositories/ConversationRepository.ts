@@ -548,6 +548,29 @@ export class ConversationRepository implements Repository {
 	}
 
 	/**
+	 * Update a tool's input and reason after recording start.
+	 * Used by ClaudeCodeRunner which doesn't have tool input at start time.
+	 */
+	async updateToolInput(
+		id: string,
+		input: unknown,
+		reason: string | null,
+	): Promise<void> {
+		await this.db
+			.updateTable("turn_tools")
+			.set({
+				input_json: stringifyJson(
+					input,
+					ToolInputJsonSchema,
+					`tool[${id}].input_json`,
+				),
+				reason,
+			})
+			.where("id", "=", id)
+			.execute();
+	}
+
+	/**
 	 * Record tool completion.
 	 * Output is validated before serialization.
 	 */
