@@ -179,15 +179,21 @@ async function executeTool(
 	}
 
 	try {
+		log.tools.info(`[MCP] Executing ${toolName}...`);
 		const result = await registeredTool.execute(input, toolContext);
+		log.tools.info(
+			`[MCP] ${toolName} returned: success=${result.success} outputLen=${result.output.length}`,
+		);
 
 		// Check if this is a terminal tool that should end the session
 		checkTerminalTool(sessionId, session, toolName, result.success);
 
-		return {
-			content: [{ type: "text", text: result.output }],
+		const response = {
+			content: [{ type: "text" as const, text: result.output }],
 			isError: !result.success,
 		};
+		log.tools.info(`[MCP] Returning response for ${toolName}`);
+		return response;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "Unknown error";
 		log.agent.error(
