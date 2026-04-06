@@ -835,7 +835,7 @@ async function findIssueTypeId(
  */
 export async function syncMilestone(milestone: Milestone): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
-	if (!ctx || !ctx.config.syncRoadmaps) return;
+	if (!ctx?.config.syncRoadmaps) return;
 
 	const { config, auth } = ctx;
 
@@ -935,7 +935,7 @@ export async function syncInitiative(
 	parentEpicKey?: string,
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
-	if (!ctx || !ctx.config.syncRoadmaps) return;
+	if (!ctx?.config.syncRoadmaps) return;
 
 	const { config, auth } = ctx;
 
@@ -1045,7 +1045,7 @@ export async function syncWorkflow(
 	initiativeJira?: { key: string; id?: string },
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
-	if (!ctx || !ctx.config.syncWorkflows) return;
+	if (!ctx?.config.syncWorkflows) return;
 
 	const { config, auth } = ctx;
 
@@ -1169,7 +1169,7 @@ export async function syncWorkflowStatus(
 	newStatus: WorkflowStatus,
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
-	if (!ctx || !ctx.config.syncWorkflows) return;
+	if (!ctx?.config.syncWorkflows) return;
 
 	const { config, auth } = ctx;
 
@@ -1302,7 +1302,7 @@ export async function syncArtifactComment(
 	entry: ArtifactEntry,
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
-	if (!ctx || !ctx.config.syncArtifacts) return;
+	if (!ctx?.config.syncArtifacts) return;
 
 	const { auth } = ctx;
 
@@ -1345,7 +1345,7 @@ export async function syncPulses(
 	parentTaskKey: string,
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
-	if (!ctx || !ctx.config.syncWorkflows) return;
+	if (!ctx?.config.syncWorkflows) return;
 
 	const { config, auth } = ctx;
 
@@ -1430,7 +1430,7 @@ export async function syncPulseStatus(
 	pulseStatus: "running" | "succeeded" | "failed" | "stopped",
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
-	if (!ctx || !ctx.config.syncWorkflows) return;
+	if (!ctx?.config.syncWorkflows) return;
 
 	const { config, auth } = ctx;
 
@@ -1490,7 +1490,7 @@ export async function syncRoadmap(
 	}>,
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
-	if (!ctx || !ctx.config.syncRoadmaps) return;
+	if (!ctx?.config.syncRoadmaps) return;
 
 	// Sync milestones first (Epics)
 	for (const milestone of milestones) {

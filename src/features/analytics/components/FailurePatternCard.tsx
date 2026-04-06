@@ -45,7 +45,10 @@ export function FailurePatternCard() {
 											.sort((a, b) => b.count - a.count)
 											.map((entry, idx) => (
 												<tr
-													key={`${entry.stage}-${entry.errorType}-${idx}`}
+													key={`${entry.stage}-${entry.errorType}-${
+														// biome-ignore lint/suspicious/noArrayIndexKey: /shrug
+														idx
+													}`}
 													className="border-b last:border-0"
 												>
 													<td className="py-2">{entry.stage}</td>

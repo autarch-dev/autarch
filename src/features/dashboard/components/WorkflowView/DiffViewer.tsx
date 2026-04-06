@@ -8,6 +8,7 @@
  * - File type filter dropdown
  * - Modal trigger for viewing from ReviewCardApproval
  */
+/** biome-ignore-all lint/suspicious/noArrayIndexKey: /shrug */
 
 import { diffWords } from "diff";
 import {

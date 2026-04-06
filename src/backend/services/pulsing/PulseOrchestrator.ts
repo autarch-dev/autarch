@@ -368,7 +368,7 @@ export class PulseOrchestrator {
 	 */
 	async failPulse(pulseId: string, reason: string): Promise<void> {
 		const pulse = await this.pulseRepo.getPulse(pulseId);
-		if (!pulse || !pulse.worktreePath) {
+		if (!pulse?.worktreePath) {
 			await this.pulseRepo.failPulse(pulseId, reason);
 			// Broadcast pulse failed event
 			if (pulse) {
@@ -420,7 +420,7 @@ export class PulseOrchestrator {
 	 */
 	async stopPulse(pulseId: string): Promise<void> {
 		const pulse = await this.pulseRepo.getPulse(pulseId);
-		if (!pulse || !pulse.worktreePath) {
+		if (!pulse?.worktreePath) {
 			await this.pulseRepo.stopPulse(pulseId);
 			return;
 		}

@@ -79,7 +79,12 @@ export function ContentHeader() {
 				aria-label="Breadcrumb"
 			>
 				{breadcrumbs.map((crumb, index) => (
-					<Fragment key={`${crumb.label}-${index}`}>
+					<Fragment
+						key={`${crumb.label}-${
+							// biome-ignore lint/suspicious/noArrayIndexKey: /shrug
+							index
+						}`}
+					>
 						{index > 0 && (
 							<ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50" />
 						)}

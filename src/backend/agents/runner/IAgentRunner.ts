@@ -12,6 +12,5 @@ export interface IAgentRunner {
 		userMessage: string,
 		options?: RunOptions,
 		nudgeCount?: number,
-		cacheUserMessage?: boolean,
 	): Promise<void>;
 }

@@ -215,7 +215,6 @@ export abstract class BaseAgentRunner implements IAgentRunner {
 		userMessage: string,
 		options?: RunOptions,
 		nudgeCount?: number,
-		cacheUserMessage?: boolean,
 	): Promise<void>;
 
 	// ===========================================================================
@@ -281,7 +280,7 @@ export abstract class BaseAgentRunner implements IAgentRunner {
 		);
 
 		// Recursively call run with the nudge message
-		await this.run(nudgeMessage, options, currentNudgeCount + 1, true);
+		await this.run(nudgeMessage, options, currentNudgeCount + 1);
 	}
 
 	/**
@@ -323,7 +322,7 @@ export abstract class BaseAgentRunner implements IAgentRunner {
 
 		// Continue with a simple prompt (reset nudge count for fresh allowance)
 		// Hide the continuation message from UI
-		await this.run("Continue.", { ...options, hidden: true }, 0, true);
+		await this.run("Continue.", { ...options, hidden: true }, 0);
 	}
 
 	/**

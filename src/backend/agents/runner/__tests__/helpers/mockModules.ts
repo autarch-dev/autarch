@@ -271,7 +271,7 @@ export function setupMockModules() {
 
 export {
 	MockAgentRunnerClass,
-	mockAgentRunnerRun,
 	MockPulseOrchestratorClass,
+	mockAgentRunnerRun,
 	mockPulseOrchestratorInstance,
 };

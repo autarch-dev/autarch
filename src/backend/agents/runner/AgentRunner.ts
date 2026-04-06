@@ -90,7 +90,6 @@ export class AgentRunner extends BaseAgentRunner {
 		userMessage: string,
 		options: RunOptions = {},
 		nudgeCount = 0,
-		cacheUserMessage = false,
 	): Promise<void> {
 		// Clone to avoid mutating the shared registry singleton
 		const agentConfig = { ...getAgentConfig(this.session.agentRole) };
@@ -185,17 +184,6 @@ export class AgentRunner extends BaseAgentRunner {
 		const userMsg: UserModelMessage = {
 			role: "user",
 			content: userMessageContent,
-			providerOptions: {
-				...(cacheUserMessage
-					? {
-							bedrock: {
-								cachePoint: {
-									type: "default",
-								},
-							},
-						}
-					: {}),
-			},
 		};
 		conversationHistory.push(userMsg);
 
@@ -623,6 +611,38 @@ export class AgentRunner extends BaseAgentRunner {
 				hasToolResult("complete_pulse"), //We want to end on _successful_ tool calls for pulse completion, not _any_ tool call.
 			],
 			abortSignal: signal,
+			prepareStep: ({ messages: stepMessages }) => {
+				// Move the Bedrock cache breakpoint to the last user/tool message on every step.
+				// This ensures cache coverage advances through tool-call loops, not just the initial user message.
+				const cleaned = stepMessages.map((msg) => {
+					if (!msg.providerOptions?.bedrock) return msg;
+					const { bedrock: _, ...restProvider } = msg.providerOptions;
+					return {
+						...msg,
+						providerOptions:
+							Object.keys(restProvider).length > 0 ? restProvider : undefined,
+					};
+				});
+
+				// Apply cachePoint to the last user or tool message
+				for (let i = cleaned.length - 1; i >= 0; i--) {
+					const msg = cleaned[i];
+					if (msg && (msg.role === "user" || msg.role === "tool")) {
+						cleaned[i] = {
+							...msg,
+							providerOptions: {
+								...msg.providerOptions,
+								bedrock: {
+									cachePoint: { type: "default" },
+								},
+							},
+						};
+						break;
+					}
+				}
+
+				return { messages: cleaned };
+			},
 			experimental_repairToolCall: async (options) => {
 				log.agent.warn(
 					`Attempting repair of tool call ${options.toolCall.toolName} (${options.toolCall.toolCallId})`,

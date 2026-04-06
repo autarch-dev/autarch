@@ -73,7 +73,6 @@ export class ClaudeCodeRunner
 		userMessage: string,
 		options: RunOptions = {},
 		nudgeCount = 0,
-		_cacheUserMessage = false,
 	): Promise<void> {
 		const agentConfig = { ...getAgentConfig(this.session.agentRole) };
 

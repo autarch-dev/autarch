@@ -7,9 +7,9 @@ import {
 } from "./searchKnowledge";
 
 export {
+	type SearchKnowledgeInput,
 	searchKnowledgeInputSchema,
 	searchKnowledgeTool,
-	type SearchKnowledgeInput,
 };
 
 export const knowledgeTools = [registerTool(searchKnowledgeTool)];

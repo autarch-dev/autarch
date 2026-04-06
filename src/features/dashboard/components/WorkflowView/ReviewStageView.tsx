@@ -5,6 +5,7 @@
  * for the review stage. Filters messages by stage and renders review cards
  * after their associated turn. Shows approved plan as context.
  */
+/** biome-ignore-all lint/suspicious/noArrayIndexKey: /shrug */
 
 import {
 	AlertTriangle,
