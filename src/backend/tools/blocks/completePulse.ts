@@ -234,12 +234,16 @@ orchestration for human review.`,
 							stdout.length +
 							stderr.length;
 						if (combinedSize > 200000) {
-							log.workflow.error(
-								`Output size exceeds LLM context limits for command '${command}'`,
+							log.workflow.warn(
+								`Output size exceeds LLM context limits for command '${command}' (${combinedSize} chars), skipping automatic comparison`,
 							);
 							return {
 								success: false,
-								output: `Output size exceeds LLM context limits for command '${command}'`,
+								output: [
+									`Verification command '${command}' produced output too large for automatic analysis (${combinedSize} chars, limit 200000).`,
+									`The command exited with code ${exitCode} (baseline was ${baseline.exit_code}).`,
+									`Unable to compare outputs automatically. You should figure out why it's failing and fix it before running \`complete_pulse\` again.`,
+								].join("\n"),
 							};
 						}
 
