@@ -19,6 +19,17 @@ import {
 } from "@/components/ui/table";
 import { useCostStore } from "../store/costStore";
 
+/** Cost per million tokens, using total tokens as a complexity proxy */
+function costPerMTok(
+	cost: number,
+	promptTokens: number,
+	completionTokens: number,
+): string {
+	const totalTokens = promptTokens + completionTokens;
+	if (totalTokens === 0) return "—";
+	return `$${((cost / totalTokens) * 1_000_000).toFixed(2)}`;
+}
+
 export function WorkflowCostTable() {
 	const { data, loading, error } = useCostStore((s) => s.byWorkflow);
 
@@ -46,6 +57,7 @@ export function WorkflowCostTable() {
 								<TableRow>
 									<TableHead>Workflow Title</TableHead>
 									<TableHead className="text-right">Total Cost</TableHead>
+									<TableHead className="text-right">$/mTok</TableHead>
 									<TableHead className="text-right">Prompt Tokens</TableHead>
 									<TableHead className="text-right">
 										Completion Tokens
@@ -66,6 +78,13 @@ export function WorkflowCostTable() {
 										</TableCell>
 										<TableCell className="text-right">
 											${row.totalCost.toFixed(2)}
+										</TableCell>
+										<TableCell className="text-right text-muted-foreground">
+											{costPerMTok(
+												row.totalCost,
+												row.promptTokens,
+												row.completionTokens,
+											)}
 										</TableCell>
 										<TableCell className="text-right">
 											{row.promptTokens.toLocaleString()}
