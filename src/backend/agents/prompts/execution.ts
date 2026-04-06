@@ -248,7 +248,8 @@ Then extend or pick the next TODO.
 ## multi_edit Rules (Strict)
 
 - Edits applied **sequentially in array order**, each on the result of the previous
-- All validated before any applied — if one fails, none are written
+- Edit N's oldString must match the file **after edits 0..N-1**, not the original file content
+- Validation is a dry-run: all edits simulated sequentially before writing — if one fails, none are written
 - Use when making 3+ changes to the same file
 
 ---

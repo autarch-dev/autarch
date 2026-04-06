@@ -397,16 +397,20 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 Apply **multiple exact string replacements** to a single file atomically.
 More efficient than multiple edit_file calls when making several changes to the same file.
 
-Edits are applied sequentially in array order, each operating on the result of the previous edit.
+**Edits are applied sequentially** in array order, each operating on the result of the previous edit.
+This means edit N's oldString must match the file content **after edits 0..N-1 have been applied**, not the original file.
 This allows overlapping or adjacent edits to work correctly.
 
-All edits are validated before any are applied. If any edit fails validation:
-- No changes are written to the file
-- The tool reports which edit failed and why
+Example: if edit 0 renames `foo` → `bar` on line 10, and edit 1 targets line 20 which also contains `foo`,
+then edit 1's oldString must still use `foo` (line 20 was not changed by edit 0).
+But if edit 1 targets line 10, its oldString must use `bar` (the result after edit 0).
+
+Validation is a dry-run: all edits are simulated sequentially before the file is written.
+If any edit fails validation, no changes are written and the tool reports which edit failed.
 
 Rules:
 - You must read the target file with read_file before editing.
-- Each oldString must match the file content exactly (at the time that edit is applied).
+- Each oldString must match the file content exactly at the point in the sequence when that edit is applied.
 - Line number prefixes from read_file output must not be included in oldString or newString.
 - Each edit has its own replaceAll parameter.
 
