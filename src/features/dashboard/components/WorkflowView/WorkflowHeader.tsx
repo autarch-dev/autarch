@@ -1,4 +1,4 @@
-import { MoreHorizontal } from "lucide-react";
+import { GitBranch, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -239,6 +239,12 @@ export function WorkflowHeader({
 									</ScrollArea>
 								</PopoverContent>
 							</Popover>
+							{workflow.baseBranch && (
+								<Badge variant="secondary" className="bg-muted">
+									<GitBranch className="mr-1 size-3" />
+									{workflow.baseBranch}
+								</Badge>
+							)}
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
 									<Button variant="ghost" size="icon-sm">

@@ -219,6 +219,14 @@ orchestration for human review.`,
 							};
 						}
 
+						// Short-circuit: if both baseline and current exited 0, pass without LLM comparison
+						if (baseline.exit_code === 0 && exitCode === 0) {
+							log.workflow.info(
+								`Verification command '${command}' passed (both exit code 0, skipping LLM comparison)`,
+							);
+							continue;
+						}
+
 						// Check combined output size against LLM context limits
 						const combinedSize =
 							baseline.stdout.length +
