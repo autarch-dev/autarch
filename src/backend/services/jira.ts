@@ -866,9 +866,7 @@ async function applyRoadmapLabel(
 	}
 	const ok2 = await addLabelToIssue(auth, issueKey, "autarch-generated");
 	if (!ok2) {
-		log.jira.warn(
-			`Failed to apply "autarch-generated" label to ${issueKey}`,
-		);
+		log.jira.warn(`Failed to apply "autarch-generated" label to ${issueKey}`);
 	}
 }
 

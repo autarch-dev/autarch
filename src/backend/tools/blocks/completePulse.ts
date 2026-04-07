@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { getWorkflowOrchestrator } from "@/backend/agents/runner";
+import { getChangedFiles } from "@/backend/git/commits";
 import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import type { VerificationCommand } from "@/backend/repositories/PulseRepository";
@@ -16,30 +17,6 @@ import type { ToolDefinition, ToolResult } from "../types";
 // =============================================================================
 // Scope-based filtering
 // =============================================================================
-
-/**
- * Get the list of files changed in the pulse worktree relative to the checkpoint commit.
- */
-async function getChangedFiles(
-	worktreePath: string,
-	checkpointSha: string,
-): Promise<string[]> {
-	const proc = Bun.spawn(
-		["git", "diff", "--name-only", checkpointSha, "HEAD"],
-		{
-			cwd: worktreePath,
-			stdin: "ignore",
-			stdout: "pipe",
-			stderr: "pipe",
-		},
-	);
-	const stdout = await new Response(proc.stdout).text();
-	await proc.exited;
-	return stdout
-		.trim()
-		.split("\n")
-		.filter((line) => line.length > 0);
-}
 
 /**
  * Filter verification commands to only those whose scope matches at least one changed file.
@@ -168,8 +145,11 @@ orchestration for human review.`,
 			);
 
 			// Execute verification commands if configured
+			// Skip verification when the escape hatch was used — the agent has
+			// acknowledged unresolved issues and verification failures are expected.
 			const preflightSetup = await pulses.getPreflightSetup(pulse.workflowId);
 			if (
+				!hasUnresolvedIssues &&
 				preflightSetup?.verificationCommands &&
 				preflightSetup.verificationCommands.length > 0
 			) {
@@ -185,25 +165,20 @@ orchestration for human review.`,
 				const VERIFICATION_TIMEOUT = 300 * 1000; // 300 seconds
 				const worktreePath = pulse.worktreePath; // Capture for use in loop
 
-				// Filter commands by scope if we have a checkpoint to diff against
+				// Filter commands by scope based on which files the pulse changed
 				let commandsToRun = preflightSetup.verificationCommands;
-				if (pulse.checkpointCommitSha) {
-					const changedFiles = await getChangedFiles(
-						worktreePath,
-						pulse.checkpointCommitSha,
+				const changedFiles = await getChangedFiles(worktreePath);
+				if (changedFiles.length > 0) {
+					const { included, skipped } = filterCommandsByScope(
+						preflightSetup.verificationCommands,
+						changedFiles,
 					);
-					if (changedFiles.length > 0) {
-						const { included, skipped } = filterCommandsByScope(
-							preflightSetup.verificationCommands,
-							changedFiles,
+					for (const cmd of skipped) {
+						log.workflow.info(
+							`Skipping verification command '${cmd.command}' - no changed files in scope '${cmd.scope}'`,
 						);
-						for (const cmd of skipped) {
-							log.workflow.info(
-								`Skipping verification command '${cmd.command}' - no changed files in scope '${cmd.scope}'`,
-							);
-						}
-						commandsToRun = included;
 					}
+					commandsToRun = included;
 				}
 
 				for (const verificationCmd of commandsToRun) {
@@ -292,6 +267,7 @@ orchestration for human review.`,
 							log.workflow.error(
 								`No baseline recorded for command '${command}', run preflight first`,
 							);
+							await validator.rejectCompletion(pulse.id);
 							return {
 								success: false,
 								output: `No baseline recorded for command '${command}', run preflight first`,
@@ -316,6 +292,7 @@ orchestration for human review.`,
 							log.workflow.warn(
 								`Output size exceeds LLM context limits for command '${command}' (${combinedSize} chars), skipping automatic comparison`,
 							);
+							await validator.rejectCompletion(pulse.id);
 							return {
 								success: false,
 								output: [
@@ -348,6 +325,7 @@ orchestration for human review.`,
 								.map((issue) => `- ${issue}`)
 								.join("\n");
 
+							await validator.rejectCompletion(pulse.id);
 							return {
 								success: false,
 								output: `Verification failed with new issues:\n${issueDetails}`,
@@ -370,6 +348,7 @@ orchestration for human review.`,
 							`Verification command failed for ${pulse.id}: ${errorMessage}`,
 						);
 
+						await validator.rejectCompletion(pulse.id);
 						return {
 							success: false,
 							output: `Verification failed: ${errorMessage}`,
