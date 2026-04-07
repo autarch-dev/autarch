@@ -122,6 +122,35 @@ If no: Skip this step.
 - If multiple lockfiles exist, prefer pnpm > yarn > npm
 - If no lockfile, use \`npm install\`
 
+**Non-workspace subdirectory packages:**
+
+After installing root dependencies, check for \`package.json\` files in subdirectories that are **not** managed by the root workspace configuration. These are independent Node.js projects that need their own dependency install.
+
+How to detect them:
+1. Read the root \`package.json\` and check the \`workspaces\` field (may be an array of globs, or an object with a \`packages\` array).
+2. Search for \`package.json\` files in subdirectories: \`find . -mindepth 2 -name package.json -not -path '*/node_modules/*'\`
+3. For each subdirectory \`package.json\` found, check whether it is covered by a workspace glob. If it is **not** covered, it is an independent package.
+
+Common examples of independent subdirectory packages:
+- \`infra/package.json\` — AWS CDK, Pulumi, or other IaC tooling
+- \`scripts/package.json\` — standalone tooling or automation scripts
+- \`docs/package.json\` — documentation site (Docusaurus, VitePress, etc.)
+- \`e2e/package.json\` — end-to-end test harnesses (Playwright, Cypress)
+
+For each independent subdirectory package:
+- \`cd\` into the subdirectory and run the appropriate install command based on its own lockfile
+- Use the same lockfile-detection logic as the root (check for pnpm-lock.yaml, yarn.lock, etc.)
+- If no lockfile exists in the subdirectory but one exists at the root, use the root package manager
+- Report each subdirectory install in \`setupCommands\`
+- Include any build/lint/test scripts from subdirectory packages in \`verificationCommands\` if they are relevant to the project
+
+**Example:**
+\`\`\`
+# Root uses pnpm workspaces: ["packages/*"]
+# Found: infra/package.json (not in packages/*, so not a workspace)
+cd infra && npm install  # infra has its own package-lock.json
+\`\`\`
+
 **.NET (*.csproj or *.sln present):**
 \`\`\`bash
 dotnet restore
