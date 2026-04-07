@@ -19,6 +19,12 @@ const verificationCommandSchema = z.object({
 	source: z
 		.enum(["build", "lint", "test"])
 		.describe("The type of verification (build, lint, or test)"),
+	scope: z
+		.string()
+		.optional()
+		.describe(
+			"Glob pattern for files this command covers (e.g. 'infra/**', 'app/src/**/*.java'). If omitted, the command runs unconditionally for every pulse.",
+		),
 });
 
 export const completePreflightInputSchema = z.object({

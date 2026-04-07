@@ -339,6 +339,7 @@ export type Pulse = z.infer<typeof PulseSchema>;
 export const VerificationCommandSchema = z.object({
 	command: z.string(),
 	source: z.enum(["build", "lint", "test"]),
+	scope: z.string().optional(),
 });
 export type VerificationCommand = z.infer<typeof VerificationCommandSchema>;
 

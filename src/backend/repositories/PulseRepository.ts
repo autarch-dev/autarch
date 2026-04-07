@@ -45,6 +45,7 @@ export interface CreatePulseData {
 export interface VerificationCommand {
 	command: string;
 	source: "build" | "lint" | "test";
+	scope?: string;
 }
 
 export interface PreflightSetup {

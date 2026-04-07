@@ -8,9 +8,67 @@ import { log } from "@/backend/logger";
 import { getRepositories } from "@/backend/repositories";
 import { CompletionValidator } from "@/backend/services/pulsing/CompletionValidator";
 import { OutputComparisonService } from "@/backend/services/pulsing/OutputComparison";
+import type { VerificationCommand } from "@/backend/repositories/PulseRepository";
 import { collectPartialOutput, dumpTimeoutLog } from "../base/timeoutLog";
 import { getShellArgs } from "../pulsing/shell";
 import type { ToolDefinition, ToolResult } from "../types";
+
+// =============================================================================
+// Scope-based filtering
+// =============================================================================
+
+/**
+ * Get the list of files changed in the pulse worktree relative to the checkpoint commit.
+ */
+async function getChangedFiles(
+	worktreePath: string,
+	checkpointSha: string,
+): Promise<string[]> {
+	const proc = Bun.spawn(
+		["git", "diff", "--name-only", checkpointSha, "HEAD"],
+		{
+			cwd: worktreePath,
+			stdin: "ignore",
+			stdout: "pipe",
+			stderr: "pipe",
+		},
+	);
+	const stdout = await new Response(proc.stdout).text();
+	await proc.exited;
+	return stdout
+		.trim()
+		.split("\n")
+		.filter((line) => line.length > 0);
+}
+
+/**
+ * Filter verification commands to only those whose scope matches at least one changed file.
+ * Commands without a scope always run (they apply to the entire project).
+ */
+function filterCommandsByScope(
+	commands: VerificationCommand[],
+	changedFiles: string[],
+): { included: VerificationCommand[]; skipped: VerificationCommand[] } {
+	const included: VerificationCommand[] = [];
+	const skipped: VerificationCommand[] = [];
+
+	for (const cmd of commands) {
+		if (!cmd.scope) {
+			included.push(cmd);
+			continue;
+		}
+
+		const glob = new Bun.Glob(cmd.scope);
+		const matches = changedFiles.some((file) => glob.match(file));
+		if (matches) {
+			included.push(cmd);
+		} else {
+			skipped.push(cmd);
+		}
+	}
+
+	return { included, skipped };
+}
 
 // =============================================================================
 // Schema
@@ -127,7 +185,28 @@ orchestration for human review.`,
 				const VERIFICATION_TIMEOUT = 300 * 1000; // 300 seconds
 				const worktreePath = pulse.worktreePath; // Capture for use in loop
 
-				for (const verificationCmd of preflightSetup.verificationCommands) {
+				// Filter commands by scope if we have a checkpoint to diff against
+				let commandsToRun = preflightSetup.verificationCommands;
+				if (pulse.checkpointCommitSha) {
+					const changedFiles = await getChangedFiles(
+						worktreePath,
+						pulse.checkpointCommitSha,
+					);
+					if (changedFiles.length > 0) {
+						const { included, skipped } = filterCommandsByScope(
+							preflightSetup.verificationCommands,
+							changedFiles,
+						);
+						for (const cmd of skipped) {
+							log.workflow.info(
+								`Skipping verification command '${cmd.command}' - no changed files in scope '${cmd.scope}'`,
+							);
+						}
+						commandsToRun = included;
+					}
+				}
+
+				for (const verificationCmd of commandsToRun) {
 					const { command, source } = verificationCmd;
 					log.workflow.info(
 						`Running verification command for ${pulse.id}: ${command} (source: ${source})`,

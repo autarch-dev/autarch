@@ -283,12 +283,18 @@ When environment setup is complete, use the \`complete_preflight\` tool:
 
 This field should contain an array of verification commands that execution agents run to verify their changes.
 
-**Format:** Array of objects with \`command\` and \`source\` fields
+**Format:** Array of objects with \`command\`, \`source\`, and optional \`scope\` fields
 
 **Source types:**
 - \`"build"\` - Compilation, type checking, bundling
 - \`"lint"\` - Code quality, style, static analysis
 - \`"test"\` - Test suites, unit tests, integration tests
+
+**Scope field:**
+- A glob pattern describing which files this command covers (e.g. \`"src/**"\`, \`"infra/**"\`, \`"app/src/**/*.java"\`)
+- When a pulse only changes files outside a command's scope, that command is **skipped** — saving time and avoiding false failures from unrelated code
+- **Omit scope** (or set to \`"**"\`) for commands that apply to the entire project and should always run
+- Scope should reflect the directory/file boundaries the command actually checks — if \`cd infra && npx biome check\` only lints files under \`infra/\`, the scope is \`"infra/**"\`
 
 **Example:**
 \`\`\`json
@@ -307,6 +313,7 @@ This field should contain an array of verification commands that execution agent
 - Keep commands simple (no pipes, no complex shell logic)
 - If a project has no verification commands, provide an empty array
 - You are in the correct working directory already. \`cd\` is _only_ needed to navigate to subfolders under the project root.
+- **Set \`scope\` on every command that targets a specific subdirectory or language.** This is critical for multi-language projects and monorepos — without it, a TypeScript-only change will trigger Java builds, or vice versa.
 
 **Commands to include (if they exist):**
 - Build (\`source: "build"\`): Compilation/build step, type checking
@@ -360,6 +367,23 @@ This field should contain an array of verification commands that execution agent
 ]
 \`\`\`
 
+**Multi-language / monorepo (Java app + CDK infra + Lambdas):**
+
+This is where \`scope\` is essential. Each subdirectory's commands should be scoped to the files they actually verify:
+
+\`\`\`json
+[
+  { "command": "cd app && mvn compile", "source": "build", "scope": "app/**" },
+  { "command": "cd app && mvn test", "source": "test", "scope": "app/**" },
+  { "command": "cd infra && npm run build", "source": "build", "scope": "infra/**" },
+  { "command": "cd infra && npx biome check", "source": "lint", "scope": "infra/**" },
+  { "command": "cd infra/lambdas/order-processor && npm run build", "source": "build", "scope": "infra/lambdas/order-processor/**" },
+  { "command": "cd infra/lambdas/order-processor && npm test", "source": "test", "scope": "infra/lambdas/order-processor/**" }
+]
+\`\`\`
+
+With these scopes, a pulse that only edits \`app/src/MetricsService.java\` will run only the Maven commands — the CDK and Lambda verification commands are skipped entirely.
+
 ---
 
 ## Example Preflight Flow
@@ -401,6 +425,10 @@ complete_preflight({
     { "command": "npm test", "source": "test" }
   ]
 })
+
+// scope is omitted above because this is a single-language project
+// where all commands apply to the entire codebase.
+// For a multi-language project, each command would have a scope.
 
 [Stop]
 \`\`\`
