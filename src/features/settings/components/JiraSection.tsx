@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
@@ -551,6 +552,37 @@ export function JiraSection() {
 							Cancel
 						</Button>
 					</div>
+				</div>
+			)}
+
+			{/* Roadmap label toggle */}
+			{credentialsConfigured && config && !isEditing && (
+				<div className="mt-3 flex items-start gap-2">
+					<Checkbox
+						id="jira-label-roadmap"
+						checked={config.labelRoadmapSource}
+						onCheckedChange={async (checked) => {
+							const updated: JiraConfig = {
+								...config,
+								labelRoadmapSource: checked === true,
+							};
+							setConfig(updated);
+							await saveJiraConfig(updated);
+						}}
+						className="mt-0.5"
+					/>
+					<label
+						htmlFor="jira-label-roadmap"
+						className="text-xs text-zinc-400 cursor-pointer select-none"
+					>
+						<span className="text-zinc-300">
+							Label issues with roadmap name
+						</span>
+						<br />
+						Adds a sanitized label (e.g.{" "}
+						<code className="text-zinc-500">observability-and-monitoring</code>)
+						to every Jira issue created from a roadmap.
+					</label>
 				</div>
 			)}
 

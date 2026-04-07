@@ -829,11 +829,51 @@ async function findIssueTypeId(
 	return match?.id ?? null;
 }
 
+// =============================================================================
+// Roadmap Labeling
+// =============================================================================
+
+function sanitizeRoadmapLabel(title: string): string {
+	return title
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+}
+
+async function addLabelToIssue(
+	auth: JiraAuth,
+	issueKey: string,
+	label: string,
+): Promise<boolean> {
+	const result = await jiraFetch(auth, "PUT", `/issue/${issueKey}`, {
+		update: { labels: [{ add: label }] },
+	});
+	return result.ok;
+}
+
+async function applyRoadmapLabel(
+	auth: JiraAuth,
+	config: JiraConfig,
+	issueKey: string,
+	roadmapTitle: string | undefined,
+): Promise<void> {
+	if (!config.labelRoadmapSource || !roadmapTitle) return;
+	const label = sanitizeRoadmapLabel(roadmapTitle);
+	if (!label) return;
+	const ok = await addLabelToIssue(auth, issueKey, label);
+	if (!ok) {
+		log.jira.warn(`Failed to apply roadmap label "${label}" to ${issueKey}`);
+	}
+}
+
 /**
  * Sync a Milestone → Jira Epic
  * Creates or updates the Epic in Jira.
  */
-export async function syncMilestone(milestone: Milestone): Promise<void> {
+export async function syncMilestone(
+	milestone: Milestone,
+	roadmapTitle?: string,
+): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
 	if (!ctx?.config.syncRoadmaps) return;
 
@@ -842,9 +882,10 @@ export async function syncMilestone(milestone: Milestone): Promise<void> {
 	await updateMilestoneSyncStatus(milestone.id, "pending");
 
 	try {
-		if (milestone.jiraEpicKey) {
+		const existingEpicKey = milestone.jiraEpicKey;
+		if (existingEpicKey) {
 			// Update existing
-			const success = await updateIssue(auth, milestone.jiraEpicKey, {
+			const success = await updateIssue(auth, existingEpicKey, {
 				summary: milestone.title,
 				...(milestone.description
 					? {
@@ -855,8 +896,9 @@ export async function syncMilestone(milestone: Milestone): Promise<void> {
 
 			if (success) {
 				await updateMilestoneSyncStatus(milestone.id, "synced");
+				await applyRoadmapLabel(auth, config, existingEpicKey, roadmapTitle);
 				log.jira.info(
-					`Updated Epic ${milestone.jiraEpicKey} for milestone ${milestone.id}`,
+					`Updated Epic ${existingEpicKey} for milestone ${milestone.id}`,
 				);
 			} else {
 				await updateMilestoneSyncStatus(
@@ -900,6 +942,7 @@ export async function syncMilestone(milestone: Milestone): Promise<void> {
 					issue.key,
 					issue.id,
 				);
+				await applyRoadmapLabel(auth, config, issue.key, roadmapTitle);
 				log.jira.info(
 					`Created Epic ${issue.key} for milestone ${milestone.id}`,
 				);
@@ -933,6 +976,7 @@ export async function syncMilestone(milestone: Milestone): Promise<void> {
 export async function syncInitiative(
 	initiative: Initiative,
 	parentEpicKey?: string,
+	roadmapTitle?: string,
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
 	if (!ctx?.config.syncRoadmaps) return;
@@ -945,7 +989,8 @@ export async function syncInitiative(
 		config.initiativePriorityMapping[initiative.priority] ?? undefined;
 
 	try {
-		if (initiative.jiraIssueKey) {
+		const existingIssueKey = initiative.jiraIssueKey;
+		if (existingIssueKey) {
 			// Update existing
 			const fields: Record<string, unknown> = {
 				summary: initiative.title,
@@ -957,12 +1002,13 @@ export async function syncInitiative(
 				fields.priority = { id: priorityId };
 			}
 
-			const success = await updateIssue(auth, initiative.jiraIssueKey, fields);
+			const success = await updateIssue(auth, existingIssueKey, fields);
 
 			if (success) {
 				await updateInitiativeSyncStatus(initiative.id, "synced");
+				await applyRoadmapLabel(auth, config, existingIssueKey, roadmapTitle);
 				log.jira.info(
-					`Updated Story ${initiative.jiraIssueKey} for initiative ${initiative.id}`,
+					`Updated Story ${existingIssueKey} for initiative ${initiative.id}`,
 				);
 			} else {
 				await updateInitiativeSyncStatus(
@@ -1008,6 +1054,7 @@ export async function syncInitiative(
 					issue.key,
 					issue.id,
 				);
+				await applyRoadmapLabel(auth, config, issue.key, roadmapTitle);
 				log.jira.info(
 					`Created Story ${issue.key} for initiative ${initiative.id}`,
 				);
@@ -1043,6 +1090,7 @@ export async function syncInitiative(
 export async function syncWorkflow(
 	workflow: Workflow,
 	initiativeJira?: { key: string; id?: string },
+	roadmapTitle?: string,
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
 	if (!ctx?.config.syncWorkflows) return;
@@ -1072,6 +1120,8 @@ export async function syncWorkflow(
 			} else {
 				await updateWorkflowSyncStatus(workflow.id, "synced");
 			}
+			// Label the adopted issue (idempotent if initiative sync already labelled it)
+			await applyRoadmapLabel(auth, config, initiativeJira.key, roadmapTitle);
 		} else if (workflow.jiraIssueKey) {
 			// Standalone workflow — update existing Story
 			const fields: Record<string, unknown> = {
@@ -1343,6 +1393,7 @@ export async function syncArtifactComment(
 export async function syncPulses(
 	plan: Plan,
 	parentTaskKey: string,
+	roadmapTitle?: string,
 ): Promise<void> {
 	const ctx = await resolveConfigAndAuth();
 	if (!ctx?.config.syncWorkflows) return;
@@ -1400,6 +1451,8 @@ export async function syncPulses(
 				if (existingPulse) {
 					await repos.pulses.updateJiraIssueId(existingPulse.id, issue.key);
 				}
+
+				await applyRoadmapLabel(auth, config, issue.key, roadmapTitle);
 
 				// Assign sub-task to the authenticated user
 				try {

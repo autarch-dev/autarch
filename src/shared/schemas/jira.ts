@@ -47,6 +47,9 @@ export const JiraConfigSchema = z.object({
 	syncWorkflows: z.boolean().default(true),
 	syncArtifacts: z.boolean().default(true),
 
+	// Labeling
+	labelRoadmapSource: z.boolean().default(false),
+
 	// Status mapping per Autarch object type
 	statusMapping: z
 		.object({

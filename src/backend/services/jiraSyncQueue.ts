@@ -162,7 +162,10 @@ class JiraSyncQueue {
 				const initiativeJira = initiative?.jiraIssueKey
 					? { key: initiative.jiraIssueKey, id: initiative.jiraIssueId }
 					: undefined;
-				await syncWorkflow(workflow, initiativeJira);
+				const roadmap = initiative?.roadmapId
+					? await repos.roadmaps.getRoadmap(initiative.roadmapId)
+					: null;
+				await syncWorkflow(workflow, initiativeJira, roadmap?.title);
 
 				return;
 			}
@@ -226,7 +229,8 @@ class JiraSyncQueue {
 					);
 					return;
 				}
-				await syncMilestone(milestone);
+				const roadmap = await repos.roadmaps.getRoadmap(milestone.roadmapId);
+				await syncMilestone(milestone, roadmap?.title);
 				return;
 			}
 
@@ -243,7 +247,12 @@ class JiraSyncQueue {
 				const milestone = await repos.roadmaps.getMilestone(
 					initiative.milestoneId,
 				);
-				await syncInitiative(initiative, milestone?.jiraEpicKey);
+				const roadmap = await repos.roadmaps.getRoadmap(initiative.roadmapId);
+				await syncInitiative(
+					initiative,
+					milestone?.jiraEpicKey,
+					roadmap?.title,
+				);
 				return;
 			}
 
@@ -263,7 +272,13 @@ class JiraSyncQueue {
 					return;
 				}
 
-				await syncPulses(plan, workflow.jiraIssueKey);
+				const initiative = await repos.roadmaps.findInitiativeByWorkflowId(
+					job.workflowId,
+				);
+				const roadmap = initiative?.roadmapId
+					? await repos.roadmaps.getRoadmap(initiative.roadmapId)
+					: null;
+				await syncPulses(plan, workflow.jiraIssueKey, roadmap?.title);
 				return;
 			}
 
