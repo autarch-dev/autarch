@@ -131,7 +131,7 @@ export type PulsingToolName =
 /**
  * Preflight agent tools
  */
-export type PreflightToolName = "shell" | "record_baseline";
+export type PreflightToolName = "shell";
 
 /**
  * Review agent tools

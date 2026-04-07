@@ -5,7 +5,6 @@
  */
 
 import type {
-	PreflightBaselinesTable,
 	PreflightSetupTable,
 	PulseStatus,
 	PulsesTable,
@@ -60,26 +59,6 @@ export interface PreflightSetup {
 	completedAt?: number;
 }
 
-export interface PreflightBaseline {
-	id: string;
-	workflowId: string;
-	issueType: "error" | "warning";
-	source: "build" | "lint" | "test";
-	pattern: string;
-	filePath?: string;
-	description?: string;
-	recordedAt: number;
-}
-
-export interface CreateBaselineData {
-	workflowId: string;
-	issueType: "error" | "warning";
-	source: "build" | "lint" | "test";
-	pattern: string;
-	filePath?: string;
-	description?: string;
-}
-
 // =============================================================================
 // Repository
 // =============================================================================
@@ -126,19 +105,6 @@ export class PulseRepository implements Repository {
 				: undefined,
 			createdAt: row.created_at,
 			completedAt: row.completed_at ?? undefined,
-		};
-	}
-
-	private toBaseline(row: PreflightBaselinesTable): PreflightBaseline {
-		return {
-			id: row.id,
-			workflowId: row.workflow_id,
-			issueType: row.issue_type,
-			source: row.source,
-			pattern: row.pattern,
-			filePath: row.file_path ?? undefined,
-			description: row.description ?? undefined,
-			recordedAt: row.recorded_at,
 		};
 	}
 
@@ -524,115 +490,6 @@ export class PulseRepository implements Repository {
 	}
 
 	// ===========================================================================
-	// Baseline Operations
-	// ===========================================================================
-
-	/**
-	 * Record a baseline issue
-	 */
-	async recordBaseline(data: CreateBaselineData): Promise<PreflightBaseline> {
-		const id = ids.baseline();
-		const now = Date.now();
-
-		await this.db
-			.insertInto("preflight_baselines")
-			.values({
-				id,
-				workflow_id: data.workflowId,
-				issue_type: data.issueType,
-				source: data.source,
-				pattern: data.pattern,
-				file_path: data.filePath ?? null,
-				description: data.description ?? null,
-				recorded_at: now,
-			})
-			.execute();
-
-		return {
-			id,
-			workflowId: data.workflowId,
-			issueType: data.issueType,
-			source: data.source,
-			pattern: data.pattern,
-			filePath: data.filePath,
-			description: data.description,
-			recordedAt: now,
-		};
-	}
-
-	/**
-	 * Get all baselines for a workflow
-	 */
-	async getBaselines(workflowId: string): Promise<PreflightBaseline[]> {
-		const rows = await this.db
-			.selectFrom("preflight_baselines")
-			.selectAll()
-			.where("workflow_id", "=", workflowId)
-			.orderBy("recorded_at", "asc")
-			.execute();
-
-		return rows.map((row) => this.toBaseline(row));
-	}
-
-	/**
-	 * Get baselines by source (build, lint, test)
-	 */
-	async getBaselinesBySource(
-		workflowId: string,
-		source: "build" | "lint" | "test",
-	): Promise<PreflightBaseline[]> {
-		const rows = await this.db
-			.selectFrom("preflight_baselines")
-			.selectAll()
-			.where("workflow_id", "=", workflowId)
-			.where("source", "=", source)
-			.execute();
-
-		return rows.map((row) => this.toBaseline(row));
-	}
-
-	/**
-	 * Check if an issue matches any baseline
-	 */
-	async matchesBaseline(
-		workflowId: string,
-		source: "build" | "lint" | "test",
-		errorMessage: string,
-		filePath?: string,
-	): Promise<boolean> {
-		const baselines = await this.getBaselinesBySource(workflowId, source);
-
-		for (const baseline of baselines) {
-			// Check if pattern matches
-			if (errorMessage.includes(baseline.pattern)) {
-				// If baseline has a file path, it must also match
-				if (baseline.filePath) {
-					if (filePath?.includes(baseline.filePath)) {
-						return true;
-					}
-				} else {
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
-
-	/**
-	 * Count baselines for a workflow
-	 */
-	async countBaselines(workflowId: string): Promise<number> {
-		const result = await this.db
-			.selectFrom("preflight_baselines")
-			.select((eb) => eb.fn.count<number>("id").as("count"))
-			.where("workflow_id", "=", workflowId)
-			.executeTakeFirst();
-
-		return result?.count ?? 0;
-	}
-
-	// ===========================================================================
 	// Command Baseline Operations (Raw Command Outputs)
 	// ===========================================================================
 
@@ -724,16 +581,6 @@ export class PulseRepository implements Repository {
 			.updateTable("pulses")
 			.set({ jira_issue_id: jiraIssueId })
 			.where("id", "=", pulseId)
-			.execute();
-	}
-
-	/**
-	 * Delete all baselines for a workflow
-	 */
-	async deleteBaselines(workflowId: string): Promise<void> {
-		await this.db
-			.deleteFrom("preflight_baselines")
-			.where("workflow_id", "=", workflowId)
 			.execute();
 	}
 }

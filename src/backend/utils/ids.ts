@@ -35,7 +35,6 @@ export const ids = {
 	plan: () => generateId("plan"),
 	pulse: () => generateId("pulse"),
 	preflight: () => generateId("preflight"),
-	baseline: () => generateId("baseline"),
 	question: () => generateId("question"),
 	note: () => generateId("note"),
 	todo: () => generateId("todo"),

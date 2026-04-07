@@ -37,7 +37,6 @@ export interface ProjectDatabase {
 	plans: PlansTable;
 	pulses: PulsesTable;
 	preflight_setup: PreflightSetupTable;
-	preflight_baselines: PreflightBaselinesTable;
 	preflight_command_baselines: PreflightCommandBaselinesTable;
 	sessions: SessionsTable;
 	subtasks: SubtasksTable;
@@ -249,27 +248,6 @@ export interface PreflightSetupTable {
 }
 
 // =============================================================================
-// Preflight Baselines
-// =============================================================================
-
-export type BaselineIssueType = "error" | "warning";
-export type BaselineSource = "build" | "lint" | "test";
-
-export interface PreflightBaselinesTable {
-	id: string;
-	workflow_id: string;
-	issue_type: BaselineIssueType;
-	source: BaselineSource;
-	/** Error code or message pattern to match */
-	pattern: string;
-	/** Optional file path associated with this issue */
-	file_path: string | null;
-	/** Optional description for context */
-	description: string | null;
-	recorded_at: number;
-}
-
-// =============================================================================
 // Preflight Command Baselines (Raw Command Outputs)
 // =============================================================================
 
@@ -279,7 +257,7 @@ export interface PreflightCommandBaselinesTable {
 	/** The verification command name (e.g., 'build', 'lint', 'test') */
 	command: string;
 	/** Source of the command: build, lint, or test */
-	source: BaselineSource;
+	source: "build" | "lint" | "test";
 	/** Raw stdout from the command */
 	stdout: string;
 	/** Raw stderr from the command */

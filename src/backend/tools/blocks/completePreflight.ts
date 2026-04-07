@@ -18,7 +18,7 @@ const verificationCommandSchema = z.object({
 	command: z.string().describe("The shell command to run"),
 	source: z
 		.enum(["build", "lint", "test"])
-		.describe("The type of verification (for baseline filtering)"),
+		.describe("The type of verification (build, lint, or test)"),
 });
 
 export const completePreflightInputSchema = z.object({
@@ -27,13 +27,10 @@ export const completePreflightInputSchema = z.object({
 		.array(z.string())
 		.describe("List of commands that were executed"),
 	buildSuccess: z.boolean().describe("Whether the project builds successfully"),
-	baselinesRecorded: z.number().describe("Count of baseline issues recorded"),
 	verificationCommands: z
 		.array(verificationCommandSchema)
 		.optional()
-		.describe(
-			"Array of verification commands with their source type for baseline filtering",
-		),
+		.describe("Array of verification commands with their source type"),
 });
 
 export type CompletePreflightInput = z.infer<
@@ -47,13 +44,12 @@ export type CompletePreflightInput = z.infer<
 export const completePreflightTool: ToolDefinition<CompletePreflightInput> = {
 	name: "complete_preflight",
 	description: `Signal preflight environment setup is complete.
-Use after initializing dependencies and recording baselines.
+Use after initializing dependencies and verifying the build.
 
 Provide:
 - summary: Brief description of what was set up
 - setupCommands: List of commands that were run
-- buildSuccess: Whether the project builds successfully
-- baselinesRecorded: Count of baseline issues recorded`,
+- buildSuccess: Whether the project builds successfully`,
 	inputSchema: completePreflightInputSchema,
 	execute: async (input, context): Promise<ToolResult> => {
 		// Validate we have a workflow context
@@ -68,8 +64,7 @@ Provide:
 		if (!input.buildSuccess) {
 			return {
 				success: false,
-				output:
-					"Error: Cannot complete preflight: build did not succeed. Fix build issues or record them as baselines if they are pre-existing.",
+				output: "Error: Cannot complete preflight: build did not succeed.",
 			};
 		}
 
@@ -151,12 +146,11 @@ Provide:
 				createPreflightCompletedEvent({
 					workflowId: context.workflowId,
 					summary: input.summary,
-					baselinesRecorded: input.baselinesRecorded,
 				}),
 			);
 
 			// Build output message with warning if baselines failed
-			let outputMsg = `Preflight complete. Setup: ${input.setupCommands.length} commands run, ${input.baselinesRecorded} baselines recorded.`;
+			let outputMsg = `Preflight complete. Setup: ${input.setupCommands.length} commands run.`;
 			if (failedBaselines.length > 0) {
 				outputMsg += ` Warning: Failed to record baselines for: ${failedBaselines.join(", ")}. Pulse verification may fail for these commands.`;
 			}

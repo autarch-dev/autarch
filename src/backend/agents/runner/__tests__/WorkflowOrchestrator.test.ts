@@ -2925,7 +2925,6 @@ describe("Utility Methods", () => {
 
 		mockPulseRepo.getPulsesForWorkflow.mockClear();
 		mockPulseRepo.getRunningPulse.mockClear();
-		mockPulseRepo.deleteBaselines.mockClear();
 		mockPulseRepo.deleteCommandBaselines.mockClear();
 		mockPulseRepo.deletePreflightSetup.mockClear();
 		mockPulseRepo.deleteByWorkflow.mockClear();
@@ -3175,7 +3174,6 @@ describe("Utility Methods", () => {
 			);
 
 			// Pulse data cleaned up
-			expect(mockPulseRepo.deleteBaselines).toHaveBeenCalledWith("wf-1");
 			expect(mockPulseRepo.deleteCommandBaselines).toHaveBeenCalledWith("wf-1");
 			expect(mockPulseRepo.deletePreflightSetup).toHaveBeenCalledWith("wf-1");
 			expect(mockPulseRepo.deleteByWorkflow).toHaveBeenCalledWith("wf-1");
@@ -3195,7 +3193,6 @@ describe("Utility Methods", () => {
 				"session-active",
 			);
 			expect(mockCleanupWorkflow).toHaveBeenCalled();
-			expect(mockPulseRepo.deleteBaselines).toHaveBeenCalledWith("wf-1");
 
 			// Impl ran: stage transitioned to planning
 			expect(mockWorkflowRepo.transitionStage).toHaveBeenCalledWith(
@@ -3239,7 +3236,6 @@ describe("Utility Methods", () => {
 			expect(mockCleanupWorkflow).not.toHaveBeenCalled();
 
 			// Pulse data NOT cleaned up for review rewind
-			expect(mockPulseRepo.deleteBaselines).not.toHaveBeenCalled();
 			expect(mockPulseRepo.deleteByWorkflow).not.toHaveBeenCalled();
 
 			// Impl ran: review card comments deleted and card reset

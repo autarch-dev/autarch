@@ -10,7 +10,11 @@ const targets = [
 	{ name: "darwin-arm64", target: "bun-darwin-arm64", binary: "autarch" },
 	{ name: "darwin-x64", target: "bun-darwin-x64", binary: "autarch" },
 	{ name: "windows-x64", target: "bun-windows-x64", binary: "autarch.exe" },
-] satisfies { name: string; target: Bun.Build.Target; binary: string }[];
+] as const satisfies {
+	name: string;
+	target: Bun.Build.CompileTarget;
+	binary: string;
+}[];
 
 for (const target of targets) {
 	await Bun.build({

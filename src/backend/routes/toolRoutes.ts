@@ -7,7 +7,7 @@
  * Note: The testbench excludes tools that require workflow context:
  * - Block tools (submit_scope, submit_research, etc.) require workflowId/sessionId
  * - Review tools (get_diff, get_scope_card, etc.) require workflow context
- * - record_baseline requires workflow context to persist baselines
+ * - complete_preflight requires workflow context
  */
 
 import { z } from "zod";
@@ -44,8 +44,6 @@ const WORKFLOW_ONLY_TOOLS = new Set([
 	"add_file_comment",
 	"add_review_comment",
 	"complete_review",
-	// Preflight tools that persist to workflow
-	"record_baseline",
 ]);
 
 /**

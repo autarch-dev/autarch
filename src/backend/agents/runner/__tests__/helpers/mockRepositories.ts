@@ -149,25 +149,10 @@ export function createMockPulseRepo() {
 		updatePreflightProgress: mock(() => Promise.resolve()),
 		completePreflightSetup: mock(() => Promise.resolve()),
 		failPreflightSetup: mock(() => Promise.resolve()),
-		recordBaseline: mock(() =>
-			Promise.resolve({
-				id: "baseline-1",
-				workflowId: "wf-1",
-				issueType: "error" as const,
-				source: "build" as const,
-				pattern: "test",
-				recordedAt: Date.now(),
-			}),
-		),
-		getBaselines: mock(() => Promise.resolve([])),
-		getBaselinesBySource: mock(() => Promise.resolve([])),
-		matchesBaseline: mock(() => Promise.resolve(false)),
-		countBaselines: mock(() => Promise.resolve(0)),
 		recordCommandBaseline: mock(() => Promise.resolve()),
 		getCommandBaseline: mock(() => Promise.resolve(null)),
 		deleteCommandBaselines: mock(() => Promise.resolve()),
 		deleteByWorkflow: mock(() => Promise.resolve()),
 		deletePreflightSetup: mock(() => Promise.resolve()),
-		deleteBaselines: mock(() => Promise.resolve()),
 	};
 }

@@ -669,8 +669,7 @@ You are preparing the development environment in an isolated worktree before cod
 ### Your Task
 
 1. Initialize the development environment (restore dependencies, build, etc.)
-2. Record any pre-existing build errors/warnings as baselines using \`record_baseline\`
-3. When the environment is ready, call \`complete_preflight\` with a summary
+2. When the environment is ready, call \`complete_preflight\` with a summary
 
 Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
 
@@ -1880,8 +1879,7 @@ You are preparing the development environment in an isolated worktree before cod
 ### Your Task
 
 1. Initialize the development environment (restore dependencies, build, etc.)
-2. Record any pre-existing build errors/warnings as baselines using \`record_baseline\`
-3. When the environment is ready, call \`complete_preflight\` with a summary
+2. When the environment is ready, call \`complete_preflight\` with a summary
 
 Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
 
@@ -2397,7 +2395,6 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 		}
 
 		// 3. Delete pulse-related data (needed for non-review rewinds)
-		await this.pulseRepo.deleteBaselines(workflowId);
 		await this.pulseRepo.deleteCommandBaselines(workflowId);
 		await this.pulseRepo.deletePreflightSetup(workflowId);
 		await this.pulseRepo.deleteByWorkflow(workflowId);
@@ -2732,8 +2729,7 @@ You are preparing the development environment in an isolated worktree before cod
 ### Your Task
 
 1. Initialize the development environment (restore dependencies, build, etc.)
-2. Record any pre-existing build errors/warnings as baselines using \`record_baseline\`
-3. When the environment is ready, call \`complete_preflight\` with a summary
+2. When the environment is ready, call \`complete_preflight\` with a summary
 
 Do NOT modify any tracked files. Only initialize dependencies and build artifacts.`;
 

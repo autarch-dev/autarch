@@ -10,7 +10,7 @@ This document describes all tools available to Autarch agents. It serves as the 
 | Scoping | Base tools (read-only) |
 | Research | Base tools (with file access tracking) |
 | Plan | Base tools (read-only) |
-| Preflight | Base tools + `shell` + `record_baseline` |
+| Preflight | Base tools + `shell` |
 | Pulsing | Base tools + `write_file` + `edit_file` + `multi_edit` + `shell` |
 | Review | Base tools + `get_diff` + `get_scope_card` + comment tools + `complete_review` |
 
@@ -530,51 +530,6 @@ Only untracked artifacts (dependencies, build outputs) may be created.
 ```
 
 *(Parameters same as Pulsing `shell`)*
-
----
-
-### `record_baseline`
-
-**LLM Description:**
-```
-Record a known build/lint error or warning from the clean worktree state.
-Pulses will filter out these known issues from their own build/lint output.
-
-Use this after running build/lint commands to record any pre-existing issues
-that are not caused by pulse changes.
-
-Parameters:
-- issueType: "Error" or "Warning"
-- source: "Build", "Lint", or "Test"
-- pattern: The exact error/warning message or a pattern to match
-- filePath: Optional file path associated with the issue
-- description: Optional description for context
-```
-
-**Parameters:**
-
-| Name | Type | Required | Default | LLM Description |
-|------|------|----------|---------|-----------------|
-| `reason` | `string` | Yes | — | *(see common parameter)* |
-| `issueType` | `string` | Yes | — | `Type of issue: 'Error' or 'Warning'` |
-| `source` | `string` | Yes | — | `Source of the issue: 'Build', 'Lint', or 'Test'` |
-| `pattern` | `string` | Yes | — | `The exact error/warning message or pattern to match` |
-| `filePath` | `string` | No | `null` | `Optional file path associated with this issue` |
-| `description` | `string` | No | `null` | `Optional description for context` |
-
-**Returns:**
-
-```json
-{
-  "success": true,
-  "baselineId": "abc123",
-  "message": "Recorded Warning baseline from Build: CS0618..."
-}
-```
-
-**Error responses:**
-- `{ "success": false, "error": "Invalid issueType 'Info'. Must be 'Error' or 'Warning'." }`
-- `{ "success": false, "error": "Invalid source 'Compile'. Must be 'Build', 'Lint', or 'Test'." }`
 
 ---
 
@@ -1191,7 +1146,6 @@ When environment setup is complete, provide a summary of:
 | `summary` | `string` | Yes | Brief description of setup completed |
 | `setupCommands` | `string[]` | Yes | List of commands that were executed |
 | `buildSuccess` | `boolean` | Yes | Whether the project builds successfully |
-| `baselinesRecorded` | `number` | Yes | Count of baseline issues recorded |
 
 **Schema:**
 
@@ -1200,7 +1154,6 @@ interface CompletePreflightParams {
   summary: string;
   setupCommands: string[];
   buildSuccess: boolean;
-  baselinesRecorded: number;
 }
 ```
 

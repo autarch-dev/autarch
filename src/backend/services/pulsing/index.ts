@@ -3,12 +3,6 @@
  */
 
 export {
-	BaselineFilter,
-	type FilteredOutput,
-	type ParsedError,
-} from "./BaselineFilter";
-
-export {
 	CompletionValidator,
 	type ToolFailure,
 	type ValidationResult,

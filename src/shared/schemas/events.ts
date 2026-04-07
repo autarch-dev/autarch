@@ -503,7 +503,6 @@ export type PreflightStartedEvent = z.infer<typeof PreflightStartedEventSchema>;
 export const PreflightProgressPayloadSchema = z.object({
 	workflowId: z.string(),
 	message: z.string(),
-	baselinesRecorded: z.number(),
 });
 export type PreflightProgressPayload = z.infer<
 	typeof PreflightProgressPayloadSchema
@@ -521,7 +520,6 @@ export type PreflightProgressEvent = z.infer<
 export const PreflightCompletedPayloadSchema = z.object({
 	workflowId: z.string(),
 	summary: z.string(),
-	baselinesRecorded: z.number(),
 });
 export type PreflightCompletedPayload = z.infer<
 	typeof PreflightCompletedPayloadSchema

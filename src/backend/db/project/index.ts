@@ -87,11 +87,8 @@ export async function closeAllProjectDbs(): Promise<void> {
 // NOTE: For type aliases (WorkflowStatus, SessionContextType, etc.),
 // import directly from @/shared/schemas/*
 export type {
-	BaselineIssueType,
-	BaselineSource,
 	ChannelsTable,
 	PlansTable,
-	PreflightBaselinesTable,
 	PreflightSetupTable,
 	PreflightStatus,
 	ProjectDatabase,

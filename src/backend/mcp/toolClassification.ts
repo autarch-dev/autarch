@@ -52,8 +52,6 @@ export const MCP_TOOLS: ReadonlySet<string> = new Set<string>([
 	"find_symbol",
 	"get_symbol",
 	"list_exports",
-	// Preflight
-	"record_baseline",
 	// Review
 	"get_diff",
 	"get_scope_card",

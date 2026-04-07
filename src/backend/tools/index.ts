@@ -54,11 +54,7 @@ export {
 	searchKnowledgeTool,
 } from "./knowledge";
 // Preflight tools (environment setup)
-export {
-	preflightTools,
-	recordBaselineInputSchema,
-	recordBaselineTool,
-} from "./preflight";
+export { preflightTools } from "./preflight";
 
 // Pulsing tools (code modification)
 export {
