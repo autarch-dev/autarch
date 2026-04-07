@@ -306,6 +306,8 @@ export class CostRecordRepository implements Repository {
 			date: string;
 			totalCost: number;
 			count: number;
+			promptTokens: number;
+			completionTokens: number;
 		}>
 	> {
 		const dateExpr =
@@ -321,6 +323,8 @@ export class CostRecordRepository implements Repository {
 				dateExpr.as("date"),
 				eb.fn.sum<number>("cost_usd").as("total_cost"),
 				eb.fn.count<number>("id").as("count"),
+				eb.fn.sum<number>("prompt_tokens").as("prompt_tokens"),
+				eb.fn.sum<number>("completion_tokens").as("completion_tokens"),
 			])
 			.groupBy(dateExpr)
 			.orderBy(dateExpr, "asc");
@@ -333,6 +337,8 @@ export class CostRecordRepository implements Repository {
 			date: row.date,
 			totalCost: row.total_cost ?? 0,
 			count: row.count ?? 0,
+			promptTokens: row.prompt_tokens ?? 0,
+			completionTokens: row.completion_tokens ?? 0,
 		}));
 	}
 

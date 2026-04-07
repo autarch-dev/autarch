@@ -62,6 +62,8 @@ export const CostTrendSchema = z.array(
 		date: z.string(),
 		totalCost: z.number(),
 		count: z.number(),
+		promptTokens: z.number(),
+		completionTokens: z.number(),
 	}),
 );
 export type CostTrend = z.infer<typeof CostTrendSchema>;

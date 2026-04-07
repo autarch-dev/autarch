@@ -1,14 +1,15 @@
 /**
  * TrendChart - Cost over time
  *
- * Recharts LineChart displaying total cost (USD) per date.
- * Uses a single line with area fill for visual emphasis.
+ * Recharts LineChart displaying total cost (USD) and $/mTok per date.
+ * Uses dual Y-axes: left for cost, right for $/mTok.
  */
 
 import {
 	Area,
 	AreaChart,
 	CartesianGrid,
+	Line,
 	ResponsiveContainer,
 	Tooltip,
 	XAxis,
@@ -20,10 +21,17 @@ import { useCostStore } from "../store/costStore";
 export function TrendChart() {
 	const { data, loading, error } = useCostStore((s) => s.trends);
 
-	const chartData = (data ?? []).map((entry) => ({
-		date: entry.date,
-		cost: entry.totalCost,
-	}));
+	const chartData = (data ?? []).map((entry) => {
+		const totalTokens = entry.promptTokens + entry.completionTokens;
+		return {
+			date: entry.date,
+			cost: entry.totalCost,
+			costPerMTok:
+				totalTokens > 0
+					? Number(((entry.totalCost / totalTokens) * 1_000_000).toFixed(2))
+					: null,
+		};
+	});
 
 	return (
 		<Card>
@@ -42,16 +50,31 @@ export function TrendChart() {
 						<AreaChart data={chartData}>
 							<CartesianGrid strokeDasharray="3 3" />
 							<XAxis dataKey="date" />
-							<YAxis />
+							<YAxis yAxisId="cost" />
+							<YAxis yAxisId="rate" orientation="right" />
 							<Tooltip
-								formatter={(value) => [`$${Number(value).toFixed(2)}`, "Cost"]}
+								formatter={(value, name) => {
+									if (name === "cost")
+										return [`$${Number(value).toFixed(2)}`, "Cost"];
+									return [`$${Number(value).toFixed(2)}`, "$/mTok"];
+								}}
 							/>
 							<Area
+								yAxisId="cost"
 								type="monotone"
 								dataKey="cost"
 								stroke="#6366f1"
 								fill="#6366f1"
 								fillOpacity={0.2}
+							/>
+							<Line
+								yAxisId="rate"
+								type="monotone"
+								dataKey="costPerMTok"
+								stroke="#f59e0b"
+								strokeWidth={2}
+								dot={false}
+								connectNulls
 							/>
 						</AreaChart>
 					</ResponsiveContainer>
