@@ -12,6 +12,7 @@ import {
 import { dirname, isAbsolute, join, normalize } from "node:path";
 import { z } from "zod";
 import { log } from "@/backend/logger";
+import { truncateOutput } from "../base/truncate";
 import { getEffectiveRoot } from "../base/utils";
 import {
 	REASON_DESCRIPTION,
@@ -110,7 +111,7 @@ Note: You are working in an isolated git worktree. Changes are isolated until pu
 			let diagnosticOutput = "";
 			const diagnostics = await getDiagnostics(context, fullPath);
 			if (diagnostics) {
-				diagnosticOutput = `\n\n⚠️ Type errors:\n${diagnostics}`;
+				diagnosticOutput = `\n\n⚠️ Type errors:\n${truncateOutput(diagnostics, 4 * 1024)}`;
 			}
 
 			// Build output with hook output appended if non-empty
