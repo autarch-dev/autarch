@@ -491,10 +491,11 @@ export function ExecutionStageView({
 			{/* Pulses */}
 			{pulses.map((pulse, index) => {
 				const nextPulse = pulses[index + 1];
+				const isLastPulse = index === pulses.length - 1;
 				const showContinueButton =
 					pulse.hasUnresolvedIssues &&
 					pulse.status === "succeeded" &&
-					nextPulse?.status === "proposed" &&
+					(isLastPulse || nextPulse?.status === "proposed") &&
 					!runningPulse &&
 					!!onContinueExecution;
 
@@ -525,7 +526,7 @@ export function ExecutionStageView({
 									) : (
 										<Play className="h-4 w-4" />
 									)}
-									Continue Execution
+									{isLastPulse ? "Continue to Review" : "Continue Execution"}
 								</Button>
 								<div className="h-px flex-1 bg-yellow-500/30" />
 							</div>

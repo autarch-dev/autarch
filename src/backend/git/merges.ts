@@ -557,7 +557,10 @@ export async function createPullRequest(
 		stdin: "ignore",
 	});
 	let timedOut = false;
-	const timer = setTimeout(() => { timedOut = true; proc.kill(); }, 30_000);
+	const timer = setTimeout(() => {
+		timedOut = true;
+		proc.kill();
+	}, 30_000);
 
 	const [stdout, stderr] = await Promise.all([
 		new Response(proc.stdout).text(),

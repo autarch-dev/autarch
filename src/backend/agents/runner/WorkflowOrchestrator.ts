@@ -2334,9 +2334,11 @@ ${isRetry ? "This is a retry of the same pulse. Identify how much of the pulse h
 
 		const proposedPulse = await this.pulseRepo.getNextProposedPulse(workflowId);
 		if (!proposedPulse) {
-			throw new Error(
-				`No proposed pulse found for workflow ${workflowId} - nothing to continue`,
+			log.workflow.info(
+				`No proposed pulses remaining for workflow ${workflowId} - transitioning to review`,
 			);
+			await this.transitionStage(workflowId, "review");
+			return;
 		}
 
 		log.workflow.info(
