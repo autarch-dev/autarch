@@ -6,7 +6,6 @@
  */
 
 import type { ConversationRepository } from "@/backend/repositories";
-import type { RegisteredTool } from "@/backend/tools/types";
 import type { PendingArtifactType } from "@/shared/schemas/events";
 import type {
 	SessionContextType,
@@ -127,8 +126,6 @@ export interface RunnerConfig {
 	projectRoot: string;
 	conversationRepo: ConversationRepository;
 	worktreePath?: string; // For pulsing agent isolation
-	/** Override the tool set from the agent registry. When provided, the agent keeps its persona system prompt but uses these tools instead. */
-	toolsOverride?: RegisteredTool[];
 }
 
 /**

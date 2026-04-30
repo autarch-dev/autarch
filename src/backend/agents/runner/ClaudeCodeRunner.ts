@@ -30,7 +30,7 @@ import {
 	createTurnMessageDeltaEvent,
 	createTurnSegmentCompleteEvent,
 } from "@/shared/schemas/events";
-import { getAgentConfig } from "../registry";
+import { getAgentConfig, resolveToolsForSession } from "../registry";
 import { BaseAgentRunner } from "./BaseAgentRunner";
 import type { RunOptions, ToolCall } from "./types";
 
@@ -76,9 +76,10 @@ export class ClaudeCodeRunner
 	): Promise<void> {
 		const agentConfig = { ...getAgentConfig(this.session.agentRole) };
 
-		if (this.config.toolsOverride) {
-			agentConfig.tools = this.config.toolsOverride;
-		}
+		agentConfig.tools = resolveToolsForSession(
+			this.session.agentRole,
+			this.session.contextType,
+		);
 
 		log.agent.info(
 			`[ClaudeCode] Running agent [${this.session.agentRole}] for session ${this.session.id}${nudgeCount > 0 ? ` (nudge ${nudgeCount})` : ""}`,

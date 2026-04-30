@@ -22,6 +22,7 @@ import {
 	fetchIntegrationsStatus,
 	fetchModelPreferences,
 	fetchPersistentApprovals,
+	fetchSensitiveFileGateDisabled,
 	removePersistentApproval,
 	setApiKey,
 	setIntegrationKey,
@@ -30,6 +31,7 @@ import {
 	updateGitIdentity,
 	updateHooksConfig,
 	updateModelPreferences,
+	updateSensitiveFileGateDisabled,
 } from "../api/settingsApi";
 
 // =============================================================================
@@ -86,6 +88,11 @@ interface SettingsState {
 	gitIdentity: GitIdentity | null;
 	loadGitIdentity: () => Promise<void>;
 	saveGitIdentity: (identity: GitIdentity) => Promise<void>;
+
+	// Sensitive File Gate
+	sensitiveFileGateDisabled: boolean;
+	loadSensitiveFileGateDisabled: () => Promise<void>;
+	saveSensitiveFileGateDisabled: (disabled: boolean) => Promise<void>;
 }
 
 // =============================================================================
@@ -391,6 +398,36 @@ export const useSettings = create<SettingsState>((set) => ({
 		} catch (err) {
 			const message =
 				err instanceof Error ? err.message : "Failed to save git identity";
+			set({ error: message, isLoading: false });
+			throw err;
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Sensitive File Gate
+	// ---------------------------------------------------------------------------
+
+	sensitiveFileGateDisabled: false,
+
+	loadSensitiveFileGateDisabled: async () => {
+		try {
+			const disabled = await fetchSensitiveFileGateDisabled();
+			set({ sensitiveFileGateDisabled: disabled });
+		} catch (err) {
+			console.error("Failed to load sensitive file gate setting:", err);
+		}
+	},
+
+	saveSensitiveFileGateDisabled: async (disabled) => {
+		set({ isLoading: true, error: null });
+		try {
+			await updateSensitiveFileGateDisabled(disabled);
+			set({ sensitiveFileGateDisabled: disabled, isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error
+					? err.message
+					: "Failed to save sensitive file gate setting";
 			set({ error: message, isLoading: false });
 			throw err;
 		}

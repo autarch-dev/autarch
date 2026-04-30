@@ -24,6 +24,7 @@ export const PROJECT_META_KEYS = {
 	GIT_AUTHOR_NAME: "git_author_name",
 	GIT_AUTHOR_EMAIL: "git_author_email",
 	JIRA_CONFIG: "jira_config",
+	SENSITIVE_FILE_GATE_DISABLED: "sensitive_file_gate_disabled",
 } as const;
 
 // =============================================================================
@@ -312,4 +313,36 @@ export async function clearJiraConfig(projectRoot: string): Promise<void> {
 		.deleteFrom("project_meta")
 		.where("key", "=", PROJECT_META_KEYS.JIRA_CONFIG)
 		.execute();
+}
+
+// =============================================================================
+// Sensitive File Gate
+// =============================================================================
+
+/**
+ * Whether the sensitive-file gate is disabled for this project.
+ * Defaults to false (gate enforced) when unset or invalid.
+ */
+export async function isSensitiveFileGateDisabled(
+	projectRoot: string,
+): Promise<boolean> {
+	const value = await getProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.SENSITIVE_FILE_GATE_DISABLED,
+	);
+	return value === "true";
+}
+
+/**
+ * Enable or disable the sensitive-file gate for this project.
+ */
+export async function setSensitiveFileGateDisabled(
+	projectRoot: string,
+	disabled: boolean,
+): Promise<void> {
+	await setProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.SENSITIVE_FILE_GATE_DISABLED,
+		disabled ? "true" : "false",
+	);
 }

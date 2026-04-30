@@ -47,7 +47,7 @@ import {
 	createTurnMessageDeltaEvent,
 	createTurnSegmentCompleteEvent,
 } from "@/shared/schemas/events";
-import { getAgentConfig } from "../registry";
+import { getAgentConfig, resolveToolsForSession } from "../registry";
 import { BaseAgentRunner } from "./BaseAgentRunner";
 import type { RunOptions, ToolCall, Turn } from "./types";
 import { hasToolResult } from "./util";
@@ -94,10 +94,12 @@ export class AgentRunner extends BaseAgentRunner {
 		// Clone to avoid mutating the shared registry singleton
 		const agentConfig = { ...getAgentConfig(this.session.agentRole) };
 
-		// Allow callers to override the tool set while keeping the persona's system prompt
-		if (this.config.toolsOverride) {
-			agentConfig.tools = this.config.toolsOverride;
-		}
+		// Resolve tools based on (role, contextType) — persona roles in a roadmap
+		// session use ROADMAP_PLANNING_TOOLS so the agent gets submit_roadmap.
+		agentConfig.tools = resolveToolsForSession(
+			this.session.agentRole,
+			this.session.contextType,
+		);
 
 		log.agent.info(
 			`Running agent [${this.session.agentRole}] for session ${this.session.id}${nudgeCount > 0 ? ` (nudge ${nudgeCount})` : ""}`,

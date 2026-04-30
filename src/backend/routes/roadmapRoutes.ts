@@ -21,7 +21,6 @@ import {
 	RoadmapPerspectiveSchema,
 	RoadmapStatusSchema,
 } from "@/shared/schemas/roadmap";
-import { ROADMAP_PLANNING_TOOLS } from "../agents/registry";
 import { createRunner, getSessionManager } from "../agents/runner";
 import { AgentRoleSchema } from "../agents/types";
 
@@ -269,7 +268,6 @@ async function startPersonaSessions(
 			const runner = createRunner(session, {
 				projectRoot,
 				conversationRepo: repos.conversations,
-				toolsOverride: ROADMAP_PLANNING_TOOLS,
 			});
 
 			runner.run(initialMessage).catch(async (err) => {

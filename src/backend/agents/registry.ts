@@ -7,6 +7,7 @@
  * Tool assignments based on docs/tools.md specification.
  */
 
+import type { SessionContextType } from "@/shared/schemas/session";
 import {
 	baseTools,
 	preflightTools,
@@ -270,6 +271,32 @@ export function getAgentConfig(role: AgentRole): AgentConfig {
  * Get the tools available to an agent role
  */
 export function getToolsForRole(role: AgentRole): readonly RegisteredTool[] {
+	return agentRegistry[role].tools;
+}
+
+const PERSONA_ROLES = new Set<AgentRole>([
+	"visionary",
+	"iterative",
+	"tech_lead",
+	"pathfinder",
+]);
+
+/**
+ * Resolve the effective tool set for a session, accounting for context-specific
+ * overrides. Persona roles writing directly to a roadmap (single-persona mode,
+ * `contextType === "roadmap"`) need `submit_roadmap` instead of the persona
+ * roadmap tools — see ROADMAP_PLANNING_TOOLS vs PERSONA_ROADMAP_TOOLS.
+ *
+ * Use this everywhere tools are determined for an active session (runners and
+ * MCP server) so the resolution stays consistent across resumes.
+ */
+export function resolveToolsForSession(
+	role: AgentRole,
+	contextType: SessionContextType,
+): readonly RegisteredTool[] {
+	if (PERSONA_ROLES.has(role) && contextType === "roadmap") {
+		return ROADMAP_PLANNING_TOOLS;
+	}
 	return agentRegistry[role].tools;
 }
 

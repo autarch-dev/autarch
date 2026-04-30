@@ -63,12 +63,13 @@ export async function createMcpServerForRequest(
 
 	let allowedToolNames: Set<string> | null = null;
 	if (session) {
-		const { getAgentConfig } =
+		const { resolveToolsForSession } =
 			require("@/backend/agents/registry") as typeof import("@/backend/agents/registry");
-		const agentConfig = getAgentConfig(session.agentRole);
-		allowedToolNames = new Set(
-			agentConfig.tools.map((t: { name: string }) => t.name),
+		const tools = resolveToolsForSession(
+			session.agentRole,
+			session.contextType,
 		);
+		allowedToolNames = new Set(tools.map((t: { name: string }) => t.name));
 	}
 
 	return createMcpServer(sessionId, allowedToolNames);

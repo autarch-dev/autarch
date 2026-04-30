@@ -295,6 +295,40 @@ export async function removePersistentApproval(command: string): Promise<void> {
 }
 
 // =============================================================================
+// Sensitive File Gate
+// =============================================================================
+
+/**
+ * Get whether the sensitive-file gate is disabled for this project.
+ */
+export async function fetchSensitiveFileGateDisabled(): Promise<boolean> {
+	const response = await fetch("/api/settings/sensitive-file-gate");
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to fetch sensitive file gate");
+	}
+	const data = await response.json();
+	return Boolean(data?.disabled);
+}
+
+/**
+ * Set whether the sensitive-file gate is disabled for this project.
+ */
+export async function updateSensitiveFileGateDisabled(
+	disabled: boolean,
+): Promise<void> {
+	const response = await fetch("/api/settings/sensitive-file-gate", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ disabled }),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to update sensitive file gate");
+	}
+}
+
+// =============================================================================
 // Git Identity
 // =============================================================================
 

@@ -3,6 +3,7 @@
  */
 
 import { z } from "zod";
+import { isSensitiveFileGateDisabled } from "@/backend/services/projectSettings";
 import {
 	REASON_DESCRIPTION,
 	type ToolDefinition,
@@ -58,12 +59,17 @@ Some files may be blocked due to sensitive content policies.`,
 			};
 		}
 
-		// Check sensitivity gate
+		// Check sensitivity gate (unless disabled in project settings)
 		if (isSensitiveFile(input.path)) {
-			return {
-				success: false,
-				output: `Error: Cannot read sensitive file: ${input.path}`,
-			};
+			const gateDisabled = await isSensitiveFileGateDisabled(
+				context.projectRoot,
+			);
+			if (!gateDisabled) {
+				return {
+					success: false,
+					output: `Error: Cannot read sensitive file: ${input.path}`,
+				};
+			}
 		}
 
 		// Check if file exists

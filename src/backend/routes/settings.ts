@@ -28,8 +28,10 @@ import {
 } from "../services/globalSettings";
 import { getProjectIconFile, getProjectInfo } from "../services/project";
 import {
+	isSensitiveFileGateDisabled,
 	setGitAuthorEmail,
 	setGitAuthorName,
+	setSensitiveFileGateDisabled,
 } from "../services/projectSettings";
 
 /**
@@ -271,6 +273,30 @@ export const settingsRoutes = {
 				name: nameResult.success ? nameResult.stdout.trim() : null,
 				email: emailResult.success ? emailResult.stdout.trim() : null,
 			});
+		},
+	},
+
+	// =========================================================================
+	// Sensitive File Gate
+	// =========================================================================
+
+	"/api/settings/sensitive-file-gate": {
+		async GET() {
+			const disabled = await isSensitiveFileGateDisabled(getProjectRoot());
+			return Response.json({ disabled });
+		},
+
+		async PUT(req: Request) {
+			const body = await req.json();
+			if (typeof body?.disabled !== "boolean") {
+				return Response.json(
+					{ error: "Invalid request: 'disabled' must be a boolean" },
+					{ status: 400 },
+				);
+			}
+
+			await setSensitiveFileGateDisabled(getProjectRoot(), body.disabled);
+			return Response.json({ success: true });
 		},
 	},
 };
