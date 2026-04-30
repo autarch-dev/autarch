@@ -272,7 +272,7 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 					</TabsTrigger>
 				</TabsList>
 			</div>
-			<ScrollArea className="flex-1 min-h-0 flex flex-col">
+			<ScrollArea className="flex-1 min-h-0">
 				{PERSONA_TABS.map((persona) => {
 					const session = personaSessionMap.get(persona.value);
 					const conversation = session?.sessionId
@@ -287,11 +287,7 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 							: "questions-only";
 
 					return (
-						<TabsContent
-							key={persona.value}
-							value={persona.value}
-							className="flex-1 min-h-0 flex flex-col"
-						>
+						<TabsContent key={persona.value} value={persona.value}>
 							<PlanningConversation
 								roadmapId={roadmapId}
 								conversation={conversation ?? EMPTY_CONVERSATION}
@@ -314,7 +310,7 @@ export function PersonaDiscoveryTabs({ roadmapId }: PersonaDiscoveryTabsProps) {
 					);
 				})}
 
-				<TabsContent value="synthesis" className="flex-1 min-h-0 flex flex-col">
+				<TabsContent value="synthesis">
 					{synthesisSessionId && synthesisConversation ? (
 						<PlanningConversation
 							roadmapId={roadmapId}
