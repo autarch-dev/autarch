@@ -6,7 +6,7 @@
  * for exact command matches in workflow.
  */
 
-import { CheckCircle, Terminal, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Terminal, XCircle } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,6 +31,12 @@ interface ShellApprovalDialogProps {
 	command: string;
 	reason: string;
 	isPreflight: boolean;
+	/** Set when the command matched a hard-block pattern. The dialog shows
+	 * a destructive warning banner with this label. */
+	hardBlockLabel?: string;
+	/** Set when auto mode's judge returned REVIEW. Shown so the user
+	 * understands why the judge bounced the command back. */
+	judgeReasoning?: string;
 	onApprove: (
 		approvalId: string,
 		options: { remember: boolean; persistForProject: boolean },
@@ -50,6 +56,8 @@ export function ShellApprovalDialog({
 	command,
 	reason,
 	isPreflight,
+	hardBlockLabel,
+	judgeReasoning,
 	onApprove,
 	onDeny,
 }: ShellApprovalDialogProps) {
@@ -101,6 +109,23 @@ export function ShellApprovalDialog({
 
 				{view === "approve" ? (
 					<>
+						{/* Hard-block warning banner */}
+						{hardBlockLabel && (
+							<div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 my-2 flex items-start gap-2">
+								<AlertTriangle className="size-4 text-destructive shrink-0 mt-0.5" />
+								<div className="text-sm">
+									<p className="font-semibold text-destructive">
+										Destructive command detected: {hardBlockLabel}
+									</p>
+									<p className="text-destructive/80 mt-1 text-xs">
+										This command matches a pattern that can cause irreversible
+										damage. It requires manual approval regardless of your shell
+										approval mode.
+									</p>
+								</div>
+							</div>
+						)}
+
 						{/* Command display */}
 						<div className="rounded-md bg-muted p-3 my-2 max-h-[50vh] overflow-y-auto">
 							<code className="text-sm font-mono whitespace-pre-wrap break-all">
@@ -110,6 +135,16 @@ export function ShellApprovalDialog({
 
 						{/* Agent's reason */}
 						<p className="text-sm text-muted-foreground">{reason}</p>
+
+						{/* Judge's reasoning (auto mode REVIEW) */}
+						{judgeReasoning && (
+							<div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 mt-2 text-xs">
+								<p className="text-amber-700 dark:text-amber-400 font-medium mb-0.5">
+									Auto-approval gate flagged this for review
+								</p>
+								<p className="text-muted-foreground">{judgeReasoning}</p>
+							</div>
+						)}
 
 						{/* Remember checkbox */}
 						<div className="flex items-center gap-2 mt-2">

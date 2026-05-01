@@ -28,6 +28,10 @@ export type ModelScenario = z.infer<typeof ModelScenario>;
 export const IntegrationType = z.enum(["exa"]);
 export type IntegrationType = z.infer<typeof IntegrationType>;
 
+export const ShellApprovalMode = z.enum(["strict", "auto", "yolo"]);
+export type ShellApprovalMode = z.infer<typeof ShellApprovalMode>;
+export const DEFAULT_SHELL_APPROVAL_MODE: ShellApprovalMode = "strict";
+
 export const AgentBackend = z.enum(["api", "claude-code"]);
 export type AgentBackend = z.infer<typeof AgentBackend>;
 

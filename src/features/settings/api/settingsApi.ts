@@ -19,6 +19,8 @@ import {
 	IntegrationsStatusResponseSchema,
 	type ModelPreferences,
 	ModelPreferencesSchema,
+	type ShellApprovalMode,
+	ShellApprovalMode as ShellApprovalModeSchema,
 } from "@/shared/schemas/settings";
 
 // =============================================================================
@@ -325,6 +327,40 @@ export async function updateSensitiveFileGateDisabled(
 	if (!response.ok) {
 		const error = await response.json();
 		throw new Error(error.error ?? "Failed to update sensitive file gate");
+	}
+}
+
+// =============================================================================
+// Shell Approval Mode
+// =============================================================================
+
+/**
+ * Get the shell approval mode for this project.
+ */
+export async function fetchShellApprovalMode(): Promise<ShellApprovalMode> {
+	const response = await fetch("/api/settings/shell-approval-mode");
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to fetch shell approval mode");
+	}
+	const data = await response.json();
+	return ShellApprovalModeSchema.parse(data?.mode);
+}
+
+/**
+ * Set the shell approval mode for this project.
+ */
+export async function updateShellApprovalMode(
+	mode: ShellApprovalMode,
+): Promise<void> {
+	const response = await fetch("/api/settings/shell-approval-mode", {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ mode }),
+	});
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error ?? "Failed to update shell approval mode");
 	}
 }
 

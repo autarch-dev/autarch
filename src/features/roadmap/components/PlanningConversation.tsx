@@ -149,9 +149,7 @@ export function PlanningConversation({
 			)}
 
 			{/* Session completed banner */}
-			{isSessionCompleted && messages.length > 0 && (
-				<SessionCompletedBanner />
-			)}
+			{isSessionCompleted && messages.length > 0 && <SessionCompletedBanner />}
 
 			<div ref={messagesEndRef} />
 		</div>

@@ -5,6 +5,11 @@ import {
 } from "@/shared/schemas/hooks";
 import { type JiraConfig, JiraConfigSchema } from "@/shared/schemas/jira";
 import {
+	DEFAULT_SHELL_APPROVAL_MODE,
+	type ShellApprovalMode,
+	ShellApprovalMode as ShellApprovalModeSchema,
+} from "@/shared/schemas/settings";
+import {
 	type MergeStrategy,
 	MergeStrategySchema,
 } from "@/shared/schemas/workflow";
@@ -25,6 +30,7 @@ export const PROJECT_META_KEYS = {
 	GIT_AUTHOR_EMAIL: "git_author_email",
 	JIRA_CONFIG: "jira_config",
 	SENSITIVE_FILE_GATE_DISABLED: "sensitive_file_gate_disabled",
+	SHELL_APPROVAL_MODE: "shell_approval_mode",
 } as const;
 
 // =============================================================================
@@ -344,5 +350,39 @@ export async function setSensitiveFileGateDisabled(
 		projectRoot,
 		PROJECT_META_KEYS.SENSITIVE_FILE_GATE_DISABLED,
 		disabled ? "true" : "false",
+	);
+}
+
+// =============================================================================
+// Shell Approval Mode
+// =============================================================================
+
+/**
+ * Get the shell approval mode for this project.
+ * Defaults to "strict" when unset or invalid.
+ */
+export async function getShellApprovalMode(
+	projectRoot: string,
+): Promise<ShellApprovalMode> {
+	const value = await getProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.SHELL_APPROVAL_MODE,
+	);
+	if (!value) return DEFAULT_SHELL_APPROVAL_MODE;
+	const parsed = ShellApprovalModeSchema.safeParse(value);
+	return parsed.success ? parsed.data : DEFAULT_SHELL_APPROVAL_MODE;
+}
+
+/**
+ * Set the shell approval mode for this project.
+ */
+export async function setShellApprovalMode(
+	projectRoot: string,
+	mode: ShellApprovalMode,
+): Promise<void> {
+	await setProjectMeta(
+		projectRoot,
+		PROJECT_META_KEYS.SHELL_APPROVAL_MODE,
+		mode,
 	);
 }

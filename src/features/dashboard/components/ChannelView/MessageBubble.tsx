@@ -25,6 +25,9 @@ export interface ToolCallInfo {
 	input: unknown;
 	output?: unknown;
 	status: "running" | "completed" | "error";
+	/** Human-readable reason when a shell command bypassed manual approval
+	 * (exact match, judge APPROVE, or yolo mode). Shown inline under the tool. */
+	autoApprovalReason?: string;
 }
 
 /** Segment with optional streaming state */
@@ -145,6 +148,11 @@ function ToolCallDisplay({ tool, defaultOpen }: ToolCallDisplayProps) {
 					<XCircle className="size-3 text-destructive shrink-0" />
 				)}
 			</summary>
+			{tool.autoApprovalReason && (
+				<div className="px-2 py-1 text-[11px] text-muted-foreground/70 italic border-t bg-muted/10">
+					↳ {tool.autoApprovalReason}
+				</div>
+			)}
 			{tool.output ? (
 				<pre className="px-2 py-1.5 font-mono overflow-x-auto max-h-48 border-t bg-muted/20">
 					<code className="text-foreground">

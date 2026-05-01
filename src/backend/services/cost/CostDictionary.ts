@@ -44,6 +44,25 @@ export const COST_DICTIONARY = [
 		],
 	},
 	{
+		modelName: "claude-opus-4-7",
+		pricingTiers: [
+			{
+				maximumTokens: 200_000,
+				promptTokenCost: 5,
+				completionTokenCost: 25,
+				cacheWriteCost: 6.25,
+				cacheReadCost: 0.5,
+			},
+			{
+				minimumTokens: 200_001,
+				promptTokenCost: 10,
+				completionTokenCost: 37.5,
+				cacheWriteCost: 12.5,
+				cacheReadCost: 1.0,
+			},
+		],
+	},
+	{
 		modelName: "claude-opus-4-5",
 		pricingTiers: [
 			{

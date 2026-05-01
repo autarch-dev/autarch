@@ -93,45 +93,42 @@ If you have other tools that can accomplish the same thing, use them instead.`,
 		const { workflowId, sessionId, turnId, toolCallId, agentRole } = context;
 
 		if (workflowId && sessionId && turnId && toolCallId) {
-			// Check if command is remembered (auto-approved)
-			if (
-				!shellApprovalService.isCommandRemembered(workflowId, input.command)
-			) {
-				// Request approval and wait for user decision
-				try {
-					log.tools.info(
-						`Shell requesting approval with toolCallId: ${toolCallId}`,
-					);
-					const approvalResult = await shellApprovalService.requestApproval({
-						workflowId,
-						sessionId,
-						turnId,
-						toolCallId,
-						command: input.command,
-						reason: input.reason,
-						projectRoot: context.projectRoot,
-						agentRole,
-					});
+			// Always route through requestApproval — it handles the exact-match
+			// short-circuits internally and broadcasts auto-approval events so
+			// the UI can annotate bypassed prompts.
+			try {
+				log.tools.info(
+					`Shell requesting approval with toolCallId: ${toolCallId}`,
+				);
+				const approvalResult = await shellApprovalService.requestApproval({
+					workflowId,
+					sessionId,
+					turnId,
+					toolCallId,
+					command: input.command,
+					reason: input.reason,
+					projectRoot: context.projectRoot,
+					agentRole,
+				});
 
-					if (!approvalResult.approved) {
-						const reason = approvalResult.denyReason
-							? `Command denied by user: ${approvalResult.denyReason}. Please try an alternative approach.`
-							: "Command denied by user. Please try an alternative approach.";
-						return {
-							success: false,
-							output: reason,
-						};
-					}
-				} catch (error) {
-					// Handle approval service errors (e.g., session cleanup during pending approval)
-					const errorMessage =
-						error instanceof Error ? error.message : "Approval request failed";
-					log.tools.info(`Shell approval error: ${errorMessage}`);
+				if (!approvalResult.approved) {
+					const reason = approvalResult.denyReason
+						? `Command denied by user: ${approvalResult.denyReason}. Please try an alternative approach.`
+						: "Command denied by user. Please try an alternative approach.";
 					return {
 						success: false,
-						output: `Command not executed: ${errorMessage}`,
+						output: reason,
 					};
 				}
+			} catch (error) {
+				// Handle approval service errors (e.g., session cleanup during pending approval)
+				const errorMessage =
+					error instanceof Error ? error.message : "Approval request failed";
+				log.tools.info(`Shell approval error: ${errorMessage}`);
+				return {
+					success: false,
+					output: `Command not executed: ${errorMessage}`,
+				};
 			}
 		}
 		// If any context fields are missing (e.g., channel context), proceed without approval

@@ -1,13 +1,15 @@
 import { create } from "zustand";
 import type { GitIdentity } from "@/shared/schemas/git-identity";
 import type { PostWriteHooksConfig } from "@/shared/schemas/hooks";
-import type {
-	AgentBackend,
-	AIProvider,
-	ApiKeysResponse,
-	ClaudeCodeModelPreferences,
-	IntegrationsStatusResponse,
-	ModelPreferences,
+import {
+	type AgentBackend,
+	type AIProvider,
+	type ApiKeysResponse,
+	type ClaudeCodeModelPreferences,
+	DEFAULT_SHELL_APPROVAL_MODE,
+	type IntegrationsStatusResponse,
+	type ModelPreferences,
+	type ShellApprovalMode,
 } from "@/shared/schemas/settings";
 import {
 	type BedrockModel,
@@ -23,6 +25,7 @@ import {
 	fetchModelPreferences,
 	fetchPersistentApprovals,
 	fetchSensitiveFileGateDisabled,
+	fetchShellApprovalMode,
 	removePersistentApproval,
 	setApiKey,
 	setIntegrationKey,
@@ -32,6 +35,7 @@ import {
 	updateHooksConfig,
 	updateModelPreferences,
 	updateSensitiveFileGateDisabled,
+	updateShellApprovalMode,
 } from "../api/settingsApi";
 
 // =============================================================================
@@ -93,6 +97,11 @@ interface SettingsState {
 	sensitiveFileGateDisabled: boolean;
 	loadSensitiveFileGateDisabled: () => Promise<void>;
 	saveSensitiveFileGateDisabled: (disabled: boolean) => Promise<void>;
+
+	// Shell Approval Mode
+	shellApprovalMode: ShellApprovalMode;
+	loadShellApprovalMode: () => Promise<void>;
+	saveShellApprovalMode: (mode: ShellApprovalMode) => Promise<void>;
 }
 
 // =============================================================================
@@ -428,6 +437,36 @@ export const useSettings = create<SettingsState>((set) => ({
 				err instanceof Error
 					? err.message
 					: "Failed to save sensitive file gate setting";
+			set({ error: message, isLoading: false });
+			throw err;
+		}
+	},
+
+	// ---------------------------------------------------------------------------
+	// Shell Approval Mode
+	// ---------------------------------------------------------------------------
+
+	shellApprovalMode: DEFAULT_SHELL_APPROVAL_MODE,
+
+	loadShellApprovalMode: async () => {
+		try {
+			const mode = await fetchShellApprovalMode();
+			set({ shellApprovalMode: mode });
+		} catch (err) {
+			console.error("Failed to load shell approval mode:", err);
+		}
+	},
+
+	saveShellApprovalMode: async (mode) => {
+		set({ isLoading: true, error: null });
+		try {
+			await updateShellApprovalMode(mode);
+			set({ shellApprovalMode: mode, isLoading: false });
+		} catch (err) {
+			const message =
+				err instanceof Error
+					? err.message
+					: "Failed to save shell approval mode";
 			set({ error: message, isLoading: false });
 			throw err;
 		}

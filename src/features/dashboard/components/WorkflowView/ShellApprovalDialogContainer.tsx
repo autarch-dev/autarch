@@ -71,6 +71,8 @@ export function ShellApprovalDialogContainer() {
 			command={firstApproval.command}
 			reason={firstApproval.reason}
 			isPreflight={isPreflight}
+			hardBlockLabel={firstApproval.hardBlockLabel}
+			judgeReasoning={firstApproval.judgeReasoning}
 			onApprove={handleApprove}
 			onDeny={handleDeny}
 		/>

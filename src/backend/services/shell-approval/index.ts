@@ -10,12 +10,16 @@ import { log } from "@/backend/logger";
 import {
 	addPersistentShellApproval,
 	getPersistentShellApprovals,
+	getShellApprovalMode,
 } from "@/backend/services/projectSettings";
 import { broadcast } from "@/backend/ws";
 import {
 	createShellApprovalNeededEvent,
 	createShellApprovalResolvedEvent,
+	createShellAutoApprovedEvent,
 } from "@/shared/schemas/events";
+import { matchHardBlock } from "./hardBlock";
+import { runJudge } from "./judge";
 
 // =============================================================================
 // Types
@@ -29,6 +33,10 @@ export interface ApprovalResult {
 	remember: boolean;
 	/** Reason for denial (only present when approved is false) */
 	denyReason?: string;
+	/** Human-readable reason when the approval bypassed the manual prompt
+	 * (exact match against remembered/persistent commands, judge APPROVE,
+	 * or yolo mode). Surfaced inline under the tool call. */
+	autoApprovalReason?: string;
 }
 
 /**
@@ -97,25 +105,151 @@ export function isCommandRemembered(
 export async function requestApproval(
 	params: RequestApprovalParams,
 ): Promise<ApprovalResult> {
+	// Hard-block check runs before any auto-approve path. Catastrophic patterns
+	// always force a manual prompt (with a warning label), even if the user has
+	// previously remembered the exact command, and even in Yolo mode.
+	const hardBlock = matchHardBlock(params.command);
+	if (hardBlock.matched) {
+		log.agent.warn(
+			`Shell command matched hard-block pattern "${hardBlock.label}": ${params.command}`,
+		);
+		return promptForApproval(params, hardBlock.label);
+	}
+
 	// Check persistent approvals first (project-wide, persists across workflows)
 	const persistentApprovals = await getPersistentShellApprovals(
 		params.projectRoot,
 	);
 	if (persistentApprovals.includes(params.command)) {
+		const reason = "Auto-approved: matches a saved project approval";
 		log.agent.info(
 			`Shell command auto-approved via persistent approval: ${params.command}`,
 		);
-		return { approved: true, remember: false, denyReason: undefined };
+		broadcast(
+			createShellAutoApprovedEvent({
+				workflowId: params.workflowId,
+				sessionId: params.sessionId,
+				turnId: params.turnId,
+				toolCallId: params.toolCallId,
+				reason,
+			}),
+		);
+		return {
+			approved: true,
+			remember: false,
+			denyReason: undefined,
+			autoApprovalReason: reason,
+		};
 	}
 
 	// Check workflow-scoped remembered commands
 	if (isCommandRemembered(params.workflowId, params.command)) {
+		const reason =
+			"Auto-approved: matches a remembered command for this session";
 		log.agent.info(
 			`Shell command auto-approved via workflow remembered: ${params.command}`,
 		);
-		return { approved: true, remember: true, denyReason: undefined };
+		broadcast(
+			createShellAutoApprovedEvent({
+				workflowId: params.workflowId,
+				sessionId: params.sessionId,
+				turnId: params.turnId,
+				toolCallId: params.toolCallId,
+				reason,
+			}),
+		);
+		return {
+			approved: true,
+			remember: true,
+			denyReason: undefined,
+			autoApprovalReason: reason,
+		};
 	}
 
+	// Mode-based decision (strict / auto / yolo)
+	const mode = await getShellApprovalMode(params.projectRoot);
+
+	if (mode === "yolo") {
+		const reason = "Auto-approved: yolo mode";
+		log.agent.info(
+			`Shell command auto-approved via yolo mode: ${params.command}`,
+		);
+		broadcast(
+			createShellAutoApprovedEvent({
+				workflowId: params.workflowId,
+				sessionId: params.sessionId,
+				turnId: params.turnId,
+				toolCallId: params.toolCallId,
+				reason,
+			}),
+		);
+		return {
+			approved: true,
+			remember: false,
+			denyReason: undefined,
+			autoApprovalReason: reason,
+		};
+	}
+
+	if (mode === "auto") {
+		// Merge prior approvals (project-persistent + this workflow's remembered)
+		// as positive examples for the judge.
+		const workflowRemembered = Array.from(
+			rememberedCommands.get(params.workflowId) ?? [],
+		);
+		const priorApprovals = Array.from(
+			new Set([...persistentApprovals, ...workflowRemembered]),
+		);
+
+		const verdict = await runJudge({
+			command: params.command,
+			reason: params.reason,
+			agentRole: params.agentRole,
+			priorApprovals,
+		});
+
+		if (verdict?.verdict === "APPROVE") {
+			const reason = `Auto-approved by judge: ${verdict.reasoning}`;
+			log.agent.info(
+				`Shell command auto-approved by judge: ${params.command} (${verdict.reasoning})`,
+			);
+			broadcast(
+				createShellAutoApprovedEvent({
+					workflowId: params.workflowId,
+					sessionId: params.sessionId,
+					turnId: params.turnId,
+					toolCallId: params.toolCallId,
+					reason,
+				}),
+			);
+			return {
+				approved: true,
+				remember: false,
+				denyReason: undefined,
+				autoApprovalReason: reason,
+			};
+		}
+
+		// REVIEW (or judge call failed) → manual prompt with judge's reasoning
+		// (when present) shown to the user.
+		return promptForApproval(params, undefined, verdict?.reasoning);
+	}
+
+	// strict → manual prompt
+	return promptForApproval(params);
+}
+
+/**
+ * Broadcast a manual approval prompt and return a Promise that resolves when
+ * the user decides. Optionally carries a hard-block warning label and/or the
+ * judge's reasoning (when REVIEW kicks back in auto mode), both shown in the
+ * approval dialog.
+ */
+function promptForApproval(
+	params: RequestApprovalParams,
+	hardBlockLabel?: string,
+	judgeReasoning?: string,
+): Promise<ApprovalResult> {
 	const approvalId = crypto.randomUUID();
 
 	log.agent.info(
@@ -149,6 +283,8 @@ export async function requestApproval(
 			command: params.command,
 			reason: params.reason,
 			agentRole: params.agentRole,
+			hardBlockLabel,
+			judgeReasoning,
 		});
 		log.agent.info(`Broadcasting shell:approval_needed event`);
 		broadcast(event);

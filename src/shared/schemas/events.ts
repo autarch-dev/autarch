@@ -620,6 +620,13 @@ export const ShellApprovalNeededPayloadSchema = z.object({
 	command: z.string(),
 	reason: z.string(),
 	agentRole: z.string().optional(),
+	/** Set when the command matched a hard-block pattern (e.g. `rm -rf /`).
+	 * Forces a manual prompt with a prominent warning regardless of the
+	 * project's shell approval mode. The label describes the matched pattern. */
+	hardBlockLabel: z.string().optional(),
+	/** Set when auto mode's judge returned REVIEW. Shown in the dialog so the
+	 * user understands why the judge bounced the command back. */
+	judgeReasoning: z.string().optional(),
 });
 export type ShellApprovalNeededPayload = z.infer<
 	typeof ShellApprovalNeededPayloadSchema
@@ -649,6 +656,28 @@ export const ShellApprovalResolvedEventSchema = z.object({
 });
 export type ShellApprovalResolvedEvent = z.infer<
 	typeof ShellApprovalResolvedEventSchema
+>;
+
+// shell:auto_approved - A shell command bypassed the approval prompt
+// (exact match against remembered/persistent commands, judge APPROVE, or yolo mode).
+// The reason is human-readable and shown inline under the tool call.
+export const ShellAutoApprovedPayloadSchema = z.object({
+	workflowId: z.string(),
+	sessionId: z.string(),
+	turnId: z.string(),
+	toolCallId: z.string(),
+	reason: z.string(),
+});
+export type ShellAutoApprovedPayload = z.infer<
+	typeof ShellAutoApprovedPayloadSchema
+>;
+
+export const ShellAutoApprovedEventSchema = z.object({
+	type: z.literal("shell:auto_approved"),
+	payload: ShellAutoApprovedPayloadSchema,
+});
+export type ShellAutoApprovedEvent = z.infer<
+	typeof ShellAutoApprovedEventSchema
 >;
 
 // =============================================================================
@@ -873,6 +902,7 @@ export const WebSocketEventSchema = z.discriminatedUnion("type", [
 	// Shell approval events
 	ShellApprovalNeededEventSchema,
 	ShellApprovalResolvedEventSchema,
+	ShellAutoApprovedEventSchema,
 	// Credential prompt events
 	CredentialPromptNeededEventSchema,
 	CredentialPromptResolvedEventSchema,
@@ -1090,6 +1120,12 @@ export function createShellApprovalResolvedEvent(
 	payload: ShellApprovalResolvedPayload,
 ): ShellApprovalResolvedEvent {
 	return { type: "shell:approval_resolved", payload };
+}
+
+export function createShellAutoApprovedEvent(
+	payload: ShellAutoApprovedPayload,
+): ShellAutoApprovedEvent {
+	return { type: "shell:auto_approved", payload };
 }
 
 // Credential prompt events

@@ -22,6 +22,7 @@ import type {
 	SessionStartedPayload,
 	ShellApprovalNeededPayload,
 	ShellApprovalResolvedPayload,
+	ShellAutoApprovedPayload,
 	SubtaskUpdatedPayload,
 	TurnCompletedPayload,
 	TurnMessageDeltaPayload,
@@ -76,6 +77,12 @@ export interface PendingShellApproval {
 	command: string;
 	reason: string;
 	agentRole?: string;
+	/** Set when the command matched a hard-block pattern. The dialog shows
+	 * a destructive warning banner with this label. */
+	hardBlockLabel?: string;
+	/** Set when auto mode's judge returned REVIEW. Shown in the dialog so the
+	 * user understands why the judge bounced the command back. */
+	judgeReasoning?: string;
 }
 
 /**
@@ -102,6 +109,8 @@ export interface StreamingMessage {
 		input: unknown;
 		output?: unknown;
 		status: "running" | "completed" | "error";
+		/** Human-readable reason when a shell command bypassed manual approval. */
+		autoApprovalReason?: string;
 	}[];
 	/** Questions asked by the agent */
 	questions: StreamingQuestion[];
@@ -901,6 +910,9 @@ export const useWorkflowsStore = create<WorkflowsState>((set, get) => ({
 				break;
 			case "shell:approval_resolved":
 				handleShellApprovalResolved(event.payload, set, get);
+				break;
+			case "shell:auto_approved":
+				handleShellAutoApproved(event.payload, set, get);
 				break;
 
 			// Credential prompt events
@@ -1910,6 +1922,8 @@ function handleShellApprovalNeeded(
 			command: payload.command,
 			reason: payload.reason,
 			agentRole: payload.agentRole,
+			hardBlockLabel: payload.hardBlockLabel,
+			judgeReasoning: payload.judgeReasoning,
 		});
 
 		return { pendingShellApprovals };
@@ -1926,6 +1940,30 @@ function handleShellApprovalResolved(
 		pendingShellApprovals.delete(payload.approvalId);
 
 		return { pendingShellApprovals };
+	});
+}
+
+function handleShellAutoApproved(
+	payload: ShellAutoApprovedPayload,
+	set: SetState,
+	_get: GetState,
+): void {
+	set((state) => {
+		const conversations = new Map(state.conversations);
+		const existing = conversations.get(payload.workflowId);
+		if (!existing?.streamingMessage) return state;
+		if (existing.streamingMessage.turnId !== payload.turnId) return state;
+
+		const tools = existing.streamingMessage.tools.map((t) =>
+			t.originalToolCallId === payload.toolCallId
+				? { ...t, autoApprovalReason: payload.reason }
+				: t,
+		);
+		conversations.set(payload.workflowId, {
+			...existing,
+			streamingMessage: { ...existing.streamingMessage, tools },
+		});
+		return { conversations };
 	});
 }
 

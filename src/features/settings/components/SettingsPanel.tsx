@@ -20,6 +20,7 @@ import { JiraSection } from "./JiraSection";
 import { ModelPreferencesSection } from "./ModelPreferencesSection";
 import { PersistentApprovalsSection } from "./PersistentApprovalsSection";
 import { SensitiveFileGateSection } from "./SensitiveFileGateSection";
+import { ShellApprovalModeSection } from "./ShellApprovalModeSection";
 
 interface SettingsPanelProps {
 	open: boolean;
@@ -114,6 +115,7 @@ export function SettingsPanel({ open, onOpenChange }: SettingsPanelProps) {
 						<TabsContent value="project" className="mt-6 space-y-6">
 							<GitIdentitySection />
 							<HooksSection />
+							<ShellApprovalModeSection />
 							<PersistentApprovalsSection />
 							<SensitiveFileGateSection />
 						</TabsContent>

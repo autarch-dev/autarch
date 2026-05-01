@@ -6,6 +6,7 @@ import {
 	SetApiKeyRequestSchema,
 	SetIntegrationKeyRequestSchema,
 	SetModelPreferencesRequestSchema,
+	ShellApprovalMode,
 } from "@/shared/schemas/settings";
 import { execGit } from "../git/git-executor";
 import { resolveGitIdentityEnv } from "../git/identity";
@@ -28,10 +29,12 @@ import {
 } from "../services/globalSettings";
 import { getProjectIconFile, getProjectInfo } from "../services/project";
 import {
+	getShellApprovalMode,
 	isSensitiveFileGateDisabled,
 	setGitAuthorEmail,
 	setGitAuthorName,
 	setSensitiveFileGateDisabled,
+	setShellApprovalMode,
 } from "../services/projectSettings";
 
 /**
@@ -296,6 +299,34 @@ export const settingsRoutes = {
 			}
 
 			await setSensitiveFileGateDisabled(getProjectRoot(), body.disabled);
+			return Response.json({ success: true });
+		},
+	},
+
+	// =========================================================================
+	// Shell Approval Mode
+	// =========================================================================
+
+	"/api/settings/shell-approval-mode": {
+		async GET() {
+			const mode = await getShellApprovalMode(getProjectRoot());
+			return Response.json({ mode });
+		},
+
+		async PUT(req: Request) {
+			const body = await req.json();
+			const parsed = ShellApprovalMode.safeParse(body?.mode);
+			if (!parsed.success) {
+				return Response.json(
+					{
+						error:
+							"Invalid request: 'mode' must be one of 'strict', 'auto', 'yolo'",
+					},
+					{ status: 400 },
+				);
+			}
+
+			await setShellApprovalMode(getProjectRoot(), parsed.data);
 			return Response.json({ success: true });
 		},
 	},
